@@ -1,0 +1,73 @@
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  review:
+    name: Claude Code Review
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install anthropic python-dotenv
+
+      - name: Run AI code review
+        id: review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DEFAULT_MODEL: claude-sonnet-4-20250514
+        run: |
+          BASE="${{ github.base_ref }}"
+          git fetch origin "$BASE"
+          python scripts/review_pr.py "origin/$BASE" 2>&1 | tee review_output.txt || true
+
+      - name: Read review output
+        id: read_review
+        run: |
+          if [ -f .ai-log/last-review.md ]; then
+            REVIEW=$(cat .ai-log/last-review.md)
+          else
+            REVIEW="Review could not be generated. Check the workflow logs."
+          fi
+          # Write to a file to avoid shell quoting issues
+          echo "$REVIEW" > review_body.txt
+
+      - name: Post review comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const review = fs.readFileSync('review_body.txt', 'utf8');
+            const sha = context.payload.pull_request.head.sha.substring(0, 7);
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: [
+                '## AI Code Review',
+                '',
+                `> Reviewing commit \`${sha}\` against \`${{ github.base_ref }}\``,
+                '',
+                review,
+                '',
+                '---',
+                '*Powered by Claude via [AI Code Review](.github/workflows/review-pr.yml)*'
+              ].join('\n')
+            });
