@@ -29,7 +29,7 @@ STAGED=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep -E '
 if [ -n "$STAGED" ]; then
     while IFS= read -r f; do
         [ -f "$f" ] || continue
-        if grep -nE "(password|secret|api_key|token)\s*=\s*['\"][A-Za-z0-9+/]{8,}" "$f" 2>/dev/null; then
+        if grep -inE "(password|passwd|pwd|secret|api_key|access_key|private_key|token|credential|auth_key|db_pass)\s*=\s*['\"]?[A-Za-z0-9+/_\-]{8,}" "$f" 2>/dev/null; then
             echo -e "${YELLOW}[WARN] Possible hardcoded secret in: $f${NC}"
         fi
     done <<< "$STAGED"
