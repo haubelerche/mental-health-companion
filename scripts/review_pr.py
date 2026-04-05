@@ -98,17 +98,22 @@ def _smart_truncate(diff: str, max_chars: int) -> str:
             omitted_files.append(m.group(1) if m else "unknown")
 
     # Fallback: if nothing fits, hard-truncate the first file
+    fallback_truncated = False
     if not included and parts:
         included.append(parts[0][:max_chars])
         omitted_files.pop(0)  # parts[0] is now partially included
+        fallback_truncated = True
 
     result = "".join(included)
-    included_chars = sum(len(p) for p in included)
+    omitted_chars = len(diff) - len(result)
+
     if omitted_files:
         result += (
             f"\n\n... [diff truncated: {len(omitted_files)} file(s) omitted"
-            f" ({len(diff) - included_chars} chars): {', '.join(omitted_files)}] ..."
+            f" ({omitted_chars} chars): {', '.join(omitted_files)}] ..."
         )
+    elif fallback_truncated:
+        result += f"\n\n... [diff truncated: {omitted_chars} chars omitted from first file] ..."
     return result
 
 

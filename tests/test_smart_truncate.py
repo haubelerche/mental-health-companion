@@ -48,8 +48,9 @@ def test_fallback_hard_truncates_single_oversized_file():
     diff = _file("big.py", 200)
     max_chars = 50
     result = _smart_truncate(diff, max_chars)
-    assert len(result) <= max_chars
-    assert "[diff truncated" not in result  # no omitted files
+    assert result.startswith(diff[:max_chars])
+    assert "[diff truncated" in result  # notice appended even with no omitted files
+    assert "omitted from first file" in result
 
 
 def test_fallback_omitted_list_excludes_truncated_file():
@@ -71,9 +72,11 @@ def test_filename_with_spaces():
 
 def test_malformed_diff_header_uses_unknown():
     diff = "not a real diff header\n" + "x" * 200
+    max_chars = 50
     # Won't split on file boundary — treated as one chunk, fallback truncates
-    result = _smart_truncate(diff, 50)
-    assert len(result) <= 50
+    result = _smart_truncate(diff, max_chars)
+    assert result.startswith(diff[:max_chars])
+    assert "[diff truncated" in result
 
 
 def test_multiple_files_omitted():
@@ -89,3 +92,8 @@ def test_multiple_files_omitted():
 
 def test_empty_diff():
     assert _smart_truncate("", 1000) == ""
+
+
+def test_whitespace_only_diff():
+    diff = "   \n\n  "
+    assert _smart_truncate(diff, 1000) == diff
