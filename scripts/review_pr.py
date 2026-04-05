@@ -81,8 +81,8 @@ def _smart_truncate(diff: str, max_chars: int) -> str:
     if len(diff) <= max_chars:
         return diff
 
-    # Split into per-file sections (lines starting with "diff --git")
-    parts = re.split(r'(?=^diff --git )', diff, flags=re.MULTILINE)
+    # Split into per-file sections; filter empty leading element
+    parts = [p for p in re.split(r'(?=^diff --git )', diff, flags=re.MULTILINE) if p]
 
     included = []
     total = 0
@@ -93,9 +93,14 @@ def _smart_truncate(diff: str, max_chars: int) -> str:
             included.append(part)
             total += len(part)
         else:
-            # Extract filename for the omission notice
-            m = re.search(r'^diff --git a/(\S+)', part, re.MULTILINE)
+            # Use "a/... b/" boundary to correctly handle filenames with spaces
+            m = re.search(r'^diff --git a/(.+?) b/', part, re.MULTILINE)
             omitted_files.append(m.group(1) if m else "unknown")
+
+    # Fallback: if nothing fits, hard-truncate the first file
+    if not included and parts:
+        included.append(parts[0][:max_chars])
+        omitted_files = omitted_files[1:]
 
     result = "".join(included)
     if omitted_files:
