@@ -111,7 +111,7 @@ def review_code(diff: str) -> str:
     if not api_key:
         return "Error: ANTHROPIC_API_KEY is not set. Check your .env file."
 
-    model = os.environ.get("DEFAULT_MODEL", "claude-sonnet-4-20250514")
+    model = os.environ.get("DEFAULT_MODEL", "claude-sonnet-4-6")
     max_diff_chars = int(os.environ.get("MAX_DIFF_CHARS", "50000"))
     client = Anthropic(api_key=api_key)
 
