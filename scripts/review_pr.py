@@ -60,10 +60,7 @@ def run_git(cmd: list) -> str:
 
 def get_diff(base: str = "main", staged_only: bool = False) -> str:
     if staged_only:
-        diff = run_git(["git", "diff", "--cached"])
-        if not diff:
-            diff = run_git(["git", "diff", "HEAD"])
-        return diff
+        return run_git(["git", "diff", "--cached"])
 
     # Try comparing against base branch
     diff = run_git(["git", "diff", f"{base}...HEAD"])
