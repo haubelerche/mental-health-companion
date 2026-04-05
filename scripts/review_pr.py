@@ -51,31 +51,31 @@ Git diff:
 """
 
 
-def run_git(cmd: str) -> str:
+def run_git(cmd: list) -> str:
     try:
-        return subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.DEVNULL).strip()
+        return subprocess.check_output(cmd, text=True, stderr=subprocess.PIPE).strip()
     except subprocess.CalledProcessError:
         return ""
 
 
 def get_diff(base: str = "main", staged_only: bool = False) -> str:
     if staged_only:
-        diff = run_git("git diff --cached")
+        diff = run_git(["git", "diff", "--cached"])
         if not diff:
-            diff = run_git("git diff HEAD")
+            diff = run_git(["git", "diff", "HEAD"])
         return diff
 
     # Try comparing against base branch
-    diff = run_git(f"git diff {base}...HEAD")
+    diff = run_git(["git", "diff", f"{base}...HEAD"])
     if diff:
         return diff
 
     # Fallback: last commit vs working tree
-    diff = run_git("git diff HEAD~1 HEAD")
+    diff = run_git(["git", "diff", "HEAD~1", "HEAD"])
     if diff:
         return diff
 
-    return run_git("git diff --cached")
+    return run_git(["git", "diff", "--cached"])
 
 
 def review_code(diff: str) -> str:
@@ -91,22 +91,29 @@ def review_code(diff: str) -> str:
     if len(diff) > max_diff_chars:
         truncated += f"\n\n... [diff truncated, {len(diff) - max_diff_chars} chars omitted] ..."
 
-    response = client.messages.create(
-        model=model,
-        max_tokens=2048,
-        messages=[{
-            "role": "user",
-            "content": REVIEW_PROMPT.format(diff=truncated)
-        }]
-    )
-    return response.content[0].text
+    try:
+        response = client.messages.create(
+            model=model,
+            max_tokens=2048,
+            messages=[{
+                "role": "user",
+                "content": REVIEW_PROMPT.format(diff=truncated)
+            }]
+        )
+        return response.content[0].text
+    except Exception as e:
+        print(f"[review] Anthropic API error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 def save_review(review: str) -> Path:
     log_dir = Path(os.environ.get("AI_LOG_DIR", ".ai-log"))
     log_dir.mkdir(exist_ok=True)
     output = log_dir / "last-review.md"
-    output.write_text(review, encoding="utf-8")
+    try:
+        output.write_text(review, encoding="utf-8")
+    except OSError as e:
+        print(f"[review] Could not save review: {e}", file=sys.stderr)
     return output
 
 
