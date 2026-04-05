@@ -47,8 +47,9 @@ jobs:
           else
             REVIEW="Review could not be generated. Check the workflow logs for errors."
           fi
-          if [ "${{ steps.review.outputs.exit_code }}" != "0" ]; then
-            REVIEW="**Warning: review script exited with code ${{ steps.review.outputs.exit_code }}.**"$'\n\n'"${REVIEW}"
+          EXIT_CODE="${{ steps.review.outputs.exit_code }}"
+          if [ "${EXIT_CODE:-0}" != "0" ]; then
+            REVIEW="**Warning: review script exited with code ${EXIT_CODE}.**"$'\n\n'"${REVIEW}"
           fi
           # Write to a file to avoid shell quoting issues
           echo "$REVIEW" > review_body.txt
