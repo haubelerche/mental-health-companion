@@ -7,6 +7,7 @@
 from anthropic import Anthropic
 from dotenv import load_dotenv
 import os
+import re
 import sys
 import subprocess
 from pathlib import Path
@@ -75,6 +76,36 @@ def get_diff(base: str = "main", staged_only: bool = False) -> str:
     return run_git(["git", "diff", "--cached"])
 
 
+def _smart_truncate(diff: str, max_chars: int) -> str:
+    """Truncate diff at file boundaries to avoid cutting mid-context."""
+    if len(diff) <= max_chars:
+        return diff
+
+    # Split into per-file sections (lines starting with "diff --git")
+    parts = re.split(r'(?=^diff --git )', diff, flags=re.MULTILINE)
+
+    included = []
+    total = 0
+    omitted_files = []
+
+    for part in parts:
+        if total + len(part) <= max_chars:
+            included.append(part)
+            total += len(part)
+        else:
+            # Extract filename for the omission notice
+            m = re.search(r'^diff --git a/(\S+)', part, re.MULTILINE)
+            omitted_files.append(m.group(1) if m else "unknown")
+
+    result = "".join(included)
+    if omitted_files:
+        result += (
+            f"\n\n... [diff truncated: {len(omitted_files)} file(s) omitted"
+            f" ({len(diff) - total} chars): {', '.join(omitted_files)}] ..."
+        )
+    return result
+
+
 def review_code(diff: str) -> str:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
@@ -84,9 +115,7 @@ def review_code(diff: str) -> str:
     max_diff_chars = int(os.environ.get("MAX_DIFF_CHARS", "50000"))
     client = Anthropic(api_key=api_key)
 
-    truncated = diff[:max_diff_chars]
-    if len(diff) > max_diff_chars:
-        truncated += f"\n\n... [diff truncated, {len(diff) - max_diff_chars} chars omitted] ..."
+    truncated = _smart_truncate(diff, max_diff_chars)
 
     try:
         response = client.messages.create(
