@@ -93,20 +93,21 @@ def _smart_truncate(diff: str, max_chars: int) -> str:
             included.append(part)
             total += len(part)
         else:
-            # Use "a/... b/" boundary to correctly handle filenames with spaces
-            m = re.search(r'^diff --git a/(.+?) b/', part, re.MULTILINE)
+            # Back-reference ensures a/<path> b/<path> match — handles spaces and "b/" in names
+            m = re.search(r'^diff --git a/(.+) b/\1', part, re.MULTILINE)
             omitted_files.append(m.group(1) if m else "unknown")
 
     # Fallback: if nothing fits, hard-truncate the first file
     if not included and parts:
         included.append(parts[0][:max_chars])
-        omitted_files = omitted_files[1:]
+        omitted_files.pop(0)  # parts[0] is now partially included
 
     result = "".join(included)
+    included_chars = sum(len(p) for p in included)
     if omitted_files:
         result += (
             f"\n\n... [diff truncated: {len(omitted_files)} file(s) omitted"
-            f" ({len(diff) - total} chars): {', '.join(omitted_files)}] ..."
+            f" ({len(diff) - included_chars} chars): {', '.join(omitted_files)}] ..."
         )
     return result
 
@@ -117,7 +118,10 @@ def review_code(diff: str) -> str:
         return "Error: ANTHROPIC_API_KEY is not set. Check your .env file."
 
     model = os.environ.get("DEFAULT_MODEL", "claude-sonnet-4-6")
-    max_diff_chars = int(os.environ.get("MAX_DIFF_CHARS", "50000"))
+    try:
+        max_diff_chars = int(os.environ.get("MAX_DIFF_CHARS", "50000"))
+    except ValueError:
+        max_diff_chars = 50000
     client = Anthropic(api_key=api_key)
 
     truncated = _smart_truncate(diff, max_diff_chars)
