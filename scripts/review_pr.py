@@ -7,6 +7,7 @@
 from anthropic import Anthropic
 from dotenv import load_dotenv
 import os
+import re
 import sys
 import subprocess
 from pathlib import Path
@@ -75,18 +76,60 @@ def get_diff(base: str = "main", staged_only: bool = False) -> str:
     return run_git(["git", "diff", "--cached"])
 
 
+def _smart_truncate(diff: str, max_chars: int) -> str:
+    """Truncate diff at file boundaries to avoid cutting mid-context."""
+    if len(diff) <= max_chars:
+        return diff
+
+    # Split into per-file sections; filter empty leading element
+    parts = [p for p in re.split(r'(?=^diff --git )', diff, flags=re.MULTILINE) if p]
+
+    included = []
+    total = 0
+    omitted_files = []
+
+    for part in parts:
+        if total + len(part) <= max_chars:
+            included.append(part)
+            total += len(part)
+        else:
+            # Back-reference ensures a/<path> b/<path> match — handles spaces and "b/" in names
+            m = re.search(r'^diff --git a/(.+) b/\1', part, re.MULTILINE)
+            omitted_files.append(m.group(1) if m else "unknown")
+
+    # Fallback: if nothing fits, hard-truncate the first file
+    fallback_truncated = False
+    if not included and parts:
+        included.append(parts[0][:max_chars])
+        omitted_files.pop(0)  # parts[0] is now partially included
+        fallback_truncated = True
+
+    result = "".join(included)
+    omitted_chars = len(diff) - len(result)
+
+    if omitted_files:
+        result += (
+            f"\n\n... [diff truncated: {len(omitted_files)} file(s) omitted"
+            f" ({omitted_chars} chars): {', '.join(omitted_files)}] ..."
+        )
+    elif fallback_truncated:
+        result += f"\n\n... [diff truncated: {omitted_chars} chars omitted from first file] ..."
+    return result
+
+
 def review_code(diff: str) -> str:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         return "Error: ANTHROPIC_API_KEY is not set. Check your .env file."
 
-    model = os.environ.get("DEFAULT_MODEL", "claude-sonnet-4-20250514")
-    max_diff_chars = int(os.environ.get("MAX_DIFF_CHARS", "50000"))
+    model = os.environ.get("DEFAULT_MODEL", "claude-sonnet-4-6")
+    try:
+        max_diff_chars = int(os.environ.get("MAX_DIFF_CHARS", "50000"))
+    except ValueError:
+        max_diff_chars = 50000
     client = Anthropic(api_key=api_key)
 
-    truncated = diff[:max_diff_chars]
-    if len(diff) > max_diff_chars:
-        truncated += f"\n\n... [diff truncated, {len(diff) - max_diff_chars} chars omitted] ..."
+    truncated = _smart_truncate(diff, max_diff_chars)
 
     try:
         response = client.messages.create(
