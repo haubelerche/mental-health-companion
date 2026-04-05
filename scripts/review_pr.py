@@ -84,12 +84,12 @@ def review_code(diff: str) -> str:
         return "Error: ANTHROPIC_API_KEY is not set. Check your .env file."
 
     model = os.environ.get("DEFAULT_MODEL", "claude-sonnet-4-20250514")
+    max_diff_chars = int(os.environ.get("MAX_DIFF_CHARS", "50000"))
     client = Anthropic(api_key=api_key)
 
-    # temp 8000
-    truncated = diff[:8000]
-    if len(diff) > 8000:
-        truncated += f"\n\n... [diff truncated, {len(diff) - 8000} chars omitted] ..."
+    truncated = diff[:max_diff_chars]
+    if len(diff) > max_diff_chars:
+        truncated += f"\n\n... [diff truncated, {len(diff) - max_diff_chars} chars omitted] ..."
 
     response = client.messages.create(
         model=model,
