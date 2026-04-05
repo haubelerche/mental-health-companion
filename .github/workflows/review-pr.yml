@@ -35,7 +35,9 @@ jobs:
         run: |
           BASE="${{ github.base_ref }}"
           git fetch origin "$BASE"
-          python scripts/review_pr.py "origin/$BASE" 2>&1 | tee review_output.txt || true
+          set +e
+          python scripts/review_pr.py "origin/$BASE" 2>&1 | tee review_output.txt
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
 
       - name: Read review output
         id: read_review
@@ -43,7 +45,10 @@ jobs:
           if [ -f .ai-log/last-review.md ]; then
             REVIEW=$(cat .ai-log/last-review.md)
           else
-            REVIEW="Review could not be generated. Check the workflow logs."
+            REVIEW="Review could not be generated. Check the workflow logs for errors."
+          fi
+          if [ "${{ steps.review.outputs.exit_code }}" != "0" ]; then
+            REVIEW="**Warning: review script exited with code ${{ steps.review.outputs.exit_code }}.**"$'\n\n'"${REVIEW}"
           fi
           # Write to a file to avoid shell quoting issues
           echo "$REVIEW" > review_body.txt
