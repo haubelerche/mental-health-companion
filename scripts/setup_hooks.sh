@@ -73,24 +73,102 @@ HOOK
 chmod +x ".git/hooks/pre-commit"
 echo "[hooks] pre-commit hook installed."
 
-# ── pre-push: submit AI logs to grading server ────────────────────────────────
+# ── pre-push: block if no AI logs, then submit ───────────────────────────────
 cat > ".git/hooks/pre-push" << 'HOOK'
 #!/bin/bash
-# Pre-push hook: submit AI interaction logs to grading server
+# Pre-push hook: block push if no AI logs found; submit logs to grading server
+
+echo "🔍 [ai-log] Checking AI usage logs before push..."
+
+# Detect Python 3
 PYTHON=""
 for cmd in python3 python py; do
-    if command -v "$cmd" &>/dev/null && "$cmd" --version &>/dev/null 2>&1; then
+    if command -v "$cmd" &>/dev/null && "$cmd" --version 2>&1 | grep -q "Python 3"; then
         PYTHON="$cmd"
         break
     fi
 done
 
-if [ -n "$PYTHON" ]; then
-    "$PYTHON" scripts/submit_log.py
-else
-    echo "[ai-log] Python not found — skipping log submission." >&2
+LOG_FILE=".ai-log/session.jsonl"
+
+_block() {
+    echo ""
+    echo "❌ [ai-log] BLOCKED: No AI logs found!"
+    echo ""
+    echo "   Bạn chưa ghi log sử dụng AI nào trong phiên làm việc này."
+    echo "   Mọi thành viên đều PHẢI ghi log AI trước khi push."
+    echo ""
+    echo "   Cách ghi log:"
+    echo "   ─────────────────────────────────────────────────"
+    echo "   📌 Tool có hook tự động (Claude Code, Cursor, Codex, Gemini CLI, Copilot):"
+    echo "       → Đảm bảo đã chạy: bash scripts/setup_hooks.sh"
+    echo ""
+    echo "   📌 ChatGPT, Gemini Web, hoặc tool khác:"
+    echo "       → python scripts/log_manual.py"
+    echo ""
+    echo "   Sau khi ghi log, hãy push lại."
+    exit 1
+}
+
+# Check log file exists and is non-empty
+if [ ! -f "$LOG_FILE" ] || [ ! -s "$LOG_FILE" ]; then
+    _block
 fi
-exit 0  # Never block push
+
+# Count valid JSON entries
+if [ -n "$PYTHON" ]; then
+    COUNT=$("$PYTHON" -c "
+import json
+n = 0
+with open('.ai-log/session.jsonl', encoding='utf-8') as f:
+    for line in f:
+        line = line.strip()
+        if line:
+            try: json.loads(line); n += 1
+            except: pass
+print(n)
+" 2>/dev/null)
+else
+    COUNT=$(grep -c '[^[:space:]]' "$LOG_FILE" 2>/dev/null || echo 0)
+fi
+
+if [ -z "$COUNT" ] || [ "$COUNT" -eq 0 ] 2>/dev/null; then
+    _block
+fi
+
+echo ""
+echo "✅ [ai-log] Found $COUNT log entries."
+echo ""
+echo "📋 Các tool AI đã ghi log:"
+
+if [ -n "$PYTHON" ]; then
+    "$PYTHON" - << 'PYEOF'
+import json, collections
+counts = collections.Counter()
+with open(".ai-log/session.jsonl", encoding="utf-8") as f:
+    for line in f:
+        line = line.strip()
+        if line:
+            try:
+                counts[json.loads(line).get("tool", "unknown")] += 1
+            except Exception:
+                pass
+for tool, n in counts.most_common():
+    print(f"   - {tool}: {n} entries")
+PYEOF
+fi
+
+echo ""
+
+# Submit logs to grading server
+if [ -f "scripts/submit_log.py" ] && [ -n "$PYTHON" ]; then
+    echo "📤 [ai-log] Submitting logs to grading server..."
+    "$PYTHON" scripts/submit_log.py
+fi
+
+echo ""
+echo "✅ [ai-log] Push allowed. Happy coding! 🚀"
+exit 0
 HOOK
 
 chmod +x ".git/hooks/pre-push"
