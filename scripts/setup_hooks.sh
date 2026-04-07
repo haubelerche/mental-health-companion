@@ -82,7 +82,9 @@ echo "🔍 [ai-log] Checking AI usage logs before push..."
 
 # Detect Python 3
 PYTHON=""
-for cmd in python3 python py; do
+for cmd in python3 python py \
+    "$HOME/anaconda3/python.exe" "$HOME/miniconda3/python.exe" \
+    "$HOME/AppData/Local/Programs/Python/Python3"*/python.exe; do
     if command -v "$cmd" &>/dev/null && "$cmd" --version 2>&1 | grep -q "Python 3"; then
         PYTHON="$cmd"
         break
@@ -93,17 +95,17 @@ LOG_FILE="${AI_LOG_DIR:-.ai-log}/session.jsonl"
 
 _block() {
     echo ""
-    echo "❌ [ai-log] BLOCKED: No AI logs found!"
+    echo " [ai-log] BLOCKED: No AI logs found!"
     echo ""
     echo "   Bạn chưa ghi log sử dụng AI nào trong phiên làm việc này."
     echo "   Mọi thành viên đều PHẢI ghi log AI trước khi push."
     echo ""
     echo "   Cách ghi log:"
     echo "   ─────────────────────────────────────────────────"
-    echo "   📌 Tool có hook tự động (Claude Code, Cursor, Codex, Gemini CLI, Copilot):"
+    echo "    Tool có hook tự động (Claude Code, Cursor, Codex, Gemini CLI, Copilot):"
     echo "       → Đảm bảo đã chạy: bash scripts/setup_hooks.sh"
     echo ""
-    echo "   📌 ChatGPT, Gemini Web, hoặc tool khác:"
+    echo "    ChatGPT, Gemini Web, hoặc tool khác:"
     echo "       → python scripts/log_manual.py"
     echo ""
     echo "   Sau khi ghi log, hãy push lại."
@@ -138,9 +140,9 @@ if [ -z "$COUNT" ] || [ "$COUNT" -eq 0 ] 2>/dev/null; then
 fi
 
 echo ""
-echo "✅ [ai-log] Found $COUNT log entries."
+echo "[ai-log] Found $COUNT log entries."
 echo ""
-echo "📋 Các tool AI đã ghi log:"
+echo "Các tool AI đã ghi log:"
 
 if [ -n "$PYTHON" ]; then
     "$PYTHON" - << 'PYEOF'
@@ -164,12 +166,12 @@ echo ""
 
 # Submit logs to grading server
 if [ -f "scripts/submit_log.py" ] && [ -n "$PYTHON" ]; then
-    echo "📤 [ai-log] Submitting logs to grading server..."
+    echo "[ai-log] Submitting logs to grading server..."
     "$PYTHON" scripts/submit_log.py
 fi
 
 echo ""
-echo "✅ [ai-log] Push allowed. Happy coding! 🚀"
+echo "[ai-log] Push allowed. Happy coding!"
 exit 0
 HOOK
 
