@@ -11,6 +11,7 @@ import json
 import os
 import subprocess
 import sys
+import uuid
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -19,9 +20,9 @@ VN_TZ = timezone(timedelta(hours=7))
 KNOWN_TOOLS = ["chatgpt", "gemini-web", "perplexity", "claude-web", "copilot-web", "other"]
 
 
-def git(cmd):
+def git(cmd_list):
     try:
-        return subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.DEVNULL).strip()
+        return subprocess.check_output(cmd_list, shell=False, text=True, stderr=subprocess.DEVNULL).strip()
     except Exception:
         return ""
 
@@ -32,12 +33,12 @@ def make_entry(tool, prompt, model="", response_summary=""):
         "ts": ts.isoformat(),
         "tool": tool,
         "event": "ManualLog",
-        "entry_id": f"manual-{ts.strftime('%Y%m%d-%H%M%S')}",
+        "entry_id": f"manual-{ts.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}",
         "model": model,
-        "repo": git("git remote get-url origin").split("/")[-1].replace(".git", ""),
-        "branch": git("git rev-parse --abbrev-ref HEAD"),
-        "commit": git("git rev-parse --short HEAD"),
-        "student": git("git config user.email"),
+        "repo": git(["git", "remote", "get-url", "origin"]).split("/")[-1].replace(".git", ""),
+        "branch": git(["git", "rev-parse", "--abbrev-ref", "HEAD"]),
+        "commit": git(["git", "rev-parse", "--short", "HEAD"]),
+        "student": git(["git", "config", "user.email"]),
         "prompt": prompt[:1000],
         "response_summary": response_summary[:500],
     }
@@ -87,6 +88,8 @@ def main():
         prompt = args.prompt
         model = args.model
         response_summary = args.response
+    elif args.tool and not args.prompt:
+        parser.error("--prompt is required when --tool is specified")
     else:
         tool, prompt, model, response_summary = interactive()
 

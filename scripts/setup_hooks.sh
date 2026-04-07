@@ -89,7 +89,7 @@ for cmd in python3 python py; do
     fi
 done
 
-LOG_FILE=".ai-log/session.jsonl"
+LOG_FILE="${AI_LOG_DIR:-.ai-log}/session.jsonl"
 
 _block() {
     echo ""
@@ -107,20 +107,21 @@ _block() {
     echo "       → python scripts/log_manual.py"
     echo ""
     echo "   Sau khi ghi log, hãy push lại."
-    exit 1
+    return 1
 }
 
 # Check log file exists and is non-empty
 if [ ! -f "$LOG_FILE" ] || [ ! -s "$LOG_FILE" ]; then
-    _block
+    _block; exit 1
 fi
 
 # Count valid JSON entries
 if [ -n "$PYTHON" ]; then
     COUNT=$("$PYTHON" -c "
-import json
+import json, os
 n = 0
-with open('.ai-log/session.jsonl', encoding='utf-8') as f:
+log_file = os.environ.get('AI_LOG_DIR', '.ai-log') + '/session.jsonl'
+with open(log_file, encoding='utf-8') as f:
     for line in f:
         line = line.strip()
         if line:
@@ -133,7 +134,7 @@ else
 fi
 
 if [ -z "$COUNT" ] || [ "$COUNT" -eq 0 ] 2>/dev/null; then
-    _block
+    _block; exit 1
 fi
 
 echo ""
@@ -143,9 +144,10 @@ echo "📋 Các tool AI đã ghi log:"
 
 if [ -n "$PYTHON" ]; then
     "$PYTHON" - << 'PYEOF'
-import json, collections
+import json, collections, os
 counts = collections.Counter()
-with open(".ai-log/session.jsonl", encoding="utf-8") as f:
+log_file = os.environ.get('AI_LOG_DIR', '.ai-log') + '/session.jsonl'
+with open(log_file, encoding="utf-8") as f:
     for line in f:
         line = line.strip()
         if line:
