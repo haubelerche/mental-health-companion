@@ -33,7 +33,7 @@ def make_entry(tool, prompt, model="", response_summary=""):
         "ts": ts.isoformat(),
         "tool": tool,
         "event": "ManualLog",
-        "entry_id": f"manual-{ts.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}",
+        "entry_id": f"manual-{ts.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}",
         "model": model,
         "repo": git(["git", "remote", "get-url", "origin"]).split("/")[-1].replace(".git", ""),
         "branch": git(["git", "rev-parse", "--abbrev-ref", "HEAD"]),
@@ -46,7 +46,7 @@ def make_entry(tool, prompt, model="", response_summary=""):
 
 def save_entry(entry):
     log_dir = Path(os.environ.get("AI_LOG_DIR", ".ai-log"))
-    log_dir.mkdir(exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "session.jsonl"
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
@@ -54,7 +54,7 @@ def save_entry(entry):
 
 
 def interactive():
-    print("📝 Ghi log AI thủ công")
+    print("Ghi log AI thủ công")
     print("─" * 40)
     print("Tool AI bạn đã dùng:")
     for i, t in enumerate(KNOWN_TOOLS, 1):
@@ -68,7 +68,7 @@ def interactive():
 
     prompt = input("Prompt / câu hỏi bạn đã hỏi AI: ").strip()
     if not prompt:
-        print("[log] ❌ Prompt không được để trống.", file=sys.stderr)
+        print("[log] Prompt không được để trống.", file=sys.stderr)
         sys.exit(1)
 
     model = input("Model (bỏ trống nếu không biết): ").strip()
@@ -97,8 +97,8 @@ def main():
     log_file = save_entry(entry)
 
     short_prompt = prompt[:60] + ("..." if len(prompt) > 60 else "")
-    print(f"[log] ✅ Logged: [{tool}] {short_prompt}")
-    print(f"[log] 📁 Saved to: {log_file}")
+    print(f"[log] Logged: [{tool}] {short_prompt}")
+    print(f"[log] Saved to: {log_file}")
 
 
 if __name__ == "__main__":

@@ -119,10 +119,10 @@ fi
 
 # Count valid JSON entries
 if [ -n "$PYTHON" ]; then
-    COUNT=$("$PYTHON" -c "
+    COUNT=$(AI_LOG_FILE="$LOG_FILE" "$PYTHON" -c "
 import json, os
 n = 0
-log_file = os.environ.get('AI_LOG_DIR', '.ai-log') + '/session.jsonl'
+log_file = os.environ['AI_LOG_FILE']
 with open(log_file, encoding='utf-8') as f:
     for line in f:
         line = line.strip()
@@ -145,10 +145,10 @@ echo ""
 echo "Các tool AI đã ghi log:"
 
 if [ -n "$PYTHON" ]; then
-    "$PYTHON" - << 'PYEOF'
+    AI_LOG_FILE="$LOG_FILE" "$PYTHON" - << 'PYEOF'
 import json, collections, os
 counts = collections.Counter()
-log_file = os.environ.get('AI_LOG_DIR', '.ai-log') + '/session.jsonl'
+log_file = os.environ['AI_LOG_FILE']
 with open(log_file, encoding="utf-8") as f:
     for line in f:
         line = line.strip()
