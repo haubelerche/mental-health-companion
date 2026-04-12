@@ -98,10 +98,10 @@
 
 ![Sign up register](./frontend_pics/08_signup_register.png)
 
-**Mô tả:** Form đăng ký đầy đủ hơn. Headline: *"Bắt đầu hành trình"*. Fields: Họ tên · Tên đăng nhập · Email · Mật khẩu · Tên trường · Mã sinh viên (optional). Checkbox disclaimer *"Mình hiểu Serene là AI đồng hành, không phải chuyên gia. Trong trường hợp khủng hoảng, gọi 1800-599-920 cấp TB."*. CTA *"Bắt đầu hành trình"*. Link đăng nhập.
+**Mô tả:** Form đăng ký tối giản. Headline: *"Bắt đầu hành trình"*. Fields: Họ tên · Email · Mật khẩu. Checkbox disclaimer *"Mình hiểu Serene là AI đồng hành, không phải chuyên gia. Trong trường hợp khủng hoảng, gọi 1800-599-920 cấp TB."*. CTA *"Bắt đầu hành trình"*. Link đăng nhập.
 
 **Điểm thiết kế quan trọng:**
-- Trường *Tên trường* phục vụ **University Context RAG** (MVP Canvas §7 Agent 3) — định danh nguồn dữ liệu học vụ.
+- Chỉ thu thập tối thiểu: **Email + Mật khẩu + Tên hiển thị** — đủ để tạo tài khoản, không ràng buộc danh tính tổ chức. Phù hợp với target 18–24 tuổi bao gồm cả người đi làm, freelancer, không chỉ sinh viên.
 - Checkbox disclaimer là **bắt buộc** theo ARCHITECTURE §IX nguyên tắc 7: *"Disclaimer bắt buộc khi signup. User tick 'Serene là AI, không thay thế chuyên gia'"*.
 - Hotline 1800-599-920 hiển thị ngay trong form signup — an toàn từ bước đầu tiên.
 
@@ -173,7 +173,7 @@
 **Mô tả:** Màn hình nền tối (deep teal/dark green) — phân biệt rõ với giao diện bình thường. Sidebar nav vẫn hiển thị nhưng bị mờ. Center card tối màu:
 - Headline lớn serif trắng: *"Mình đang ở đây với cậu"*
 - Sub-text: *"Hơi thở của cậu vẫn đang ở đây. Chúng mình cùng đi qua giây phút này nhé."*
-- Button pill lớn xanh lá: *"Hotline Ngày Mai: 1800 599 920"*
+- Button pill lớn xanh lá: *"Hotline Ngày Mai: 1800 599 920 "*
 - Button outline: *"Làm grounding 5-4-3-2-1"*
 - Text link nhỏ: *"© XEM PHÒNG THAM VẤN GẦN CẬU"*
 - Pagination dots (SOS có thể multi-card)
