@@ -1,7 +1,7 @@
 # DB Schema — Serene Mental Health App
 
 **Stack:** PostgreSQL 15 + pgvector extension  
-**Ngày:** 2026-04-12 | **Phiên bản:** 1.0 (còn tối ưu nữa)
+**Ngày:** 2026-04-12 | **Phiên bản:** 1.1
 
 ---
 
@@ -95,6 +95,8 @@ erDiagram
         varchar prompt_id FK
         text content
         timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
     }
 
     journal_prompts {
@@ -303,6 +305,8 @@ erDiagram
 | `prompt_id` | VARCHAR(50) | FK → journal_prompts, NULLABLE | Null nếu tự viết |
 | `content` | TEXT | NOT NULL, MAX 10000 chars | |
 | `created_at` | TIMESTAMP | DEFAULT NOW() | |
+| `updated_at` | TIMESTAMP | NULLABLE | Set khi PATCH |
+| `deleted_at` | TIMESTAMP | NULLABLE | GDPR soft delete — parity với conversations |
 
 ---
 
@@ -453,7 +457,7 @@ Resources (seed data)       →   Manual / curated CSV     →  resources + jour
 | `msg_001` | `sess_xyz001` | user | Cảm thấy hơi bất lực vì bài tập quá nhiều... | NULL | FALSE |
 | `msg_002` | `sess_xyz001` | assistant | Nghe có vẻ bạn đang gồng gánh nhiều thứ một lúc. Áp lực kiểu này mệt lắm... | xac_nhan | FALSE |
 | `msg_003` | `sess_xyz001` | user | Mình không muốn tiếp tục nữa | NULL | FALSE |
-| `msg_004` | `sess_xyz001` | assistant | NULL | NULL | TRUE |
+| `msg_004` | `sess_xyz001` | assistant | Mình thấy bạn đang rất khó khăn. Bạn không đơn độc — đường dây hỗ trợ 24/7: **1800 599 920** (miễn phí). | NULL | TRUE |
 
 ---
 
@@ -516,16 +520,76 @@ ALTER TABLE clinical_profiles ADD CONSTRAINT uq_clinical_user UNIQUE (user_id);
 -- No duplicate bookmarks
 ALTER TABLE bookmarks ADD CONSTRAINT uq_bookmark UNIQUE (user_id, resource_id);
 
+-- CHECK constraints cho clinical_profiles (không enforce trong DDL ban đầu)
+ALTER TABLE clinical_profiles
+    ADD CONSTRAINT chk_phq9 CHECK (phq9_score IS NULL OR (phq9_score >= 0 AND phq9_score <= 27)),
+    ADD CONSTRAINT chk_gad7 CHECK (gad7_score IS NULL OR (gad7_score >= 0 AND gad7_score <= 21)),
+    ADD CONSTRAINT chk_crisis_level CHECK (crisis_level >= 0 AND crisis_level <= 5);
+
+-- CHECK constraints cho conversation_memories
+ALTER TABLE conversation_memories
+    ADD CONSTRAINT chk_importance CHECK (importance_score IS NULL OR (importance_score >= 0 AND importance_score <= 1)),
+    ADD CONSTRAINT chk_confidence CHECK (confidence IS NULL OR (confidence >= 0 AND confidence <= 1));
+
+-- Performance indexes
+-- messages: chat load (mọi lần mở session đều query) + user-level filter
+CREATE INDEX idx_messages_session ON messages (session_id, created_at);
+CREATE INDEX idx_messages_user ON messages (user_id);
+
+-- mood_checkins: history theo user, sort mới nhất trước
+CREATE INDEX idx_mood_user_date ON mood_checkins (user_id, logged_date DESC);
+
+-- crisis_logs: admin review queue — filter unreviewed + sort mới nhất
+CREATE INDEX idx_crisis_review ON crisis_logs (reviewed, triggered_at DESC);
+
+-- refresh_tokens: validate token theo user + filter hết hạn
+CREATE INDEX idx_token_user_expiry ON refresh_tokens (user_id, expires_at);
+
+-- conversation_memories: non-vector lookup (filter trước khi ANN search)
+CREATE INDEX idx_memory_user_active ON conversation_memories (user_id, is_deleted, created_at);
+
+-- play_events: usage analytics theo user + resource
+CREATE INDEX idx_play_user ON play_events (user_id, tracked_at DESC);
+
 -- pgvector HNSW index for fast ANN search
 CREATE INDEX idx_memory_embedding ON conversation_memories
     USING hnsw (embedding vector_cosine_ops)
     WHERE is_deleted = FALSE;
 
--- Row-Level Security on memories
+-- Row-Level Security — tất cả bảng chứa dữ liệu nhạy cảm
+-- current_setting(..., true): tham số thứ 2 suppresses error, trả NULL nếu chưa set
+-- → không throw exception, RLS deny thay vì crash app
+
 ALTER TABLE conversation_memories ENABLE ROW LEVEL SECURITY;
 CREATE POLICY rls_memory_isolation ON conversation_memories
-    USING (user_id = current_setting('app.current_user_id')::text);
+    USING (user_id = current_setting('app.current_user_id', true)::text);
 
--- Admin audit log: append-only (revoke DELETE privilege)
-REVOKE DELETE ON admin_audit_log FROM app_user;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY rls_messages_isolation ON messages
+    USING (user_id = current_setting('app.current_user_id', true)::text);
+
+ALTER TABLE mood_checkins ENABLE ROW LEVEL SECURITY;
+CREATE POLICY rls_mood_isolation ON mood_checkins
+    USING (user_id = current_setting('app.current_user_id', true)::text);
+
+ALTER TABLE journal_entries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY rls_journal_isolation ON journal_entries
+    USING (user_id = current_setting('app.current_user_id', true)::text);
+
+ALTER TABLE clinical_profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY rls_clinical_isolation ON clinical_profiles
+    USING (user_id = current_setting('app.current_user_id', true)::text);
+
+ALTER TABLE crisis_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY rls_crisis_isolation ON crisis_logs
+    USING (user_id = current_setting('app.current_user_id', true)::text);
+
+-- admin_audit_log: chỉ admin role mới đọc được
+ALTER TABLE admin_audit_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY rls_audit_admin_only ON admin_audit_log
+    USING (current_setting('app.current_role', true)::text = 'admin');
+
+-- Admin audit log: append-only — revoke cả DELETE lẫn UPDATE
+-- (UPDATE có thể dùng để tamper logs, phải chặn)
+REVOKE DELETE, UPDATE ON admin_audit_log FROM app_user;
 ```
