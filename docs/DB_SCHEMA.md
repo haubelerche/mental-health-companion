@@ -20,6 +20,7 @@ erDiagram
         boolean is_active
         timestamp created_at
         timestamp last_active
+        timestamp updated_at
     }
 
     refresh_tokens {
@@ -196,6 +197,9 @@ erDiagram
 | `is_active` | BOOLEAN | DEFAULT TRUE | Soft disable account |
 | `created_at` | TIMESTAMP | DEFAULT NOW() | |
 | `last_active` | TIMESTAMP | DEFAULT NOW() | Cập nhật mỗi lần request |
+| `updated_at` | TIMESTAMP | DEFAULT NOW() | Cập nhật khi sửa profile (display_name, email, v.v.) — dùng cho audit trail |
+
+> ⚠️ **`data_retention_days` — Không tự enforce:** Trường này chỉ là metadata. Cần một scheduled job (pg_cron hoặc external cron) thực sự xóa dữ liệu sau N ngày. **GDPR compliance gap** cho đến khi job tồn tại và được kiểm thử.
 
 ---
 
@@ -228,6 +232,8 @@ erDiagram
 | `hard_deleted_at` | TIMESTAMP | NULLABLE | GDPR hard delete |
 | `anonymous_summary` | JSONB | NULLABLE | Giữ 90 ngày sau soft delete — chỉ chứa thống kê ẩn danh (số turn, tone), không có nội dung |
 
+> **`anonymous_summary` JSON schema:** `{ "turn_count": <int>, "dominant_tone": "<string|null>", "had_sos": <bool> }`. Không có field nào khác — validate tại app layer trước khi ghi để đảm bảo queryability.
+
 ---
 
 ### 2.4 `messages` — Tin nhắn
@@ -236,7 +242,7 @@ erDiagram
 |---|---|---|---|
 | `message_id` | VARCHAR(50) | PK | |
 | `session_id` | VARCHAR(50) | FK → conversations | |
-| `user_id` | VARCHAR(50) | FK → users | Dư thừa nhưng tối ưu query |
+| `user_id` | VARCHAR(50) | FK → users | **Load-bearing cho RLS policy**; cũng tối ưu query — KHÔNG xóa cột này |
 | `role` | VARCHAR(20) | CHECK IN ('user','assistant') | |
 | `content` | TEXT | NOT NULL, MAX 2000 chars | PII-masked trước khi lưu |
 | `tone_cam_xuc` | VARCHAR(20) | NULLABLE | ho_tro / xac_nhan / vui_tuoi / lam_diu |
@@ -259,6 +265,8 @@ erDiagram
 | `updated_at` | TIMESTAMP | NULLABLE | Set khi PATCH |
 
 > UNIQUE constraint: `(user_id, logged_date)` — enforce 1 checkin/ngày.
+>
+> ⚠️ **Timezone:** `logged_date` là ngày theo **UTC+7**, nhưng PostgreSQL `DATE` không có timezone. Việc convert UTC → UTC+7 phải xảy ra **ở application layer** trước khi INSERT. DB constraint chỉ enforce uniqueness trên giá trị DATE đã nhận — không tự convert timezone.
 
 ---
 
@@ -293,6 +301,8 @@ erDiagram
 | `triggered_at` | TIMESTAMP | DEFAULT NOW() | |
 | `reviewed_at` | TIMESTAMP | NULLABLE | |
 | `reviewed_by` | VARCHAR(50) | NULLABLE | admin_id |
+
+> ⚠️ **`context_summary` — Không có DB-level enforcement:** Assertion "không raw content" chỉ là documentation. App layer **phải** sanitize (strip PII) trước khi ghi. Integration test `T-CRISIS-CTX-SANITIZE` là bắt buộc. Cân nhắc encrypt column này at-rest riêng biệt với main tablespace.
 
 ---
 
@@ -363,6 +373,8 @@ erDiagram
 | `duration_sec` | INTEGER | NOT NULL, ≥ 0 | Thực tế nghe bao lâu |
 | `percent` | INTEGER | CHECK 0–100 | % hoàn thành |
 | `tracked_at` | TIMESTAMP | DEFAULT NOW() | |
+
+> **Analytics semantics:** Nhiều sự kiện `started` cho cùng `resource_id` trong một session là **intentional** (analytics "re-start after pause"). Client-side duplicate fires có thể được phân biệt bằng `tracked_at` delta < 1s. Không có deduplication ở DB layer.
 
 ---
 
@@ -539,6 +551,20 @@ ALTER TABLE messages
 ALTER TABLE journal_entries
     ADD CONSTRAINT chk_journal_length CHECK (length(content) <= 10000);
 
+-- CHECK constraints cho messages.role và tone_cam_xuc
+-- (documented in §2.4 nhưng thiếu trong DDL ban đầu)
+ALTER TABLE messages
+    ADD CONSTRAINT chk_role CHECK (role IN ('user', 'assistant')),
+    ADD CONSTRAINT chk_tone CHECK (
+        tone_cam_xuc IS NULL
+        OR tone_cam_xuc IN ('ho_tro', 'xac_nhan', 'vui_tuoi', 'lam_diu')
+    );
+
+-- CHECK constraint cho play_events.event
+-- (documented in §2.12 nhưng thiếu trong DDL ban đầu)
+ALTER TABLE play_events
+    ADD CONSTRAINT chk_event CHECK (event IN ('started', 'paused', 'completed'));
+
 -- Performance indexes
 -- messages: chat load (mọi lần mở session đều query) + user-level filter
 CREATE INDEX idx_messages_session ON messages (session_id, created_at);
@@ -573,6 +599,14 @@ CREATE INDEX idx_memory_embedding ON conversation_memories
 --   • FORCE ROW LEVEL SECURITY: áp dụng cả với table owner (ngăn migration
 --     account bypass mà không cần BYPASSRLS). Migration account KHÔNG được
 --     cấp BYPASSRLS.
+--
+-- CONNECTION LIFECYCLE CONTRACT (bắt buộc — vi phạm → RLS isolation bị phá vỡ):
+--   • Mỗi transaction PHẢI SET LOCAL app.current_user_id = $user_id
+--   • SET LOCAL tự reset khi transaction kết thúc — an toàn với connection pool
+--   • Connection pool KHÔNG ĐƯỢC tái sử dụng connection giữa các user
+--     mà không reset session vars (SET LOCAL scope đã đủ nếu dùng transactions)
+--   • Kiểm tra: integration test T-RLS-EMPTY (app.current_user_id chưa set
+--     → tất cả RLS tables phải trả empty result set, không raise error)
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- Helper macro (dùng trong mọi user-scoped policy):
@@ -658,21 +692,58 @@ ALTER TABLE clinical_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clinical_profiles FORCE ROW LEVEL SECURITY;
 REVOKE SELECT ON clinical_profiles FROM app_user;
 GRANT SELECT (profile_id, user_id, crisis_level, updated_at) ON clinical_profiles TO app_user;
+-- WRITE PATH: RLS enabled + FORCE với không có policy nào matching cho INSERT/UPDATE
+-- → PostgreSQL deny-all by default (safe-by-default). Chỉ service_role (bypass RLS)
+--   được ghi clinical scores. Behavior này là intentional nhưng PHẢI được verify bởi
+--   integration test T-CP-WRITE-BLOCK (INSERT với app_user phải raise permission error).
 
--- crisis_logs: KHÔNG expose cho user — chỉ admin đọc được
+-- crisis_logs: KHÔNG expose cho user — chỉ admin đọc/ghi được
 -- (session_id + muc_do + triggered_at vẫn là thông tin nhận dạng được)
+-- WITH CHECK đảm bảo không role nào khác có thể INSERT crisis log giả.
 ALTER TABLE crisis_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE crisis_logs FORCE ROW LEVEL SECURITY;
 CREATE POLICY rls_crisis_admin_only ON crisis_logs
-    USING (current_setting('app.current_role', true)::text = 'admin');
+    FOR ALL
+    USING (current_setting('app.current_role', true)::text = 'admin')
+    WITH CHECK (current_setting('app.current_role', true)::text = 'admin');
 
--- admin_audit_log: chỉ admin role mới đọc được
+-- admin_audit_log: chỉ admin role mới đọc/ghi được
+-- WITH CHECK ngăn mọi role không phải admin INSERT log giả.
 ALTER TABLE admin_audit_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_audit_log FORCE ROW LEVEL SECURITY;
 CREATE POLICY rls_audit_admin_only ON admin_audit_log
-    USING (current_setting('app.current_role', true)::text = 'admin');
+    FOR ALL
+    USING (current_setting('app.current_role', true)::text = 'admin')
+    WITH CHECK (current_setting('app.current_role', true)::text = 'admin');
 
 -- Admin audit log: append-only — revoke cả DELETE lẫn UPDATE
+-- Revoke từ PUBLIC trước để bảo vệ các role được tạo trong tương lai.
 -- (UPDATE có thể dùng để tamper logs, phải chặn)
+REVOKE DELETE, UPDATE ON admin_audit_log FROM PUBLIC;
 REVOKE DELETE, UPDATE ON admin_audit_log FROM app_user;
 ```
+
+---
+
+## 6. Required Integration Tests
+
+Danh sách test cases bắt buộc phải tồn tại trước khi deploy schema lên staging/production.
+
+| ID | Test Case | Table | Loại |
+|---|---|---|---|
+| `T-MOOD-UNIQUE` | Duplicate mood checkin cùng ngày bị reject | `mood_checkins` | Constraint |
+| `T-MOOD-TZ` | Boundary UTC vs UTC+7: 23:30 local = ngày trước theo UTC | `mood_checkins` | Edge case |
+| `T-MSG-ISOLATION` | User A không đọc được messages của User B qua RLS | `messages` | RLS isolation |
+| `T-CP-COLSEC` | `app_user` không SELECT được `phq9_score` / `gad7_score` | `clinical_profiles` | Column-level grant |
+| `T-CRISIS-NOADMIN` | Non-admin session không đọc được `crisis_logs` | `crisis_logs` | Admin policy |
+| `T-CRISIS-INSERT` | Non-admin không INSERT được vào `crisis_logs` (WITH CHECK) | `crisis_logs` | WITH CHECK |
+| `T-CP-WRITE-BLOCK` | `app_user` INSERT vào `clinical_profiles` phải raise permission error | `clinical_profiles` | Write-path deny |
+| `T-AUDIT-APPEND` | Admin INSERT thành công; UPDATE/DELETE bị reject | `admin_audit_log` | Append-only |
+| `T-MEM-SURVIVE` | Memory row tồn tại sau khi conversation bị hard-delete (`ON DELETE SET NULL`) | `conversation_memories` | FK behavior |
+| `T-PHQ9-CHECK` | PHQ-9 score ngoài 0–27 bị reject bởi CHECK constraint | `clinical_profiles` | CHECK constraint |
+| `T-MSG-MAXLEN` | Message content > 2000 chars bị reject | `messages` | CHECK constraint |
+| `T-RLS-EMPTY` | `app.current_user_id` chưa SET → tất cả RLS tables trả empty result | All RLS tables | IS NOT NULL guard |
+| `T-HNSW-PLAN` | ANN search dùng HNSW index, không phải sequential scan (`EXPLAIN ANALYZE`) | `conversation_memories` | Query plan |
+| `T-CRISIS-CTX-SANITIZE` | `context_summary` không chứa raw PII — app-layer sanitization test | `crisis_logs` | App layer |
+
+> **T-MOOD-TZ detail:** User ở UTC+7 submit lúc 23:30 local (= 16:30 UTC of the previous calendar day). Backend phải convert sang UTC+7 date trước khi INSERT vào `logged_date`. Test phải mock system clock để verify đúng date boundary.
