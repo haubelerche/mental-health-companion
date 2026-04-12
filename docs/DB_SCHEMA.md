@@ -1,7 +1,7 @@
 # DB Schema — Serene Mental Health App
 
 **Stack:** PostgreSQL 15 + pgvector extension  
-**Ngày:** 2026-04-12 | **Phiên bản:** 1.1
+**Ngày:** 2026-04-12 | **Phiên bản:** 1.2
 
 ---
 
@@ -372,7 +372,7 @@ erDiagram
 |---|---|---|---|
 | `memory_id` | VARCHAR(50) | PK | |
 | `user_id` | VARCHAR(50) | FK → users | |
-| `session_id` | VARCHAR(50) | FK → conversations, NULLABLE | |
+| `session_id` | VARCHAR(50) | FK → conversations ON DELETE SET NULL, NULLABLE | Memory sống sót sau khi conversation bị hard-delete |
 | `content` | TEXT | NOT NULL | Event summary đã PII-masked |
 | `memory_type` | VARCHAR(50) | | emotion / preference / fact / topic / goal |
 | `embedding` | vector(1536) | NOT NULL | text-embedding-3-small |
@@ -459,6 +459,8 @@ Resources (seed data)       →   Manual / curated CSV     →  resources + jour
 | `msg_003` | `sess_xyz001` | user | Mình không muốn tiếp tục nữa | NULL | FALSE |
 | `msg_004` | `sess_xyz001` | assistant | Mình thấy bạn đang rất khó khăn. Bạn không đơn độc — đường dây hỗ trợ 24/7: **1800 599 920** (miễn phí). | NULL | TRUE |
 
+> **Semantic của `sos_triggered`:** flag đánh dấu trên **assistant message** IS SOS response, không phải trên user message gây trigger. `msg_003` có `sos_triggered = FALSE` là đúng — SOS rule phát hiện content của `msg_003` rồi sinh ra `msg_004` với flag `TRUE`. Đây là thiết kế cố ý để biết "tin nhắn nào của bot là SOS response."
+
 ---
 
 ### clinical_profiles
@@ -531,6 +533,12 @@ ALTER TABLE conversation_memories
     ADD CONSTRAINT chk_importance CHECK (importance_score IS NULL OR (importance_score >= 0 AND importance_score <= 1)),
     ADD CONSTRAINT chk_confidence CHECK (confidence IS NULL OR (confidence >= 0 AND confidence <= 1));
 
+-- Content length enforcement (TEXT không tự limit — phải CHECK)
+ALTER TABLE messages
+    ADD CONSTRAINT chk_content_length CHECK (length(content) <= 2000);
+ALTER TABLE journal_entries
+    ADD CONSTRAINT chk_journal_length CHECK (length(content) <= 10000);
+
 -- Performance indexes
 -- messages: chat load (mọi lần mở session đều query) + user-level filter
 CREATE INDEX idx_messages_session ON messages (session_id, created_at);
@@ -556,36 +564,111 @@ CREATE INDEX idx_memory_embedding ON conversation_memories
     USING hnsw (embedding vector_cosine_ops)
     WHERE is_deleted = FALSE;
 
--- Row-Level Security — tất cả bảng chứa dữ liệu nhạy cảm
--- current_setting(..., true): tham số thứ 2 suppresses error, trả NULL nếu chưa set
--- → không throw exception, RLS deny thay vì crash app
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Row-Level Security
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Quy tắc chung:
+--   • current_setting(..., true) suppresses error → trả NULL nếu chưa set
+--   • IS NOT NULL guard: tránh trường hợp empty-string cast vượt qua policy
+--   • FORCE ROW LEVEL SECURITY: áp dụng cả với table owner (ngăn migration
+--     account bypass mà không cần BYPASSRLS). Migration account KHÔNG được
+--     cấp BYPASSRLS.
+-- ─────────────────────────────────────────────────────────────────────────────
 
+-- Helper macro (dùng trong mọi user-scoped policy):
+-- current_setting('app.current_user_id', true) IS NOT NULL
+--   AND user_id = current_setting('app.current_user_id', true)::text
+
+-- conversation_memories
 ALTER TABLE conversation_memories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversation_memories FORCE ROW LEVEL SECURITY;
 CREATE POLICY rls_memory_isolation ON conversation_memories
-    USING (user_id = current_setting('app.current_user_id', true)::text);
+    USING (
+        current_setting('app.current_user_id', true) IS NOT NULL
+        AND user_id = current_setting('app.current_user_id', true)::text
+    );
 
+-- messages
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages FORCE ROW LEVEL SECURITY;
 CREATE POLICY rls_messages_isolation ON messages
-    USING (user_id = current_setting('app.current_user_id', true)::text);
+    USING (
+        current_setting('app.current_user_id', true) IS NOT NULL
+        AND user_id = current_setting('app.current_user_id', true)::text
+    );
 
+-- mood_checkins
 ALTER TABLE mood_checkins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mood_checkins FORCE ROW LEVEL SECURITY;
 CREATE POLICY rls_mood_isolation ON mood_checkins
-    USING (user_id = current_setting('app.current_user_id', true)::text);
+    USING (
+        current_setting('app.current_user_id', true) IS NOT NULL
+        AND user_id = current_setting('app.current_user_id', true)::text
+    );
 
+-- journal_entries
 ALTER TABLE journal_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE journal_entries FORCE ROW LEVEL SECURITY;
 CREATE POLICY rls_journal_isolation ON journal_entries
-    USING (user_id = current_setting('app.current_user_id', true)::text);
+    USING (
+        current_setting('app.current_user_id', true) IS NOT NULL
+        AND user_id = current_setting('app.current_user_id', true)::text
+    );
 
+-- conversations
+ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversations FORCE ROW LEVEL SECURITY;
+CREATE POLICY rls_conversations_isolation ON conversations
+    USING (
+        current_setting('app.current_user_id', true) IS NOT NULL
+        AND user_id = current_setting('app.current_user_id', true)::text
+    );
+
+-- bookmarks
+ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bookmarks FORCE ROW LEVEL SECURITY;
+CREATE POLICY rls_bookmarks_isolation ON bookmarks
+    USING (
+        current_setting('app.current_user_id', true) IS NOT NULL
+        AND user_id = current_setting('app.current_user_id', true)::text
+    );
+
+-- play_events
+ALTER TABLE play_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE play_events FORCE ROW LEVEL SECURITY;
+CREATE POLICY rls_play_events_isolation ON play_events
+    USING (
+        current_setting('app.current_user_id', true) IS NOT NULL
+        AND user_id = current_setting('app.current_user_id', true)::text
+    );
+
+-- refresh_tokens
+ALTER TABLE refresh_tokens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE refresh_tokens FORCE ROW LEVEL SECURITY;
+CREATE POLICY rls_tokens_isolation ON refresh_tokens
+    USING (
+        current_setting('app.current_user_id', true) IS NOT NULL
+        AND user_id = current_setting('app.current_user_id', true)::text
+    );
+
+-- clinical_profiles: user KHÔNG được thấy raw PHQ-9/GAD-7 scores
+-- → Revoke SELECT hoàn toàn, chỉ grant các cột safe (crisis_level, updated_at)
+-- → Raw scores chỉ dùng nội bộ qua service_role / B2B dashboard
 ALTER TABLE clinical_profiles ENABLE ROW LEVEL SECURITY;
-CREATE POLICY rls_clinical_isolation ON clinical_profiles
-    USING (user_id = current_setting('app.current_user_id', true)::text);
+ALTER TABLE clinical_profiles FORCE ROW LEVEL SECURITY;
+REVOKE SELECT ON clinical_profiles FROM app_user;
+GRANT SELECT (profile_id, user_id, crisis_level, updated_at) ON clinical_profiles TO app_user;
 
+-- crisis_logs: KHÔNG expose cho user — chỉ admin đọc được
+-- (session_id + muc_do + triggered_at vẫn là thông tin nhận dạng được)
 ALTER TABLE crisis_logs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY rls_crisis_isolation ON crisis_logs
-    USING (user_id = current_setting('app.current_user_id', true)::text);
+ALTER TABLE crisis_logs FORCE ROW LEVEL SECURITY;
+CREATE POLICY rls_crisis_admin_only ON crisis_logs
+    USING (current_setting('app.current_role', true)::text = 'admin');
 
 -- admin_audit_log: chỉ admin role mới đọc được
 ALTER TABLE admin_audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_audit_log FORCE ROW LEVEL SECURITY;
 CREATE POLICY rls_audit_admin_only ON admin_audit_log
     USING (current_setting('app.current_role', true)::text = 'admin');
 
