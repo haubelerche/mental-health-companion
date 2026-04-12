@@ -1,7 +1,7 @@
 # DB Schema — Serene Mental Health App
 
 **Stack:** PostgreSQL 15 + pgvector extension  
-**Ngày:** 2026-04-12 | **Phiên bản:** 1.0
+**Ngày:** 2026-04-12 | **Phiên bản:** 1.0 (còn tối ưu nữa)
 
 ---
 
