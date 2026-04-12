@@ -169,20 +169,23 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 
 **Documentation (Đã chốt)**
 
-| Task | Người làm | Reviewer | Deadline | Trạng thái |
-|---|---|---|---|---|
-| ARCHITECTURE.md — Kiến trúc multi-agent, state schema, sơ đồ | Lương Thanh Hậu | — | 09/04 | ✅ Đã chốt |
-| PRD.md — User stories, acceptance criteria, KPIs | Lương Thanh Hậu | Lê Hoàng Đạt + Lương Tiến Dũng | 09/04 | ✅ Đã chốt |
-| MVP_CANVAS.md — Target user, pain points, validation metrics | Lương Thanh Hậu | Lê Hoàng Đạt + Lương Tiến Dũng | 09/04 | ✅ Đã chốt |
-| PROBLEM_BRIEF.md — Bối cảnh, chân dung user, phân tích đối thủ | Lương Thanh Hậu | — | 09/04 | ✅ Đã chốt |
-| DATA_DESCRIPTION.md — Mô tả dữ liệu, DB schema chi tiết | Lương Thanh Hậu | — | 09/04 | ✅ Đã chốt |
-| BRIEF FRONTEND — Tóm tắt yêu cầu UI/UX cho frontend | Lương Thanh Hậu | — | 09/04 | ✅ Đã chốt |
+| Task | Người làm | Deadline | Trạng thái |
+|---|---|---|---|
+| ARCHITECTURE.md — Kiến trúc multi-agent, state schema, sơ đồ | Lương Thanh Hậu | 09/04 | ✅ Đã chốt |
+| PRD.md — User stories, acceptance criteria, KPIs | Lương Thanh Hậu | 09/04 | ✅ Đã chốt |
+| MVP_CANVAS.md — Target user, pain points, validation metrics | Lương Thanh Hậu | 09/04 | ✅ Đã chốt |
+| PROBLEM_BRIEF.md — Bối cảnh, chân dung user, phân tích đối thủ | Lương Thanh Hậu | 09/04 | ✅ Đã chốt |
+| DATA_DESCRIPTION.md — Mô tả dữ liệu, DB schema chi tiết | Lương Thanh Hậu | 09/04 | ✅ Đã chốt |
+| BRIEF FRONTEND — Tóm tắt yêu cầu UI/UX cho frontend | Lương Thanh Hậu | 09/04 | ✅ Đã chốt |
+| FRONTEND PROTOTYPE | Lương Thanh Hậu | 09/04 | ✅ Đã chốt |
 
 **Đang tiến hành**
 
 | Task | Người làm | Deadline | Trạng thái |
 |---|---|---|---|
 | CONTEXT ENGINEERING — Nghiên cứu kỹ thuật quản lý context LLM | Lương Thanh Hậu | 13/04 | 🔄 Đang research |
+| XÂY DATABASE | Lê Hoàng Đạt | 13/04 | 🔄 Đang research |
+| XÂY FRONTEND | Lương Tiến Dũng | 13/04 | 🔄 Đang research |
 
 ---
 
