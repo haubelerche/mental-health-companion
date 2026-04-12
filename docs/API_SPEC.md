@@ -14,6 +14,10 @@
 
 **Auth:** JWT Bearer token trong header `Authorization: Bearer <token>` (trừ endpoint auth).
 
+**Token Storage:** Token **phải** được lưu trong `httpOnly` cookie, không lưu `localStorage` (dễ bị XSS đánh cắp). Backend set qua `Set-Cookie` header với flags `HttpOnly; Secure; SameSite=Strict`.
+
+**CSRF Protection:** Khi dùng cookie-based auth, mọi request thay đổi state (`POST`, `PATCH`, `DELETE`) phải kèm header `X-CSRF-Token`. Backend phát CSRF token qua `/auth/csrf-token` và validate ở middleware.
+
 **Content-Type:** `application/json`
 
 ---
@@ -60,20 +64,22 @@
   "disclaimer_accepted": true
 }
 
-// Response 201
+// Response 201 — token KHÔNG trả trong body, được set qua Set-Cookie header
 {
   "success": true,
   "data": {
     "user_id": "hashed_abc123",
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refresh_token": "rt_xyz...",
     "expires_in": 3600
   },
   "error": null
 }
+// Header: Set-Cookie: access_token=<jwt>; HttpOnly; Secure; SameSite=Strict; Max-Age=3600
+// Header: Set-Cookie: refresh_token=<rt>; HttpOnly; Secure; SameSite=Strict; Path=/auth/refresh
 ```
 
 > Nếu `disclaimer_accepted = false` → trả lỗi `DISCLAIMER_NOT_ACCEPTED` (400).
+
+**Rate limit:** 5 lần/phút/IP. Vượt → `RATE_LIMIT_AUTH` (429). Sau 5 lần sai mật khẩu liên tiếp → khóa 15 phút (`AUTH_TOO_MANY_ATTEMPTS`).
 
 ---
 
@@ -85,17 +91,22 @@
   "password": "••••••••"
 }
 
-// Response 200
+// Response 200 — token KHÔNG trả trong body
 {
   "success": true,
   "data": {
     "user_id": "hashed_abc123",
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refresh_token": "rt_xyz...",
     "expires_in": 3600
   },
   "error": null
 }
+// Header: Set-Cookie: access_token=<jwt>; HttpOnly; Secure; SameSite=Strict; Max-Age=3600
+// Header: Set-Cookie: refresh_token=<rt>; HttpOnly; Secure; SameSite=Strict; Path=/auth/refresh
+```
+
+> Lỗi sai email/mật khẩu luôn trả cùng 1 message `"Email hoặc mật khẩu không đúng"` — không tiết lộ email có tồn tại hay không (chống timing/enumeration attack).
+
+**Rate limit:** 5 lần/phút/IP.
 ```
 
 ---
@@ -281,16 +292,20 @@ Lấy lịch sử tin nhắn của 1 phiên. Sắp xếp cũ → mới.
 ---
 
 ### `DELETE /chat/sessions/{session_id}`
-Xóa phiên chat (soft delete — nội dung ẩn với user, hệ thống giữ summary ẩn danh cho analytics).
+Xóa phiên chat. Mặc định là soft delete — nội dung ẩn với user, hệ thống giữ **summary ẩn danh** (không PII) cho analytics trong **90 ngày**, sau đó tự động xóa vĩnh viễn.
 
 ```json
 // Response 200
 {
   "success": true,
-  "data": { "deleted_at": "2026-04-12T15:00:00Z" },
+  "data": { "deleted_at": "2026-04-12T15:00:00Z", "hard_delete_at": "2026-07-11T15:00:00Z" },
   "error": null
 }
 ```
+
+> **GDPR / PDPA Right to Erasure:** User có quyền yêu cầu xóa vĩnh viễn ngay lập tức qua `DELETE /chat/sessions/{session_id}?hard=true`. Hard delete xóa cả summary, không giữ lại gì. Chính sách lưu trữ phải được hiển thị rõ trong phần Privacy Policy khi signup.
+
+**Summary được giữ lại chỉ bao gồm:** thống kê ẩn danh (số turn, tone cảm xúc tổng quát) — không bao gồm nội dung hội thoại, tên, hay bất kỳ thông tin có thể định danh.
 
 ---
 
@@ -336,6 +351,9 @@ Cập nhật mood checkin trong ngày (nếu user muốn sửa).
   "error": null
 }
 ```
+
+> **Authorization:** Backend phải xác minh `checkin_id` thuộc `user_id` trong JWT — không được chỉ lookup bằng ID mà không check ownership (chống cross-user modification). Nếu sai owner → trả `CHECKIN_NOT_FOUND` (404, không dùng 403 để tránh enumeration).
+> **Giới hạn thời gian:** Chỉ cho phép PATCH checkin của **ngày hôm nay** (UTC+7). Checkin của ngày trước → trả lỗi `CHECKIN_NOT_EDITABLE` (409).
 
 ---
 
@@ -537,7 +555,8 @@ Danh sách nội dung theo category.
         "title": "Thiền cho người lo âu",
         "duration_sec": 600,
         "format": "audio",
-        "url": "https://cdn.example.com/audio/med_042.mp3",
+        "url": "https://cdn.example.com/audio/med_042.mp3?X-Amz-Expires=3600&X-Amz-Signature=...",
+        "url_expires_at": "2026-04-12T16:30:00Z",
         "thumbnail": "https://cdn.example.com/thumb/med_042.jpg",
         "bookmarked": false
       }
@@ -549,10 +568,12 @@ Danh sách nội dung theo category.
 }
 ```
 
+> **Pre-signed URLs:** `url` là presigned URL có thời hạn 1 giờ (`url_expires_at`). FE phải re-fetch khi URL hết hạn. Không hardcode URL — URL thay đổi mỗi lần gọi API để chống enumeration và unauthorized direct access.
+
 ---
 
 ### `GET /resources/{id}`
-Chi tiết 1 nội dung.
+Chi tiết 1 nội dung. Trả presigned URL mới (TTL 1 giờ).
 
 ```json
 // Response 200
@@ -565,7 +586,8 @@ Chi tiết 1 nội dung.
     "description": "Bài thiền 10 phút giúp bình tĩnh khi lo âu leo thang...",
     "duration_sec": 600,
     "format": "audio",
-    "url": "https://cdn.example.com/audio/med_042.mp3",
+    "url": "https://cdn.example.com/audio/med_042.mp3?X-Amz-Expires=3600&X-Amz-Signature=...",
+    "url_expires_at": "2026-04-12T16:30:00Z",
     "thumbnail": "https://cdn.example.com/thumb/med_042.jpg",
     "bookmarked": true,
     "tags": ["lo_au", "beginner", "10_phut"]
@@ -653,10 +675,18 @@ Danh sách đường dây hỗ trợ tâm lý. Static data, không cần auth.
 
 ---
 
-### `GET /connect/clinics?lat=21.03&lng=105.85&radius_km=10`
-Danh sách phòng khám/trung tâm tư vấn gần vị trí user.
+### `POST /connect/clinics`
+Danh sách phòng khám/trung tâm tư vấn gần vị trí user. Dùng POST body thay vì query params để tọa độ GPS không bị ghi vào server logs, browser history, hay CDN access logs.
 
 ```json
+// Request
+{
+  "lat": 21.03,
+  "lng": 105.85,
+  "radius_km": 10
+}
+// lat/lng optional — nếu không truyền → trả danh sách mặc định
+
 // Response 200
 {
   "success": true,
@@ -672,20 +702,28 @@ Danh sách phòng khám/trung tâm tư vấn gần vị trí user.
         "hours": "8:00–17:00, Thứ 2–Thứ 6",
         "distance_km": 1.2
       }
-    ],
-    "query": { "lat": 21.03, "lng": 105.85, "radius_km": 10 }
+    ]
   },
   "error": null
 }
 ```
 
-> Nếu user **không cấp quyền location**: FE bỏ `lat`/`lng`, gọi `GET /connect/clinics` không có params — API trả danh sách mặc định (Hà Nội). Không trả lỗi.
+> **Không log, không lưu** tọa độ GPS vào database. Tọa độ chỉ dùng để tính khoảng cách trong memory, không persist.
+> Nếu user **không cấp quyền location**: FE gọi POST với body rỗng `{}` — API trả danh sách mặc định (Hà Nội). Không trả lỗi.
 
 ---
 
 ## 7. Admin / Internal
 
-> Các endpoint này **không expose ra FE user**. Bảo vệ bằng JWT có `role: "admin"` — kiểm tra ở middleware FastAPI.
+> Các endpoint này **không expose ra FE user**. Bảo vệ bằng luồng auth riêng biệt — xem chi tiết bên dưới.
+
+#### Admin Auth Flow (tách biệt hoàn toàn khỏi user auth)
+
+1. **Xác thực 2 lớp (MFA bắt buộc):** Admin login qua `POST /admin/auth/login` (endpoint riêng) với `email + password + TOTP code`. Không dùng cùng endpoint với user.
+2. **Admin-scoped token ngắn hạn:** Token admin có TTL **15 phút** (không phải 1 giờ), không có refresh token. Hết hạn → phải xác thực lại.
+3. **IP Allowlist:** Middleware kiểm tra IP request có nằm trong whitelist được cấu hình trong env (`ADMIN_ALLOWED_IPS`). IP không hợp lệ → 403 ngay cả khi token hợp lệ.
+4. **Audit log bắt buộc:** Mọi request đến `/admin/*` phải được ghi log với `admin_id`, `action`, `timestamp`, `ip`, `resource_accessed` vào bảng `admin_audit_log` — không thể tắt.
+5. **Claim separation:** Token admin có `role: "admin"` và `scope: "admin_only"` — không thể tạo từ user token thông thường, phải issue riêng từ admin auth endpoint.
 
 ### `GET /admin/crisis-logs?from=2026-04-01&to=2026-04-12`
 Danh sách sự kiện SOS để admin review.
@@ -742,15 +780,20 @@ Số liệu ẩn danh cho B2B dashboard (trường học, tổ chức).
 |---|---|---|
 | `AUTH_INVALID_TOKEN` | 401 | JWT hết hạn hoặc sai |
 | `AUTH_REFRESH_EXPIRED` | 401 | Refresh token hết hạn, cần login lại |
+| `AUTH_TOO_MANY_ATTEMPTS` | 429 | Sai mật khẩu quá 5 lần, khóa 15 phút |
+| `CSRF_TOKEN_INVALID` | 403 | CSRF token thiếu hoặc không khớp |
 | `DISCLAIMER_NOT_ACCEPTED` | 400 | Signup thiếu tick disclaimer |
 | `MOOD_ALREADY_LOGGED` | 409 | Đã checkin mood hôm nay |
+| `CHECKIN_NOT_FOUND` | 404 | checkin_id không tồn tại hoặc không thuộc user này |
+| `CHECKIN_NOT_EDITABLE` | 409 | Chỉ được sửa checkin của ngày hôm nay |
 | `SESSION_NOT_FOUND` | 404 | Sai hoặc không có quyền truy cập session_id |
 | `RESOURCE_NOT_FOUND` | 404 | ID nội dung không tồn tại |
 | `GUARDRAIL_INPUT_BLOCKED` | 422 | Input bị NeMo chặn (prompt injection, toxic) |
 | `LLM_TIMEOUT` | 504 | LangGraph pipeline > 10s — FE nên retry 1 lần |
 | `SCHEMA_VALIDATION_FAILED` | 500 | Agent trả sai schema, đã fallback safe reply |
 | `RATE_LIMIT_EXCEEDED` | 429 | Vượt 30 msg/phút tại `/chat/message` |
-| `ADMIN_FORBIDDEN` | 403 | JWT không có role admin |
+| `RATE_LIMIT_AUTH` | 429 | Vượt 5 lần/phút tại auth endpoints |
+| `ADMIN_FORBIDDEN` | 403 | Token không hợp lệ hoặc IP không trong whitelist |
 
 ---
 
@@ -774,4 +817,4 @@ MVP dùng REST sync. Nếu latency P95 > 5s ở Phase 2, nâng cấp lên endpoi
 - Header response khi gần giới hạn: `X-RateLimit-Remaining`, `X-RateLimit-Reset`
 
 ### Admin Auth
-Endpoint `/admin/*` yêu cầu JWT có claim `role: "admin"`. Kiểm tra tại FastAPI middleware — không phân biệt bằng endpoint riêng hay API key tách biệt.
+Endpoint `/admin/*` yêu cầu token từ luồng `POST /admin/auth/login` (MFA bắt buộc, TTL 15 phút, không có refresh). Middleware kiểm tra đồng thời: JWT claim `role: "admin" + scope: "admin_only"` và IP request có trong `ADMIN_ALLOWED_IPS`. Thiếu một trong hai → 403. Mọi request được ghi vào `admin_audit_log` không thể tắt.
