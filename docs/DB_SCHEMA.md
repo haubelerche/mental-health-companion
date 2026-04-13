@@ -6,8 +6,7 @@
 ---
 
 ## 1. ER Diagram
-
-![alt text](/docs/images/csdl.png)
+<img width="6951" height="3257" alt="csdl" src="https://github.com/user-attachments/assets/85e81523-078f-4029-883f-08ad230acc0c" />
 
 
 ## 2. Danh sách Tables
