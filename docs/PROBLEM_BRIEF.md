@@ -49,7 +49,8 @@ Ví dụ
 
 
 **Ma trận tính năng**
-![alt text](image.png)
+<img width="1440" height="3898" alt="image" src="https://github.com/user-attachments/assets/09df3f6f-27ee-40f6-9a40-dbd616c0f960" />
+
 
 ## IV. Khoảng trống thị trường và Cơ hội cho dự án
 
