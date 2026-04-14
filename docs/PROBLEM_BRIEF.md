@@ -37,8 +37,8 @@ Ví dụ
 
 **a. Đối thủ trực tiếp (Việt Nam):**
 
-1. **Vmood** (PHAD): Tập trung trầm cảm, sàng lọc cảm xúc + kỹ năng tự quản lý miễn phí, kết nối chuyên gia khi nặng.
-2. **Safe and Sound (SnS – COHED)**: 3 trụ cột (phát hiện sớm – kết nối chuyên gia – theo dõi dài hạn), ra mắt 2022, miễn phí tải.
+1. **Vmood**: Tập trung trầm cảm, sàng lọc cảm xúc + kỹ năng tự quản lý miễn phí, kết nối chuyên gia khi nặng.
+2. **Safe and Sound**: 3 trụ cột (phát hiện sớm – kết nối chuyên gia – theo dõi dài hạn), ra mắt 2022, miễn phí tải.
 3. **MindCare Việt Nam**: Đánh giá tâm lý chuyên sâu cho cá nhân + tổ chức/trường học/doanh nghiệp, tham vấn trực tuyến/trực tiếp.
 
 **b.Đối thủ gián tiếp:**
