@@ -1,78 +1,38 @@
 # Serene FastAPI Backend
 
-## Tong Quan Nhanh
+## Tổng Quan Nhanh
 
-Day la backend FastAPI cho app ho tro suc khoe tinh than. Du an gom day du cac nhom API chinh:
-- Auth: dang ky, dang nhap, refresh, logout, CSRF
-- Chat: gui tin nhan, lich su phien chat, xoa phien
-- Home/Mood: checkin tam trang, sua checkin, home feed
-- Reflect: journal, mood trend, weekly note, prompts
-- Resources: danh sach noi dung, chi tiet, play event, bookmark
-- Connect: hotline, clinic
-- Admin: crisis logs, dashboard, admin login
+Đây là backend FastAPI cho ứng dụng hỗ trợ sức khỏe tinh thần. Dự án bao gồm đầy đủ các nhóm API chính:
+- Auth: đăng ký, đăng nhập, refresh, logout, CSRF  
+- Chat: gửi tin nhắn, lịch sử phiên chat, xóa phiên  
+- Home/Mood: check-in tâm trạng, sửa check-in, home feed  
+- Reflect: nhật ký (journal), xu hướng tâm trạng (mood trend), ghi chú tuần (weekly note), prompts  
+- Resources: danh sách nội dung, chi tiết, play event, bookmark  
+- Connect: hotline, phòng khám  
+- Admin: crisis logs, dashboard, admin login  
 
-## Diem Noi Bat
+## Điểm Nổi Bật
 
-- Xac thuc bang cookie httpOnly + CSRF, khong tra token trong body.
-- Rate limit va lockout bang Redis.
-- Database schema duoc quan ly bang Alembic migration.
-- PostgreSQL/Supabase duoc ho tro qua `DATABASE_URL` trong `.env`.
-- Tai lieu test chi tiet nam trong [docs/API_TESTS.md](../docs/API_TESTS.md).
+- Xác thực bằng cookie httpOnly + CSRF, không trả token trong body  
+- Rate limit và lockout sử dụng Redis  
+- Schema database được quản lý bằng Alembic migration  
+- Hỗ trợ PostgreSQL/Supabase thông qua `DATABASE_URL` trong file `.env`  
+- Tài liệu test chi tiết nằm trong [docs/API_TESTS.md](../docs/API_TESTS.md)  
 
-Neu muon test nhanh, hay doc theo thu tu trong file API TEST va chay backend dung cac lenh o phan duoi.
+Nếu muốn test nhanh, hãy đọc theo thứ tự trong file API TEST và chạy backend theo các lệnh ở phần dưới.
 
-## Sau Khi Clone Ve Can Bo Sung Gi?
+## Sau Khi Clone Về Cần Bổ Sung Gì?
 
-1. Tao file `.env` o thu muc goc repository (copy tu `backend/.env.example`).
-2. Dien toi thieu cac bien:
-- `DATABASE_URL`
-- `REDIS_URL`
-- `ADMIN_ALLOWED_IPS`
-3. Tuy chon dev: `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY` co the de trong.
+1. Tạo file `.env` ở thư mục gốc repository (copy từ `backend/.env.example`)  
+2. Điền tối thiểu các biến:
+   - `DATABASE_URL`  
+   - `REDIS_URL`  
+   - `ADMIN_ALLOWED_IPS`  
+3. Tùy chọn cho môi trường dev: `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY` có thể để trống  
 
-## Chay Backend (Dung Thu Tu)
+## Chạy Backend (Đúng Thứ Tự)
 
-1. Kich hoat venv (Windows):
+1. Kích hoạt virtual environment (Windows):
 
 ```powershell
 venv\Scripts\Activate.ps1
-```
-
-2. Cai thu vien:
-
-```bash
-pip install -r backend/requirements.txt
-```
-
-3. Chay migration DB:
-
-```bash
-alembic -c backend/alembic.ini upgrade head
-```
-
-4. Chay API:
-
-```bash
-uvicorn app.main:app --app-dir backend --reload
-```
-
-Base URL: `http://localhost:8000/v1`
-
-Health check: `http://localhost:8000/health`
-
-## Alembic La Gi? (Ngan Gon)
-
-Alembic la cong cu dong bo schema database theo version code.
-
-No giup:
-- Tao/cap nhat bang va cot dung theo model.
-- Tranh loi thieu bang, sai schema khi chay backend.
-- Quan ly lich su thay doi DB de team cung theo mot chuan.
-
-Lenh quan trong nhat:
-
-```bash
-alembic -c backend/alembic.ini upgrade head
-```
-
-Lenh nay phai chay truoc khi chay backend neu schema DB chua moi nhat.
