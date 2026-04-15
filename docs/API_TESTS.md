@@ -151,8 +151,8 @@ pm.environment.set("csrfToken", body.data.csrf_token);
 
 ```json
 {
-  "email": "{{userEmail}}",
-  "password": "{{userPassword}}"
+  "email": "test4@gmai.com",
+  "password": "12345678"
 }
 ```
 
