@@ -11,3 +11,4 @@ bcrypt
 pgvector
 alembic
 redis
+pyotp

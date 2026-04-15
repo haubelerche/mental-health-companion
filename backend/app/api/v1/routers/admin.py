@@ -3,12 +3,14 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import enforce_admin_ip, get_admin_claims
+from app.core.config import get_settings
+from app.core.errors import AppError
 from app.core.responses import ok
 from app.db.models import AdminAuditLog, CrisisLog
 from app.db.session import get_db
 from app.schemas.payloads import AdminLoginRequest
 from app.services.cookies import set_auth_cookies
-from app.services.security import issue_admin_token
+from app.services.security import issue_admin_token, verify_password, verify_totp
 from app.services.utils import make_id, utc_now
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -28,8 +30,22 @@ def _audit(db: Session, admin_id: str, action: str, request: Request):
 
 
 @router.post("/auth/login")
-def admin_login(payload: AdminLoginRequest, response: Response):
-    _ = payload
+def admin_login(payload: AdminLoginRequest, request: Request, response: Response):
+    enforce_admin_ip(request)
+    settings = get_settings()
+
+    if not settings.admin_login_email or not settings.admin_password_hash or not settings.admin_totp_secret:
+        raise AppError("ADMIN_CONFIG_MISSING", "Cấu hình admin chưa đầy đủ", 500)
+
+    if payload.email.lower() != settings.admin_login_email.lower():
+        raise AppError("ADMIN_FORBIDDEN", "Bạn không có quyền truy cập", 403)
+
+    if not verify_password(payload.password, settings.admin_password_hash):
+        raise AppError("ADMIN_FORBIDDEN", "Bạn không có quyền truy cập", 403)
+
+    if not verify_totp(payload.totp_code, settings.admin_totp_secret):
+        raise AppError("ADMIN_FORBIDDEN", "Bạn không có quyền truy cập", 403)
+
     admin_id = make_id("adm")
     token = issue_admin_token(admin_id)
     set_auth_cookies(response, access_token=token)

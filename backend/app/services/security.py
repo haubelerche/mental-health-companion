@@ -6,9 +6,8 @@ from datetime import UTC, datetime
 from functools import lru_cache
 
 import bcrypt
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
 from jose import jwt as jose_jwt
+import pyotp
 
 from app.core.config import get_settings
 
@@ -16,20 +15,9 @@ from app.core.config import get_settings
 @lru_cache(maxsize=1)
 def _resolved_keys() -> tuple[str, str]:
     settings = get_settings()
-    if settings.jwt_private_key and settings.jwt_public_key:
-        return settings.jwt_private_key, settings.jwt_public_key
-
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    private_pem = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption(),
-    ).decode("utf-8")
-    public_pem = private_key.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    ).decode("utf-8")
-    return private_pem, public_pem
+    if not settings.jwt_private_key or not settings.jwt_public_key:
+        raise RuntimeError("JWT keys are missing. Set JWT_PRIVATE_KEY and JWT_PUBLIC_KEY.")
+    return settings.jwt_private_key, settings.jwt_public_key
 
 
 def hash_password(password: str) -> str:
@@ -44,7 +32,19 @@ def verify_password(plain: str, hashed: str) -> bool:
     raw = plain.encode("utf-8")
     if len(raw) > 72:
         raw = hashlib.sha256(raw).hexdigest().encode("utf-8")
+    if hashed and not hashed.startswith("$") and hashed.startswith(("2a$", "2b$", "2y$")):
+        hashed = f"${hashed}"
     return bcrypt.checkpw(raw, hashed.encode("utf-8"))
+
+
+def verify_totp(code: str, secret: str) -> bool:
+    if not code or not secret:
+        return False
+    try:
+        totp = pyotp.TOTP(secret)
+        return bool(totp.verify(code, valid_window=1))
+    except Exception:
+        return False
 
 
 def issue_access_token(subject: str, role: str = "user", scope: str = "user") -> str:

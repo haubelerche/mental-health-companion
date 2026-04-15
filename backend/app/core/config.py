@@ -23,10 +23,14 @@ class Settings(BaseSettings):
     jwt_public_key: str = ""
     jwt_algorithm: str = "RS256"
 
-    cookie_secure: bool = False
+    cookie_secure: bool = True
     cookie_domain: str | None = None
+    csrf_trusted_origins: str = ""
 
     admin_allowed_ips: str = ""
+    admin_login_email: str = ""
+    admin_password_hash: str = ""
+    admin_totp_secret: str = ""
 
     redis_url: str = "redis://localhost:6379/0"
     auth_rate_limit_per_minute: int = 5
