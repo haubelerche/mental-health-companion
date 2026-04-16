@@ -14,6 +14,12 @@ build/
 
 # Node
 node_modules/
+package.json
+package-lock.json
+
+# Local app config (env-backed; không đưa lên remote)
+scripts/config.py
+scripts/supabase/
 
 # OS
 .DS_Store
