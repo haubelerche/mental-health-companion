@@ -202,7 +202,7 @@ LIMIT 5
 ## 5.5 Chat (Mây)
 
 - `POST /v1/chat/message`
-- Quy trình theo Diagram 1:
+- Quy trình theo sequence diagram chat (`SEQUENCE_DIAGRAMS` — Diagram 2):
   - middleware load profile/messages/mood,
   - LangGraph route,
   - response ngay,
