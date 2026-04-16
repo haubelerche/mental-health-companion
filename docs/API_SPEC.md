@@ -1,4 +1,4 @@
-# Serene API Spec (v1.0)
+# API Spec (v1.0)
 
 **Thông tin dự án:** Multi-Agent Therapist Sàng Lọc và Hỗ Trợ Sức Khỏe Tinh Thần
 **Stack:** React.js + FastAPI + LangGraph + PostgreSQL + pgvector
@@ -56,7 +56,7 @@
 ## 1. Auth
 
 ### `POST /auth/signup`
-Đăng ký tài khoản. Bắt buộc user tick disclaimer "Serene là AI, không thay thế chuyên gia tâm lý".
+Đăng ký tài khoản. Bắt buộc user tick disclaimer "AI không thay thế chuyên gia tâm lý".
 
 ```json
 // Request
@@ -159,7 +159,7 @@ Thu hồi refresh token. **Không có request body** — server đọc `refresh_
 ## 2. Chat (Core)
 
 ### `POST /chat/message`
-Gửi 1 tin nhắn, nhận phản hồi từ Serene. Endpoint này chạy toàn bộ LangGraph pipeline:
+Gửi 1 tin nhắn, nhận phản hồi agent. Endpoint này chạy toàn bộ LangGraph pipeline:
 Middleware → Supervisor → Analyst (nếu cần) → Friend → Output Guardrails.
 
 ```json
