@@ -27,3 +27,6 @@ scripts/supabase/
 # AI logs — tracked structure, ignored content
 .ai-log/*.jsonl
 .ai-log/*.md
+
+# Raw text corpus (không version trong repo)
+data/dsm-5.txt
