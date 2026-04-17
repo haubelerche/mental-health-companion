@@ -1,8 +1,9 @@
-# Serene API Spec (v1.0)
+# API Spec (v1.0)
 
 **Thông tin dự án:** Multi-Agent Therapist Sàng Lọc và Hỗ Trợ Sức Khỏe Tinh Thần
-**Stack:** React.js + FastAPI + LangGraph + PostgreSQL + pgvector
-**Ngày:** 2026-04-12
+**Stack:** React.js + FastAPI + LangGraph + PostgreSQL + Redis + pgvector + Neo4j (Celery/outbox theo `BACKEND_PLAN.md`)
+
+**Ngày:** 2026-04-12 | **Đối chiếu plan:** 2026-04-17 (xem mục cuối)
 
 ---
 
@@ -56,7 +57,7 @@
 ## 1. Auth
 
 ### `POST /auth/signup`
-Đăng ký tài khoản. Bắt buộc user tick disclaimer "Serene là AI, không thay thế chuyên gia tâm lý".
+Đăng ký tài khoản. Bắt buộc user tick disclaimer "AI không thay thế chuyên gia tâm lý".
 
 ```json
 // Request
@@ -111,7 +112,6 @@
 > Lỗi sai email/mật khẩu luôn trả cùng 1 message `"Email hoặc mật khẩu không đúng"` — không tiết lộ email có tồn tại hay không (chống timing/enumeration attack).
 
 **Rate limit:** 5 lần/phút/IP.
-```
 
 ---
 
@@ -159,7 +159,7 @@ Thu hồi refresh token. **Không có request body** — server đọc `refresh_
 ## 2. Chat (Core)
 
 ### `POST /chat/message`
-Gửi 1 tin nhắn, nhận phản hồi từ Serene. Endpoint này chạy toàn bộ LangGraph pipeline:
+Gửi 1 tin nhắn, nhận phản hồi agent. Endpoint này chạy toàn bộ LangGraph pipeline:
 Middleware → Supervisor → Analyst (nếu cần) → Friend → Output Guardrails.
 
 ```json
@@ -840,3 +840,28 @@ MVP dùng REST sync. Nếu latency P95 > 5s ở Phase 2, nâng cấp lên endpoi
 
 ### Admin Auth
 Endpoint `/admin/*` yêu cầu token từ luồng `POST /admin/auth/login` (MFA bắt buộc, TTL 15 phút, không có refresh). Middleware kiểm tra đồng thời: JWT claim `role: "admin" + scope: "admin_only"` và IP request có trong `ADMIN_ALLOWED_IPS`. Thiếu một trong hai → 403. Mọi request được ghi vào `admin_audit_log` không thể tắt.
+
+---
+
+## Đối chiếu `BACKEND_PLAN.md` và `SEQUENCE_DIAGRAMS.md`
+
+Tài liệu này mô tả **MVP API theo path hiện có** (`/auth/*`, `/chat/*`, `/mood/*`, `/home/*`, `/reflect/*`, `/resources/*`, `/connect/*`, `/admin/*`). So với blueprint và sequence, logic **khớp một phần**; các điểm lệch cần chốt khi triển khai v2 guest-first + policy gate đầy đủ:
+
+| Chủ đề | `BACKEND_PLAN` / `SEQUENCE_DIAGRAMS` | `API_SPEC` hiện tại | Kết luận |
+|---|---|---|---|
+| Guest trial | `POST /v1/guest/session/start`, `heartbeat`, `choice`, `convert` | Không có | **Thiếu toàn bộ** — không thể lặp Diagram 1 chỉ bằng spec này |
+| Safety gate (trước nhánh) | `POST /v1/intake/safety-check` (3 câu ngắn → `risk_level`, `should_route_crisis`, `recommended_next_step`) | Không có | **Thiếu** |
+| Policy sau signup | `GET /v1/policies/current`, `POST /v1/policies/acknowledge`; core API 403 nếu chưa ack (Diagram 5) | Chỉ `disclaimer_accepted` lúc signup; không có flow ack riêng | **Thiếu** — disclaimer ≠ policy version gate |
+| Screening | `GET /v1/screenings/catalog`, `POST /v1/screenings/submit` | Không có | **Thiếu** |
+| Check-in “An” | `POST /v1/checkin/quick` (mood + stress/sleep/study + note, sync `mood_checkins`) | `POST /mood/checkin` (mood/emoji/note), `/home/feed` | **Khác contract/path** — có thể map nếu mở rộng body + đổi tên, hoặc tách endpoint “quick” theo plan |
+| Chat path | `POST /v1/chat/message`; sync tối thiểu + async profile/memory/outbox | `POST /chat/message` + cùng ý trong mô tả | **Khớp tinh thần** (cùng base `/v1`) |
+| Crisis / SOS | De-escalation **song song** hotline + grounding + referral metadata; không UI hard-block duy nhất; `crisis_logs` không Neo4j (Diagram 4) | `sos_card` + `reply: null`; FE “override toàn bộ, **ẩn input**, không gõ tiếp” | **Lệch nặng** — hướng dẫn FE trong spec đang ép fullscreen/block; plan + diagram ưu tiên gói đa thành phần (xem `BACKEND_PLAN` §7) |
+| Payload crisis đề xuất | `conversation_mode`, `hotline_cards[]`, `grounding_actions[]`, `referral_options[]`, `risk_level`, `assistant_text` | `sos_triggered` + `sos_card` (một hotline, một grounding, `suggest_clinic`) | **Chưa đồng bộ schema** — nên nâng response (hoặc map field) cho khớp contract |
+| Hotline / referral | `GET /v1/safety/hotlines`, `GET /v1/referrals/options`; hotline kèm trong chat khi crisis | `GET /connect/hotlines` (public), `POST /connect/clinics` | **Khớp ý một phần** — path và mô hình tách khác plan; có thể alias hoặc đổi tên theo `BACKEND_PLAN` §5.6 |
+| Dashboard “Gương” | `GET /v1/dashboard/overview`, `mood-trend`, `history`, `follow-up` | `GET /reflect/mood-trend`, `/home/feed`, không có `follow-up` tách | **Khớp một phần** — thiếu follow-up rõ ràng |
+| Nội bộ an toàn | `POST /v1/safety/escalate` (internal) | Không liệt kê | **Thiếu** (có thể chỉ server-to-server) |
+| `user_id` trong response | Plan/DB: `usr_` + 10 hex | Ví dụ `hashed_abc123` | **Quy ước đặt tên** — cần thống nhất với `DB_SCHEMA.md` |
+
+**Ghi chú nhỏ:** Trong `BACKEND_PLAN` §5.5, câu “Quy trình theo Diagram 1” cho chat nên hiểu là **diagram chat / pipeline message** trong `SEQUENCE_DIAGRAMS` (Diagram 2 — Chat message), không phải Diagram 1 (guest-first).
+
+**Khuyến nghị:** (1) Sửa mục “SOS Override” và ví dụ JSON crisis cho khớp §7 `BACKEND_PLAN` + Diagram 4; (2) bổ sung các nhóm endpoint guest / intake / policies / screenings (có thể đánh dấu “Phase …” nếu chưa build); (3) thống nhất `user_id` với schema Postgres.
