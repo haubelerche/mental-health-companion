@@ -22,7 +22,8 @@
 - **Tình trạng:** Đang đối mặt với áp lực học tập, định hướng nghề nghiệp, khurng hoảng cuộc sống hoặc các vấn đề về mối quan hệ.
 
 Ví dụ
-![alt text](image.png)
+
+![alt text](./images/image.png)
 
 1. **Hành vi tâm lý**
 - **Thói quen công nghệ**: Hưởng ứng các xu hướng công nghệ hiện nay được tích hợp AI, thích trải nghiệm mới mẻ, không cần đăng ký phức tạp.

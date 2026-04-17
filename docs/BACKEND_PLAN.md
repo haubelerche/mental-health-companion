@@ -1,12 +1,63 @@
 # BACKEND_PLAN 
-## Thông tin tài liệu
 
-- **Mục đích**: Blueprint backend để triển khai đúng luồng sản phẩm mới, đồng bộ với safety flow, polyglot storage, retention/PII/DR, và contract Neo4j schema v3.
-- **Stack chuẩn**: FastAPI + LangGraph + PostgreSQL + Redis + pgvector + Neo4j + Celery.
+# Mục lục
+
+## Mục lục chi tiết (theo mục)
+
+| Mục | Tiêu đề |
+|-----|---------|
+| [§1](#sec-1) | Nguyên tắc thiết kế backend |
+| [§2](#sec-2) | Backend capability map theo persona sản phẩm |
+| [§3](#sec-3) | Kiến trúc tổng thể (chuẩn triển khai) |
+| [§4](#sec-4) | Data model hợp nhất |
+| [§5](#sec-5) | API plan theo hành trình frontend mới |
+| [§6](#sec-6) | Sequence execution chuẩn (rút từ 3 diagram) |
+| [§7](#sec-7) | Safety behavior — Safety-first Interaction Model |
+| [§8](#sec-8) | Outbox, idempotency, consistency |
+| [§9](#sec-9) | Privacy, security, compliance |
+| [§10](#sec-10) | KPI, SLO, monitoring |
+| [§11](#sec-11) | Kế hoạch triển khai theo phase |
+| [§12](#sec-12) | Neo4j schema v3 — contract backend / graph worker |
+| [§13](#sec-13) | Disaster recovery & graceful degradation |
+| [§14](#sec-14) | Checklist khớp tài liệu nguồn (đã kiểm tra) |
+| [§15](#sec-15) | Open decisions cần chốt với Product/Legal |
+
+### §7 — mục con
+
+| Mục con | Tiêu đề |
+|---------|---------|
+| [§7.1](#sec-7-1) | Tránh hard-stop UI duy nhất |
+| [§7.2](#sec-7-2) | Crisis response contract |
+| [§7.3](#sec-7-3) | Nội dung assistant_text trong crisis |
+| [§7.4](#sec-7-4) | Ba tiến trình tâm lý trong một payload (khi distress / crisis) |
+| [§7.5](#sec-7-5) | Pattern phản hồi mong muốn (Friend + SOS / copy an toàn) |
+| [§7.6](#sec-7-6) | Điều khiển vòng hội thoại khi crisis (backend + FE) |
+| [§7.7](#sec-7-7) | Điều cần tránh (copy & luồng crisis) |
+| [§7.8](#sec-7-8) | Mục tiêu thiết kế tổng thể |
+| [§7.9](#sec-7-9) | Thang điểm nghiêm trọng & hành vi agent |
 
 ---
 
+<a id="sec-1"></a>
 ## 1) Nguyên tắc thiết kế backend
+
+<a id="sec-1-1"></a>
+### 1.1 Core sản phẩm — *Safety-first Interaction Model*
+
+Khi phát hiện dấu hiệu:
+
+- **suy nghĩ tiêu cực nghiêm trọng**, hoặc  
+- **có yếu tố tự hại** (*self-harm ideation*),
+
+hệ thống phải **đồng thời** phục vụ **ba tiến trình** (gói trong **một response crisis** §7 — không cần ba LLM):
+
+1. **Ổn định cảm xúc** — an ủi, validation cảm xúc, giảm cường độ distress.  
+2. **Dồn sự chú ý** — hướng user vào hành động an toàn ngay, nhưng **không ép buộc** (`micro_actions` / `grounding_actions`).  
+3. **Kết nối thật** — hotline, người thân, chuyên gia (`hotline_cards`, `referral_options`).
+
+Chi tiết triển khai API & payload: **§7**; điều phối graph: **§3.3**, **§6.3**.
+
+### 1.2 Nguyên tắc triển khai backend (kỹ thuật — bổ sung §1.1)
 
 1. **User-facing là persona, backend là technical terms**  
    API response có thể trả `agent_display_name` cho UI, nhưng backend vẫn dùng Supervisor/Analyst/Friend/SOS Handler.
@@ -21,6 +72,7 @@
 
 ---
 
+<a id="sec-2"></a>
 ## 2) Backend capability map theo persona sản phẩm
 
 | Persona (UI) | Capability backend | Dịch vụ chính |
@@ -28,17 +80,20 @@
 | **An** (check-in/chào) | Guest session, mood capture, quick assessment orchestration | `welcome-service`, `checkin-service` |
 | **Mây** (chat) | Chat orchestration, context recall, de-escalation mode | `chat-gateway`, `langgraph-runtime` |
 | **Lửa** (ổn định nhanh) | Grounding/breath recommendation, short intervention plan | `coping-service`, `resource-selector` |
-| **La Bàn** (referral) | Hotline payload, counselor/source matching, priority follow-up | `safety-service`, `referral-service` |
+| **La Bàn** (định hướng) | Hotline payload, counselor/source matching, priority follow-up | `safety-service`, `referral-service` |
 | **Gương** (dashboard) | Mood trend, summary timeline, reminders, progress cards | `insight-service`, `profile-service` |
 
 ---
 
+<a id="sec-3"></a>
 ## 3) Kiến trúc tổng thể (chuẩn triển khai)
 
 ## 3.1 Runtime layers
 
 - **API Layer (FastAPI)**: auth, rate limit, guest/session endpoints, consent endpoints.
-- **Orchestration Layer (LangGraph)**: Supervisor -> Analyst -> Friend, SOS bypass.
+- **Orchestration Layer (LangGraph)** — **LLM tuần tự**, **I/O song song**:
+  - Chuỗi node mặc định: **Supervisor → Analyst → Friend** (một lượt điều phối rõ ràng, dễ audit, hạn chế loop/role confusion).
+  - **SOS / crisis**: khi vượt ngưỡng hoặc `crisis_route_finalized`, luồng chuyển sang **SOS Handler (rule-based, no LLM)** làm **State Finalizer** — không quay lại nhánh Analyst/Friend “bình thường” trong cùng turn cho đến khi policy reset.
 - **Data Layer L1 (Postgres)**: transactional + RLS.
 - **Data Layer L2 (Redis + user_profiles JSONB)**: profile hot-path.
 - **Data Layer L3 (pgvector + Neo4j)**: semantic recall + graph insight.
@@ -52,8 +107,22 @@
 - `insight-context`: profile aggregate, summaries, trends.
 - `resource-context`: coping resources, recommendation edges.
 
+<a id="sec-3-3"></a>
+## 3.3 Điều phối (orchestration) — song song I/O, tuần tự LLM, crisis “ba nhánh” UX
+
+Khi có distress/crisis, về mặt **trải nghiệm** cần **ba tiến trình tâm lý song song** (§1.1): (1) ổn định cảm xúc, (2) dồn sự chú ý vào hành động an toàn **không ép buộc**, (3) kết nối hỗ trợ thật (**hotline, người thân, chuyên gia**). Backend **không** bắt buộc chạy ba LLM song song; thay vào đó **gói một response** (crisis payload §7) để frontend hiển thị **dual-focus**: vừa giữ hội thoại/đồng cảm, vừa luôn có micro-action + hotline (chi tiết §7.4–§7.5).
+
+| Thành phần | Song song (parallel) | Tuần tự (sequential) |
+|---|---|---|
+| **Middleware / chat-gateway** | `asyncio.gather` (hoặc tương đương): Redis profile, Postgres (8 message + mood), tùy chọn pgvector top‑K / Neo4j read ngắn — giảm P95 trước khi vào graph | — |
+| **LangGraph (LLM)** | Không khuyến nghị chạy song song hai LLM “Peer + Analyst” trên cùng user turn cho đến khi có classifier rủi ro rẻ và test an toàn | Supervisor → Analyst → Friend; SOS Finalizer sau khi kích hoạt crisis |
+| **Sau response** | Celery: clinical patch, memory embed, outbox Neo4j | Sync writes bắt buộc trước (messages, crisis_logs khi SOS) |
+
+**State LangGraph (working memory, bổ sung so với chỉ `recursion_count`):** `routing_history` (danh sách node đã qua), `analyst_calls_this_turn` (giới hạn cứng, ví dụ ≤2), `crisis_route_finalized` (bool — đã vào SOS path thì không re-enter flow thường trong turn), `conversation_mode` hiện tại (`normal` | `de_escalation`). Metrics: vẫn theo dõi `Analyst loop count` (§10.2).
+
 ---
 
+<a id="sec-4"></a>
 ## 4) Data model hợp nhất (đối chiếu bảng CSDL trong ảnh + tài liệu)
 
 ## 4.1 Core transactional tables (L1)
@@ -110,8 +179,8 @@
 
 ### Working memory (in-state, 1 request)
 
-- LangGraph state: `current_user_message`, ~8 `recent_messages` của session hiện tại, `profile_snapshot` từ Redis/Postgres, output Analyst (không persist), `recursion_count` (ví dụ max 3), `crisis_level_current`.
-- Supervisor + Analyst đọc; Friend đọc + phản hồi; sau response mới persist L1/L2.
+- LangGraph state: `current_user_message`, ~8 `recent_messages` của session hiện tại, `profile_snapshot` (load song song ở middleware §3.3), **output Analyst dạng instruction bundle** (JSON cho Friend; không persist nguyên văn trừ khi audit nội bộ), `recursion_count` (ví dụ max 3), `crisis_level_current`, **`routing_history`**, **`analyst_calls_this_turn`**, **`crisis_route_finalized`**, **`conversation_mode`**.
+- Supervisor + Analyst đọc; Friend đọc bundle + phản hồi; khi crisis: **SOS Finalizer** ghép payload §7 (§7.4–§7.6). Sau response mới persist L1/L2.
 
 ### Short-term memory (session-scoped, Postgres)
 
@@ -141,8 +210,8 @@ LIMIT 5
 ### Write path — message (tóm tắt 7 bước)
 
 1. `POST /v1/chat/message` vào API.
-2. Middleware (sync): `SET LOCAL app.current_user_id`, load profile Redis→Postgres, 8 message gần, mood hôm nay, build state.
-3. LangGraph: route; crisis bypass; SOS check sau Analyst khi không bypass.
+2. Middleware: `SET LOCAL app.current_user_id`; **load song song** profile (Redis→Postgres fallback), 8 message gần, mood hôm nay, tùy chọn RAG/graph (§3.3); build state.
+3. LangGraph: route; nếu đã `crisis_route_finalized` hoặc risk vượt ngưỡng → **SOS Finalizer** (không re-enter Analyst/Friend thường); ngược lại Supervisor → Analyst → Friend; SOS check **trước** Friend final (§6.3).
 4. Trả response (stream/REST).
 5a. **Sync:** transaction `messages` ×2, `conversations`, nếu SOS thì `crisis_logs` + `admin_audit_log`.  
 5b. **Async:** `clinical_profiles`, patch `user_profiles` + `DEL profile:{uid}`, `sync_outbox`.  
@@ -160,6 +229,7 @@ LIMIT 5
 
 ---
 
+<a id="sec-5"></a>
 ## 5) API plan theo hành trình frontend mới
 
 ## 5.1 Guest-first trial (không bắt đăng ký ngay)
@@ -232,14 +302,14 @@ LIMIT 5
 
 ---
 
+<a id="sec-6"></a>
 ## 6) Sequence execution chuẩn (rút từ 3 diagram)
 
 ## 6.1 Diagram 1 — message -> agents -> response + async writes
 
 - **Sync (blocking)**:
-  - load profile từ Redis (fallback Postgres),
-  - load 8 messages gần nhất + mood hôm nay,
-  - invoke LangGraph (Supervisor/Analyst/Friend hoặc SOS bypass),
+  - load profile từ Redis (fallback Postgres) **song song** với 8 messages gần nhất + mood hôm nay (và tùy chọn đọc phụ trợ §3.3),
+  - invoke LangGraph (Supervisor → Analyst → Friend **hoặc** nhánh SOS Finalizer — không quay lại flow thường khi crisis đã khóa, §7.6),
   - commit writes bắt buộc (`messages`, `conversations`, và nếu SOS thì `crisis_logs` + `admin_audit_log`).
 - **Async (non-blocking)**:
   - update `clinical_profiles`,
@@ -265,8 +335,9 @@ LIMIT 5
 
 ## 6.3 Diagram 3 — SOS path
 
-- SOS check xảy ra **trước Friend final response**.
-- SOS handler là **rule-based, no LLM**.
+- SOS check xảy ra **trước Friend final response** (hoặc chặn Friend nếu risk đã đủ cao từ intake/rule — product chốt).
+- **SOS Handler = State Finalizer**: **rule-based, no LLM** cho phần cấu trúc crisis (hotline, micro-actions, flags). Có thể vẫn có `assistant_text` do template/ghép slot từ rule (không phải LLM tự do) để giữ giọng đồng cảm nhất quán — tránh “over-refusal” kiểu model từ chối trả lời (§7.7).
+- Khi **`crisis_route_finalized`** hoặc `conversation_mode: de_escalation` đang khóa theo policy: **không** quay lại Supervisor → Analyst → Friend “bình thường” trong cùng request/turn (§7.6); response = de-escalation + hooks §7.
 - Sync writes bắt buộc:
   - user msg + SOS response msg,
   - `crisis_logs`,
@@ -277,26 +348,55 @@ LIMIT 5
 
 ---
 
-## 7) Safety behavior mới (khớp FRONTEND_PLAN v2.0)
+<a id="sec-7"></a>
+## 7) Safety behavior — *Safety-first Interaction Model* (khớp `FRONTEND_PLAN` v2.0)
 
+Mục này là **bản chuẩn** cho hành vi crisis trên backend + contract API: trùng với **§1.1** và bảng ánh xạ ở đầu tài liệu.
+
+Crisis đúng là **vừa** giữ kết nối/đồng cảm (LLM hoặc template an toàn), **vừa** giảm ma sát tới hỗ trợ thật (hotline, người thân) — **không** guilt/fear, **không** ép “phải gọi ngay”, **không** chỉ ném số tổng đài. Payload backend phải hỗ trợ **dual-focus UI** (chat + hành động nhỏ + kết nối ngoài). Chi tiết hành vi mong muốn và pitfall: **§7.4–§7.8**. **Thang leo dần** theo điểm nghiêm trọng tình huống (chat → khuyên nhủ → gợi gọi thoại → mức cao nhất): **§7.9**.
+
+<a id="sec-7-1"></a>
 ## 7.1 Tránh hard-stop UI duy nhất
 
 Backend không chỉ trả `sos_fullscreen=true`; cần trả cấu trúc đa phần:
 
-- `conversation_mode`: `de_escalation`
-- `hotline_cards[]`: luôn render được ngay
-- `grounding_actions[]`: bài thở/5-4-3-2-1
-- `referral_options[]`: counselor/nguồn hỗ trợ
+- `conversation_mode`: `de_escalation` (hoặc `normal`)
+- **`assistant_strategy`** (engagement hooks): hướng dẫn FE/backend-constrained copy
+  - `keep_engaged`: `true` — ưu tiên câu chữ giữ user trong trạng thái an toàn, không kéo dài vô nghĩa (§7.7)
+  - `encourage_external_help`: `true` — gợi mở hotline/người thân/chuyên gia, không ra lệnh
+  - `avoid_hard_stop`: `true` — không coi “khóa toàn bộ UI / ẩn chat vĩnh viễn” là hành vi mặc định duy nhất
+- **`micro_actions[]`**: hành động nhỏ **có nhãn hiển thị** cho user (grounding/thở), không ép buộc — song song với lời an ủi (§7.4)
+- `hotline_cards[]`: luôn render được ngay (§7.4)
+- **`grounding_actions[]`** (tùy chọn, idempotent với resource catalog): id tham chiếu bài thở/5-4-3-2-1 để deep-link / analytics
+- `referral_options[]`: counselor / trusted_contact / clinic — giảm friction quyết định (§7.8)
 - `followup_priority`: true/false
 
-## 7.2 Crisis response contract (đề xuất)
+<a id="sec-7-2"></a>
+## 7.2 Crisis response contract
+
+### 7.2.1 JSON đầy đủ (gợi ý triển khai)
 
 ```json
 {
   "risk_level": 4,
   "conversation_mode": "de_escalation",
   "agent_display_name": "Mây",
-  "assistant_text": "Mình đang ở đây với bạn. Mình muốn giúp bạn an toàn ngay lúc này.",
+  "assistant_text": "Mình đang ở đây với bạn. Mình muốn giúp bạn an toàn ngay lúc này — nếu được, mình muốn bạn thử một việc nhỏ cùng mình trong lúc bạn cân nhắc thêm bước tiếp theo.",
+  "assistant_strategy": {
+    "keep_engaged": true,
+    "encourage_external_help": true,
+    "avoid_hard_stop": true
+  },
+  "micro_actions": [
+    {
+      "type": "grounding",
+      "label": "Nhìn quanh và kể tên 5 thứ bạn thấy"
+    },
+    {
+      "type": "breathing",
+      "label": "Hít vào 4 giây, giữ 4 giây, thở ra 6 giây"
+    }
+  ],
   "hotline_cards": [
     {"label": "Hotline Ngày Mai", "phone": "1800-599-920"},
     {"label": "Cấp cứu", "phone": "115"}
@@ -307,8 +407,158 @@ Backend không chỉ trả `sos_fullscreen=true`; cần trả cấu trúc đa ph
 }
 ```
 
+- **`micro_actions`** và **`grounding_actions`**: có thể map 1–1 (type/label ↔ id) ở tầng service; FE có thể ưu tiên `micro_actions` cho copy mềm, `grounding_actions` cho điều hướng nội dung đã seed.
+
+### 7.2.2 JSON tối thiểu — *engagement hooks* (đủ để FE dual-focus)
+
+Khi cần ví dụ rút gọn (thiếu `risk_level` / `referral_options` tạm thời), **tối thiểu** vẫn phải có `conversation_mode`, `assistant_strategy`, `micro_actions`, `hotline_cards`:
+
+```json
+{
+  "conversation_mode": "de_escalation",
+  "assistant_strategy": {
+    "keep_engaged": true,
+    "encourage_external_help": true,
+    "avoid_hard_stop": true
+  },
+  "micro_actions": [
+    {
+      "type": "grounding",
+      "label": "Nhìn quanh và kể tên 5 thứ bạn thấy"
+    },
+    {
+      "type": "breathing",
+      "label": "Hít vào 4 giây, giữ 4 giây, thở ra 6 giây"
+    }
+  ],
+  "hotline_cards": [
+    { "label": "Hotline hỗ trợ tâm lý", "phone": "1800-599-920" },
+    { "label": "Cấp cứu", "phone": "115" }
+  ]
+}
+```
+
+Production nên **không** dừng ở tối thiểu nếu đã có §7.2.1 — bổ sung `risk_level`, `referral_options`, `followup_priority` theo policy.
+
+<a id="sec-7-3"></a>
+## 7.3 Nội dung assistant_text trong crisis
+
+- Tránh câu từ chối kiểu “mình không thể giúp”; thay bằng thừa nhận nặng + giới hạn vai trò AI + đề xuất bước nhỏ + hotline (§7.5).
+- Không guilt/fear-based copy (kiểm soát ở template SOS + review nội dung tĩnh; §7.7).
+
+<a id="sec-7-4"></a>
+## 7.4 Ba tiến trình tâm lý trong một payload (khi distress / crisis)
+
+Khi phát hiện **suy nghĩ tiêu cực nghiêm trọng** hoặc **yếu tố tự hại** (*self-harm ideation*), hệ thống phải **đồng thời** phục vụ ba mục tiêu (không cần ba LLM; **một JSON §7.2** cho FE dual-focus) — trùng **§1.1**:
+
+1. **Ổn định cảm xúc** — an ủi, validation cảm xúc, giảm cường độ distress (thể hiện qua `assistant_text` + tone an toàn).
+2. **Dồn sự chú ý** — hướng tới hành động an toàn tức thì qua `micro_actions` / `grounding_actions`, **không ép buộc**.
+3. **Kết nối thật** — `hotline_cards`, `referral_options` (hotline, người thân, chuyên gia).
+
+<a id="sec-7-5"></a>
+## 7.5 Pattern phản hồi mong muốn (Friend + SOS / copy an toàn)
+
+**Trong crisis**, nội dung hiển thị (template hoặc LLM ràng buộc) nên lần lượt bao phủ:
+
+1. **Công nhận cảm xúc** — giảm cảm giác cô lập.
+2. **Duy trì kết nối** — đảm bảo user không bị đẩy ra khỏi luồng hỗ trợ ngay khi vừa nói tới hành vi tiêu cực: ít người “muốn” đi thẳng tới đường cùng thường là **vừa đi vừa ngoảnh lại**, chờ một điều gì đó **níu** lại. UI/Copy phải tạo cảm giác đó (không chỉ một màn hình lạnh hoặc chỉ số điện thoại tách khỏi đồng cảm).
+3. **Chấn an, giữ bình tĩnh** — giọng điệu không ra lệnh, không kiểm soát.
+4. **Kết nối hỗ trợ bên ngoài** — hotline / tin cậy / chuyên gia qua payload.
+
+**Kết hợp song song** — thay vì chỉ đưa hotline **hoặc** chỉ an ủi: **giữ user trong hội thoại an toàn** nhưng **dần chuyển trọng tâm** ra hành động thật / kết nối thật.
+
+**Ví dụ câu chữ (minh họa, không phải prompt cố định):**
+
+- “Mình đang ở đây với bạn, bạn không phải chịu một mình.”
+- “Trong lúc mình đang nói chuyện, mình muốn bạn thử làm một việc nhỏ giúp mình…”
+- “Nếu có thể, bạn có thể giữ điện thoại và gọi số này, mình sẽ ở đây trong lúc bạn cân nhắc.”
+
+**Điểm cốt lõi:** không ra lệnh, không tạo áp lực, không làm user cảm thấy bị kiểm soát.
+
+<a id="sec-7-6"></a>
+## 7.6 Điều khiển vòng hội thoại khi crisis (backend + FE)
+
+### 7.6.1 Backend — không re-enter flow “bình thường” trong cùng turn
+
+- Trong `crisis_mode` / sau SOS Finalizer: **không** quay lại flow Supervisor → Analyst → Friend “bình thường” trong **cùng turn** cho đến khi policy reset (§6.3).
+- Response luôn gắn: de-escalation (`assistant_text` hoặc template) + `hotline_cards` + `micro_actions` / `grounding_actions` theo §7.2.
+
+**Logic tương đương (pseudo):**
+
+```
+if crisis_mode / sos_triggered:
+    response = de_escalation_payload()   # §7.2, rule-based finalizer
+    attach_hotline_cards()
+    attach_grounding_or_micro_actions()
+    # không gọi lại Friend “chat thường” trong cùng turn
+```
+
+### 7.6.2 Frontend — hành vi bắt buộc (dual-focus)
+
+- **Không** chỉ chuyển tab, **không** ngưng khung chat đồng cảm để chỉ hiện số tổng đài “trần” trong lúc ngữ cảnh đang xấu đi — user cần **vừa** được an toàn trong hội thoại **vừa** thấy đường ra (hotline, hành động nhỏ). Tránh pattern “chỉ số điện thoại” tách khỏi validation cảm xúc.
+- **Dual-focus:** tiếp tục khu vực trò chuyện an toàn (hoặc quick-replies an toàn) **đồng thời** luôn hiển thị hotline / micro-actions / CTA kết nối người thật.
+- **Gọi thoại / welfare call / kết nối tổng đài:** nếu sản phẩm có **outbound call** hoặc nút gọi nhanh, đó là **tầng client + quyền người dùng + telephony** — vẫn hiển thị **song song** nội dung đồng cảm và số hotline (không thay bằng một trong hai). Backend cung cấp payload §7; không giả định auto-dial trừ khi triển khai và tuân thủ pháp lý rõ ràng.
+
+Tham chiếu chi tiết UI: `FRONTEND_PLAN.md`.
+
+<a id="sec-7-7"></a>
+## 7.7 Điều cần tránh (copy & luồng crisis)
+
+- **Không** ép user “phải gọi ngay”; **không** tạo cảm giác “không làm theo là sai”. (Ngoại lệ có kiểm soát — ví dụ bậc **D** `distress_score` > 0.9 — chỉ khi đã có **consent** và tích hợp; xem **§7.9**, **§15**.)
+- **Không** kéo dài hội thoại vô nghĩa chỉ để giữ user trong app (§7.8).
+- **Không** dùng guilt-based hoặc fear-based escalation.
+- **Không** thay thế hoàn toàn hỗ trợ con người thật — AI đồng hành và chuyển tuyến.
+
+<a id="sec-7-7-distress"></a>
+**Distress cao:** attention span giảm, ra quyết định kém, dễ hành động bộc phát — vì vậy payload phải **giảm friction** tới hotline/người tin cậy (CTA rõ, ít bước), không cố “giữ họ trong AI”.
+
+<a id="sec-7-8"></a>
+## 7.8 Mục tiêu thiết kế tổng thể
+
+Mục tiêu **không phải** “giữ user ở lại với AI”, mà là **giữ họ ở trạng thái an toàn đủ lâu** để **chuyển sang hỗ trợ thực** (hotline, người thân, chuyên gia). Thực hiện bằng: hội thoại đồng cảm (trong giới hạn an toàn), hành động nhỏ tức thì (grounding), kết nối external, và **rule-based** cho phần quyết định crisis.
+
+<a id="sec-7-9"></a>
+## 7.9 Thang điểm nghiêm trọng & hành vi agent (chat → khuyên nhủ → gọi thoại → khẩn cấp)
+
+Mục này mô tả **luồng sản phẩm** khi trò chuyện leo dần từ bình thường tới nguy cơ cao. Điểm số dưới đây là **ví dụ chuẩn hóa** (0.0–1.0); Product/Legal có thể điều chỉnh ngưỡng và công thức (từ khóa + classifier).
+
+### 7.9.1 Đầu vào tính điểm
+
+- **Từ khóa / lexicon** tiêu cực, tự hại, bạo lực (rule-based, auditable).
+- (Tuỳ chọn) **Classifier** bổ sung trên cửa sổ tin nhắn gần đây — không thay thế hoàn toàn rule cho mức khẩn cấp tuyệt đối nếu policy yêu cầu.
+- Kết quả gộp thành **`distress_score`** (float 0.0–1.0) hoặc map sang `risk_level` 0–5 đã có — phải **thống nhất một chiều** trong code (xem §15).
+
+### 7.9.2 Các bậc hành vi (theo đề xuất sản phẩm)
+
+| Bậc | Điều kiện (gợi ý) | Hành vi agent / hệ thống |
+|---|---|---|
+| **A — Bình thường** | Chưa có tín hiệu tiêu cực vượt ngưỡng nhẹ | **Friend** trò chuyện như mặc định; không kích hoạt khuyên nhủ đặc biệt. |
+| **B — Dấu hiệu** | Xuất hiện từ khóa / tín hiệu tiêu cực (dưới ngưỡng “cao”) | Chuyển **mode phản hồi** sang **khuyên nhủ / can thiệp nhẹ** (vẫn chat): tone an toàn, gợi mở, có thể gợi grounding nhẹ — **chưa** bắt buộc hotline fullscreen. |
+| **C — Gợi gọi thoại** | `distress_score` **≥ 0.8** (sản phẩm chốt) | **Gợi ý** user **nói chuyện trực tiếp qua điện thoại** với agent / dịch vụ (voice): hiển thị CTA “gọi / nhận cuộc gọi lại”, WebRTC, hoặc số hỗ trợ — **vẫn là opt-in** trừ khi pháp lý/điều khoản khác. Payload có thể kèm `voice_session_offered: true`, `suggest_voice: true`. |
+| **D — Khẩn cấp cao** | `distress_score` **> 0.9** (sản phẩm chốt) | **Không chỉ hỏi** — kích hoạt **gói hành động khẩn** (song song): (1) **Outbound call** tới user (welfare / crisis line integration) **nếu** user đã **đồng ý** trong cài đặt + có tích hợp telephony; (2) **Gửi** tin nhắn / thông báo chứa **hotline + số khẩn cấp**; (3) **Thông báo người tin cậy** (số/người user **cấu hình trong Settings**) qua kênh đã chọn (SMS/push/email) — **chỉ khi** đã lưu đồng ý và dữ liệu liên hệ hợp lệ. Đồng thời áp dụng §7.2 (de-escalation payload) + `crisis_logs`. |
+
+**Lưu ý triển khai:** Bậc D **không** có nghĩa backend “tự gọi” được nếu chưa có nhà cung cấp cuộc gọi, số user đã xác minh, và **consent**; backend phát **sự kiện** + payload cho client/ worker gọi API telephony/SMS.
+
+### 7.9.3 Dữ liệu cài đặt người dùng (tin cậy & gọi khẩn)
+
+- **`user_settings` / `user_profiles`**: danh sách **người liên hệ khẩn** (tên hiển thị + số điện thoại hoặc email), cờ **cho phép gọi outbound / SMS khi > 0.9**, timezone.
+- **Mã hóa at-rest** cho số điện thoại người thân; chỉ service role đọc đầy đủ.
+- **Audit**: mỗi lần kích hoạt bậc D ghi `crisis_logs` + (tuỳ chọn) `admin_audit_log` — không log nội dung chat đầy đủ trong thông báo tới người thân (chỉ mẫu an toàn đã duyệt).
+
+### 7.9.4 Đồng bộ với LangGraph
+
+- **A–B:** Supervisor chọn nhánh Friend với `persona_tone` / system prompt phù hợp (bình thường vs khuyên nhủ); Analyst vẫn có thể chạy ngầm.
+- **C:** Thêm bước trả về field gợi voice; FE hiển thị; không nhất thiết bypass Analyst toàn bộ nếu vẫn an toàn.
+- **D:** **SOS Finalizer / rule engine** ưu tiên: có thể **bỏ qua** vòng Friend “chat dài” trong turn — giống §6.3; đồng thời enqueue job **notify trusted** + **outbound call** nếu bật.
+
+### 7.9.5 Pháp lý & an toàn
+
+- Outbound call, SMS tới bên thứ ba, và “gọi không hỏi” là **nhạy cảm cực độ** — phải có **điều khoản**, **opt-in rõ ràng**, và kiểm tra **khu vực pháp lý** trước khi bật bậc D tự động.
+- Nếu chưa đủ điều kiện: bậc D **fallback** về gợi mạnh hotline + UI khẩn + follow-up nội bộ, không auto-dial.
+
 ---
 
+<a id="sec-8"></a>
 ## 8) Outbox, idempotency, consistency
 
 - Tuyệt đối dùng outbox, không dual-write Postgres + Neo4j trong 1 request.
@@ -319,6 +569,7 @@ Backend không chỉ trả `sos_fullscreen=true`; cần trả cấu trúc đa ph
 
 ---
 
+<a id="sec-9"></a>
 ## 9) Privacy, security, compliance
 
 ### 9.1 Nguyên tắc chung
@@ -371,6 +622,7 @@ Backend không chỉ trả `sos_fullscreen=true`; cần trả cấu trúc đa ph
 
 ---
 
+<a id="sec-10"></a>
 ## 10) KPI, SLO, monitoring
 
 ## 10.1 KPI chức năng
@@ -395,12 +647,14 @@ Backend không chỉ trả `sos_fullscreen=true`; cần trả cấu trúc đa ph
 
 ---
 
+<a id="sec-11"></a>
 ## 11) Kế hoạch triển khai theo phase
 
 ## Phase A — Core safety + conversational backbone
 
-- Chat API + LangGraph runtime.
-- Safety gate + SOS handler + hotline payload.
+- Chat API + LangGraph runtime (Supervisor → Analyst → Friend; SOS Finalizer; state §4.6).
+- Middleware **parallel I/O** cho profile + messages + mood (§3.3).
+- Safety gate + SOS handler + crisis payload 
 - Sync writes + audit log.
 
 ## Phase B — Profile intelligence
@@ -424,6 +678,7 @@ Backend không chỉ trả `sos_fullscreen=true`; cần trả cấu trúc đa ph
 
 ---
 
+<a id="sec-12"></a>
 ## 12) Neo4j schema v3 — contract backend / graph worker
 
 **Mục tiêu:** Neo4j 5.x (AuraDB Free ~200k nodes / 400k rels). **Triết lý:** taxonomy là **node + cạnh kiểu hóa**, không dùng một property string làm discriminator đa nghĩa. **Idempotent:** `IF NOT EXISTS` cho index/constraint; seed `MERGE` + `SET` trong bootstrap (chạy lại ghi đè property seed có chủ đích).
@@ -490,6 +745,7 @@ TẦNG 3 — INTERVENTION & USER (:Resource, :ResourceCategory, :CopingAction,
 
 ---
 
+<a id="sec-13"></a>
 ## 13) Disaster recovery & graceful degradation
 
 ### 13.1 Neo4j mất / lag
@@ -515,22 +771,27 @@ TẦNG 3 — INTERVENTION & USER (:Resource, :ResourceCategory, :CopingAction,
 
 ---
 
+<a id="sec-14"></a>
 ## 14) Checklist khớp tài liệu nguồn (đã kiểm tra)
 
 - [x] Khớp 3 sequence diagrams về thứ tự sync/async và bypass SOS.
 - [x] Khớp kiến trúc dữ liệu: polyglot 3-layer, memory tiers, retention, PII, DR, outbox.
 - [x] Khớp contract Neo4j v3 (typed category rels, migration order, GraphRAG SECTION 10).
 - [x] Khớp frontend plan mới: trial-first, safety gate, 3 nhánh nhu cầu, policy bắt buộc sau signup.
+- [x] Nguyên tắc crisis / dual-focus: payload có `assistant_strategy` + `micro_actions`; crisis loop không re-enter flow thường khi đã finalizer.
+- [x] Thang điểm nghiêm trọng & bậc hành vi (chat → khuyên nhủ → ≥0.8 gợi thoại → >0.9 khẩn + tin cậy): **§7.9**.
 - [x] Khớp sơ đồ bảng CSDL trong ảnh (`csdl.png`) ở các bảng chính.
 - [x] Có tính đến benchmark feature matrix (`image.png`) cho kết nối chuyên gia, theo dõi dài hạn, khả năng mở rộng B2B.
 
 ---
 
+<a id="sec-15"></a>
 ## 15) Open decisions cần chốt với Product/Legal
 
 1. Trial limit chính thức: theo **thời gian** hay **số hành động**.
 2. Chính sách persist dữ liệu guest trước khi convert account.
-3. Ngưỡng `risk_level` dùng để auto-escalate từng bối cảnh (chat/check-in/screening).
+3. Ngưỡng `risk_level` / **`distress_score`** map với nhau; **0.8** và **0.9** có phải giá trị cố định hay điều chỉnh theo nhóm user / A-B test.
 4. SLA xử lý follow-up ưu tiên trong mô hình B2B.
 5. Danh sách hotline/counselor theo khu vực và chiến lược cập nhật dữ liệu.
+6. **Bậc D (§7.9):** consent cho outbound call, SMS tới người tin cậy, nội dung mẫu tin; nhà cung cấp telephony/SMS; có bật auto-call thật hay chỉ CTA mạnh tại VN/quốc tế.
 
