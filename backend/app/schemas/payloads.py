@@ -1,6 +1,6 @@
 from datetime import date
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
 class SignupRequest(BaseModel):
@@ -47,6 +47,12 @@ class ClinicsRequest(BaseModel):
     lat: float | None = Field(default=None, ge=-90, le=90)
     lng: float | None = Field(default=None, ge=-180, le=180)
     radius_km: int | None = Field(default=None, ge=1, le=50)
+
+    @model_validator(mode="after")
+    def lat_lng_pair(self) -> "ClinicsRequest":
+        if (self.lat is None) != (self.lng is None):
+            raise ValueError("lat and lng must be provided together")
+        return self
 
 
 class AdminLoginRequest(BaseModel):
