@@ -1,25 +1,12 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import Login from './components/auth/Login'
+import Register from './components/auth/Register'
+import Home from './components/pages/Home'
 
-function Register() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
-        <h1 className="text-2xl font-semibold">Register</h1>
-      </div>
-    </div>
-  )
-}
 
-function Home() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
-        <h1 className="text-2xl font-semibold">Home</h1>
-      </div>
-    </div>
-  )
-}
+
 
 export default function App() {
   return (
@@ -31,6 +18,17 @@ export default function App() {
         <Route path="/home" element={<Home />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+      <ToastContainer
+        position="top-right"
+        autoClose={2400}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        pauseOnFocusLoss
+        pauseOnHover
+        draggable
+        theme="light"
+      />
     </BrowserRouter>
   )
 }

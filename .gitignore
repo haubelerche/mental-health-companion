@@ -28,6 +28,7 @@ scripts/supabase/
 .ai-log/*.jsonl
 .ai-log/*.md
 
+.vscode/
 # Raw text corpus (không version trong repo)
 
 backend/.env
