@@ -57,7 +57,8 @@
 }
 
 @utility auth-card {
-    @apply w-full rounded-4xl bg-serene-bg/65 shadow-[0_40px_80px_rgba(47, 52, 46, 0.08)] backdrop-blur-2xl;
+    @apply w-full rounded-4xl bg-serene-bg/65 backdrop-blur-2xl;
+    box-shadow: 0 40px 80px rgba(47, 52, 46, 0.08);
 }
 
 @utility auth-input-line {
@@ -73,7 +74,12 @@
 }
 
 @utility auth-cta {
-    @apply w-full rounded-full bg-linear-to-b from-serene-primary to-serene-primary-dim px-6 py-4 text-sm font-medium text-serene-on-primary shadow-[0_18px_30px_rgba(47, 52, 46, 0.14)] transition duration-300 hover:scale-[1.02] hover:shadow-[0_24px_36px_rgba(47, 52, 46, 0.18)] active:scale-[0.98];
+    @apply w-full rounded-full bg-linear-to-b from-serene-primary to-serene-primary-dim px-6 py-4 text-sm font-medium text-serene-on-primary transition duration-300 hover:scale-[1.02] active:scale-[0.98];
+    box-shadow: 0 18px 30px rgba(47, 52, 46, 0.14);
+
+    &:hover {
+        box-shadow: 0 24px 36px rgba(47, 52, 46, 0.18);
+    }
 }
 
 @utility auth-link {

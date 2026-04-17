@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import bg2 from '../../assets/bg2.png'
 
 export default function Register() {
@@ -11,13 +12,58 @@ export default function Register() {
     const [acknowledged, setAcknowledged] = useState(false)
     const navigate = useNavigate()
 
+    const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value)
+
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
-        if (!acknowledged || !fullName || !school || !email || !password || password !== confirmPassword) {
+
+        if (!fullName.trim()) {
+            toast.error('Vui lòng nhập họ và tên.')
+            return
+        }
+
+        if (!school.trim()) {
+            toast.error('Vui lòng nhập trường đại học.')
+            return
+        }
+
+        if (!email.trim()) {
+            toast.error('Vui lòng nhập email.')
+            return
+        }
+
+        if (!isValidEmail(email)) {
+            toast.error('Email không hợp lệ. Vui lòng kiểm tra lại.')
+            return
+        }
+
+        if (!password) {
+            toast.error('Vui lòng nhập mật khẩu.')
+            return
+        }
+
+        if (password.length < 8) {
+            toast.error('Mật khẩu cần ít nhất 8 ký tự.')
+            return
+        }
+
+        if (!confirmPassword) {
+            toast.error('Vui lòng xác nhận mật khẩu.')
+            return
+        }
+
+        if (password !== confirmPassword) {
+            toast.error('Mật khẩu xác nhận không khớp.')
+            return
+        }
+
+        if (!acknowledged) {
+            toast.error('Bạn cần xác nhận điều khoản trước khi đăng ký.')
             return
         }
 
         console.log({ fullName, school, email })
+        toast.success('Đăng ký thành công. Chào mừng bạn đến với Serene!')
         navigate('/home')
     }
 
@@ -135,8 +181,7 @@ export default function Register() {
 
                         <button
                             type="submit"
-                            disabled={!acknowledged}
-                            className="auth-cta disabled:cursor-not-allowed disabled:opacity-70"
+                            className="auth-cta"
                         >
                             Bắt đầu hành trình
                         </button>
