@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-container": "#d0e8db",
+                    "surface-tint": "#4d6359",
+                    "outline": "#787c75",
+                    "tertiary-container": "#f4f4ef",
+                    "surface-dim": "#d6dcd2",
+                    "surface-container": "#edeee8",
+                    "primary-fixed-dim": "#c2dacd",
+                    "surface": "#faf9f5",
+                    "secondary-fixed": "#eee1c9",
+                    "inverse-primary": "#dbf4e6",
+                    "on-primary": "#e5fdf0",
+                    "on-background": "#2f342e",
+                    "error": "#9f403d",
+                    "on-tertiary-fixed-variant": "#656763",
+                    "inverse-surface": "#0d0f0d",
+                    "on-secondary-fixed": "#463f2d",
+                    "error-dim": "#4e0309",
+                    "surface-variant": "#e0e4dc",
+                    "on-surface": "#2f342e",
+                    "tertiary-fixed": "#f4f4ef",
+                    "secondary-container": "#eee1c9",
+                    "on-secondary": "#fff8ef",
+                    "on-primary-fixed-variant": "#4b6056",
+                    "on-secondary-container": "#59513e",
+                    "on-primary-container": "#41564c",
+                    "tertiary-fixed-dim": "#e5e6e1",
+                    "secondary-dim": "#5b5240",
+                    "tertiary-dim": "#525450",
+                    "surface-container-high": "#e6e9e2",
+                    "tertiary": "#5e605c",
+                    "outline-variant": "#afb3ac",
+                    "on-error-container": "#752121",
+                    "inverse-on-surface": "#9d9d9a",
+                    "primary-dim": "#42574d",
+                    "surface-container-highest": "#e0e4dc",
+                    "primary-fixed": "#d0e8db",
+                    "on-secondary-fixed-variant": "#635b48",
+                    "on-tertiary": "#f9f9f4",
+                    "on-tertiary-fixed": "#484a47",
+                    "surface-container-low": "#f4f4ef",
+                    "on-error": "#fff7f6",
+                    "secondary": "#675e4b",
+                    "on-tertiary-container": "#5b5c59",
+                    "on-surface-variant": "#5c605a",
+                    "primary": "#4d6359",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-bright": "#faf9f5",
+                    "background": "#faf9f5",
+                    "secondary-fixed-dim": "#e0d3bb",
+                    "on-primary-fixed": "#2f443a",
+                    "error-container": "#fe8983"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Newsreader", "serif"],
+                    "body": ["Inter", "sans-serif"],
+                    "label": ["Inter", "sans-serif"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-serif { font-family: 'Newsreader', serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(250, 249, 245, 0.65);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+        }
+    </style>
+</head>
+<body class="bg-background min-h-screen flex flex-col relative overflow-hidden">
+<div class="fixed inset-0 z-0">
+<img alt="Dawn sky over ocean" class="w-full h-full object-cover" data-alt="Calm ocean at dawn with soft orange and purple sunrise sky reflected in the still water and distant hazy mountains" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAuHlj7Hm_oZWggWEIO6TcMUDePEUuhAe4HVnIshZ0r5iFFXv1jNyi2wq3Mvyx_lQxJpokR6bm7AuyDMwP8ABEcCnEktw2ptbIuMwEtqRvPGPvYG-5VxY8XmJ5WYXyHWLCk_RTW6F_R16PVGxSep68td56R98nfWzJKBrF9tXdD74RrKFoXUZf7q-b8M6E5lSqqTVFI85_MMZ_4QzGJ9b_40UFUCr4mLJ4PcgnMRmI9wTyrSaBxGMMWsoxiRf7Fx_gNFsfJDeozhUA"/>
+<div class="absolute inset-0 bg-primary/10 mix-blend-overlay"></div>
+</div>
+<nav class="fixed top-0 w-full z-50 flex justify-between items-center px-8 py-6 bg-transparent">
+<div class="text-2xl font-serif italic text-emerald-900 dark:text-emerald-50">Serene</div>
+</nav>
+<main class="flex-1 flex items-center justify-center relative z-10 px-4 py-24">
+<div class="glass-panel w-full max-w-xl p-8 md:p-12 rounded-xl shadow-[0_40px_80px_rgba(47,52,46,0.08)]">
+<header class="mb-10 text-center">
+<h1 class="font-serif text-4xl md:text-5xl text-on-surface mb-3">Bắt đầu hành trình</h1>
+<p class="font-body text-on-surface-variant tracking-wide text-sm uppercase opacity-70">Tạo tài khoản cá nhân của bạn</p>
+</header>
+<form class="space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-1">
+<label class="block font-label text-[10px] tracking-widest uppercase text-on-surface-variant ml-1">Họ và Tên</label>
+<input class="w-full bg-surface-container/50 border-none rounded-lg px-4 py-3 focus:ring-1 focus:ring-primary text-on-surface placeholder:text-outline-variant/60 font-body" placeholder="Nguyễn Văn A" type="text"/>
+</div>
+<div class="space-y-1">
+<label class="block font-label text-[10px] tracking-widest uppercase text-on-surface-variant ml-1">Trường Đại học</label>
+<input class="w-full bg-surface-container/50 border-none rounded-lg px-4 py-3 focus:ring-1 focus:ring-primary text-on-surface placeholder:text-outline-variant/60 font-body" placeholder="Đại học Bách Khoa Hà Nội" type="text"/>
+</div>
+</div>
+<div class="space-y-1">
+<label class="block font-label text-[10px] tracking-widest uppercase text-on-surface-variant ml-1">Email</label>
+<input class="w-full bg-surface-container/50 border-none rounded-lg px-4 py-3 focus:ring-1 focus:ring-primary text-on-surface placeholder:text-outline-variant/60 font-body" placeholder="email@hust.edu.vn" type="email"/>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-1">
+<label class="block font-label text-[10px] tracking-widest uppercase text-on-surface-variant ml-1">Mật khẩu</label>
+<div class="relative">
+<input class="w-full bg-surface-container/50 border-none rounded-lg px-4 py-3 focus:ring-1 focus:ring-primary text-on-surface placeholder:text-outline-variant/60 font-body" placeholder="••••••••" type="password"/>
+</div>
+</div>
+<div class="space-y-1">
+<label class="block font-label text-[10px] tracking-widest uppercase text-on-surface-variant ml-1">Xác nhận mật khẩu</label>
+<div class="relative">
+<input class="w-full bg-surface-container/50 border-none rounded-lg px-4 py-3 focus:ring-1 focus:ring-primary text-on-surface placeholder:text-outline-variant/60 font-body" placeholder="••••••••" type="password"/>
+</div>
+</div>
+</div>
+<div class="pt-2">
+<div class="flex gap-4 p-4 rounded-lg bg-primary-container/20 border-l-2 border-primary/30">
+<div class="flex items-start pt-1">
+<input class="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary bg-surface/50" id="disclaimer" type="checkbox"/>
+</div>
+<label class="font-body text-xs md:text-sm text-on-surface-variant leading-relaxed select-none" for="disclaimer">
+                            Mình hiểu <span class="font-semibold text-primary">Serene</span> là AI đồng hành, không phải bác sĩ. Trong trường hợp khẩn cấp, mình sẽ gọi <span class="font-bold text-on-surface">1800-599-920</span> hoặc <span class="font-bold text-on-surface">115</span>.
+                        </label>
+</div>
+</div>
+<div class="pt-4">
+<button class="w-full bg-primary hover:bg-primary-dim text-on-primary font-body py-4 rounded-full transition-all duration-300 transform hover:scale-[1.01] active:scale-95 shadow-lg shadow-primary/10" type="submit">
+                        Bắt đầu hành trình
+                    </button>
+</div>
+<div class="text-center pt-2">
+<p class="font-body text-sm text-on-surface-variant">
+                        Đã có tài khoản? <a class="text-primary font-semibold hover:underline" href="#">Đăng nhập ngay</a>
+</p>
+</div>
+</form>
+</div>
+</main>
+<footer class="relative z-10 w-full px-8 py-8 flex flex-col md:flex-row justify-between items-center text-on-surface-variant/70 gap-4">
+<div class="font-body text-xs tracking-widest uppercase">
+            © 2024 Serene. All Rights Reserved.
+        </div>
+<div class="flex items-center gap-2 font-body text-xs tracking-widest uppercase bg-surface/40 backdrop-blur-md px-4 py-2 rounded-full">
+<span class="material-symbols-outlined text-sm">call</span>
+            Hotline: <span class="font-bold text-on-surface">1800-599-920</span>
+</div>
+</footer>
+</body></html>
