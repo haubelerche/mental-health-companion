@@ -12,7 +12,7 @@ export default function Register() {
     const [acknowledged, setAcknowledged] = useState(false)
     const navigate = useNavigate()
 
-    const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value)
+
     const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
 
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -30,11 +30,6 @@ export default function Register() {
 
         if (!email.trim()) {
             toast.error('Vui lòng nhập email.')
-            return
-        }
-
-        if (!isValidEmail(email)) {
-            toast.error('Email không hợp lệ. Vui lòng kiểm tra lại.')
             return
         }
 
