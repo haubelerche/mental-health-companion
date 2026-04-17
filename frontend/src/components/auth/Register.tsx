@@ -18,28 +18,10 @@ export default function Register() {
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
 
-        if (!fullName.trim()) {
-            toast.error('Vui lòng nhập họ và tên.')
-            return
-        }
-
-        if (!school.trim()) {
-            toast.error('Vui lòng nhập trường đại học.')
-            return
-        }
-
-        if (!email.trim()) {
-            toast.error('Vui lòng nhập email.')
-            return
-        }
-
-        if (!password) {
-            toast.error('Vui lòng nhập mật khẩu.')
-            return
-        }
-
         if (!strongPasswordRegex.test(password)) {
             toast.error('Mật khẩu phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.')
+            setPassword('')
+            setConfirmPassword('')
             return
         }
 
@@ -53,10 +35,6 @@ export default function Register() {
             return
         }
 
-        if (!acknowledged) {
-            toast.error('Bạn cần xác nhận điều khoản trước khi đăng ký.')
-            return
-        }
 
         console.log({ fullName, school, email })
         toast.success('Đăng ký thành công. Chào mừng bạn đến với Serene!')
@@ -100,6 +78,7 @@ export default function Register() {
                                     onChange={(event) => setFullName(event.target.value)}
                                     placeholder="Nguyễn Văn A"
                                     className="auth-input-soft"
+                                    required
                                 />
                             </div>
                             <div className="space-y-1">
@@ -113,6 +92,7 @@ export default function Register() {
                                     onChange={(event) => setSchool(event.target.value)}
                                     placeholder="Đại học Bách Khoa Hà Nội"
                                     className="auth-input-soft"
+                                    required
                                 />
                             </div>
                         </div>
@@ -128,6 +108,7 @@ export default function Register() {
                                 onChange={(event) => setEmail(event.target.value)}
                                 placeholder="email@hust.edu.vn"
                                 className="auth-input-soft"
+                                required
                             />
                         </div>
 
@@ -143,6 +124,7 @@ export default function Register() {
                                     onChange={(event) => setPassword(event.target.value)}
                                     placeholder="••••••••"
                                     className="auth-input-soft"
+                                    required
                                 />
                             </div>
                             <div className="space-y-1">
@@ -156,6 +138,7 @@ export default function Register() {
                                     onChange={(event) => setConfirmPassword(event.target.value)}
                                     placeholder="••••••••"
                                     className="auth-input-soft"
+                                    required
                                 />
                             </div>
                         </div>
@@ -168,6 +151,7 @@ export default function Register() {
                                     checked={acknowledged}
                                     onChange={(event) => setAcknowledged(event.target.checked)}
                                     className="mt-0.5 h-5 w-5 rounded border-serene-outline bg-serene-bg/50 text-serene-primary focus:ring-serene-primary"
+                                    required
                                 />
                                 <span>
                                     Mình hiểu <span className="font-semibold text-serene-primary">Serene</span> là AI đồng hành, không phải bác sĩ. Trong trường hợp khẩn cấp, mình sẽ gọi <span className="font-bold text-serene-ink">1800-599-920</span> hoặc <span className="font-bold text-serene-ink">115</span>.
