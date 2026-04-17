@@ -25,13 +25,12 @@ export default function Register() {
             return
         }
 
-        if (!confirmPassword) {
-            toast.error('Vui lòng xác nhận mật khẩu.')
-            return
-        }
-
         if (password !== confirmPassword) {
             toast.error('Mật khẩu xác nhận không khớp.')
+            return
+        }
+        if (!acknowledged) {
+            toast.error('Bạn phải đồng ý với điều khoản trước khi tiếp tục.')
             return
         }
 

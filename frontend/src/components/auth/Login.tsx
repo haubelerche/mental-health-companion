@@ -112,17 +112,7 @@ export default function Login() {
                     </footer>
                 </section>
 
-                {/* <footer className="mt-8 flex items-center gap-4 text-[10px] uppercase tracking-[0.3em] text-[#2f342e] font-bold">
-                    <span>© Group 039 VinAI</span>
-                    <span className="h-1 w-1 rounded-full bg-[#afb3ac]" />
-                    <button type="button" className="transition hover:text-[#4d6359]">
-                        Trợ giúp
-                    </button>
-                    <span className="h-1 w-1 rounded-full bg-[#afb3ac]" />
-                    <button type="button" className="transition hover:text-[#4d6359]">
-                        Quyền riêng tư
-                    </button>
-                </footer> */}
+         
             </main>
         </div>
     )
