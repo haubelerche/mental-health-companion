@@ -30,6 +30,8 @@ CREATE CONSTRAINT emotion_slug            IF NOT EXISTS FOR (n:Emotion)         
 CREATE CONSTRAINT safety_keyword_phrase   IF NOT EXISTS FOR (n:SafetyKeyword)      REQUIRE n.phrase IS UNIQUE;
 CREATE CONSTRAINT user_id                 IF NOT EXISTS FOR (n:User)               REQUIRE n.user_id IS UNIQUE;
 CREATE CONSTRAINT session_id              IF NOT EXISTS FOR (n:Session)            REQUIRE n.session_id IS UNIQUE;
+// RiskProfile — explainability / audit theo session (docs/description.md §VI.2); worker MERGE theo profile_id
+CREATE CONSTRAINT risk_profile_id         IF NOT EXISTS FOR (n:RiskProfile)         REQUIRE n.profile_id IS UNIQUE;
 CREATE CONSTRAINT memory_node_id          IF NOT EXISTS FOR (n:MemoryNode)         REQUIRE n.memory_id IS UNIQUE;
 
 // GraphRAG / Multi-Agent / Assessment (seed + runtime shapes; optional patch extends data)
@@ -55,6 +57,8 @@ CREATE INDEX idx_disorder_icd    IF NOT EXISTS FOR (n:Disorder) ON (n.icd_code);
 CREATE INDEX idx_disorder_dsm5   IF NOT EXISTS FOR (n:Disorder) ON (n.dsm5_code);
 CREATE INDEX idx_session_sos     IF NOT EXISTS FOR (s:Session) ON (s.sos_triggered);
 CREATE INDEX idx_session_started IF NOT EXISTS FOR (s:Session) ON (s.started_at);
+CREATE INDEX idx_session_risk_updated IF NOT EXISTS FOR (s:Session) ON (s.risk_updated_at);
+CREATE INDEX idx_risk_profile_created IF NOT EXISTS FOR (p:RiskProfile) ON (p.created_at);
 CREATE INDEX idx_experienced_last_seen     IF NOT EXISTS FOR ()-[r:EXPERIENCED]-()  ON (r.last_seen);
 CREATE INDEX idx_experienced_count         IF NOT EXISTS FOR ()-[r:EXPERIENCED]-()  ON (r.count);
 CREATE INDEX idx_felt_last_seen            IF NOT EXISTS FOR ()-[r:FELT]-()          ON (r.last_seen);
