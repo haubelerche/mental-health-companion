@@ -13,6 +13,7 @@ export default function Register() {
     const navigate = useNavigate()
 
     const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value)
+    const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
 
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
@@ -42,8 +43,8 @@ export default function Register() {
             return
         }
 
-        if (password.length < 8) {
-            toast.error('Mật khẩu cần ít nhất 8 ký tự.')
+        if (!strongPasswordRegex.test(password)) {
+            toast.error('Mật khẩu phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.')
             return
         }
 
