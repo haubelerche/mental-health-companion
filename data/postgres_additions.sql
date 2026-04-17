@@ -4,8 +4,9 @@
 --          Adds user_profiles, snapshots, outbox, and archive tables.
 --          DO NOT MODIFY existing tables — this file only ADDs new objects.
 -- Dependencies: DB_SCHEMA v1.2 (users, conversations, conversation_memories)
--- Version: 2.0 | Last updated: 2026-04-14
--- Run order: This file must run AFTER base schema (DB_SCHEMA v1.2) is applied.
+-- Version: 2.1 | Last updated: 2026-04-17
+-- Run order: This file must run AFTER base schema (DB_SCHEMA v1.2) is applied
+--   (ví dụ scripts/supabase/migrate.sql).
 -- Rollback: See ROLLBACK section at bottom of file.
 -- =============================================================================
 
@@ -249,6 +250,91 @@ CREATE POLICY rls_archive_isolation ON session_summaries_archive
     );
 
 -- =============================================================================
+-- TABLE: session_risk_snapshots
+-- Risk snapshot per session evaluation (Supervisor/SOS).
+-- Postgres remains source of truth; graph mirror is derived.
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS session_risk_snapshots (
+    snapshot_id        BIGSERIAL PRIMARY KEY,
+    session_id         VARCHAR(50)  NOT NULL REFERENCES conversations(session_id) ON DELETE CASCADE,
+    user_id            VARCHAR(50)  NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    risk_score         DOUBLE PRECISION NOT NULL
+        CHECK (risk_score >= 0::double precision AND risk_score <= 1::double precision),
+    intent_severity    DOUBLE PRECISION NOT NULL
+        CHECK (intent_severity >= 0::double precision AND intent_severity <= 1::double precision),
+    intent_immediacy   DOUBLE PRECISION NOT NULL
+        CHECK (intent_immediacy >= 0::double precision AND intent_immediacy <= 1::double precision),
+    crisis_mode        BOOLEAN      NOT NULL DEFAULT FALSE,
+    escalation_flag    BOOLEAN      NOT NULL DEFAULT FALSE,
+    components         JSONB        NOT NULL DEFAULT '{}'::jsonb,
+    source             VARCHAR(30)  NOT NULL
+        CHECK (source IN ('supervisor', 'sos_override', 'batch_recalc', 'system')),
+    created_at         TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_risk_session_time
+    ON session_risk_snapshots (session_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_session_risk_user_time
+    ON session_risk_snapshots (user_id, created_at DESC);
+
+ALTER TABLE session_risk_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE session_risk_snapshots FORCE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE policyname = 'rls_session_risk_isolation' AND tablename = 'session_risk_snapshots'
+    ) THEN
+        CREATE POLICY rls_session_risk_isolation ON session_risk_snapshots
+            FOR SELECT
+            USING (
+                current_setting('app.current_user_id', true) IS NOT NULL
+                AND user_id = current_setting('app.current_user_id', true)::text
+            );
+    END IF;
+END $$;
+
+-- =============================================================================
+-- TABLE: risk_inference_log
+-- NLP/ML inferred signals (separate from clinical scores).
+-- Admin/service use only; not exposed to app_user.
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS risk_inference_log (
+    log_id           BIGSERIAL PRIMARY KEY,
+    user_id          VARCHAR(50) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    session_id       VARCHAR(50) REFERENCES conversations(session_id) ON DELETE SET NULL,
+    inferred_signal  VARCHAR(100) NOT NULL,
+    model_version    VARCHAR(80),
+    score            DOUBLE PRECISION
+        CHECK (score IS NULL OR (score >= 0::double precision AND score <= 1::double precision)),
+    detail           JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at       TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_risk_inference_user_time
+    ON risk_inference_log (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_risk_inference_session
+    ON risk_inference_log (session_id, created_at DESC)
+    WHERE session_id IS NOT NULL;
+
+ALTER TABLE risk_inference_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE risk_inference_log FORCE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE policyname = 'rls_risk_inference_admin' AND tablename = 'risk_inference_log'
+    ) THEN
+        CREATE POLICY rls_risk_inference_admin ON risk_inference_log
+            FOR ALL
+            USING (current_setting('app.current_role', true)::text = 'admin')
+            WITH CHECK (current_setting('app.current_role', true)::text = 'admin');
+    END IF;
+END $$;
+
+-- =============================================================================
 -- TRIGGER: auto-update updated_at on user_profiles
 -- =============================================================================
 
@@ -281,17 +367,23 @@ GRANT SELECT, INSERT, UPDATE ON user_profiles TO app_user;
 
 -- app_user: can read own archived summaries
 GRANT SELECT ON session_summaries_archive TO app_user;
+GRANT SELECT ON session_risk_snapshots TO app_user;
+REVOKE ALL ON TABLE risk_inference_log FROM app_user;
 
 -- service_role (Celery workers): full access to internal tables
 GRANT SELECT, INSERT, UPDATE ON sync_outbox TO service_role;
 GRANT SELECT, INSERT ON user_profile_snapshots TO service_role;
 GRANT SELECT, INSERT, UPDATE ON user_profiles TO service_role;
 GRANT SELECT, INSERT ON session_summaries_archive TO service_role;
+GRANT SELECT, INSERT ON session_risk_snapshots TO service_role;
+GRANT SELECT, INSERT ON risk_inference_log TO service_role;
 
 -- Sequences for BIGSERIAL columns
 GRANT USAGE, SELECT ON SEQUENCE sync_outbox_outbox_id_seq TO service_role;
 GRANT USAGE, SELECT ON SEQUENCE user_profile_snapshots_snapshot_id_seq TO service_role;
 GRANT USAGE, SELECT ON SEQUENCE session_summaries_archive_archive_id_seq TO service_role;
+GRANT USAGE, SELECT ON SEQUENCE session_risk_snapshots_snapshot_id_seq TO service_role;
+GRANT USAGE, SELECT ON SEQUENCE risk_inference_log_log_id_seq TO service_role;
 
 -- =============================================================================
 -- ROLLBACK PLAN (run in reverse order if migration fails)
@@ -299,6 +391,8 @@ GRANT USAGE, SELECT ON SEQUENCE session_summaries_archive_archive_id_seq TO serv
 -- DROP TRIGGER IF EXISTS trg_user_profiles_updated_at ON user_profiles;
 -- DROP FUNCTION IF EXISTS update_updated_at_column();
 -- DROP TABLE IF EXISTS session_summaries_archive CASCADE;
+-- DROP TABLE IF EXISTS risk_inference_log CASCADE;
+-- DROP TABLE IF EXISTS session_risk_snapshots CASCADE;
 -- DROP TABLE IF EXISTS sync_outbox CASCADE;
 -- DROP TABLE IF EXISTS user_profile_snapshots CASCADE;
 -- DROP TABLE IF EXISTS user_profiles CASCADE;

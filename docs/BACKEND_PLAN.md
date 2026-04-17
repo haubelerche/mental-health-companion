@@ -1,7 +1,7 @@
 # BACKEND_PLAN 
 ## Thông tin tài liệu
 
-- **Mục đích**: Blueprint backend để triển khai đúng luồng sản phẩm mới (An/Mây/Lửa/La Bàn/Gương), đồng bộ với safety flow, polyglot storage, retention/PII/DR, và contract Neo4j schema v3.
+- **Mục đích**: Blueprint backend để triển khai đúng luồng sản phẩm mới, đồng bộ với safety flow, polyglot storage, retention/PII/DR, và contract Neo4j schema v3.
 - **Stack chuẩn**: FastAPI + LangGraph + PostgreSQL + Redis + pgvector + Neo4j + Celery.
 
 ---
@@ -9,7 +9,7 @@
 ## 1) Nguyên tắc thiết kế backend
 
 1. **User-facing là persona, backend là technical terms**  
-   API response có thể trả `agent_display_name` (An/Mây/...) cho UI, nhưng backend vẫn dùng Supervisor/Analyst/Friend/SOS Handler.
+   API response có thể trả `agent_display_name` cho UI, nhưng backend vẫn dùng Supervisor/Analyst/Friend/SOS Handler.
 2. **Safety-first nhưng không “UI hard block” mặc định**  
    Khi phát hiện nguy cơ, backend trả gói phản hồi de-escalation + hotline/referral metadata để frontend hiển thị song song.
 3. **Response nhanh, ghi dữ liệu tách lớp**  
