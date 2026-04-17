@@ -1,7 +1,7 @@
 # BACKEND_PLAN 
 ## Thông tin tài liệu
 
-- **Mục đích**: Blueprint backend để triển khai đúng luồng sản phẩm mới, đồng bộ với safety flow, polyglot storage, retention/PII/DR, và contract Neo4j schema v3.
+- **Mục đích**: Blueprint backend để triển khai đúng luồng sản phẩm mới, đồng bộ với safety flow, polyglot storage, retention/PII/DR, và contract Neo4j schema v3. **Crisis UX & orchestration** đối chiếu `docs/NOTES.md` (§I–§VI) — xem §3.3 và §7.
 - **Stack chuẩn**: FastAPI + LangGraph + PostgreSQL + Redis + pgvector + Neo4j + Celery.
 
 ---
@@ -38,7 +38,9 @@
 ## 3.1 Runtime layers
 
 - **API Layer (FastAPI)**: auth, rate limit, guest/session endpoints, consent endpoints.
-- **Orchestration Layer (LangGraph)**: Supervisor -> Analyst -> Friend, SOS bypass.
+- **Orchestration Layer (LangGraph)** — **LLM tuần tự**, **I/O song song** (xem §3.3; đối chiếu `docs/NOTES.md`):
+  - Chuỗi node mặc định: **Supervisor → Analyst → Friend** (một lượt điều phối rõ ràng, dễ audit, hạn chế loop/role confusion).
+  - **SOS / crisis**: khi vượt ngưỡng hoặc `crisis_route_finalized`, luồng chuyển sang **SOS Handler (rule-based, no LLM)** làm **State Finalizer** — không quay lại nhánh Analyst/Friend “bình thường” trong cùng turn cho đến khi policy reset (khớp `NOTES.md` §III — Conversation Loop Control).
 - **Data Layer L1 (Postgres)**: transactional + RLS.
 - **Data Layer L2 (Redis + user_profiles JSONB)**: profile hot-path.
 - **Data Layer L3 (pgvector + Neo4j)**: semantic recall + graph insight.
@@ -51,6 +53,18 @@
 - `safety-context`: crisis detect, logs, alerts, follow-up flags.
 - `insight-context`: profile aggregate, summaries, trends.
 - `resource-context`: coping resources, recommendation edges.
+
+## 3.3 Điều phối (orchestration) — song song I/O, tuần tự LLM, crisis “ba nhánh” UX
+
+Tài liệu `docs/NOTES.md` mô tả **ba tiến trình tâm lý song song** khi có distress/crisis: (1) ổn định cảm xúc, (2) dồn sự chú ý vào hành động an toàn **không ép buộc**, (3) kết nối hỗ trợ thật (hotline, người thân, chuyên gia). Backend **không** bắt buộc chạy ba LLM song song; thay vào đó **gói một response** (crisis payload §7) để frontend hiển thị **dual-focus**: vừa giữ hội thoại/đồng cảm, vừa luôn có micro-action + hotline (khớp `NOTES.md` §II–§III).
+
+| Thành phần | Song song (parallel) | Tuần tự (sequential) |
+|---|---|---|
+| **Middleware / chat-gateway** | `asyncio.gather` (hoặc tương đương): Redis profile, Postgres (8 message + mood), tùy chọn pgvector top‑K / Neo4j read ngắn — giảm P95 trước khi vào graph | — |
+| **LangGraph (LLM)** | Không khuyến nghị chạy song song hai LLM “Peer + Analyst” trên cùng user turn cho đến khi có classifier rủi ro rẻ và test an toàn | Supervisor → Analyst → Friend; SOS Finalizer sau khi kích hoạt crisis |
+| **Sau response** | Celery: clinical patch, memory embed, outbox Neo4j | Sync writes bắt buộc trước (messages, crisis_logs khi SOS) |
+
+**State LangGraph (working memory, bổ sung so với chỉ `recursion_count`):** `routing_history` (danh sách node đã qua), `analyst_calls_this_turn` (giới hạn cứng, ví dụ ≤2), `crisis_route_finalized` (bool — đã vào SOS path thì không re-enter flow thường trong turn), `conversation_mode` hiện tại (`normal` | `de_escalation`). Metrics: vẫn theo dõi `Analyst loop count` (§10.2).
 
 ---
 
@@ -110,8 +124,8 @@
 
 ### Working memory (in-state, 1 request)
 
-- LangGraph state: `current_user_message`, ~8 `recent_messages` của session hiện tại, `profile_snapshot` từ Redis/Postgres, output Analyst (không persist), `recursion_count` (ví dụ max 3), `crisis_level_current`.
-- Supervisor + Analyst đọc; Friend đọc + phản hồi; sau response mới persist L1/L2.
+- LangGraph state: `current_user_message`, ~8 `recent_messages` của session hiện tại, `profile_snapshot` (load song song ở middleware §3.3), **output Analyst dạng instruction bundle** (JSON cho Friend; không persist nguyên văn trừ khi audit nội bộ), `recursion_count` (ví dụ max 3), `crisis_level_current`, **`routing_history`**, **`analyst_calls_this_turn`**, **`crisis_route_finalized`**, **`conversation_mode`**.
+- Supervisor + Analyst đọc; Friend đọc bundle + phản hồi; khi crisis: **SOS Finalizer** ghép payload §7 (khớp `NOTES.md` §I + §III). Sau response mới persist L1/L2.
 
 ### Short-term memory (session-scoped, Postgres)
 
@@ -141,8 +155,8 @@ LIMIT 5
 ### Write path — message (tóm tắt 7 bước)
 
 1. `POST /v1/chat/message` vào API.
-2. Middleware (sync): `SET LOCAL app.current_user_id`, load profile Redis→Postgres, 8 message gần, mood hôm nay, build state.
-3. LangGraph: route; crisis bypass; SOS check sau Analyst khi không bypass.
+2. Middleware: `SET LOCAL app.current_user_id`; **load song song** profile (Redis→Postgres fallback), 8 message gần, mood hôm nay, tùy chọn RAG/graph (§3.3); build state.
+3. LangGraph: route; nếu đã `crisis_route_finalized` hoặc risk vượt ngưỡng → **SOS Finalizer** (không re-enter Analyst/Friend thường); ngược lại Supervisor → Analyst → Friend; SOS check **trước** Friend final (§6.3).
 4. Trả response (stream/REST).
 5a. **Sync:** transaction `messages` ×2, `conversations`, nếu SOS thì `crisis_logs` + `admin_audit_log`.  
 5b. **Async:** `clinical_profiles`, patch `user_profiles` + `DEL profile:{uid}`, `sync_outbox`.  
@@ -237,9 +251,8 @@ LIMIT 5
 ## 6.1 Diagram 1 — message -> agents -> response + async writes
 
 - **Sync (blocking)**:
-  - load profile từ Redis (fallback Postgres),
-  - load 8 messages gần nhất + mood hôm nay,
-  - invoke LangGraph (Supervisor/Analyst/Friend hoặc SOS bypass),
+  - load profile từ Redis (fallback Postgres) **song song** với 8 messages gần nhất + mood hôm nay (và tùy chọn đọc phụ trợ §3.3),
+  - invoke LangGraph (Supervisor → Analyst → Friend **hoặc** nhánh SOS Finalizer — không quay lại flow thường khi crisis đã khóa, `NOTES.md` §III),
   - commit writes bắt buộc (`messages`, `conversations`, và nếu SOS thì `crisis_logs` + `admin_audit_log`).
 - **Async (non-blocking)**:
   - update `clinical_profiles`,
@@ -265,8 +278,9 @@ LIMIT 5
 
 ## 6.3 Diagram 3 — SOS path
 
-- SOS check xảy ra **trước Friend final response**.
-- SOS handler là **rule-based, no LLM**.
+- SOS check xảy ra **trước Friend final response** (hoặc chặn Friend nếu risk đã đủ cao từ intake/rule — product chốt).
+- **SOS Handler = State Finalizer**: **rule-based, no LLM** cho phần cấu trúc crisis (hotline, micro-actions, flags). Có thể vẫn có `assistant_text` do template/ghép slot từ rule (không phải LLM tự do) để giữ giọng đồng cảm nhất quán — tránh “over-refusal” kiểu model từ chối trả lời (`NOTES.md` §IV).
+- Khi **`crisis_route_finalized`** hoặc `conversation_mode: de_escalation` đang khóa theo policy: **không** quay lại Supervisor → Analyst → Friend “bình thường” trong cùng request/turn (`NOTES.md` §III.3); response = de-escalation + hooks §7.
 - Sync writes bắt buộc:
   - user msg + SOS response msg,
   - `crisis_logs`,
@@ -277,26 +291,48 @@ LIMIT 5
 
 ---
 
-## 7) Safety behavior mới (khớp FRONTEND_PLAN v2.0)
+## 7) Safety behavior (khớp `FRONTEND_PLAN` v2.0 + `docs/NOTES.md`)
+
+Đối chiếu `NOTES.md`: crisis đúng là **vừa** giữ kết nối/đồng cảm (LLM hoặc template an toàn), **vừa** giảm ma sát tới hỗ trợ thật (hotline, người thân) — **không** guilt/fear, **không** ép “phải gọi ngay”, **không** chỉ ném số tổng đài. Payload backend phải hỗ trợ **dual-focus UI** (chat + hành động nhỏ + kết nối ngoài).
 
 ## 7.1 Tránh hard-stop UI duy nhất
 
 Backend không chỉ trả `sos_fullscreen=true`; cần trả cấu trúc đa phần:
 
-- `conversation_mode`: `de_escalation`
-- `hotline_cards[]`: luôn render được ngay
-- `grounding_actions[]`: bài thở/5-4-3-2-1
-- `referral_options[]`: counselor/nguồn hỗ trợ
+- `conversation_mode`: `de_escalation` (hoặc `normal`)
+- **`assistant_strategy`** (engagement hooks, `NOTES.md` §III.1): hướng dẫn FE/backend-constrained copy
+  - `keep_engaged`: `true` — ưu tiên câu chữ giữ user trong trạng thái an toàn, không kéo dài vô nghĩa (`NOTES.md` §IV.1)
+  - `encourage_external_help`: `true` — gợi mở hotline/người thân/chuyên gia, không ra lệnh
+  - `avoid_hard_stop`: `true` — không coi “khóa toàn bộ UI / ẩn chat vĩnh viễn” là hành vi mặc định duy nhất
+- **`micro_actions[]`**: hành động nhỏ **có nhãn hiển thị** cho user (grounding/thở), không ép buộc — song song với lời an ủi (`NOTES.md` §I.2, §III.1)
+- `hotline_cards[]`: luôn render được ngay (`NOTES.md` §I.3)
+- **`grounding_actions[]`** (tùy chọn, idempotent với resource catalog): id tham chiếu bài thở/5-4-3-2-1 để deep-link / analytics
+- `referral_options[]`: counselor / trusted_contact / clinic — giảm friction quyết định (`NOTES.md` §V)
 - `followup_priority`: true/false
 
-## 7.2 Crisis response contract (đề xuất)
+## 7.2 Crisis response contract (đề xuất — gộp §7.1 + `NOTES.md`)
 
 ```json
 {
   "risk_level": 4,
   "conversation_mode": "de_escalation",
   "agent_display_name": "Mây",
-  "assistant_text": "Mình đang ở đây với bạn. Mình muốn giúp bạn an toàn ngay lúc này.",
+  "assistant_text": "Mình đang ở đây với bạn. Mình muốn giúp bạn an toàn ngay lúc này — nếu được, mình muốn bạn thử một việc nhỏ cùng mình trong lúc bạn cân nhắc thêm bước tiếp theo.",
+  "assistant_strategy": {
+    "keep_engaged": true,
+    "encourage_external_help": true,
+    "avoid_hard_stop": true
+  },
+  "micro_actions": [
+    {
+      "type": "grounding",
+      "label": "Nhìn quanh và kể tên 5 thứ bạn thấy"
+    },
+    {
+      "type": "breathing",
+      "label": "Hít vào 4 giây, giữ 4 giây, thở ra 6 giây"
+    }
+  ],
   "hotline_cards": [
     {"label": "Hotline Ngày Mai", "phone": "1800-599-920"},
     {"label": "Cấp cứu", "phone": "115"}
@@ -306,6 +342,13 @@ Backend không chỉ trả `sos_fullscreen=true`; cần trả cấu trúc đa ph
   "followup_priority": true
 }
 ```
+
+- **`micro_actions`** và **`grounding_actions`**: có thể map 1–1 (type/label ↔ id) ở tầng service; FE có thể ưu tiên `micro_actions` cho copy mềm, `grounding_actions` cho điều hướng nội dung đã seed.
+
+## 7.3 Nội dung assistant_text trong crisis (khớp `NOTES.md` §II)
+
+- Tránh câu từ chối kiểu “mình không thể giúp”; thay bằng thừa nhận nặng + giới hạn vai trò AI + đề xuất bước nhỏ + hotline (`NOTES.md` §II.1–§II.2).
+- Không guilt/fear-based copy (kiểm soát ở template SOS + review nội dung tĩnh).
 
 ---
 
@@ -399,8 +442,9 @@ Backend không chỉ trả `sos_fullscreen=true`; cần trả cấu trúc đa ph
 
 ## Phase A — Core safety + conversational backbone
 
-- Chat API + LangGraph runtime.
-- Safety gate + SOS handler + hotline payload.
+- Chat API + LangGraph runtime (Supervisor → Analyst → Friend; SOS Finalizer; state §4.6).
+- Middleware **parallel I/O** cho profile + messages + mood (§3.3).
+- Safety gate + SOS handler + crisis payload đầy đủ §7 (khớp `NOTES.md`).
 - Sync writes + audit log.
 
 ## Phase B — Profile intelligence
@@ -521,6 +565,7 @@ TẦNG 3 — INTERVENTION & USER (:Resource, :ResourceCategory, :CopingAction,
 - [x] Khớp kiến trúc dữ liệu: polyglot 3-layer, memory tiers, retention, PII, DR, outbox.
 - [x] Khớp contract Neo4j v3 (typed category rels, migration order, GraphRAG SECTION 10).
 - [x] Khớp frontend plan mới: trial-first, safety gate, 3 nhánh nhu cầu, policy bắt buộc sau signup.
+- [x] Khớp `docs/NOTES.md`: payload crisis có `assistant_strategy` + `micro_actions`, dual-focus; crisis loop không re-enter flow thường khi đã finalizer (§3.3, §6.3, §7).
 - [x] Khớp sơ đồ bảng CSDL trong ảnh (`csdl.png`) ở các bảng chính.
 - [x] Có tính đến benchmark feature matrix (`image.png`) cho kết nối chuyên gia, theo dõi dài hạn, khả năng mở rộng B2B.
 
