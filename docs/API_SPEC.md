@@ -3,7 +3,7 @@
 **Thông tin dự án:** Multi-Agent Therapist Sàng Lọc và Hỗ Trợ Sức Khỏe Tinh Thần
 **Stack:** React.js + FastAPI + LangGraph + PostgreSQL + Redis + pgvector + Neo4j (Celery/outbox theo `BACKEND_PLAN.md`)
 
-**Ngày:** 2026-04-12 | **Đối chiếu plan:** 2026-04-17 (xem mục cuối)
+**Ngày:** 2026-04-12 | **Đối chiếu plan:** 2026-04-17 | **Crisis payload:** `BACKEND_PLAN.md` §7.2 (đồng bộ 2026-04-17)
 
 ---
 
@@ -159,8 +159,9 @@ Thu hồi refresh token. **Không có request body** — server đọc `refresh_
 ## 2. Chat (Core)
 
 ### `POST /chat/message`
-Gửi 1 tin nhắn, nhận phản hồi agent. Endpoint này chạy toàn bộ LangGraph pipeline:
-Middleware → Supervisor → Analyst (nếu cần) → Friend → Output Guardrails.
+Gửi 1 tin nhắn, nhận phản hồi agent. Path triển khai theo blueprint: **`POST /v1/chat/message`** (document này bỏ tiền tố `/v1` trong heading cho gọn; mọi path dưới đây hiểu là dưới `$BASE_URL/v1`).
+
+Endpoint chạy LangGraph: Middleware → Supervisor → Analyst (nếu cần) → Friend → Output Guardrails; nhánh crisis → **SOS Handler (rule-based)** theo `SEQUENCE_DIAGRAMS` Diagram 4 và `BACKEND_PLAN.md` §6.3 / §7.
 
 ```json
 // Request
@@ -179,6 +180,7 @@ Middleware → Supervisor → Analyst (nếu cần) → Friend → Output Guardr
   "success": true,
   "data": {
     "session_id": "sess_xyz",
+    "conversation_mode": "normal",
     "reply": "Nghe có vẻ bạn đang gồng gánh nhiều thứ một lúc. Áp lực đến mức không ngủ được thì mệt lắm rồi...",
     "tone_cam_xuc": "xac_nhan",
     "goi_y_nhanh": [
@@ -199,38 +201,60 @@ Middleware → Supervisor → Analyst (nếu cần) → Friend → Output Guardr
 }
 ```
 
-**Response khi SOS kích hoạt (`sos_triggered = true`):**
+**Response khi SOS / crisis kích hoạt (`sos_triggered = true`)** — **khớp `BACKEND_PLAN.md` §7.2** (de-escalation, dual-focus, không chỉ một hotline đơn):
+
 ```json
 {
   "success": true,
   "data": {
     "session_id": "sess_xyz",
-    "reply": null,
     "sos_triggered": true,
-    "sos_card": {
-      "muc_do": "cao",
-      "message": "Mình thấy bạn đang trải qua điều rất nặng nề. Bạn không phải một mình — có người sẵn sàng lắng nghe ngay bây giờ.",
-      "hotline": {
-        "name": "Đường dây hỗ trợ sức khỏe tâm thần",
-        "number": "1800-599-920",
-        "available": "24/7"
+    "conversation_mode": "de_escalation",
+    "risk_level": 4,
+    "agent_display_name": "Mây",
+    "reply": null,
+    "assistant_text": "Mình đang ở đây với bạn. Mình muốn giúp bạn an toàn ngay lúc này — nếu được, mình muốn bạn thử một việc nhỏ cùng mình trong lúc bạn cân nhắc thêm bước tiếp theo.",
+    "assistant_strategy": {
+      "keep_engaged": true,
+      "encourage_external_help": true,
+      "avoid_hard_stop": true
+    },
+    "micro_actions": [
+      {
+        "type": "grounding",
+        "label": "Nhìn quanh và kể tên 5 thứ bạn thấy"
       },
-      "bai_tap_grounding": {
-        "id": "ground_54321",
-        "title": "Kỹ thuật 5-4-3-2-1",
-        "instruction": "Nhìn quanh và tìm 5 thứ bạn thấy, 4 thứ bạn chạm được..."
-      },
-      "suggest_clinic": true
-    }
+      {
+        "type": "breathing",
+        "label": "Hít vào 4 giây, giữ 4 giây, thở ra 6 giây"
+      }
+    ],
+    "hotline_cards": [
+      {"label": "Hotline Ngày Mai", "phone": "1800-599-920"},
+      {"label": "Cấp cứu", "phone": "115"}
+    ],
+    "grounding_actions": [
+      {"id": "grounding_54321"},
+      {"id": "breath_478"}
+    ],
+    "referral_options": [
+      {"type": "counselor"},
+      {"type": "trusted_contact"}
+    ],
+    "followup_priority": true
   },
   "error": null
 }
 ```
 
+- **`assistant_text`**: nội dung chính khi crisis (thay thế `reply`); có thể do template rule-based hoặc copy đã kiểm soát — tránh từ chối cứng kiểu “không thể giúp” (`docs/NOTES.md`).
+- **`micro_actions`**: nhãn hiển thị cho user (grounding/thở); **`grounding_actions`**: id tham chiếu catalog / deep-link / analytics — có thể map 1–1 ở service.
+- Response bình thường có thể thêm `conversation_mode: "normal"` (optional) để FE thống nhất component.
+
 **Lưu ý cho FE:**
-- Kiểm tra `sos_triggered` **trước** khi render `reply`.
-- Khi `sos_triggered = true`: override toàn bộ UI bằng `sos_card`, ẩn input box, không cho gõ tiếp.
-- `tone_cam_xuc` nhận các giá trị: `"ho_tro"`, `"xac_nhan"`, `"vui_tuoi"`, `"lam_diu"`.
+- Kiểm tra `sos_triggered` **trước** khi render `reply` như chat thường; khi `true`, ưu tiên **`assistant_text`** + block crisis (hotline, `micro_actions`, `referral_options`).
+- Khi `assistant_strategy.avoid_hard_stop === true` (mặc định crisis): **không** coi “fullscreen duy nhất + ẩn input vĩnh viễn” là bắt buộc — ưu tiên **dual-focus**: vừa hiển thị nội dung an toàn, vừa luôn có hotline + hành động nhỏ (`docs/NOTES.md`). Có thể hạn chế input (ví dụ chỉ quick-replies an toàn) thay vì khóa hoàn toàn, trừ policy sản phẩm bắt buộc khác.
+- `tone_cam_xuc` (khi không SOS): `"ho_tro"`, `"xac_nhan"`, `"vui_tuoi"`, `"lam_diu"`.
 
 **Rate limit:** 30 messages/phút/user. Vượt → lỗi `RATE_LIMIT_EXCEEDED`.
 
@@ -824,11 +848,11 @@ Số liệu ẩn danh cho B2B dashboard (trường học, tổ chức).
 ### PII Masking
 Xảy ra ở middleware FastAPI **trước khi** request vào LangGraph. FE không cần xử lý. Mọi dữ liệu lưu DB đều đã được mask.
 
-### SOS Override (bắt buộc)
-FE **phải** kiểm tra `sos_triggered` trước khi render bất kỳ nội dung nào từ `/chat/message`. Khi `sos_triggered = true`:
-1. Render `sos_card` thay thế toàn bộ reply
-2. Ẩn input box — không cho user gõ thêm
-3. Hiển thị nút gọi hotline và nút xem phòng khám
+### SOS / crisis (bắt buộc — khớp `BACKEND_PLAN.md` §7)
+FE **phải** kiểm tra `sos_triggered` trước khi render `reply` như tin nhắn thường. Khi `sos_triggered = true`:
+1. Render **`assistant_text`** và các khối **`hotline_cards`**, **`micro_actions`**, **`grounding_actions`** (nếu có), **`referral_options`** theo `conversation_mode: de_escalation`.
+2. Tôn trọng **`assistant_strategy`**: nếu `avoid_hard_stop` — ưu tiên UI **dual-focus** (chat an toàn + hotline + micro-actions), không ép một pattern “chỉ fullscreen / chỉ số điện thoại” (`docs/NOTES.md`).
+3. Hiển thị nút gọi hotline / liên hệ hỗ trợ; map `followup_priority` nếu có màn hình follow-up.
 
 ### Streaming (Roadmap)
 MVP dùng REST sync. Nếu latency P95 > 5s ở Phase 2, nâng cấp lên endpoint `/chat/stream` (SSE). FE thiết kế component chat có thể swap giữa sync và streaming.
@@ -855,8 +879,8 @@ Tài liệu này mô tả **MVP API theo path hiện có** (`/auth/*`, `/chat/*`
 | Screening | `GET /v1/screenings/catalog`, `POST /v1/screenings/submit` | Không có | **Thiếu** |
 | Check-in “An” | `POST /v1/checkin/quick` (mood + stress/sleep/study + note, sync `mood_checkins`) | `POST /mood/checkin` (mood/emoji/note), `/home/feed` | **Khác contract/path** — có thể map nếu mở rộng body + đổi tên, hoặc tách endpoint “quick” theo plan |
 | Chat path | `POST /v1/chat/message`; sync tối thiểu + async profile/memory/outbox | `POST /chat/message` + cùng ý trong mô tả | **Khớp tinh thần** (cùng base `/v1`) |
-| Crisis / SOS | De-escalation **song song** hotline + grounding + referral metadata; không UI hard-block duy nhất; `crisis_logs` không Neo4j (Diagram 4) | `sos_card` + `reply: null`; FE “override toàn bộ, **ẩn input**, không gõ tiếp” | **Lệch nặng** — hướng dẫn FE trong spec đang ép fullscreen/block; plan + diagram ưu tiên gói đa thành phần (xem `BACKEND_PLAN` §7) |
-| Payload crisis đề xuất | `conversation_mode`, `hotline_cards[]`, `grounding_actions[]`, `referral_options[]`, `risk_level`, `assistant_text` | `sos_triggered` + `sos_card` (một hotline, một grounding, `suggest_clinic`) | **Chưa đồng bộ schema** — nên nâng response (hoặc map field) cho khớp contract |
+| Crisis / SOS | De-escalation + `assistant_strategy` + `micro_actions` + hotline + referral; không hard-stop UI duy nhất; `crisis_logs` không Neo4j (Diagram 4) | `sos_triggered` + §7.2 fields (`assistant_text`, `assistant_strategy`, `micro_actions`, `hotline_cards`, `grounding_actions`, `referral_options`, `risk_level`, `followup_priority`) | **Đã đồng bộ** — xem mục Chat `/chat/message` và “SOS / crisis” |
+| Payload crisis (`BACKEND_PLAN` §7.2) | Như trên | Giống §7.2 | **Khớp** |
 | Hotline / referral | `GET /v1/safety/hotlines`, `GET /v1/referrals/options`; hotline kèm trong chat khi crisis | `GET /connect/hotlines` (public), `POST /connect/clinics` | **Khớp ý một phần** — path và mô hình tách khác plan; có thể alias hoặc đổi tên theo `BACKEND_PLAN` §5.6 |
 | Dashboard “Gương” | `GET /v1/dashboard/overview`, `mood-trend`, `history`, `follow-up` | `GET /reflect/mood-trend`, `/home/feed`, không có `follow-up` tách | **Khớp một phần** — thiếu follow-up rõ ràng |
 | Nội bộ an toàn | `POST /v1/safety/escalate` (internal) | Không liệt kê | **Thiếu** (có thể chỉ server-to-server) |
@@ -864,4 +888,4 @@ Tài liệu này mô tả **MVP API theo path hiện có** (`/auth/*`, `/chat/*`
 
 **Ghi chú nhỏ:** Trong `BACKEND_PLAN` §5.5, câu “Quy trình theo Diagram 1” cho chat nên hiểu là **diagram chat / pipeline message** trong `SEQUENCE_DIAGRAMS` (Diagram 2 — Chat message), không phải Diagram 1 (guest-first).
 
-**Khuyến nghị:** (1) Sửa mục “SOS Override” và ví dụ JSON crisis cho khớp §7 `BACKEND_PLAN` + Diagram 4; (2) bổ sung các nhóm endpoint guest / intake / policies / screenings (có thể đánh dấu “Phase …” nếu chưa build); (3) thống nhất `user_id` với schema Postgres.
+**Khuyến nghị:** (1) ~~Sửa mục SOS và JSON crisis~~ — **đã khớp §7.2**; (2) bổ sung các nhóm endpoint guest / intake / policies / screenings (có thể đánh dấu “Phase …” nếu chưa build); (3) thống nhất `user_id` với schema Postgres (`usr_` + 10 hex).
