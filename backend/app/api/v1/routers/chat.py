@@ -11,12 +11,95 @@ from app.core.responses import ok
 from app.db.models import Conversation, Message, User
 from app.db.session import get_db
 from app.schemas.payloads import ChatMessageRequest
+from app.services.crisis_payload import (
+    assistant_text_for_stored_message_sos,
+    build_normal_chat_response_data,
+    build_sos_chat_response_data,
+)
 from app.services.rate_limit import get_rate_limiter
 from app.services.utils import make_id, utc_now
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-SOS_KEYWORDS = ["khong muon tiep tuc", "muon chet", "tu tu", "khong muon song", "khong muốn tiếp tục"]
+EXPLICIT_HIGH_RISK = [
+    "muon chet", "muon tu tu", "toi muon chet", "toi muon tu tu",
+    "khong muon song nua", "khong muon ton tai nua",
+    "chet di cho roi", "chet cho xong",
+    "toi se tu tu", "toi sap tu tu",
+    "toi nghi den tu tu", "toi dang nghi den viec chet",
+    "toi muon bien mat", "toi muon ket thuc moi thu",
+]
+
+IMPLICIT_MEDIUM_RISK = [
+    "met qua roi", "het suc roi", "khong con suc nua",
+    "song de lam gi", "song co y nghia gi dau",
+    "toi vo dung", "toi la ganh nang",
+    "toi khong xung dang ton tai",
+    "khong ai can toi", "toi chang co gia tri gi",
+    "muon bien khoi the gioi nay",
+    "gia nhu toi chua tung ton tai",
+]
+
+HOPELESSNESS = [
+    "tat ca deu vo nghia", "khong co loi thoat",
+    "khong co tuong lai", "khong co hy vong",
+    "cu doi toi tan roi", "toi that bai het roi",
+    "toi khong the tiep tuc duoc nua",
+]
+
+
+FAREWELL_SIGNALS = [
+    "tam biet moi nguoi", "bye moi nguoi",
+    "cam on vi tat ca", "cam on vi da ben toi",
+    "day co the la lan cuoi",
+    "toi di day", "toi se roi di",
+    "mong moi nguoi song tot",
+]
+
+
+
+SELF_WORTH = [
+    "toi that bai", "toi vo dung",
+    "toi la ganh nang cua moi nguoi",
+    "toi lam gi cung hong",
+    "toi chi lam phien nguoi khac",
+]
+
+
+
+EXHAUSTION = [
+    "met moi qua", "kiet suc roi",
+    "khong con suc nua", "toi sap guc nga",
+    "toi khong chiu noi nua",
+]
+GENZ_VARIANTS = [
+    "muon xit", "muon die", "muon out",
+    "end game di", "quit game di",
+    "toi muon off", "toi out day",
+    "bye cuoc doi", "goodbye moi nguoi",
+    "toi sap roi", "toi khong tru duoc nua",
+    "muon chet", "ko muon song", "k muon song nua",
+    "chan song roi", "met vl roi",
+    "toi vo gia tri", "song lam gi",
+    "i want to die", "i wanna die",
+    "kill myself", "end my life",
+    "no reason to live",
+    "im done with life",
+]
+
+
+
+SOS_KEYWORDS = list(set(
+    EXPLICIT_HIGH_RISK +
+    IMPLICIT_MEDIUM_RISK +
+    HOPELESSNESS +
+    GENZ_VARIANTS +
+    FAREWELL_SIGNALS +
+    SELF_WORTH +
+    EXHAUSTION
+))
+
+
 
 
 def _is_sos(message: str) -> bool:
@@ -32,7 +115,7 @@ def send_message(payload: ChatMessageRequest, current_user: User = Depends(get_c
         key=f"chat:{current_user.user_id}",
         limit=settings.chat_rate_limit_per_minute,
         code="RATE_LIMIT_EXCEEDED",
-        message="Bạn đã vượt quá giới hạn chat mỗi phút",
+        message="Cậu ơi, cậu dùng hết gói chat hiện tại rùi nè, hãy đăng ký tài khoản để tiếp tục sử dụng nhé!",
     )
 
     now = utc_now().replace(tzinfo=None)
@@ -70,9 +153,9 @@ def send_message(payload: ChatMessageRequest, current_user: User = Depends(get_c
 
     sos = _is_sos(payload.message)
     if sos:
-        assistant_content = "Mình thấy bạn đang rất khó khăn. Bạn không đơn độc, hãy gọi 1800-599-920 để được hỗ trợ ngay."
+        assistant_content = assistant_text_for_stored_message_sos()
     else:
-        assistant_content = "Mình nghe bạn rồi. Cảm ơn bạn đã chia sẻ, mình ở đây để đồng hành cùng bạn."
+        assistant_content = "Mình hiểu rồi. Cảm ơn cậu đã chia sẻ, mình sẽ luôn ở đây để sẻ chia cùng cậu."
 
     assistant_msg = Message(
         message_id=make_id("msg"),
@@ -91,40 +174,18 @@ def send_message(payload: ChatMessageRequest, current_user: User = Depends(get_c
     db.commit()
 
     if sos:
-        return ok(
-            {
-                "session_id": session.session_id,
-                "reply": None,
-                "sos_triggered": True,
-                "sos_card": {
-                    "muc_do": "cao",
-                    "message": "Mình thấy bạn đang trải qua điều rất nặng nề. Bạn không phải một mình.",
-                    "hotline": {
-                        "name": "Đường dây hỗ trợ sức khỏe tâm thần",
-                        "number": "1800-599-920",
-                        "available": "24/7",
-                    },
-                    "bai_tap_grounding": {
-                        "id": "ground_54321",
-                        "title": "Kỹ thuật 5-4-3-2-1",
-                        "instruction": "Nhìn quanh và tìm 5 thứ bạn thấy, 4 thứ bạn chạm được...",
-                    },
-                    "suggest_clinic": True,
-                },
-            }
-        )
+        return ok(build_sos_chat_response_data(session.session_id))
 
     return ok(
-        {
-            "session_id": session.session_id,
-            "reply": assistant_content,
-            "tone_cam_xuc": "xac_nhan",
-            "goi_y_nhanh": ["Kể thêm đi", "Mình nên làm gì bây giờ?", "Chỉ cần lắng nghe thôi"],
-            "the_dinh_kem": [
+        build_normal_chat_response_data(
+            session.session_id,
+            reply=assistant_content,
+            tone_cam_xuc="xac_nhan",
+            goi_y_nhanh=["Kể thêm đi cậu", "Mình nên làm gì bây giờ?", "Chỉ cần lắng nghe thôi"],
+            the_dinh_kem=[
                 {"type": "breathing_exercise", "id": "breath_478", "title": "Thở 4-7-8 - Giảm căng thẳng"}
             ],
-            "sos_triggered": False,
-        }
+        )
     )
 
 
