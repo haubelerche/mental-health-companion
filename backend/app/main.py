@@ -1,22 +1,67 @@
+from contextlib import asynccontextmanager
+import threading
+import time
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from app.api.v1.api import api_router
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.responses import fail
 from app.db.init_db import init_db
+from app.db.session import get_session_factory
 
 settings = get_settings()
-app = FastAPI(title=settings.app_name, version=settings.app_version)
-app.include_router(api_router, prefix=settings.api_prefix)
 
 
-@app.on_event("startup")
-def startup_event():
+def _backfill_policy_versions() -> None:
+    try:
+        factory = get_session_factory()
+        db = factory()
+        try:
+            db.execute(
+                text(
+                    "UPDATE users SET policy_acknowledged_at = COALESCE(policy_acknowledged_at, created_at), "
+                    "policy_version_ack = COALESCE(policy_version_ack, '1.0') "
+                    "WHERE policy_acknowledged_at IS NULL"
+                )
+            )
+            db.commit()
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+
+def _idle_loop() -> None:
+    from app.services.idle_sessions import summarize_idle_sessions
+
+    while True:
+        time.sleep(120)
+        try:
+            summarize_idle_sessions()
+        except Exception:
+            pass
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
     if settings.auto_create_schema:
         init_db()
+    _backfill_policy_versions()
+    threading.Thread(target=_idle_loop, daemon=True).start()
+    yield
+
+
+app = FastAPI(
+    title=settings.app_name,
+    version=settings.app_version,
+    lifespan=lifespan,
+)
+app.include_router(api_router, prefix=settings.api_prefix)
 
 
 @app.exception_handler(AppError)
