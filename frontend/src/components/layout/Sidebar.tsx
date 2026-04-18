@@ -16,7 +16,7 @@ export default function Sidebar({ navItems, isOpen }: SidebarProps) {
         <>
             <aside
                 className={[
-                    'fixed left-0 top-0 z-40 hidden h-full w-72 flex-col rounded-r-[32px] border-r border-white/35 bg-white/55 p-8 backdrop-blur-3xl transition-transform duration-300 lg:flex',
+                    'fixed left-0 top-0 z-40 hidden h-full w-72 flex-col border-r border-white/35 bg-white/40 p-8 backdrop-blur-3xl transition-transform duration-300 lg:flex',
                     isOpen ? 'translate-x-0' : '-translate-x-[110%]',
                 ].join(' ')}
             >

@@ -20,6 +20,7 @@ import bg from '../../assets/bg3.png'
 import exercise from '../../assets/exercise.png'
 import journal from '../../assets/journal.png'
 import ethereal from '../../assets/ethereal.png'
+import forest from '../../assets/forest.png'
 
 type MoodCard = {
     icon: ReactNode
@@ -112,7 +113,7 @@ export default function Home() {
                     isSidebarOpen ? 'lg:ml-72' : 'lg:ml-0',
                 ].join(' ')}
             >
-                <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/35 bg-white/30 px-5 py-4 backdrop-blur-xl sm:px-8 lg:px-12">
+                <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/35 px-5 py-4 backdrop-blur-xl sm:px-8 lg:px-12">
                     <div className="flex items-center gap-3 sm:gap-4">
                         <button
                             type="button"
@@ -200,11 +201,11 @@ export default function Home() {
                     <section className="grid gap-8 lg:grid-cols-2 lg:gap-10">
                         <article className="group relative overflow-hidden rounded-[34px] shadow-[0_30px_70px_rgba(47,52,46,0.26)] ">
                             <img
-                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAqrlqV6K7soDRwnNHIgqWTa8sCWRy8fKXCeNmlMgqvfAbql-OiyjPdh68vAc9TnbEaLN2qNni9Q7Srx2g9ukegLhX2ZcDjVWM-EgaQxloBVcZ7MgFbRvutagUWXFXsvB3w3S-X1xzTQbo_t_lNKRY2TjgBnm9DgpkvBjwum9HS1r7k1UpJlRvRK6LtIUAZGj9KaDMiQIKWP6W_pdGAsrhyjp6cIeutSrYhRFjPulvx4YNj_T1XodOnEMSdOFCJG5fbsqK8tUCY6hw"
+                                src={forest}
                                 alt="Lối đi trong rừng"
                                 className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-serene-primary/90 via-serene-primary/20 to-transparent" />
+                            <div className="absolute inset-0 bg-linear-to-t from-serene-primary/90 via-serene-primary/20 to-transparent" />
                             <div className="absolute bottom-0 left-0 w-full p-8 sm:p-10">
                                 <p className="text-xs uppercase tracking-[0.25em] text-serene-accent/90">
                                     Gợi ý cho bạn
