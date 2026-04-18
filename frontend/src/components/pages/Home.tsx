@@ -18,7 +18,7 @@ export default function Home() {
 
             <header className="sticky top-0 z-40 border-b border-white/10 bg-black/10 backdrop-blur-xl">
                 <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
-                    <h1 className="font-display text-3xl italic tracking-tight text-white">Serene</h1>
+                    <a href="/" className="font-display text-3xl italic tracking-tight text-white">Serene</a>
                     <nav className="hidden items-center gap-8 md:flex">
                         <a href="#hero" className="text-sm tracking-wide text-white/85 hover:text-white">Hero</a>
                         <a href="#about-ai" className="text-sm tracking-wide text-white/85 hover:text-white">AI Companion</a>

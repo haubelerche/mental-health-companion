@@ -5,7 +5,7 @@
     --font-display: "Newsreader", serif;
     --font-body: "Inter", sans-serif;
 
-    --color-serene-bg: #faf9f5; 
+    --color-serene-bg: #faf9f5;
     --color-serene-ink: #2f342e;
     --color-serene-muted: #5c605a;
     --color-serene-primary: #4d6359;
@@ -97,5 +97,13 @@
 
     .auth-footer-meta {
         @apply relative z-10 flex w-full flex-col items-center justify-between gap-4 px-8 py-8 text-xs uppercase tracking-[0.2em] text-serene-muted/75 md:flex-row;
+    }
+
+    .pointer {
+        @apply hover:cursor-pointer;
+    }
+
+    .backdrop {
+        @apply bg-white/10 backdrop-blur-xl transition hover:bg-white/15;
     }
 }

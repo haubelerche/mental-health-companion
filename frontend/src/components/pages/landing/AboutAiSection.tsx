@@ -1,6 +1,8 @@
+import RevealSection from './RevealSection'
+
 export default function AboutAiSection() {
     return (
-        <section id="about-ai" className="relative min-h-screen px-6 py-30">
+        <RevealSection id="about-ai" className="relative min-h-screen px-6 py-30" delay={0.15}>
             {/* <div className="absolute inset-0 -z-10">
                 <img src={bg3} alt="Peaceful deep ocean" className="h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-black/30" />
@@ -19,6 +21,6 @@ export default function AboutAiSection() {
                     </p>
                 </div>
             </div>
-        </section>
+        </RevealSection>
     )
 }
