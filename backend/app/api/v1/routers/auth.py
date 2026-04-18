@@ -19,6 +19,7 @@ from app.services.security import (
     issue_access_token,
     verify_password,
 )
+from app.core.product_constants import CURRENT_POLICY_VERSION
 from app.services.utils import make_id, now_plus, utc_now
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -50,12 +51,15 @@ def signup(payload: SignupRequest, response: Response, request: Request, db: Ses
     if exists:
         raise AppError("INVALID_PARAMETER", "Email đã tồn tại", 400)
 
+    now_naive = utc_now().replace(tzinfo=None)
     user = User(
         user_id=make_id("usr"),
         display_name=payload.display_name,
         email=payload.email,
         password_hash=hash_password(payload.password),
         disclaimer_accepted=True,
+        policy_acknowledged_at=now_naive,
+        policy_version_ack=CURRENT_POLICY_VERSION,
     )
     db.add(user)
     try:
