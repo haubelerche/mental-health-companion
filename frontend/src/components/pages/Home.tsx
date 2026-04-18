@@ -16,7 +16,7 @@ import {
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import Sidebar from '../layout/Sidebar'
-import bg from '../../assets/bg.png'
+import bg from '../../assets/bg3.png'
 import exercise from '../../assets/exercise.png'
 import journal from '../../assets/journal.png'
 import ethereal from '../../assets/ethereal.png'
@@ -155,9 +155,7 @@ export default function Home() {
                     <section className="grid items-end gap-8 lg:grid-cols-12 lg:gap-12">
                         <div className="lg:col-span-8">
                             <h2 className="font-display text-5xl leading-tight text-white sm:text-6xl lg:text-7xl">
-                                Hôm nay thế giới nội tâm
-                                <br />
-                                của bạn đang như thế nào?
+                                Hôm nay <span className='italic font-display text-serene-ink'>thế giới nội tâm </span>của bạn đang như thế nào?
                             </h2>
                         </div>
                         <p className="text-base leading-relaxed text-serene-ink/85 lg:col-span-4 lg:pb-3 lg:text-lg">
@@ -200,7 +198,7 @@ export default function Home() {
                     </section>
 
                     <section className="grid gap-8 lg:grid-cols-2 lg:gap-10">
-                        <article className="group relative min-h-[420px] overflow-hidden rounded-[34px] shadow-[0_30px_70px_rgba(47,52,46,0.26)] lg:min-h-[520px]">
+                        <article className="group relative overflow-hidden rounded-[34px] shadow-[0_30px_70px_rgba(47,52,46,0.26)] ">
                             <img
                                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuAqrlqV6K7soDRwnNHIgqWTa8sCWRy8fKXCeNmlMgqvfAbql-OiyjPdh68vAc9TnbEaLN2qNni9Q7Srx2g9ukegLhX2ZcDjVWM-EgaQxloBVcZ7MgFbRvutagUWXFXsvB3w3S-X1xzTQbo_t_lNKRY2TjgBnm9DgpkvBjwum9HS1r7k1UpJlRvRK6LtIUAZGj9KaDMiQIKWP6W_pdGAsrhyjp6cIeutSrYhRFjPulvx4YNj_T1XodOnEMSdOFCJG5fbsqK8tUCY6hw"
                                 alt="Lối đi trong rừng"
@@ -265,20 +263,7 @@ export default function Home() {
                     </section>
                 </div>
 
-                <footer className="hidden border-t border-white/30 bg-white/35 px-12 py-8 text-[11px] uppercase tracking-[0.22em] text-serene-muted/85 backdrop-blur-xl lg:flex lg:items-center lg:justify-between">
-                    <span>© 2026 Serene</span>
-                    <div className="flex items-center gap-10">
-                        <button type="button" className="transition hover:text-serene-primary">
-                            Trợ giúp
-                        </button>
-                        <button type="button" className="transition hover:text-serene-primary">
-                            Privacy Policy
-                        </button>
-                        <button type="button" className="transition hover:text-serene-primary">
-                            Terms of Peace
-                        </button>
-                    </div>
-                </footer>
+               
             </main>
         </div>
     )
