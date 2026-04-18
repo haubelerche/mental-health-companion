@@ -20,6 +20,42 @@ class ChatMessageRequest(BaseModel):
     session_id: str | None = Field(default=None, max_length=50)
 
 
+class ChatEndRequest(BaseModel):
+    session_id: str = Field(min_length=1, max_length=50)
+
+
+class SafetyCheckRequest(BaseModel):
+    overwhelmed: str = Field(max_length=500)
+    unsafe: str = Field(max_length=500)
+    need_help_now: str = Field(max_length=500)
+
+
+class PolicyAckRequest(BaseModel):
+    policy_version: str = Field(min_length=1, max_length=32)
+
+
+class GuestHeartbeatRequest(BaseModel):
+    guest_session_id: str = Field(min_length=1, max_length=80)
+
+
+class GuestChoiceRequest(BaseModel):
+    guest_session_id: str = Field(min_length=1, max_length=80)
+    choice: str = Field(pattern="^(checkin|screening|chat)$")
+
+
+class ScreeningSubmitRequest(BaseModel):
+    instrument_id: str = Field(min_length=1, max_length=50)
+    answers: dict[str, int]
+
+
+class CheckinQuickRequest(BaseModel):
+    mood: str = Field(min_length=1, max_length=50)
+    stress_level: int | None = Field(default=None, ge=0, le=10)
+    sleep_hours: float | None = Field(default=None, ge=0, le=24)
+    study_hours: float | None = Field(default=None, ge=0, le=24)
+    note: str | None = None
+
+
 class MoodCheckinRequest(BaseModel):
     mood: str = Field(min_length=1, max_length=50)
     emoji: str | None = Field(default=None, max_length=10)
