@@ -93,7 +93,7 @@ Chi tiết triển khai API & payload: **§7**; điều phối graph: **§3.3**,
 - **API Layer (FastAPI)**: auth, rate limit, guest/session endpoints, consent endpoints.
 - **Orchestration Layer (LangGraph)** — **LLM tuần tự**, **I/O song song**:
   - Chuỗi node mặc định: **Supervisor → Analyst → Friend** (một lượt điều phối rõ ràng, dễ audit, hạn chế loop/role confusion).
-  - **SOS / crisis**: khi vượt ngưỡng hoặc `crisis_route_finalized`, luồng chuyển sang **SOS Handler (rule-based, no LLM)** làm **State Finalizer** — không quay lại nhánh Analyst/Friend “bình thường” trong cùng turn cho đến khi policy reset.
+  - **SOS / crisis**: **triển khai hiện tại** — API chat đánh giá rule SOS **trước** khi vào LangGraph; khi kích hoạt, **SOS Handler (rule-based, no LLM)** làm **State Finalizer** và **không** invoke graph trong cùng request. Khi có `crisis_route_finalized` trong state graph (tương lai / nhánh khác), vẫn **không** quay lại Analyst/Friend “bình thường” trong cùng turn cho đến khi policy reset.
 - **Data Layer L1 (Postgres)**: transactional + RLS.
 - **Data Layer L2 (Redis + user_profiles JSONB)**: profile hot-path.
 - **Data Layer L3 (pgvector + Neo4j)**: semantic recall + graph insight.
@@ -115,7 +115,7 @@ Khi có distress/crisis, về mặt **trải nghiệm** cần **ba tiến trình
 | Thành phần | Song song (parallel) | Tuần tự (sequential) |
 |---|---|---|
 | **Middleware / chat-gateway** | `asyncio.gather` (hoặc tương đương): Redis profile, Postgres (8 message + mood), tùy chọn pgvector top‑K / Neo4j read ngắn — giảm P95 trước khi vào graph | — |
-| **LangGraph (LLM)** | Không khuyến nghị chạy song song hai LLM “Peer + Analyst” trên cùng user turn cho đến khi có classifier rủi ro rẻ và test an toàn | Supervisor → Analyst → Friend; SOS Finalizer sau khi kích hoạt crisis |
+| **LangGraph (LLM)** | Không khuyến nghị chạy song song hai LLM “Peer + Analyst” trên cùng user turn cho đến khi có classifier rủi ro rẻ và test an toàn | **Chỉ khi không SOS:** Supervisor → Analyst → Friend. **Triển khai hiện tại:** SOS rule-based chạy **trước** invoke LangGraph; khi SOS thì SOS Handler finalizer, **không** vào graph trong cùng request (đối chiếu `SEQUENCE_DIAGRAMS.md` Diagram 2–4). |
 | **Sau response** | Celery: clinical patch, memory embed, outbox Neo4j | Sync writes bắt buộc trước (messages, crisis_logs khi SOS) |
 
 **State LangGraph (working memory, bổ sung so với chỉ `recursion_count`):** `routing_history` (danh sách node đã qua), `analyst_calls_this_turn` (giới hạn cứng, ví dụ ≤2), `crisis_route_finalized` (bool — đã vào SOS path thì không re-enter flow thường trong turn), `conversation_mode` hiện tại (`normal` | `de_escalation`). Metrics: vẫn theo dõi `Analyst loop count` (§10.2).
@@ -211,7 +211,7 @@ LIMIT 5
 
 1. `POST /v1/chat/message` vào API.
 2. Middleware: `SET LOCAL app.current_user_id`; **load song song** profile (Redis→Postgres fallback), 8 message gần, mood hôm nay, tùy chọn RAG/graph (§3.3); build state.
-3. LangGraph: route; nếu đã `crisis_route_finalized` hoặc risk vượt ngưỡng → **SOS Finalizer** (không re-enter Analyst/Friend thường); ngược lại Supervisor → Analyst → Friend; SOS check **trước** Friend final (§6.3).
+3. **SOS gate rồi LangGraph:** nếu rule SOS trên tin nhắn kích hoạt → **SOS Handler / Finalizer** (không LLM), **không** gọi LangGraph trong turn đó (§6.3). Ngược lại: LangGraph route; nếu đã `crisis_route_finalized` hoặc risk vượt ngưỡng (kiến trúc graph tương lai) → **SOS Finalizer**; còn không thì Supervisor → Analyst → Friend; SOS check **trước** Friend final khi logic nằm trong graph (§6.3).
 4. Trả response (stream/REST).
 5a. **Sync:** transaction `messages` ×2, `conversations`, nếu SOS thì `crisis_logs` + `admin_audit_log`.  
 5b. **Async:** `clinical_profiles`, patch `user_profiles` + `DEL profile:{uid}`, `sync_outbox`.  
@@ -274,16 +274,17 @@ LIMIT 5
 - `POST /v1/chat/message`
 - Quy trình theo sequence diagram chat (`SEQUENCE_DIAGRAMS` — Diagram 2):
   - middleware load profile/messages/mood,
-  - LangGraph route,
+  - **SOS rule-based trước** — nếu match thì payload §7.2 + sync crisis, **không** LangGraph trong turn đó,
+  - nếu không SOS: LangGraph route,
   - response ngay,
   - sync writes,
-  - async writes + extraction.
+  - async writes + extraction (chủ yếu nhánh không-SOS).
 
 ## 5.6 Crisis & referral (La Bàn + Lửa)
 
 - `POST /v1/safety/escalate` (internal)
 - `GET /v1/safety/hotlines`
-- `GET /v1/referrals/options`
+- `GET /v1/safety/referrals/options` (router `safety`, prefix `/v1/safety`)
 - Response luôn gồm hotline payload để FE render đồng thời trong chat.
 
 ## 5.7 Dashboard (Gương)
@@ -303,21 +304,22 @@ LIMIT 5
 ---
 
 <a id="sec-6"></a>
-## 6) Sequence execution chuẩn (rút từ 3 diagram)
+## 6) Sequence execution chuẩn (đối chiếu `SEQUENCE_DIAGRAMS.md`)
 
-## 6.1 Diagram 1 — message -> agents -> response + async writes
+Đánh số diagram trong tài liệu sequence: **Diagram 2** = một lượt chat message; **Diagram 4** = SOS/crisis trong chat; **Diagram 3** = session end summarizer. Mục dưới đây map **theo ý nghĩa luồng** (không đánh số trùng tên “Diagram 1” của sequence file).
+
+## 6.1 Chat message — load context → (SOS gate) → LangGraph hoặc crisis → response + async writes
 
 - **Sync (blocking)**:
   - load profile từ Redis (fallback Postgres) **song song** với 8 messages gần nhất + mood hôm nay (và tùy chọn đọc phụ trợ §3.3),
-  - invoke LangGraph (Supervisor → Analyst → Friend **hoặc** nhánh SOS Finalizer — không quay lại flow thường khi crisis đã khóa, §7.6),
-  - commit writes bắt buộc (`messages`, `conversations`, và nếu SOS thì `crisis_logs` + `admin_audit_log`).
-- **Async (non-blocking)**:
-  - update `clinical_profiles`,
-  - update/invalidate `user_profiles`,
+  - **SOS rule-based** trên nội dung tin: nếu kích hoạt → **SOS Finalizer** (không LangGraph trong turn đó, §7.6); nếu không → invoke LangGraph (Supervisor → Analyst → Friend),
+  - commit writes bắt buộc (`messages`, `conversations`, và nếu SOS thì `crisis_logs` + `admin_audit_log` + patch **`clinical_profiles`**).
+- **Async (non-blocking)** — chủ yếu sau turn **không-SOS**:
+  - update `clinical_profiles` / patch `user_profiles` theo pipeline sản phẩm,
   - insert `sync_outbox`,
   - memory extraction + embeddings + outbox memory event.
 
-## 6.2 Diagram 2 — session end summarizer atomic transaction
+## 6.2 Session end summarizer — atomic transaction (Diagram 3 trong `SEQUENCE_DIAGRAMS.md`)
 
 - Trigger: idle 30m / explicit close / batch đêm.
 - Guard:
@@ -333,17 +335,17 @@ LIMIT 5
   - invalidate Redis.
 - Outbox worker sync Neo4j theo batch 5s.
 
-## 6.3 Diagram 3 — SOS path
+## 6.3 SOS path — Diagram 4 trong `SEQUENCE_DIAGRAMS.md` (crisis trong chat)
 
-- SOS check xảy ra **trước Friend final response** (hoặc chặn Friend nếu risk đã đủ cao từ intake/rule — product chốt).
+- **Triển khai hiện tại (FastAPI):** SOS check (`decide_sos` / rule keyword) xảy ra **trước khi** gọi LangGraph trên `POST /v1/chat/message`. Khi SOS, **không** chạy Supervisor → Analyst → Friend trong cùng request. (Luồng tương đương “chặn trước Friend final” nếu sau này đưa SOS vào graph: vẫn giữ nguyên tắc không re-enter Friend “bình thường” trong turn — product chốt.)
 - **SOS Handler = State Finalizer**: **rule-based, no LLM** cho phần cấu trúc crisis (hotline, micro-actions, flags). Có thể vẫn có `assistant_text` do template/ghép slot từ rule (không phải LLM tự do) để giữ giọng đồng cảm nhất quán — tránh “over-refusal” kiểu model từ chối trả lời (§7.7).
-- Khi **`crisis_route_finalized`** hoặc `conversation_mode: de_escalation` đang khóa theo policy: **không** quay lại Supervisor → Analyst → Friend “bình thường” trong cùng request/turn (§7.6); response = de-escalation + hooks §7.
+- Khi **`crisis_route_finalized`** (state graph) hoặc `conversation_mode: de_escalation` đang khóa theo policy: **không** quay lại Supervisor → Analyst → Friend “bình thường” trong cùng request/turn (§7.6); response = de-escalation + hooks §7.
 - Sync writes bắt buộc:
   - user msg + SOS response msg,
   - `crisis_logs`,
   - `admin_audit_log`,
-  - update `user_profiles` safety flags.
-- Async alert gửi admin/email/webhook.
+  - cập nhật **`clinical_profiles`** (ví dụ `crisis_level`, thời điểm chấm). **Cờ aggregate / JSONB trên `user_profiles`** có thể bổ sung theo phase nếu product yêu cầu.
+- `admin_audit_log` ghi **đồng bộ** cùng transaction SOS. **Email/webhook** cảnh báo vận hành là **async tuỳ cấu hình** (không giả định đã bật trong MVP).
 - `crisis_logs` **không sync Neo4j**.
 
 ---
@@ -398,8 +400,9 @@ Backend không chỉ trả `sos_fullscreen=true`; cần trả cấu trúc đa ph
     }
   ],
   "hotline_cards": [
-    {"label": "Hotline Ngày Mai", "phone": "1800-599-920"},
-    {"label": "Cấp cứu", "phone": "115"}
+    {"label": "Cấp cứu trầm cảm — BV Tâm thần TP.HCM (24/7)", "phone": "1900 1267"},
+    {"label": "Dự án Ngày Mai — 13h–20h30 (Thứ 4, 6, 7, CN)", "phone": "096 306 1414"},
+    {"label": "Cấp cứu y tế khẩn cấp", "phone": "115"}
   ],
   "grounding_actions": [{"id": "grounding_54321"}, {"id": "breath_478"}],
   "referral_options": [{"type": "counselor"}, {"type": "trusted_contact"}],
@@ -432,8 +435,9 @@ Khi cần ví dụ rút gọn (thiếu `risk_level` / `referral_options` tạm t
     }
   ],
   "hotline_cards": [
-    { "label": "Hotline hỗ trợ tâm lý", "phone": "1800-599-920" },
-    { "label": "Cấp cứu", "phone": "115" }
+    { "label": "Cấp cứu trầm cảm — BV Tâm thần TP.HCM (24/7)", "phone": "1900 1267" },
+    { "label": "Đường dây tham vấn miễn phí", "phone": "0909 65 80 35" },
+    { "label": "Cấp cứu y tế khẩn cấp", "phone": "115" }
   ]
 }
 ```
@@ -774,7 +778,7 @@ TẦNG 3 — INTERVENTION & USER (:Resource, :ResourceCategory, :CopingAction,
 <a id="sec-14"></a>
 ## 14) Checklist khớp tài liệu nguồn (đã kiểm tra)
 
-- [x] Khớp 3 sequence diagrams về thứ tự sync/async và bypass SOS.
+- [x] Khớp `SEQUENCE_DIAGRAMS.md` về thứ tự sync/async, SOS **trước** LangGraph, và bypass Friend trong turn SOS.
 - [x] Khớp kiến trúc dữ liệu: polyglot 3-layer, memory tiers, retention, PII, DR, outbox.
 - [x] Khớp contract Neo4j v3 (typed category rels, migration order, GraphRAG SECTION 10).
 - [x] Khớp frontend plan mới: trial-first, safety gate, 3 nhánh nhu cầu, policy bắt buộc sau signup.
