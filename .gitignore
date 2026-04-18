@@ -28,6 +28,17 @@ scripts/supabase/
 .ai-log/*.jsonl
 .ai-log/*.md
 
+# Docker Compose may contain local secrets — do not commit
+docker-compose.yml
+
+# Cursor IDE — local plans/settings/hooks (not for remote)
+.cursor/plans/
+.cursor/settings.json
+.cursor/hooks.json
+
+# Generated local test output
+tests/TEST_RESULT.json
+
 # Raw text corpus (không version trong repo)
 
 backend/.env
