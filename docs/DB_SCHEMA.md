@@ -297,7 +297,7 @@ Resources (seed data)       →   Manual / curated CSV     →  resources + jour
 | `msg_001` | `sess_xyz001` | user | Cảm thấy hơi bất lực vì bài tập quá nhiều... | NULL | FALSE |
 | `msg_002` | `sess_xyz001` | assistant | Nghe có vẻ bạn đang gồng gánh nhiều thứ một lúc. Áp lực kiểu này mệt lắm... | xac_nhan | FALSE |
 | `msg_003` | `sess_xyz001` | user | Mình không muốn tiếp tục nữa | NULL | FALSE |
-| `msg_004` | `sess_xyz001` | assistant | Mình thấy bạn đang rất khó khăn. Bạn không đơn độc — đường dây hỗ trợ 24/7: **1800 599 920** (miễn phí). | NULL | TRUE |
+| `msg_004` | `sess_xyz001` | assistant | Mình thấy bạn đang rất khó khăn. Bạn không đơn độc — có thể gọi **1900 1267** (cấp cứu trầm cảm, BV Tâm thần TP.HCM, 24/7) hoặc **115** khi cần cấp cứu y tế. | NULL | TRUE |
 
 > **Semantic của `sos_triggered`:** flag đánh dấu trên **assistant message** IS SOS response, không phải trên user message gây trigger. `msg_003` có `sos_triggered = FALSE` là đúng — SOS rule phát hiện content của `msg_003` rồi sinh ra `msg_004` với flag `TRUE`. Đây là thiết kế cố ý để biết "tin nhắn nào của bot là SOS response."
 
