@@ -1,10 +1,24 @@
+import bg from '../../assets/bg.png'
+import HeroSection from './landing/HeroSection'
+import AboutAiSection from './landing/AboutAiSection'
+import OceanSoundSection from './landing/OceanSoundSection'
+import BreathSection from './landing/BreathSection'
+import Header from '../layout/Header'
 
 export default function Home() {
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
-                <h1 className="text-2xl font-semibold">Home</h1>
+        <div className="relative min-h-screen text-gray-50">
+            <div className="fixed inset-0 -z-20">
+                <img src={bg} alt="Serene sunset ocean" className="h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-black/10" />
             </div>
+            <Header />
+            <main className="relative z-10">
+                <HeroSection />
+                <AboutAiSection />
+                <OceanSoundSection />
+                <BreathSection />
+            </main>
         </div>
     )
 }
