@@ -9,8 +9,6 @@ import Sidebar from './Sidebar'
 
 export default function Main() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-
-
     return (
         <div className="relative min-h-screen">
             <div className="fixed inset-0 -z-20">

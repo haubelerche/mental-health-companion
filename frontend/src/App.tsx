@@ -7,6 +7,7 @@ import Home from './components/pages/Home'
 import Landing from './components/pages/Landing'
 import Main from './components/layout/Main'
 import Chat from './components/chat/Chat'
+import ScrollToHash from './utils/ScrollToHash'
 
 
 
@@ -14,6 +15,7 @@ import Chat from './components/chat/Chat'
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToHash />
       <Routes>
         <Route path="/" element={<Navigate to="/landing" replace />} />
         <Route path="/login" element={<Login />} />
@@ -26,7 +28,7 @@ export default function App() {
         </Route>
 
         <Route path="*" element={<Navigate to="/landing" replace />} />
-      
+
       </Routes>
       <ToastContainer
         position="top-right"
