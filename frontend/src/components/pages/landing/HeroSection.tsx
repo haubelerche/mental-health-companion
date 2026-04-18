@@ -17,7 +17,7 @@ export default function HeroSection() {
                 </p>
                 <div className="mt-10 flex items-center justify-center gap-4">
                     <Link
-                        to="/register"
+                        to="/home"
                         className="inline-flex items-center gap-2 font-display rounded-full border border-white/30 bg-white/20 px-9 py-4 text-2xl italic backdrop-blur-3xl transition hover:bg-white/40"
                     >
                         Bắt đầu ngay
