@@ -2,7 +2,7 @@ import bg from '../../../assets/bg.png'
 
 export default function OceanSoundSection() {
     return (
-        <section id="ocean-sound" className="px-6 py-24">
+        <section id="ocean-sound" className="px-6 py-30">
             <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-10 lg:grid-cols-2 lg:items-center">
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/75">Ocean Awareness</p>
@@ -31,7 +31,7 @@ export default function OceanSoundSection() {
                 <div className="relative">
                     <div className="aspect-4/5 overflow-hidden rounded-4xl border border-white/15 shadow-[0_40px_60px_-20px_rgba(0,0,0,0.35)]">
                         <img src={bg} alt="Ocean water detail" className="h-full w-full object-cover" />
-                        <div className="absolute inset-0 bg-linear-to-t from-black/55 via-transparent to-transparent" />
+                        <div className="absolute inset-0 bg-linear-to-t from-black/75 via-transparent to-transparent border border-white/10 rounded-4xl" />
                     </div>
                     <div className="absolute bottom-8 left-8 right-8 rounded-3xl border border-white/20 bg-white/10 p-6 backdrop-blur-2xl">
                         <p className="font-display text-2xl italic text-white">Serene</p>
