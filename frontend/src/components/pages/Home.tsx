@@ -1,6 +1,7 @@
 import {
     AirVent,
     ArrowRight,
+    Bell,
     BookOpen,
     Cloud,
     Group,
@@ -14,7 +15,7 @@ import {
     Volume2,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Sidebar from '../layout/Sidebar'
 import bg from '../../assets/bg3.png'
 import exercise from '../../assets/exercise.png'
@@ -60,6 +61,7 @@ const moods: MoodCard[] = [
     },
 ]
 
+
 const quickItems: QuickItem[] = [
     {
         image: exercise,
@@ -89,8 +91,24 @@ const navItems = [
     { icon: <Group className="h-5 w-5" />, label: 'Connect' },
 ]
 
+function getGreetingByHour(hour: number) {
+    if (hour >= 5 && hour < 11) return 'Buổi sáng'
+    if (hour >= 11 && hour < 14) return 'Buổi trưa'
+    if (hour >= 14 && hour < 18) return 'Buổi chiều'
+    return 'Buổi tối'
+}
+
 export default function Home() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+    const [now, setNow] = useState(() => new Date())
+
+    useEffect(() => {
+        const timer = window.setInterval(() => setNow(new Date()), 60_000)
+
+        return () => window.clearInterval(timer)
+    }, [])
+
+    const greeting = getGreetingByHour(now.getHours())
 
     return (
         <div className="relative min-h-screen overflow-x-hidden  text-serene-ink">
@@ -133,7 +151,7 @@ export default function Home() {
                             className="h-11 w-11 rounded-full border-2 border-white/70 object-cover"
                         />
                         <p className="font-display text-lg text-white sm:text-2xl">
-                            Buổi sáng tốt lành nhé Elena!
+                            {greeting} tốt lành nhé Elena!
                         </p>
                     </div>
                     <div className="flex items-center gap-2 sm:gap-4">
@@ -141,7 +159,7 @@ export default function Home() {
                             type="button"
                             className="rounded-full p-2 text-white/90 transition hover:bg-white/25"
                         >
-                            <Sparkles className="h-5 w-5" />
+                            <Bell className="h-5 w-5" />
                         </button>
                         <button
                             type="button"
@@ -153,16 +171,14 @@ export default function Home() {
                 </header>
 
                 <div className="mx-auto max-w-7xl space-y-12 px-5 pb-28 pt-8 sm:px-8 lg:space-y-16 lg:px-12 lg:py-12">
-                    <section className="grid items-end gap-8 lg:grid-cols-12 lg:gap-12">
-                        <div className="lg:col-span-8">
-                            <h2 className="font-display text-5xl leading-tight text-white sm:text-6xl lg:text-7xl">
-                                Hôm nay <span className='italic font-display text-serene-ink'>thế giới nội tâm </span>của bạn đang như thế nào?
-                            </h2>
-                        </div>
-                        <p className="text-base leading-relaxed text-serene-ink/85 lg:col-span-4 lg:pb-3 lg:text-lg">
-                            Chậm lại một nhịp. Sương đang tan dần và ngày mới thuộc về bạn.
-                        </p>
-                    </section>
+
+
+                    <h2 className="font-display text-5xl leading-tight  text-white sm:text-6xl lg:text-7xl">
+                        Hôm nay <span className='italic font-display text-serene-ink/80 font-semibold'>thế giới nội tâm </span>của bạn đang như thế nào?
+                    </h2>
+
+
+
 
                     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
                         {moods.map((mood) => (
@@ -239,7 +255,7 @@ export default function Home() {
                                     <img
                                         src={item.image}
                                         alt={item.title}
-                                        className="h-24 w-24 rounded-2xl object-cover shadow-md transition duration-500 group-hover:grayscale-0 lg:grayscale"
+                                        className="h-24 w-24 rounded-2xl object-cover shadow-xl transition duration-200 group-hover:grayscale-0 lg:grayscale"
                                     />
                                     <div className="flex-1">
                                         <h4 className="font-display text-3xl text-serene-ink">{item.title}</h4>
@@ -255,16 +271,16 @@ export default function Home() {
 
                     <section className="rounded-[34px] border border-white/35 bg-serene-primary/80 px-7 py-14 text-center backdrop-blur-xl sm:px-12 lg:px-20 lg:py-20">
                         <Leaf className="mx-auto h-12 w-12 text-serene-accent/80" />
-                        <blockquote className="mx-auto mt-6 max-w-3xl font-display text-3xl italic leading-snug text-serene-on-primary sm:text-5xl">
+                        <blockquote className="mx-auto mt-6 max-w-4xl font-display text-3xl italic leading-snug text-serene-on-primary sm:text-5xl">
                             “Giây phút hiện tại là nơi duy nhất sự sống thực sự tồn tại.”
                         </blockquote>
                         <p className="mt-5 text-xs uppercase tracking-[0.25em] text-serene-on-primary/65">
-                            Thich Nhat Hanh
+                            Thích Nhất Hạnh
                         </p>
                     </section>
                 </div>
 
-               
+
             </main>
         </div>
     )
