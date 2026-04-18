@@ -1,121 +1,84 @@
+import logging
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import ensure_policy_acknowledged, get_current_user
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.db.models import Conversation, Message, User
+from app.db.models import AdminAuditLog, Conversation, CrisisLog, Message, SyncOutbox, User
 from app.db.session import get_db
-from app.schemas.payloads import ChatMessageRequest
-from app.services.crisis_payload import (
-    assistant_text_for_stored_message_sos,
-    build_normal_chat_response_data,
-    build_sos_chat_response_data,
-)
+from app.schemas.payloads import ChatEndRequest, ChatMessageRequest
+from app.services.chat_context import load_chat_context_sync
+from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn
+from app.services.pii_mask import mask_pii
 from app.services.rate_limit import get_rate_limiter
+from app.services.session_summary import close_session_summary
+from app.services.sos_handler import (
+    assistant_text_for_stored_message_sos,
+    build_sos_chat_response_data,
+    decide_sos,
+    snapshot_for_sos,
+)
+from app.services.clinical_profile import get_or_create_clinical_profile
 from app.services.utils import make_id, utc_now
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-EXPLICIT_HIGH_RISK = [
-    "muon chet", "muon tu tu", "toi muon chet", "toi muon tu tu",
-    "khong muon song nua", "khong muon ton tai nua",
-    "chet di cho roi", "chet cho xong",
-    "toi se tu tu", "toi sap tu tu",
-    "toi nghi den tu tu", "toi dang nghi den viec chet",
-    "toi muon bien mat", "toi muon ket thuc moi thu",
-]
-
-IMPLICIT_MEDIUM_RISK = [
-    "met qua roi", "het suc roi", "khong con suc nua",
-    "song de lam gi", "song co y nghia gi dau",
-    "toi vo dung", "toi la ganh nang",
-    "toi khong xung dang ton tai",
-    "khong ai can toi", "toi chang co gia tri gi",
-    "muon bien khoi the gioi nay",
-    "gia nhu toi chua tung ton tai",
-]
-
-HOPELESSNESS = [
-    "tat ca deu vo nghia", "khong co loi thoat",
-    "khong co tuong lai", "khong co hy vong",
-    "cu doi toi tan roi", "toi that bai het roi",
-    "toi khong the tiep tuc duoc nua",
-]
+SYSTEM_AUDIT_ADMIN = "sys_auto"
 
 
-FAREWELL_SIGNALS = [
-    "tam biet moi nguoi", "bye moi nguoi",
-    "cam on vi tat ca", "cam on vi da ben toi",
-    "day co the la lan cuoi",
-    "toi di day", "toi se roi di",
-    "mong moi nguoi song tot",
-]
-
-
-
-SELF_WORTH = [
-    "toi that bai", "toi vo dung",
-    "toi la ganh nang cua moi nguoi",
-    "toi lam gi cung hong",
-    "toi chi lam phien nguoi khac",
-]
-
-
-
-EXHAUSTION = [
-    "met moi qua", "kiet suc roi",
-    "khong con suc nua", "toi sap guc nga",
-    "toi khong chiu noi nua",
-]
-GENZ_VARIANTS = [
-    "muon xit", "muon die", "muon out",
-    "end game di", "quit game di",
-    "toi muon off", "toi out day",
-    "bye cuoc doi", "goodbye moi nguoi",
-    "toi sap roi", "toi khong tru duoc nua",
-    "muon chet", "ko muon song", "k muon song nua",
-    "chan song roi", "met vl roi",
-    "toi vo gia tri", "song lam gi",
-    "i want to die", "i wanna die",
-    "kill myself", "end my life",
-    "no reason to live",
-    "im done with life",
-]
-
-
-
-SOS_KEYWORDS = list(set(
-    EXPLICIT_HIGH_RISK +
-    IMPLICIT_MEDIUM_RISK +
-    HOPELESSNESS +
-    GENZ_VARIANTS +
-    FAREWELL_SIGNALS +
-    SELF_WORTH +
-    EXHAUSTION
-))
-
-
-
-
-def _is_sos(message: str) -> bool:
-    lowered = message.lower()
-    return any(key in lowered for key in SOS_KEYWORDS)
+def _record_sos_side_effects(
+    db: Session,
+    *,
+    user_id: str,
+    session_id: str,
+    context_summary: str,
+    request_host: str | None,
+) -> None:
+    db.add(
+        CrisisLog(
+            log_id=make_id("cl"),
+            session_id=session_id,
+            user_id=user_id,
+            muc_do="cao",
+            context_summary=context_summary[:2000],
+            reviewed=False,
+        )
+    )
+    db.add(
+        AdminAuditLog(
+            admin_id=SYSTEM_AUDIT_ADMIN,
+            action="SOS_TRIGGERED",
+            resource_accessed=f"/v1/chat/session/{session_id}",
+            ip_address=request_host or "0.0.0.0",
+            metadata_json={"user_id": user_id, "kind": "crisis_keyword"},
+        )
+    )
+    clin = get_or_create_clinical_profile(db, user_id)
+    clin.crisis_level = max(int(clin.crisis_level or 0), 5)
+    clin.last_scored_at = utc_now().replace(tzinfo=None)
 
 
 @router.post("/message")
-def send_message(payload: ChatMessageRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def send_message(
+    payload: ChatMessageRequest,
+    request: Request,
+    current_user: User = Depends(ensure_policy_acknowledged),
+    db: Session = Depends(get_db),
+):
     settings = get_settings()
     limiter = get_rate_limiter()
     limiter.enforce_per_minute(
         key=f"chat:{current_user.user_id}",
         limit=settings.chat_rate_limit_per_minute,
         code="RATE_LIMIT_EXCEEDED",
-        message="Cậu ơi, cậu dùng hết gói chat hiện tại rùi nè, hãy đăng ký tài khoản để tiếp tục sử dụng nhé!",
+        message="Cậu ơi, cậu dùng hết gói chat trial rùi nè, hãy đăng ký tài khoản để mình nói chuyện được lâu hơn nhé!",
     )
 
     now = utc_now().replace(tzinfo=None)
@@ -141,52 +104,127 @@ def send_message(payload: ChatMessageRequest, current_user: User = Depends(get_c
         db.add(session)
         db.flush()
 
+    raw_text = payload.message
+    sos, distress0 = decide_sos(raw_text)
+    stored_user_content = mask_pii(raw_text)
+
     user_msg = Message(
         message_id=make_id("msg"),
         session_id=session.session_id,
         user_id=current_user.user_id,
         role="user",
-        content=payload.message,
+        content=stored_user_content,
         created_at=now,
     )
     db.add(user_msg)
+    db.flush()
 
-    sos = _is_sos(payload.message)
+    ctx = load_chat_context_sync(
+        db,
+        session_id=session.session_id,
+        user_id=current_user.user_id,
+        message_limit=8,
+    )
+
+    host = request.client.host if request.client else None
+
     if sos:
+        snap = snapshot_for_sos(distress0)
         assistant_content = assistant_text_for_stored_message_sos()
-    else:
-        assistant_content = "Mình hiểu rồi. Cảm ơn cậu đã chia sẻ, mình sẽ luôn ở đây để sẻ chia cùng cậu."
+        assistant_msg = Message(
+            message_id=make_id("msg"),
+            session_id=session.session_id,
+            user_id=current_user.user_id,
+            role="assistant",
+            content=assistant_content,
+            tone_cam_xuc=None,
+            sos_triggered=True,
+            created_at=now,
+        )
+        db.add(assistant_msg)
+        session.message_count += 2
+        session.last_message_at = now
+        _record_sos_side_effects(
+            db,
+            user_id=current_user.user_id,
+            session_id=session.session_id,
+            context_summary=mask_pii(raw_text)[:500],
+            request_host=host,
+        )
+        db.commit()
+        return ok(build_sos_chat_response_data(session.session_id, snap))
+
+    distress = distress0
+    if ctx.mood_today and ctx.mood_today.get("mood") in ("stressed", "restless", "melancholic"):
+        distress = min(1.0, distress + 0.08)
+
+    try:
+        turn = run_non_sos_turn(
+            user_message=raw_text,
+            recent_messages=ctx.recent_messages,
+            mood_today=ctx.mood_today,
+            distress_score=distress,
+        )
+    except Exception as exc:
+        logger.exception("langgraph chat failed")
+        raise AppError("LLM_TIMEOUT", "Phản hồi quá lâu, vui lòng thử lại", 504) from exc
+
+    snap = turn["session_fields"]
+    assistant_content = turn["reply"]
+    tone = turn["tone_cam_xuc"]
+    goi_y = turn["goi_y_nhanh"]
+    the_dinh = turn["the_dinh_kem"]
 
     assistant_msg = Message(
         message_id=make_id("msg"),
         session_id=session.session_id,
         user_id=current_user.user_id,
         role="assistant",
-        content=assistant_content,
-        tone_cam_xuc="xac_nhan" if not sos else None,
-        sos_triggered=sos,
+        content=mask_pii(assistant_content),
+        tone_cam_xuc=tone if tone in ("ho_tro", "xac_nhan", "vui_tuoi", "lam_diu") else "xac_nhan",
+        sos_triggered=False,
         created_at=now,
     )
     db.add(assistant_msg)
-
     session.message_count += 2
     session.last_message_at = now
     db.commit()
 
-    if sos:
-        return ok(build_sos_chat_response_data(session.session_id))
+    vhint = None
+    if snap.safety_tier == "voice_recommended":
+        vhint = (
+            "Bạn có thể bấm gọi để nói chuyện trực tiếp với Mây / tổng đài — mình vẫn ở đây trong lúc bạn cân nhắc."
+        )
 
-    return ok(
-        build_normal_chat_response_data(
-            session.session_id,
-            reply=assistant_content,
-            tone_cam_xuc="xac_nhan",
-            goi_y_nhanh=["Kể thêm đi cậu", "Mình nên làm gì bây giờ?", "Chỉ cần lắng nghe thôi"],
-            the_dinh_kem=[
-                {"type": "breathing_exercise", "id": "breath_478", "title": "Thở 4-7-8 - Giảm căng thẳng"}
-            ],
+    data = build_normal_envelope(
+        session.session_id,
+        snap=snap,
+        reply=assistant_content,
+        tone_cam_xuc=tone,
+        goi_y_nhanh=goi_y,
+        the_dinh_kem=the_dinh,
+        voice_hint=vhint,
+    )
+    return ok(data)
+
+
+@router.post("/end")
+def end_chat_session(
+    payload: ChatEndRequest,
+    current_user: User = Depends(ensure_policy_acknowledged),
+    db: Session = Depends(get_db),
+):
+    session = db.scalar(
+        select(Conversation).where(
+            Conversation.session_id == payload.session_id,
+            Conversation.user_id == current_user.user_id,
+            Conversation.deleted_at.is_(None),
         )
     )
+    if not session:
+        raise AppError("SESSION_NOT_FOUND", "Session không tồn tại", 404)
+    summary = close_session_summary(db, session=session, user_id=current_user.user_id)
+    return ok({"session_id": session.session_id, "summarized": True, "summary": summary})
 
 
 @router.get("/sessions")
