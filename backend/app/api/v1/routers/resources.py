@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import ensure_policy_acknowledged
 from app.core.errors import AppError
 from app.core.responses import ok
 from app.db.models import Bookmark, PlayEvent, Resource, User
@@ -36,7 +36,7 @@ def list_resources(
     category: str = Query(...),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
     if category not in CATEGORIES:
@@ -84,7 +84,7 @@ def list_resources(
 
 
 @router.get("/{resource_id}")
-def resource_detail(resource_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def resource_detail(resource_id: str, current_user: User = Depends(ensure_policy_acknowledged), db: Session = Depends(get_db)):
     row = db.scalar(select(Resource).where(Resource.resource_id == resource_id, Resource.is_active.is_(True)))
     if not row:
         raise AppError("RESOURCE_NOT_FOUND", "Resource không tồn tại", 404)
@@ -114,7 +114,7 @@ def resource_detail(resource_id: str, current_user: User = Depends(get_current_u
 def track_play_event(
     resource_id: str,
     payload: PlayEventRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
     row = db.scalar(select(Resource).where(Resource.resource_id == resource_id, Resource.is_active.is_(True)))
@@ -141,7 +141,7 @@ def track_play_event(
 
 
 @router.post("/{resource_id}/bookmark")
-def create_bookmark(resource_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def create_bookmark(resource_id: str, current_user: User = Depends(ensure_policy_acknowledged), db: Session = Depends(get_db)):
     resource = db.scalar(select(Resource).where(Resource.resource_id == resource_id, Resource.is_active.is_(True)))
     if not resource:
         raise AppError("RESOURCE_NOT_FOUND", "Resource không tồn tại", 404)
@@ -158,7 +158,7 @@ def create_bookmark(resource_id: str, current_user: User = Depends(get_current_u
 
 
 @router.delete("/{resource_id}/bookmark")
-def remove_bookmark(resource_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def remove_bookmark(resource_id: str, current_user: User = Depends(ensure_policy_acknowledged), db: Session = Depends(get_db)):
     row = db.scalar(select(Bookmark).where(Bookmark.user_id == current_user.user_id, Bookmark.resource_id == resource_id))
     if row:
         db.delete(row)
