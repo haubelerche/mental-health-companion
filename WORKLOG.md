@@ -132,7 +132,7 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 - **Rule-based (keyword + score threshold)**: Deterministic, latency gần 0, không bao giờ "quên" check.
 - **Hybrid**: Rule-based lớp đầu (fast), LLM lớp thứ hai khi rule không chắc.
 
-**Quyết định:** Rule-based cho SOS Layer kết hợp NeMo Guardrails ở input. Safety Recall ≥ 99% là metric bất biến — Recall quan trọng hơn Precision khi đây là vấn đề sinh mạng. SOS chỉ hiển thị hotline/referral (1800-599-920), không kết nối live counselor.
+**Quyết định:** Rule-based cho SOS Layer kết hợp NeMo Guardrails ở input. Safety Recall ≥ 99% là metric bất biến — Recall quan trọng hơn Precision khi đây là vấn đề sinh mạng. SOS chỉ hiển thị hotline/referral (danh sách VN trong `app/data/vn_hotlines.py`), không kết nối live counselor.
 
 **Hệ quả:** Sẽ có false positive — chấp nhận được. LLM không được tham gia vào quyết định SOS.
 
