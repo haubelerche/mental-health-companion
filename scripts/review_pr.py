@@ -120,6 +120,8 @@ def _smart_truncate(diff: str, max_chars: int) -> str:
 
 
 def _review_openai(diff_truncated: str, model: str) -> str:
+    import time
+
     from openai import OpenAI
 
     api_key = os.environ.get("OPENAI_API_KEY")
@@ -127,15 +129,33 @@ def _review_openai(diff_truncated: str, model: str) -> str:
         return "Error: OPENAI_API_KEY is not set. Add it to .env or GitHub Actions secrets."
 
     client = OpenAI(api_key=api_key)
-    response = client.chat.completions.create(
-        model=model,
-        max_tokens=2048,
-        messages=[{"role": "user", "content": REVIEW_PROMPT.format(diff=diff_truncated)}],
-    )
-    text = (response.choices[0].message.content or "").strip()
-    if not text:
-        return "Error: OpenAI returned an empty review."
-    return text
+    content = REVIEW_PROMPT.format(diff=diff_truncated)
+    max_retries = int(os.environ.get("OPENAI_REVIEW_MAX_RETRIES", "4"))
+    last_err: Exception | None = None
+    for attempt in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                max_tokens=2048,
+                messages=[{"role": "user", "content": content}],
+                timeout=float(os.environ.get("OPENAI_TIMEOUT_SECONDS", "120")),
+            )
+            text = (response.choices[0].message.content or "").strip()
+            if not text:
+                return "Error: OpenAI returned an empty review."
+            return text
+        except Exception as e:  # noqa: BLE001 — surface API errors after retries
+            last_err = e
+            retriable = any(
+                x in str(e).lower()
+                for x in ("rate", "429", "timeout", "timed out", "503", "502", "500", "overloaded")
+            )
+            if not retriable or attempt == max_retries - 1:
+                raise
+            delay = min(30.0, 2.0 ** attempt)
+            print(f"[review] OpenAI transient error (attempt {attempt + 1}/{max_retries}): {e}", file=sys.stderr)
+            time.sleep(delay)
+    raise last_err  # pragma: no cover
 
 
 def _review_anthropic(diff_truncated: str, model: str) -> str:
