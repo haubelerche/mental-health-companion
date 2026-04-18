@@ -17,6 +17,9 @@ import type { ReactNode } from 'react'
 import { useState } from 'react'
 import Sidebar from '../layout/Sidebar'
 import bg from '../../assets/bg.png'
+import exercise from '../../assets/exercise.png'
+import journal from '../../assets/journal.png'
+import ethereal from '../../assets/ethereal.png'
 
 type MoodCard = {
     icon: ReactNode
@@ -58,22 +61,19 @@ const moods: MoodCard[] = [
 
 const quickItems: QuickItem[] = [
     {
-        image:
-            'https://lh3.googleusercontent.com/aida-public/AB6AXuCnXeu5um_QkAcXqOSG7nGUuOnP48XcYKYCGYuF6Yp2s2me324xacgKbar-rG79fq6hxvs8hprBe4UCEfSod1CM5oKhrhSetgdIN_EIgkqD1IDp4vz6VJpnxn-MEE0ITYNn1LLUzHvcslZwoLx7CUt96-XrjdSjYkPsDfqGB9dmgz4Jjq0Ln1rPpbSjhJwcdJYt2I6a2Olqkzk25wBTb354IVAag1coVzzFjkfNSYtCU-EkgQ9oiDjZPskFvHlpEV9XYQOvbIofa7E',
+        image: exercise,
         title: 'Gentle Flow',
         desc: 'Đánh thức cơ thể với chuyển động có chủ đích.',
         icon: <ArrowRight className="h-5 w-5" />,
     },
     {
-        image:
-            'https://lh3.googleusercontent.com/aida-public/AB6AXuBs21FCJxqp42KZIwUg4N4-upWG8JNl7W4pfWXdAuErpztlD3NpIeT-BDzO7blOfngngGFrH5QgIRe2Fueg33itfnf6BJZUZJ0b3O39l_5ihH-NL33Z3Dr34Xe4lTTzEMhi92gDKHvUYlwaeR2CTK_2y6Dc0o95Vjt06tRms1Cjo8M54o546SXjYo-wO9aIOd5dQQ8_UzMoPZmxjbvudO5ceMQqhxSu5UGsM5ftPdUHLjpn3z0OYx6hxJDEJT_DVfGi9l9U5_amc5w',
+        image: journal,
         title: 'Journal Prompt',
         desc: 'Điều gì hôm nay nhẹ hơn ngày hôm qua?',
         icon: <BookOpen className="h-5 w-5" />,
     },
     {
-        image:
-            'https://lh3.googleusercontent.com/aida-public/AB6AXuD4usbRwNoTVLbVuUAEB9c9J8QKc_ES53m3UVEzNiB8NTo2pGHb_H9X5QnyTLCDrlweAnpP9Qdk7fgcCN5bb8EXdfU2o4N_UbrgPpcSMwqeci05pdYVlAPnYlD9qmX6SPHPr0oXPSnZPX8DsMWgrkHlt9CrR1nY8nsUDxQViiWRwcZ4Fv6ZLuDT1H7MgZBm058xCkSa7oVuQIZh6Oey-A0ytlBuLjZHMCzIxiB5KaOPT7D5S9Nf1y9SPTuW_-I1pfPEIZNeu4zIjYY',
+        image: ethereal,
         title: 'Ethereal Tides',
         desc: 'Âm thanh đại dương để tập trung và hồi phục.',
         icon: <Volume2 className="h-5 w-5" />,
