@@ -1,12 +1,25 @@
 import { Bell, PanelLeft, PanelLeftClose, Settings } from 'lucide-react'
+import { useEffect, useState } from 'react';
 
 type HeaderMainProps = {
     isSidebarOpen: boolean
-    greeting: string
     onToggleSidebar: () => void
 }
+function getGreetingByHour(hour: number) {
+    if (hour >= 5 && hour < 11) return 'Buổi sáng'
+    if (hour >= 11 && hour < 14) return 'Buổi trưa'
+    if (hour >= 14 && hour < 18) return 'Buổi chiều'
+    return 'Buổi tối'
+}
+export default function HeaderMain({ isSidebarOpen, onToggleSidebar }: HeaderMainProps) {
+    const [now, setNow] = useState(() => new Date())
 
-export default function HeaderMain({ isSidebarOpen, greeting, onToggleSidebar }: HeaderMainProps) {
+    useEffect(() => {
+        const timer = window.setInterval(() => setNow(new Date()), 60_000)
+        return () => window.clearInterval(timer)
+    }, [])
+
+    const greeting = getGreetingByHour(now.getHours())
     return (
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/35 px-5 py-4 backdrop-blur-xl sm:px-8 lg:px-12">
             <div className="flex items-center gap-3 sm:gap-4">
