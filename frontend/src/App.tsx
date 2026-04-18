@@ -5,6 +5,7 @@ import Login from './components/auth/Login'
 import Register from './components/auth/Register'
 import Home from './components/pages/Home'
 import Landing from './components/pages/Landing'
+import Main from './components/layout/Main'
 
 
 
@@ -17,7 +18,9 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/landing" element={<Landing />} />
-        <Route path="/home" element={<Home />} />
+        <Route path="/home" element={<Main />}>
+          <Route index element={<Home />} />
+        </Route>
         <Route path="*" element={<Navigate to="/landing" replace />} />
       </Routes>
       <ToastContainer

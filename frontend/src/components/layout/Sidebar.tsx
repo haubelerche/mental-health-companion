@@ -1,11 +1,11 @@
-import { BookOpen, Group, HomeIcon, Leaf, Sparkles } from 'lucide-react'
+import { BookOpen, Group, HomeIcon, Leaf, MessageSquare } from 'lucide-react'
 
 type SidebarProps = {
     isOpen: boolean
 }
 const navItems = [
     { icon: <HomeIcon className="h-5 w-5" />, label: 'Home', active: true },
-    { icon: <Sparkles className="h-5 w-5" />, label: 'Chat' },
+    { icon: <MessageSquare className="h-5 w-5 fill-current" />, label: 'Chat' },
     { icon: <Leaf className="h-5 w-5" />, label: 'Reflect' },
     { icon: <BookOpen className="h-5 w-5" />, label: 'Resources' },
     { icon: <Group className="h-5 w-5" />, label: 'Connect' },
@@ -21,8 +21,8 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                 ].join(' ')}
             >
                 <div className="mb-10">
-                    <h1 className="font-display text-5xl italic text-serene-ink">Serene</h1>
-                    <p className="mt-2 text-[11px] uppercase tracking-[0.28em] text-serene-muted/85">
+                    <h1 className="font-display text-6xl italic text-serene-ink">Serene</h1>
+                    <p className="mt-2 text-sm uppercase tracking-[0.28em] text-serene-muted/80">
                         Digital Sanctuary
                     </p>
                 </div>
