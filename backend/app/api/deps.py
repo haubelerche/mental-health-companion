@@ -81,6 +81,12 @@ def get_current_user(
     return user
 
 
+def ensure_policy_acknowledged(user: User = Depends(get_current_user)) -> User:
+    if user.policy_acknowledged_at is None:
+        raise AppError("POLICY_NOT_ACKNOWLEDGED", "Bạn cần xác nhận phiên bản điều khoản hiện tại", 403)
+    return user
+
+
 def get_admin_claims(access_token: str | None = Cookie(default=None, alias="access_token")) -> dict:
     if not access_token:
         raise AppError("ADMIN_FORBIDDEN", "Bạn không có quyền truy cập", 403)
