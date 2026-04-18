@@ -1,4 +1,4 @@
-import RevealSection from './RevealSection'
+import RevealSection from '../../../utils/RevealSection'
 
 export default function AboutAiSection() {
     return (

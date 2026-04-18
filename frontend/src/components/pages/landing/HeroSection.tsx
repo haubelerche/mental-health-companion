@@ -1,6 +1,6 @@
 import { ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import RevealSection from './RevealSection'
+import RevealSection from '../../../utils/RevealSection'
 
 export default function HeroSection() {
     return (
