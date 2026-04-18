@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary": "#725a44",
+                        "surface-container-highest": "#e6e2db",
+                        "tertiary": "#2d463d",
+                        "surface-container-high": "#ece7e1",
+                        "surface-tint": "#506355",
+                        "primary-fixed-dim": "#b7ccba",
+                        "on-tertiary-fixed-variant": "#334c43",
+                        "tertiary-fixed": "#cce9dc",
+                        "surface-variant": "#e6e2db",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed-dim": "#b1cdc1",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-container": "#fedcc0",
+                        "on-surface-variant": "#434843",
+                        "surface": "#fef9f2",
+                        "inverse-surface": "#32302c",
+                        "primary-container": "#4a5d4f",
+                        "error-container": "#ffdad6",
+                        "surface-container": "#f2ede6",
+                        "on-secondary-fixed": "#291807",
+                        "tertiary-fixed": "#cce9dc",
+                        "on-background": "#1d1c18",
+                        "primary": "#4A5D4F",
+                        "on-primary-fixed-variant": "#384b3e",
+                        "primary-fixed": "#d2e8d6",
+                        "error": "#ba1a1a",
+                        "on-tertiary-container": "#bad6ca",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#e1c1a5",
+                        "inverse-primary": "#b7ccba",
+                        "surface-bright": "#fef9f2",
+                        "on-tertiary-fixed": "#062018",
+                        "on-primary-container": "#c0d5c3",
+                        "on-secondary-container": "#786049",
+                        "on-secondary-fixed-variant": "#58422e",
+                        "inverse-on-surface": "#f5f0e9",
+                        "outline-variant": "#c3c8c1",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed": "#fedcc0",
+                        "surface-dim": "#ded9d3",
+                        "on-surface": "#1d1c18",
+                        "on-primary-fixed": "#0d1f14",
+                        "on-error-container": "#93000a",
+                        "outline": "#737873",
+                        "background": "#fef9f2",
+                        "on-secondary": "#ffffff",
+                        "surface-container-low": "#f8f3ec"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Newsreader", "serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+        }
+        .editorial-shadow {
+            box-shadow: 0 40px 60px -20px rgba(0, 0, 0, 0.2);
+        }
+        .text-glow {
+            text-shadow: 0 0 30px rgba(255,255,255,0.4);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- Full-screen Background Image (Serene Sunset Ocean) -->
+<div class="fixed inset-0 z-0">
+<img alt="Serene sunset ocean" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAgvsHOwaA6M02038SSeOlZKKi3Q5pnB5Xyi9ER418uly7djrzAHxxz9A0V53_FTAfdhv7mrWKZXuFoUE0e68y6oYKPJefyncdgtPGtQOJ_9B-jf4gqwpRO_51x8uelov0veT4YG5jjNW2C4sNpI4eFKZw-nB0qKzGLcjshI7uCggwXCkKE9gHE5kWqHuxrL1es2YtVFNyEQxqwpbXCF8xvHgffPu0PM-vyGkrxEYHtwf07_SJzf1U5q5u3RzgLqn1lrlMPJBKrVHA"/>
+<div class="absolute inset-0 bg-black/10"></div>
+</div>
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50">
+<div class="flex justify-between items-center px-8 py-8 max-w-7xl mx-auto">
+<div class="text-3xl font-headline italic text-white tracking-tight drop-shadow-md">Serene</div>
+<div class="hidden md:flex items-center space-x-12">
+<a class="font-headline text-white border-b-2 border-white/30 pb-1 tracking-tight" href="#">Sanctuary</a>
+<a class="font-headline text-white/80 hover:text-white transition-colors tracking-tight" href="#">Breath</a>
+<a class="font-headline text-white/80 hover:text-white transition-colors tracking-tight" href="#">Journal</a>
+<a class="font-headline text-white/80 hover:text-white transition-colors tracking-tight" href="#">About</a>
+</div>
+<div class="flex items-center space-x-6">
+<button class="text-white font-medium px-4 py-2 hover:bg-white/10 rounded-full transition-all">Log In</button>
+<button class="bg-white text-emerald-900 px-8 py-2.5 rounded-full font-headline italic text-lg shadow-xl hover:bg-opacity-90 active:scale-95 transition-all">Sign Up</button>
+</div>
+</div>
+</nav>
+<main class="relative z-10">
+<!-- Hero Section -->
+<section class="min-h-screen flex flex-col items-center justify-center px-6">
+<div class="max-w-5xl w-full text-center space-y-12">
+<div class="space-y-8">
+<h1 class="text-6xl md:text-8xl font-headline font-light italic tracking-tight text-white leading-tight text-glow">
+                    Tìm lại sự bình yên <br/> trong tâm hồn
+                </h1>
+<p class="text-xl md:text-2xl font-body text-white/90 max-w-3xl mx-auto leading-relaxed font-light drop-shadow-md">
+                    Serene đồng hành cùng bạn trên hành trình thấu hiểu bản thân thông qua sự tĩnh lặng của đại dương.
+                </p>
+</div>
+<div class="pt-8">
+<button class="group relative inline-flex items-center justify-center px-16 py-6 font-headline italic text-2xl tracking-wide text-white bg-white/10 backdrop-blur-md border border-white/30 rounded-full overflow-hidden transition-all hover:bg-white/20 active:scale-95 shadow-2xl">
+<span class="relative z-10">Bắt đầu ngay</span>
+<span class="material-symbols-outlined ml-3 transition-transform group-hover:translate-x-1">arrow_forward</span>
+</button>
+</div>
+</div>
+</section>
+<!-- AI Therapist Introduction Section -->
+<section class="relative min-h-[80vh] flex flex-col items-center justify-center overflow-hidden">
+<div class="absolute inset-0 z-0">
+<img alt="Peaceful deep ocean" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDjUK6H-_xS9TK7H2hl9eA9JMViWqLeh-5YXrqsupM_dRDqMzqN5-QtqlksPmFzRT4jROOit1oxFXpzEYtGi8uUFklTjcX10Ws1pG3lTC4lQ4tdkJg2rK18TvO1sSPDtKQFfVkjJzaCKcoFtWTl_NFcmtSrQw_W3Z3Q_1jBaT13G80AqyHW7d9YUDN7KEzu7idXwf1BsbIPx22mSxAKfBgxTzVw1ln-33WoetZ4LsXqR9MfWF4pqR2BL0PCL89zZfHTTVqQK8poIL0"/>
+<div class="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/20"></div>
+</div>
+<div class="relative z-10 max-w-4xl mx-auto px-6 text-center space-y-8">
+<div class="inline-block px-4 py-1.5 rounded-full glass-panel border border-white/20 mb-4">
+<span class="text-xs font-label uppercase tracking-[0.3em] text-white">Digital Sanctuary</span>
+</div>
+<h2 class="text-5xl md:text-7xl font-headline font-light italic text-white leading-tight text-glow">
+                Người bạn AI <br/> luôn lắng nghe
+            </h2>
+<p class="text-lg md:text-xl font-body text-white/90 max-w-2xl mx-auto leading-relaxed font-light drop-shadow-md">
+                Serene không chỉ là một ứng dụng, mà là một chuyên gia trị liệu AI thấu cảm. Chúng tôi sử dụng trí tuệ nhân tạo để mang đến những cuộc trò chuyện sâu sắc, giúp bạn thực hành chánh niệm và giải tỏa căng thẳng trong không gian an yên tuyệt đối của đại dương.
+            </p>
+<div class="pt-6">
+<div class="flex items-center justify-center space-x-4">
+<div class="w-12 h-[1px] bg-white/30"></div>
+<span class="material-symbols-outlined text-white/80">psychology</span>
+<div class="w-12 h-[1px] bg-white/30"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Content Section - Ocean Themed -->
+<section class="py-32 px-6">
+<div class="max-w-7xl mx-auto">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-24 items-center">
+<div class="space-y-12">
+<div class="space-y-6">
+<span class="text-xs font-label uppercase tracking-[0.4em] text-white/70 font-bold">Ocean Awareness</span>
+<h2 class="text-5xl md:text-6xl font-headline font-light text-white leading-tight italic">Âm thanh của <br/> sự tĩnh lặng</h2>
+<p class="text-lg text-white/80 leading-relaxed font-body font-light">
+                            Khám phá sức mạnh chữa lành từ những con sóng vỗ nhẹ nhàng và tiếng gió biển rì rào. Chúng tôi mang đến cho bạn không gian để ngắt kết nối với sự ồn ào và kết nối lại với chính mình.
+                        </p>
+</div>
+<div class="space-y-8">
+<div class="flex items-start space-x-6 p-8 rounded-2xl glass-panel border border-white/20 group cursor-pointer transition-all hover:bg-white/20">
+<div class="bg-white/10 p-4 rounded-full text-white">
+<span class="material-symbols-outlined text-3xl">waves</span>
+</div>
+<div class="space-y-2">
+<h3 class="text-2xl font-headline text-white italic">Ocean Ambient</h3>
+<p class="text-white/70 font-light">Ghi âm thực tế từ những bờ biển hoang sơ nhất thế giới.</p>
+</div>
+</div>
+<div class="flex items-start space-x-6 p-8 rounded-2xl glass-panel border border-white/20 group cursor-pointer transition-all hover:bg-white/20">
+<div class="bg-white/10 p-4 rounded-full text-white">
+<span class="material-symbols-outlined text-3xl">air</span>
+</div>
+<div class="space-y-2">
+<h3 class="text-2xl font-headline text-white italic">Breath of the Sea</h3>
+<p class="text-white/70 font-light">Điều hòa nhịp thở theo chu kỳ tự nhiên của thủy triều.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="relative">
+<div class="aspect-[4/5] rounded-3xl overflow-hidden editorial-shadow border border-white/10">
+<img alt="Ocean water detail" class="w-full h-full object-cover opacity-90" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAgvsHOwaA6M02038SSeOlZKKi3Q5pnB5Xyi9ER418uly7djrzAHxxz9A0V53_FTAfdhv7mrWKZXuFoUE0e68y6oYKPJefyncdgtPGtQOJ_9B-jf4gqwpRO_51x8uelov0veT4YG5jjNW2C4sNpI4eFKZw-nB0qKzGLcjshI7uCggwXCkKE9gHE5kWqHuxrL1es2YtVFNyEQxqwpbXCF8xvHgffPu0PM-vyGkrxEYHtwf07_SJzf1U5q5u3RzgLqn1lrlMPJBKrVHA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+<div class="absolute bottom-10 left-10 right-10">
+<div class="glass-panel p-8 rounded-2xl border border-white/20">
+<div class="flex items-center space-x-4 mb-3">
+<div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-xl">water_drop</span>
+</div>
+<span class="font-headline text-2xl text-white italic">Serene</span>
+</div>
+<p class="text-white/90 italic font-light leading-relaxed">
+                                    "Để tâm hồn bạn trôi theo dòng chảy của sự bình yên."
+                                </p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Breathing Space -->
+<section class="py-32">
+<div class="max-w-4xl mx-auto text-center space-y-20 px-6">
+<div class="space-y-4">
+<h2 class="text-5xl font-headline font-light text-white italic">Hãy để tâm trí được nghỉ ngơi</h2>
+<p class="font-body text-white/70 text-lg">Hít thở sâu theo nhịp điệu của đại dương</p>
+</div>
+<div class="flex justify-center">
+<div class="relative flex items-center justify-center">
+<div class="w-80 h-80 rounded-full border border-white/10 animate-[ping_4s_linear_infinite] opacity-20"></div>
+<div class="absolute w-64 h-64 rounded-full glass-panel border border-white/20 flex items-center justify-center editorial-shadow">
+<div class="w-40 h-40 rounded-full bg-white/10 backdrop-blur-xl border border-white/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-5xl animate-pulse">waves</span>
+</div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-12 max-w-xl mx-auto">
+<div class="space-y-2">
+<span class="block text-4xl font-headline text-white italic">4s</span>
+<span class="block text-[10px] font-label uppercase tracking-widest text-white/50">Hít vào</span>
+</div>
+<div class="space-y-2 border-x border-white/10">
+<span class="block text-4xl font-headline text-white italic">7s</span>
+<span class="block text-[10px] font-label uppercase tracking-widest text-white/50">Tĩnh lặng</span>
+</div>
+<div class="space-y-2">
+<span class="block text-4xl font-headline text-white italic">8s</span>
+<span class="block text-[10px] font-label uppercase tracking-widest text-white/50">Buông lỏng</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="relative z-10 w-full py-16 border-t border-white/10">
+<div class="flex flex-col md:flex-row justify-between items-center px-12 space-y-12 md:space-y-0 max-w-7xl mx-auto">
+<div class="flex flex-col items-center md:items-start space-y-2">
+<div class="text-2xl font-headline italic text-white">Serene</div>
+<div class="text-[10px] font-label uppercase tracking-[0.3em] text-white/40">© 2024 AN. EMBRACE THE CALM.</div>
+</div>
+<div class="flex flex-wrap justify-center gap-12">
+<a class="text-[10px] font-label uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors" href="#">Privacy</a>
+<a class="text-[10px] font-label uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors" href="#">Terms</a>
+<a class="text-[10px] font-label uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors" href="#">Ocean Cleanup</a>
+<a class="text-[10px] font-label uppercase tracking-[0.2em] text-white/40 hover:text-white transition-colors" href="#">Contact</a>
+</div>
+<div class="flex items-center space-x-4 text-white group cursor-pointer">
+<span class="material-symbols-outlined text-2xl opacity-60">contact_support</span>
+<span class="font-headline italic text-xl group-hover:underline">Support Sanctuary</span>
+</div>
+</div>
+</footer>
+<!-- Subtle Grain Overlay -->
+<div class="fixed inset-0 pointer-events-none opacity-[0.02] z-50 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
+</body></html>
