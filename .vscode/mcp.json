@@ -6,7 +6,7 @@
 			"headers": {
 				"Accept": "application/json",
 				"X-Goog-Api-Key": "${env:STITCH_API_KEY}"
-			},
+			}
 		}
 	}
 }

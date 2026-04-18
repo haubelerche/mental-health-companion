@@ -37,8 +37,9 @@ docker-compose.yml
 .cursor/hooks.json
 
 # Generated local test output
-tests/TEST_RESULT.json
 
+
+.vscode/
 # Raw text corpus (không version trong repo)
 
 backend/.env
