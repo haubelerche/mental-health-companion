@@ -1,17 +1,21 @@
 import { BookOpen, Group, HomeIcon, Leaf, MessageSquare } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
 
 type SidebarProps = {
     isOpen: boolean
 }
 const navItems = [
-    { icon: <HomeIcon className="h-5 w-5" />, label: 'Trang chủ', active: true },
-    { icon: <MessageSquare className="h-5 w-5 fill-current" />, label: 'Chat' },
-    { icon: <Leaf className="h-5 w-5" />, label: 'Reflect' },
-    { icon: <BookOpen className="h-5 w-5" />, label: 'Resources' },
-    { icon: <Group className="h-5 w-5" />, label: 'Kết nối' },
+    { icon: <HomeIcon className="h-5 w-5" />, label: 'Trang chủ', route: '/serene' },
+    { icon: <MessageSquare className="h-5 w-5 fill-current" />, label: 'Chat', route: '/serene/chat' },
+    { icon: <Leaf className="h-5 w-5" />, label: 'Reflect', route: '/serene/reflect' },
+    { icon: <BookOpen className="h-5 w-5" />, label: 'Resources', route: '/serene/resources' },
+    { icon: <Group className="h-5 w-5" />, label: 'Kết nối', route: '/serene/connect' },
 ]
 
 export default function Sidebar({ isOpen }: SidebarProps) {
+    const location = useLocation()
+
+
     return (
         <>
             <aside
@@ -28,21 +32,24 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                 </div>
 
                 <nav className="flex flex-1 flex-col gap-3">
-                    {navItems.map((item) => (
-                        <button
-                            key={item.label}
-                            type="button"
-                            className={[
-                                'flex items-center gap-3 rounded-2xl px-3 py-3 text-left transition',
-                                item.active
-                                    ? 'border-l-4 border-serene-primary bg-white/70 text-serene-primary shadow-sm'
-                                    : 'text-serene-muted hover:bg-white/60 hover:text-serene-ink',
-                            ].join(' ')}
-                        >
-                            {item.icon}
-                            <span className="font-display text-xl">{item.label}</span>
-                        </button>
-                    ))}
+                    {navItems.map((item) => {
+                        const isActive = location.pathname === item.route
+                        return (
+                            <Link   
+                                key={item.label}
+                                to={item.route}
+                                className={[
+                                    'flex items-center gap-3 rounded-2xl px-3 py-3 text-left transition',
+                                    isActive
+                                        ? 'border-l-4 border-serene-primary bg-white/70 text-serene-primary shadow-sm'
+                                        : 'text-serene-muted hover:bg-white/60 hover:text-serene-ink',
+                                ].join(' ')}
+                            >
+                                {item.icon}
+                                <span className="font-display text-xl">{item.label}</span>
+                            </Link>
+                        )
+                    })}
                 </nav>
 
                 <button
@@ -53,21 +60,25 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                 </button>
             </aside>
 
+            {/* for mobile view */}
             {isOpen && (
                 <nav className="fixed bottom-4 left-1/2 z-50 flex w-[min(94vw,560px)] -translate-x-1/2 items-center justify-between rounded-3xl border border-white/45 bg-white/70 px-4 py-2 backdrop-blur-xl lg:hidden">
-                    {navItems.map((item) => (
-                        <button
-                            key={item.label}
-                            type="button"
-                            className={[
-                                'flex flex-1 flex-col items-center gap-1 rounded-2xl py-2 text-[11px] transition',
-                                item.active ? 'bg-white text-serene-primary' : 'text-serene-muted',
-                            ].join(' ')}
-                        >
-                            {item.icon}
-                            <span>{item.label}</span>
-                        </button>
-                    ))}
+                    {navItems.map((item) => {
+                        const isActive = location.pathname === item.route
+                        return (
+                            <Link
+                                key={item.label}
+                                to={item.route}
+                                className={[
+                                    'flex flex-1 flex-col items-center gap-1 rounded-2xl py-2 text-[11px] transition',
+                                    isActive ? 'bg-white text-serene-primary' : 'text-serene-muted',
+                                ].join(' ')}
+                            >
+                                {item.icon}
+                                <span>{item.label}</span>
+                            </Link>
+                        )
+                    })}
                 </nav>
             )}
         </>
