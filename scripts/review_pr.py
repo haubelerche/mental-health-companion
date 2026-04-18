@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """
-  python scripts/review_pr.py            # review main 
+  python scripts/review_pr.py            # review main
   python scripts/review_pr.py develop    # review branch phụ
   python scripts/review_pr.py --staged   # review only staged changes
 """
-from anthropic import Anthropic
-from dotenv import load_dotenv
+from __future__ import annotations
+
 import os
 import re
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 try:
+    from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass
@@ -52,6 +54,11 @@ Git diff:
 """
 
 
+def _model_uses_openai(model: str) -> bool:
+    m = model.strip().lower()
+    return m.startswith("gpt-") or m.startswith("o1") or m.startswith("o3") or m.startswith("o4")
+
+
 def run_git(cmd: list) -> str:
     try:
         return subprocess.check_output(cmd, text=True, stderr=subprocess.PIPE).strip()
@@ -63,12 +70,10 @@ def get_diff(base: str = "main", staged_only: bool = False) -> str:
     if staged_only:
         return run_git(["git", "diff", "--cached"])
 
-    # Try comparing against base branch
     diff = run_git(["git", "diff", f"{base}...HEAD"])
     if diff:
         return diff
 
-    # Fallback: last commit vs working tree
     diff = run_git(["git", "diff", "HEAD~1", "HEAD"])
     if diff:
         return diff
@@ -81,8 +86,7 @@ def _smart_truncate(diff: str, max_chars: int) -> str:
     if len(diff) <= max_chars:
         return diff
 
-    # Split into per-file sections; filter empty leading element
-    parts = [p for p in re.split(r'(?=^diff --git )', diff, flags=re.MULTILINE) if p]
+    parts = [p for p in re.split(r"(?=^diff --git )", diff, flags=re.MULTILINE) if p]
 
     included = []
     total = 0
@@ -93,15 +97,13 @@ def _smart_truncate(diff: str, max_chars: int) -> str:
             included.append(part)
             total += len(part)
         else:
-            # Back-reference ensures a/<path> b/<path> match — handles spaces and "b/" in names
-            m = re.search(r'^diff --git a/(.+) b/\1', part, re.MULTILINE)
+            m = re.search(r"^diff --git a/(.+) b/\1", part, re.MULTILINE)
             omitted_files.append(m.group(1) if m else "unknown")
 
-    # Fallback: if nothing fits, hard-truncate the first file
     fallback_truncated = False
     if not included and parts:
         included.append(parts[0][:max_chars])
-        omitted_files.pop(0)  # parts[0] is now partially included
+        omitted_files.pop(0)
         fallback_truncated = True
 
     result = "".join(included)
@@ -117,32 +119,57 @@ def _smart_truncate(diff: str, max_chars: int) -> str:
     return result
 
 
-def review_code(diff: str) -> str:
+def _review_openai(diff_truncated: str, model: str) -> str:
+    from openai import OpenAI
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        return "Error: OPENAI_API_KEY is not set. Add it to .env or GitHub Actions secrets."
+
+    client = OpenAI(api_key=api_key)
+    response = client.chat.completions.create(
+        model=model,
+        max_tokens=2048,
+        messages=[{"role": "user", "content": REVIEW_PROMPT.format(diff=diff_truncated)}],
+    )
+    text = (response.choices[0].message.content or "").strip()
+    if not text:
+        return "Error: OpenAI returned an empty review."
+    return text
+
+
+def _review_anthropic(diff_truncated: str, model: str) -> str:
+    from anthropic import Anthropic
+
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         return "Error: ANTHROPIC_API_KEY is not set. Check your .env file."
 
-    model = os.environ.get("DEFAULT_MODEL", "claude-sonnet-4-6")
+    client = Anthropic(api_key=api_key)
+    response = client.messages.create(
+        model=model,
+        max_tokens=2048,
+        messages=[{"role": "user", "content": REVIEW_PROMPT.format(diff=diff_truncated)}],
+    )
+    return response.content[0].text
+
+
+def review_code(diff: str) -> str:
+    model = os.environ.get("DEFAULT_MODEL", "gpt-4o-mini")
     try:
         max_diff_chars = int(os.environ.get("MAX_DIFF_CHARS", "50000"))
     except ValueError:
         max_diff_chars = 50000
-    client = Anthropic(api_key=api_key)
 
     truncated = _smart_truncate(diff, max_diff_chars)
 
     try:
-        response = client.messages.create(
-            model=model,
-            max_tokens=2048,
-            messages=[{
-                "role": "user",
-                "content": REVIEW_PROMPT.format(diff=truncated)
-            }]
-        )
-        return response.content[0].text
+        if _model_uses_openai(model):
+            return _review_openai(truncated, model)
+        return _review_anthropic(truncated, model)
     except Exception as e:
-        print(f"[review] Anthropic API error: {e}", file=sys.stderr)
+        provider = "OpenAI" if _model_uses_openai(model) else "Anthropic"
+        print(f"[review] {provider} API error: {e}", file=sys.stderr)
         sys.exit(1)
 
 
@@ -172,7 +199,9 @@ def main():
         print("[review] No changes found to review.")
         sys.exit(0)
 
-    print(f"[review] Diff size: {len(diff)} chars. Sending to Claude...\n")
+    model = os.environ.get("DEFAULT_MODEL", "gpt-4o-mini")
+    label = "OpenAI" if _model_uses_openai(model) else "Anthropic"
+    print(f"[review] Diff size: {len(diff)} chars. Sending to {label} ({model})...\n")
     review = review_code(diff)
 
     print(review)

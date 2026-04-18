@@ -1,0 +1,5 @@
+# Project default for OpenAI Codex CLI (requires trusted project).
+# https://developers.openai.com/codex/config-basic
+#:schema https://developers.openai.com/codex/config-schema.json
+
+model = "gpt-4o-mini"

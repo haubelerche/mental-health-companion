@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   review:
-    name: Claude Code Review
+    name: GPT Code Review
     runs-on: ubuntu-latest
 
     steps:
@@ -25,17 +25,18 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install anthropic python-dotenv
+        run: pip install openai python-dotenv
 
       - name: Run AI code review
         id: review
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          DEFAULT_MODEL: claude-sonnet-4-6
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DEFAULT_MODEL: gpt-4o-mini
+          MAX_DIFF_CHARS: "100000"
         run: |
           BASE="${{ github.base_ref }}"
           git fetch origin "$BASE"
-          set +e
+          set -o pipefail
           python scripts/review_pr.py "origin/$BASE" 2>&1 | tee review_output.txt
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
 
@@ -51,7 +52,6 @@ jobs:
           if [ "${EXIT_CODE:-0}" != "0" ]; then
             REVIEW="**Warning: review script exited with code ${EXIT_CODE}.**"$'\n\n'"${REVIEW}"
           fi
-          # Write to a file to avoid shell quoting issues
           echo "$REVIEW" > review_body.txt
 
       - name: Post review comment on PR
@@ -74,6 +74,6 @@ jobs:
                 review,
                 '',
                 '---',
-                '*Powered by Claude via [AI Code Review](.github/workflows/review-pr.yml)*'
+                '*Powered by OpenAI (gpt-4o-mini) via [AI Code Review](.github/workflows/review-pr.yml)*'
               ].join('\n')
             });
