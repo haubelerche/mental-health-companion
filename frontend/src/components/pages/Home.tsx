@@ -6,12 +6,17 @@ import {
     Group,
     Home as HomeIcon,
     Leaf,
+    PanelLeft,
+    PanelLeftClose,
     Play,
     Settings,
     Sparkles,
     Volume2,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useState } from 'react'
+import Sidebar from '../layout/Sidebar'
+import bg from '../../assets/bg.png'
 
 type MoodCard = {
     icon: ReactNode
@@ -76,19 +81,21 @@ const quickItems: QuickItem[] = [
 ]
 
 const navItems = [
-    { icon: HomeIcon, label: 'Home', active: true },
-    { icon: Sparkles, label: 'Chat' },
-    { icon: Leaf, label: 'Reflect' },
-    { icon: BookOpen, label: 'Resources' },
-    { icon: Group, label: 'Connect' },
+    { icon: <HomeIcon className="h-5 w-5" />, label: 'Home', active: true },
+    { icon: <Sparkles className="h-5 w-5" />, label: 'Chat' },
+    { icon: <Leaf className="h-5 w-5" />, label: 'Reflect' },
+    { icon: <BookOpen className="h-5 w-5" />, label: 'Resources' },
+    { icon: <Group className="h-5 w-5" />, label: 'Connect' },
 ]
 
 export default function Home() {
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+
     return (
-        <div className="relative min-h-screen overflow-x-hidden bg-serene-bg text-serene-ink">
+        <div className="relative min-h-screen overflow-x-hidden  text-serene-ink">
             <div className="fixed inset-0 -z-20">
                 <img
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuAgvsHOwaA6M02038SSeOlZKKi3Q5pnB5Xyi9ER418uly7djrzAHxxz9A0V53_FTAfdhv7mrWKZXuFoUE0e68y6oYKPJefyncdgtPGtQOJ_9B-jf4gqwpRO_51x8uelov0veT4YG5jjNW2C4sNpI4eFKZw-nB0qKzGLcjshI7uCggwXCkKE9gHE5kWqHuxrL1es2YtVFNyEQxqwpbXCF8xvHgffPu0PM-vyGkrxEYHtwf07_SJzf1U5q5u3RzgLqn1lrlMPJBKrVHA"
+                    src={bg}
                     alt="Mặt biển lúc hoàng hôn"
                     className="h-full w-full object-cover"
                 />
@@ -97,46 +104,28 @@ export default function Home() {
 
             <div className="fixed inset-0 -z-10 pointer-events-none opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
 
-            <aside className="fixed left-0 top-0 z-40 hidden h-full w-72 flex-col rounded-r-[32px] border-r border-white/35 bg-white/55 p-8 backdrop-blur-3xl lg:flex">
-                <div className="mb-10">
-                    <h1 className="font-display text-5xl italic text-serene-ink">Serene</h1>
-                    <p className="mt-2 text-[11px] uppercase tracking-[0.28em] text-serene-muted/85">
-                        Digital Sanctuary
-                    </p>
-                </div>
+            <Sidebar navItems={navItems} isOpen={isSidebarOpen} />
 
-                <nav className="flex flex-1 flex-col gap-3">
-                    {navItems.map((item) => {
-                        const Icon = item.icon
-                        return (
-                            <button
-                                key={item.label}
-                                type="button"
-                                className={[
-                                    'flex items-center gap-3 rounded-2xl px-3 py-3 text-left transition',
-                                    item.active
-                                        ? 'border-l-4 border-serene-primary bg-white/70 text-serene-primary shadow-sm'
-                                        : 'text-serene-muted hover:bg-white/60 hover:text-serene-ink',
-                                ].join(' ')}
-                            >
-                                <Icon className="h-5 w-5" />
-                                <span className="font-display text-xl">{item.label}</span>
-                            </button>
-                        )
-                    })}
-                </nav>
-
-                <button
-                    type="button"
-                    className="mt-8 rounded-2xl bg-serene-primary py-4 font-display text-xl italic text-serene-on-primary shadow-[0_14px_34px_rgba(47,52,46,0.24)] transition hover:brightness-105"
-                >
-                    Breathe Now
-                </button>
-            </aside>
-
-            <main className="min-h-screen lg:ml-72">
+            <main
+                className={[
+                    'min-h-screen transition-all duration-300',
+                    isSidebarOpen ? 'lg:ml-72' : 'lg:ml-0',
+                ].join(' ')}
+            >
                 <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/35 bg-white/30 px-5 py-4 backdrop-blur-xl sm:px-8 lg:px-12">
                     <div className="flex items-center gap-3 sm:gap-4">
+                        <button
+                            type="button"
+                            onClick={() => setIsSidebarOpen((prev) => !prev)}
+                            className="rounded-full p-2 text-white/90 transition hover:bg-white/25"
+                            aria-label={isSidebarOpen ? 'Ẩn sidebar' : 'Hiện sidebar'}
+                        >
+                            {isSidebarOpen ? (
+                                <PanelLeftClose className="h-5 w-5" />
+                            ) : (
+                                <PanelLeft className="h-5 w-5" />
+                            )}
+                        </button>
                         <img
                             src="https://lh3.googleusercontent.com/aida-public/AB6AXuC6xpig2l3SMnAnmPD3226klv7fSDDOAMHWjUcCZaakIEznH7s6gqVLuhEbeQ_ioWvn515mTic_UfBHcOp799nLyXYwNMRIrHn-dwI-g2tFHEOcNNCrWuoTCKErn1V0RYZ6Mr1Wl7evlwFzsL4tHYsEfQWmGwaz1HKOirvXAuuFa1IvMCQwBLMCe-SBnR0VSZDTIvV_m9VYUGHjpEZ7c9J6p_GIXUM-MY6KD5l6LKA2L2ylmr9tsRl5Sn05lyM2SsF6x-eveAtafiM"
                             alt="Ảnh hồ sơ"
@@ -291,25 +280,6 @@ export default function Home() {
                     </div>
                 </footer>
             </main>
-
-            <nav className="fixed bottom-4 left-1/2 z-50 flex w-[min(94vw,560px)] -translate-x-1/2 items-center justify-between rounded-3xl border border-white/45 bg-white/70 px-4 py-2 backdrop-blur-xl lg:hidden">
-                {navItems.map((item) => {
-                    const Icon = item.icon
-                    return (
-                        <button
-                            key={item.label}
-                            type="button"
-                            className={[
-                                'flex flex-1 flex-col items-center gap-1 rounded-2xl py-2 text-[11px] transition',
-                                item.active ? 'bg-white text-serene-primary' : 'text-serene-muted',
-                            ].join(' ')}
-                        >
-                            <Icon className="h-4 w-4" />
-                            <span>{item.label}</span>
-                        </button>
-                    )
-                })}
-            </nav>
         </div>
     )
 }
