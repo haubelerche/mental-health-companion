@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import ensure_policy_acknowledged
 from app.core.errors import AppError
 from app.core.responses import ok
 from app.db.models import JournalEntry, JournalPrompt, MoodCheckin, User
@@ -15,19 +15,18 @@ from app.services.utils import local_date_utc7, make_id, utc_now
 router = APIRouter(prefix="/reflect", tags=["reflect"])
 
 MOOD_TO_SCORE = {
-    "restless": (1, "khó khăn"),
-    "stressed": (1, "khó khăn"),
-    "melancholic": (2, "hơi mệt"),
-    "okay": (3, "ổn"),
+    "stressful": (1, "khó khăn"),
+    "sad": (2, "buồn"),
+    "neutral": (3, "ổn"),
     "peaceful": (4, "tốt"),
-    "radiant": (5, "rất tốt"),
+    "delightful": (5, "rất tốt"),
 }
 
 
 @router.get("/mood-trend")
 def mood_trend(
     days: int = Query(default=7),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
     if days < 1 or days > 90:
@@ -75,7 +74,7 @@ def mood_trend(
 
 
 @router.get("/weekly-note")
-def weekly_note(current_user: User = Depends(get_current_user)):
+def weekly_note(current_user: User = Depends(ensure_policy_acknowledged)):
     _ = current_user
     return ok(
         {
@@ -87,7 +86,7 @@ def weekly_note(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/journal")
-def create_journal(payload: JournalCreateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def create_journal(payload: JournalCreateRequest, current_user: User = Depends(ensure_policy_acknowledged), db: Session = Depends(get_db)):
     if payload.prompt_id:
         prompt = db.scalar(
             select(JournalPrompt).where(
@@ -113,7 +112,7 @@ def create_journal(payload: JournalCreateRequest, current_user: User = Depends(g
 def list_journals(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
     total = (
