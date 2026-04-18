@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import ensure_policy_acknowledged
 from app.core.errors import AppError
 from app.core.responses import ok
 from app.db.models import Conversation, MoodCheckin, User
@@ -14,7 +14,7 @@ router = APIRouter(tags=["home"])
 
 
 @router.post("/mood/checkin")
-def create_checkin(payload: MoodCheckinRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def create_checkin(payload: MoodCheckinRequest, current_user: User = Depends(ensure_policy_acknowledged), db: Session = Depends(get_db)):
     logged_date = local_date_utc7()
     existing = db.scalar(
         select(MoodCheckin).where(
@@ -43,7 +43,7 @@ def create_checkin(payload: MoodCheckinRequest, current_user: User = Depends(get
 def patch_checkin(
     checkin_id: str,
     payload: MoodCheckinPatchRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
     row = db.scalar(
@@ -66,7 +66,7 @@ def patch_checkin(
 
 
 @router.get("/home/feed")
-def home_feed(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def home_feed(current_user: User = Depends(ensure_policy_acknowledged), db: Session = Depends(get_db)):
     today = local_date_utc7()
     mood = db.scalar(
         select(MoodCheckin)
