@@ -4,8 +4,6 @@ import {
     Bell,
     BookOpen,
     Cloud,
-    Group,
-    Home as HomeIcon,
     Leaf,
     PanelLeft,
     PanelLeftClose,
@@ -83,13 +81,7 @@ const quickItems: QuickItem[] = [
     },
 ]
 
-const navItems = [
-    { icon: <HomeIcon className="h-5 w-5" />, label: 'Home', active: true },
-    { icon: <Sparkles className="h-5 w-5" />, label: 'Chat' },
-    { icon: <Leaf className="h-5 w-5" />, label: 'Reflect' },
-    { icon: <BookOpen className="h-5 w-5" />, label: 'Resources' },
-    { icon: <Group className="h-5 w-5" />, label: 'Connect' },
-]
+
 
 function getGreetingByHour(hour: number) {
     if (hour >= 5 && hour < 11) return 'Buổi sáng'
@@ -111,7 +103,7 @@ export default function Home() {
     const greeting = getGreetingByHour(now.getHours())
 
     return (
-        <div className="relative min-h-screen overflow-x-hidden  text-serene-ink">
+        <div className="relative min-h-screen overflow-x-hidden">
             <div className="fixed inset-0 -z-20">
                 <img
                     src={bg}
@@ -123,7 +115,7 @@ export default function Home() {
 
             <div className="fixed inset-0 -z-10 pointer-events-none opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
 
-            <Sidebar navItems={navItems} isOpen={isSidebarOpen} />
+            <Sidebar isOpen={isSidebarOpen} />
 
             <main
                 className={[
@@ -250,7 +242,7 @@ export default function Home() {
                             {quickItems.map((item) => (
                                 <article
                                     key={item.title}
-                                    className="group flex items-center gap-4 rounded-3xl border border-white/35 bg-white/55 p-4 backdrop-blur-xl transition hover:bg-white/72"
+                                    className="group flex items-center gap-4 rounded-3xl border border-white/30 bg-white/50 p-4 backdrop-blur-xl transition-colors hover:bg-white/70"
                                 >
                                     <img
                                         src={item.image}
@@ -269,7 +261,7 @@ export default function Home() {
                         </div>
                     </section>
 
-                    <section className="rounded-[34px] border border-white/35 bg-serene-primary/80 px-7 py-14 text-center backdrop-blur-xl sm:px-12 lg:px-20 lg:py-20">
+                    <section className="rounded-4xl border border-white/35 bg-serene-primary/80 px-7 py-14 text-center backdrop-blur-xl sm:px-12 lg:px-20 lg:py-20">
                         <Leaf className="mx-auto h-12 w-12 text-serene-accent/80" />
                         <blockquote className="mx-auto mt-6 max-w-4xl font-display text-3xl italic leading-snug text-serene-on-primary sm:text-5xl">
                             “Giây phút hiện tại là nơi duy nhất sự sống thực sự tồn tại.”

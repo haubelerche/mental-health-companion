@@ -1,17 +1,17 @@
-import type { ReactNode } from 'react'
-
-type NavItem = {
-    icon: ReactNode
-    label: string
-    active?: boolean
-}
+import { BookOpen, Group, HomeIcon, Leaf, Sparkles } from 'lucide-react'
 
 type SidebarProps = {
-    navItems: NavItem[]
     isOpen: boolean
 }
+const navItems = [
+    { icon: <HomeIcon className="h-5 w-5" />, label: 'Home', active: true },
+    { icon: <Sparkles className="h-5 w-5" />, label: 'Chat' },
+    { icon: <Leaf className="h-5 w-5" />, label: 'Reflect' },
+    { icon: <BookOpen className="h-5 w-5" />, label: 'Resources' },
+    { icon: <Group className="h-5 w-5" />, label: 'Connect' },
+]
 
-export default function Sidebar({ navItems, isOpen }: SidebarProps) {
+export default function Sidebar({ isOpen }: SidebarProps) {
     return (
         <>
             <aside
