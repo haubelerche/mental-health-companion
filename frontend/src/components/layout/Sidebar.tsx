@@ -4,11 +4,11 @@ type SidebarProps = {
     isOpen: boolean
 }
 const navItems = [
-    { icon: <HomeIcon className="h-5 w-5" />, label: 'Home', active: true },
+    { icon: <HomeIcon className="h-5 w-5" />, label: 'Trang chủ', active: true },
     { icon: <MessageSquare className="h-5 w-5 fill-current" />, label: 'Chat' },
     { icon: <Leaf className="h-5 w-5" />, label: 'Reflect' },
     { icon: <BookOpen className="h-5 w-5" />, label: 'Resources' },
-    { icon: <Group className="h-5 w-5" />, label: 'Connect' },
+    { icon: <Group className="h-5 w-5" />, label: 'Kết nối' },
 ]
 
 export default function Sidebar({ isOpen }: SidebarProps) {

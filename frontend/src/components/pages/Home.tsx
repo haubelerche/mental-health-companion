@@ -77,6 +77,7 @@ const quickItems: QuickItem[] = [
 export default function Home() {
     return (
         <div className="space-y-12 lg:space-y-16">
+
             <h2 className="font-display text-5xl leading-tight text-white sm:text-6xl lg:text-7xl">
                 Hôm nay
                 <span className="font-display italic font-semibold text-serene-ink/80"> thế giới nội tâm </span>

@@ -6,6 +6,7 @@ import Register from './components/auth/Register'
 import Home from './components/pages/Home'
 import Landing from './components/pages/Landing'
 import Main from './components/layout/Main'
+import Chat from './components/chat/Chat'
 
 
 
@@ -18,10 +19,14 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/landing" element={<Landing />} />
-        <Route path="/home" element={<Main />}>
+
+        <Route path="/serene" element={<Main />}>
           <Route index element={<Home />} />
+          <Route path='chat' element={<Chat />} />
         </Route>
+
         <Route path="*" element={<Navigate to="/landing" replace />} />
+      
       </Routes>
       <ToastContainer
         position="top-right"
