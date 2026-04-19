@@ -7,7 +7,8 @@ from app.core.product_constants import CURRENT_POLICY_VERSION
 from app.core.responses import ok
 from app.db.models import User
 from app.db.session import get_db
-from app.schemas.payloads import PolicyAckRequest
+from app.schemas.payloads import PolicyAckRequest, VoiceConsentRequest
+from app.services.voice_consent import get_voice_consent, set_voice_consent
 from app.services.utils import utc_now
 
 router = APIRouter(prefix="/policies", tags=["policies"])
@@ -38,3 +39,22 @@ def policies_ack(
     user.policy_acknowledged_at = utc_now().replace(tzinfo=None)
     db.commit()
     return ok({"policy_version": payload.policy_version, "acknowledged_at": user.policy_acknowledged_at.isoformat() + "Z"})
+
+
+@router.get("/voice-consent")
+def voice_consent_get(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    consent = get_voice_consent(db, current_user.user_id)
+    return ok({"voice_consent": consent})
+
+
+@router.post("/voice-consent")
+def voice_consent_set(
+    payload: VoiceConsentRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    consent = set_voice_consent(db, current_user.user_id, payload.consent)
+    return ok({"voice_consent": consent})
