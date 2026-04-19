@@ -13,7 +13,7 @@ Environment variables:
   NEO4J_PASSWORD  your AuraDB password
 
 Run:
-  pytest tests/test_neo4j_schema.py -v
+  pytest backend/tests/test_neo4j_schema.py -v
 
 IMPORTANT: Tests that write to the graph clean up after themselves using
            unique prefixed IDs (test_usr_*, test_ses_*). Safe to run against
