@@ -1,0 +1,454 @@
+{
+  "generated_at": "2026-04-18T12:58:04.957564+00:00",
+  "python": "3.12.3",
+  "pytest_command": [
+    "C:\\Users\\Admin\\anaconda3\\python.exe",
+    "-m",
+    "pytest",
+    "C:\\Users\\Admin\\Desktop\\A20-App-039\\tests",
+    "-v",
+    "--tb=no",
+    "--no-header",
+    "-m",
+    "not neo4j_integration"
+  ],
+  "pytest_mark_expression": "not neo4j_integration",
+  "exit_code": 0,
+  "summary_text": "================ 63 passed, 1 warning in 4.53s =================",
+  "stdout_tail": "============================= test session starts =============================\ncollecting ... collected 63 items / 18 deselected / 45 selected\n\ntests/test_app_main.py::test_main_app_imports PASSED                     [  2%]\ntests/test_clinics_service.py::test_haversine_same_point_zero PASSED     [  4%]\ntests/test_clinics_service.py::test_haversine_hanoi_hcm_roughly PASSED   [  6%]\ntests/test_clinics_service.py::test_clinics_near_sorts_by_distance PASSED [  8%]\ntests/test_clinics_service.py::test_clinics_default_hanoi_no_distance PASSED [ 11%]\ntests/test_db.py::test_postgres_select_one PASSED                        [ 13%]\ntests/test_db.py::test_neo4j_verify_connectivity PASSED                  [ 15%]\ntests/test_intake_keyword_risk.py::test_normalize_collapses_tu_tu PASSED [ 17%]\ntests/test_intake_keyword_risk.py::test_tu_tu_slow_vs_suicide_unicode PASSED [ 20%]\ntests/test_intake_keyword_risk.py::test_qua_tai_elevated_not_crisis PASSED [ 22%]\ntests/test_intake_keyword_risk.py::test_muon_chet_critical PASSED        [ 24%]\ntests/test_intake_keyword_risk.py::test_intake_combined_joins_fields PASSED [ 26%]\ntests/test_log_manual.py::test_prompt_truncated_at_1000 PASSED           [ 28%]\ntests/test_log_manual.py::test_prompt_exact_limit_unchanged PASSED       [ 31%]\ntests/test_log_manual.py::test_response_summary_truncated_at_500 PASSED  [ 33%]\ntests/test_log_manual.py::test_entry_id_uniqueness PASSED                [ 35%]\ntests/test_log_manual.py::test_entry_id_format PASSED                    [ 37%]\ntests/test_log_manual.py::test_git_failure_returns_empty_strings PASSED  [ 40%]\ntests/test_log_manual.py::test_empty_model_and_response PASSED           [ 42%]\ntests/test_log_manual.py::test_save_entry_creates_directory PASSED       [ 44%]\ntests/test_log_manual.py::test_save_entry_appends_not_overwrites PASSED  [ 46%]\ntests/test_log_manual.py::test_save_entry_writes_valid_json PASSED       [ 48%]\ntests/test_log_manual.py::test_save_entry_returns_path PASSED            [ 51%]\ntests/test_log_manual.py::test_main_tool_without_prompt_exits PASSED     [ 53%]\ntests/test_log_manual.py::test_main_tool_and_prompt_saves_entry PASSED   [ 55%]\ntests/test_log_manual.py::test_main_neither_arg_falls_back_to_interactive PASSED [ 57%]\ntests/test_log_manual.py::test_main_interactive_empty_prompt_exits PASSED [ 60%]\ntests/test_safety_scoring.py::test_distress_to_risk_monotonic PASSED     [ 62%]\ntests/test_safety_scoring.py::test_safety_tier_thresholds PASSED         [ 64%]\ntests/test_safety_scoring.py::test_build_snapshot_sos_forces_critical PASSED [ 66%]\ntests/test_smart_truncate.py::test_no_truncation_when_within_limit PASSED [ 68%]\ntests/test_smart_truncate.py::test_returns_unchanged_at_exact_limit PASSED [ 71%]\ntests/test_smart_truncate.py::test_omits_second_file PASSED              [ 73%]\ntests/test_smart_truncate.py::test_first_file_not_in_omitted_list PASSED [ 75%]\ntests/test_smart_truncate.py::test_omitted_char_count_is_accurate PASSED [ 77%]\ntests/test_smart_truncate.py::test_fallback_hard_truncates_single_oversized_file PASSED [ 80%]\ntests/test_smart_truncate.py::test_fallback_omitted_list_excludes_truncated_file PASSED [ 82%]\ntests/test_smart_truncate.py::test_filename_with_spaces PASSED           [ 84%]\ntests/test_smart_truncate.py::test_malformed_diff_header_uses_unknown PASSED [ 86%]\ntests/test_smart_truncate.py::test_multiple_files_omitted PASSED         [ 88%]\ntests/test_smart_truncate.py::test_empty_diff PASSED                     [ 91%]\ntests/test_smart_truncate.py::test_whitespace_only_diff PASSED           [ 93%]\ntests/test_sos_handler.py::test_keyword_sos PASSED                       [ 95%]\ntests/test_sos_handler.py::test_decide_sos_positive PASSED               [ 97%]\ntests/test_sos_handler.py::test_decide_sos_negative PASSED               [100%]\n\n============================== warnings summary ===============================\ntests/test_app_main.py::test_main_app_imports\n  C:\\Users\\Admin\\anaconda3\\Lib\\site-packages\\starlette\\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.\n    import multipart\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n================ 45 passed, 18 deselected, 1 warning in 4.53s =================\n\n",
+  "test_cases": [
+    {
+      "nodeid": "tests/test_app_main.py::test_main_app_imports",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_clinics_service.py::test_haversine_same_point_zero",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_clinics_service.py::test_haversine_hanoi_hcm_roughly",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_clinics_service.py::test_clinics_near_sorts_by_distance",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_clinics_service.py::test_clinics_default_hanoi_no_distance",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_db.py::test_postgres_select_one",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_db.py::test_neo4j_verify_connectivity",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_intake_keyword_risk.py::test_normalize_collapses_tu_tu",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_intake_keyword_risk.py::test_tu_tu_slow_vs_suicide_unicode",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_intake_keyword_risk.py::test_qua_tai_elevated_not_crisis",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_intake_keyword_risk.py::test_muon_chet_critical",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_intake_keyword_risk.py::test_intake_combined_joins_fields",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_log_manual.py::test_prompt_truncated_at_1000",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_log_manual.py::test_prompt_exact_limit_unchanged",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_log_manual.py::test_response_summary_truncated_at_500",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_log_manual.py::test_entry_id_uniqueness",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_log_manual.py::test_entry_id_format",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_log_manual.py::test_git_failure_returns_empty_strings",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_log_manual.py::test_empty_model_and_response",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_log_manual.py::test_save_entry_creates_directory",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_log_manual.py::test_save_entry_appends_not_overwrites",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_log_manual.py::test_save_entry_writes_valid_json",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_log_manual.py::test_save_entry_returns_path",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_log_manual.py::test_main_tool_without_prompt_exits",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_log_manual.py::test_main_tool_and_prompt_saves_entry",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_log_manual.py::test_main_neither_arg_falls_back_to_interactive",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_log_manual.py::test_main_interactive_empty_prompt_exits",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_safety_scoring.py::test_distress_to_risk_monotonic",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_safety_scoring.py::test_safety_tier_thresholds",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_safety_scoring.py::test_build_snapshot_sos_forces_critical",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_smart_truncate.py::test_no_truncation_when_within_limit",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_smart_truncate.py::test_returns_unchanged_at_exact_limit",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_smart_truncate.py::test_omits_second_file",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_smart_truncate.py::test_first_file_not_in_omitted_list",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_smart_truncate.py::test_omitted_char_count_is_accurate",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_smart_truncate.py::test_fallback_hard_truncates_single_oversized_file",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_smart_truncate.py::test_fallback_omitted_list_excludes_truncated_file",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_smart_truncate.py::test_filename_with_spaces",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_smart_truncate.py::test_malformed_diff_header_uses_unknown",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_smart_truncate.py::test_multiple_files_omitted",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_smart_truncate.py::test_empty_diff",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_smart_truncate.py::test_whitespace_only_diff",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_sos_handler.py::test_keyword_sos",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_sos_handler.py::test_decide_sos_positive",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "tests/test_sos_handler.py::test_decide_sos_negative",
+      "outcome": "passed"
+    }
+  ],
+  "features": {
+    "other": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "tests": [
+        {
+          "nodeid": "tests/test_app_main.py::test_main_app_imports",
+          "outcome": "passed"
+        }
+      ]
+    },
+    "connect_clinics_geo": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "tests": [
+        {
+          "nodeid": "tests/test_clinics_service.py::test_haversine_same_point_zero",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_clinics_service.py::test_haversine_hanoi_hcm_roughly",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_clinics_service.py::test_clinics_near_sorts_by_distance",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_clinics_service.py::test_clinics_default_hanoi_no_distance",
+          "outcome": "passed"
+        }
+      ]
+    },
+    "database_wire": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "tests": [
+        {
+          "nodeid": "tests/test_db.py::test_postgres_select_one",
+          "outcome": "passed"
+        }
+      ]
+    },
+    "neo4j_schema": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "tests": [
+        {
+          "nodeid": "tests/test_db.py::test_neo4j_verify_connectivity",
+          "outcome": "passed"
+        }
+      ]
+    },
+    "intake_safety": {
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "tests": [
+        {
+          "nodeid": "tests/test_intake_keyword_risk.py::test_normalize_collapses_tu_tu",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_intake_keyword_risk.py::test_tu_tu_slow_vs_suicide_unicode",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_intake_keyword_risk.py::test_qua_tai_elevated_not_crisis",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_intake_keyword_risk.py::test_muon_chet_critical",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_intake_keyword_risk.py::test_intake_combined_joins_fields",
+          "outcome": "passed"
+        }
+      ]
+    },
+    "text_utilities": {
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "tests": [
+        {
+          "nodeid": "tests/test_log_manual.py::test_prompt_truncated_at_1000",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_log_manual.py::test_response_summary_truncated_at_500",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_smart_truncate.py::test_no_truncation_when_within_limit",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_smart_truncate.py::test_returns_unchanged_at_exact_limit",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_smart_truncate.py::test_omits_second_file",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_smart_truncate.py::test_first_file_not_in_omitted_list",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_smart_truncate.py::test_omitted_char_count_is_accurate",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_smart_truncate.py::test_fallback_hard_truncates_single_oversized_file",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_smart_truncate.py::test_fallback_omitted_list_excludes_truncated_file",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_smart_truncate.py::test_filename_with_spaces",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_smart_truncate.py::test_malformed_diff_header_uses_unknown",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_smart_truncate.py::test_multiple_files_omitted",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_smart_truncate.py::test_empty_diff",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_smart_truncate.py::test_whitespace_only_diff",
+          "outcome": "passed"
+        }
+      ]
+    },
+    "logging_hooks": {
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "tests": [
+        {
+          "nodeid": "tests/test_log_manual.py::test_prompt_exact_limit_unchanged",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_log_manual.py::test_entry_id_uniqueness",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_log_manual.py::test_entry_id_format",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_log_manual.py::test_git_failure_returns_empty_strings",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_log_manual.py::test_empty_model_and_response",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_log_manual.py::test_save_entry_creates_directory",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_log_manual.py::test_save_entry_appends_not_overwrites",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_log_manual.py::test_save_entry_writes_valid_json",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_log_manual.py::test_save_entry_returns_path",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_log_manual.py::test_main_tool_without_prompt_exits",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_log_manual.py::test_main_tool_and_prompt_saves_entry",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_log_manual.py::test_main_neither_arg_falls_back_to_interactive",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_log_manual.py::test_main_interactive_empty_prompt_exits",
+          "outcome": "passed"
+        }
+      ]
+    },
+    "safety_sos": {
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "tests": [
+        {
+          "nodeid": "tests/test_safety_scoring.py::test_distress_to_risk_monotonic",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_safety_scoring.py::test_safety_tier_thresholds",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_safety_scoring.py::test_build_snapshot_sos_forces_critical",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_sos_handler.py::test_keyword_sos",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_sos_handler.py::test_decide_sos_positive",
+          "outcome": "passed"
+        },
+        {
+          "nodeid": "tests/test_sos_handler.py::test_decide_sos_negative",
+          "outcome": "passed"
+        }
+      ]
+    }
+  },
+  "counts": {
+    "total_reported": 45,
+    "passed": 45,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0
+  }
+}
