@@ -1,16 +1,36 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
+import { ApiRequestError } from '../../api/types'
 import bg from '../../assets/bg.png'
+import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
+
 export default function Login() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const navigate = useNavigate()
+    const { login, isLoading } = useAuth()
 
-    const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
-        console.log({ email, password })
-        navigate(ROUTE_PATHS.home)
+
+        try {
+            await login({
+                email: email.trim(),
+                password,
+            })
+
+            toast.success('Đăng nhập thành công!')
+            navigate(ROUTE_PATHS.home)
+        } catch (error) {
+            if (error instanceof ApiRequestError) {
+                toast.error(error.message)
+                return
+            }
+
+            toast.error('Đăng nhập thất bại. Vui lòng thử lại sau.')
+        }
     }
 
     return (
@@ -93,9 +113,10 @@ export default function Login() {
                         <div className="pt-2">
                             <button
                                 type="submit"
+                                disabled={isLoading}
                                 className="auth-cta"
                             >
-                                Bước vào
+                                {isLoading ? 'Đang đăng nhập...' : 'Bước vào'}
                             </button>
                         </div>
                     </form>

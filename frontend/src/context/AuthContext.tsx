@@ -1,7 +1,12 @@
 import { createContext, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { authService } from '../services/authService'
-import type { SignupPayload, SignupResponse } from '../services/authService'
+import type {
+    LoginPayload,
+    LoginResponse,
+    SignupPayload,
+    SignupResponse,
+} from '../services/authService'
 
 type AuthUser = {
     userId: string
@@ -13,6 +18,7 @@ type AuthContextValue = {
     user: AuthUser | null
     isLoading: boolean
     signup: (payload: SignupPayload) => Promise<SignupResponse>
+    login: (payload: LoginPayload) => Promise<LoginResponse>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
@@ -40,8 +46,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
     }
 
+    const login = async (payload: LoginPayload) => {
+        setIsLoading(true)
+        try {
+            const data = await authService.login(payload)
+            const displayNameFromEmail = payload.email.split('@')[0] || payload.email
+
+            setUser({
+                userId: data.user_id,
+                email: payload.email,
+                displayName: displayNameFromEmail,
+            })
+
+            return data
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
     const value = useMemo(
-        () => ({ user, isLoading, signup }),
+        () => ({ user, isLoading, signup, login }),
         [user, isLoading],
     )
 
