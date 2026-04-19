@@ -12,7 +12,8 @@ Trigger conditions:
   3. Midnight batch job (pg_cron or Celery beat) for sessions not yet closed
 
 Safety invariants:
-  - PII check before LLM call — abort if raw PII detected (do not send to OpenAI)
+  - PII check before LLM call — per-message and on full aggregated conversation text
+    (catches patterns split across messages); abort if raw PII detected (do not send to OpenAI)
   - SOS sessions get a minimal summary only — no content detail
   - Single-turn sessions get a minimal summary without LLM call
   - All summaries stored ≤ 500 chars, Vietnamese, no PII
@@ -212,6 +213,12 @@ class SessionSummarizer:
 
         # -- Build conversation text for LLM --
         conversation_text = self._build_conversation_text(messages)
+        if _has_unmasked_pii(conversation_text):
+            logger.error(
+                "PII detected in session %s aggregated conversation text — aborting LLM summarization",
+                session_id,
+            )
+            return None
 
         # -- Mixed-language note: gpt-4o-mini handles vi+en natively --
         # If session contains English mixed with Vietnamese, summary will be Vietnamese.
@@ -332,13 +339,15 @@ class SessionSummarizer:
         sos_triggered: bool,
     ) -> SummarizerResult:
         """
-        Atomic transaction:
+        Single Postgres transaction (commit all or none):
           1. INSERT conversation_memories (session_summary)
-          2. UPDATE user_profiles (append + trim session_summaries)
-          3. [overflow] INSERT session_summaries_archive
-          4. INSERT user_profile_snapshots (reason='session_end')
-          5. INSERT sync_outbox (session.ended)
-          6. Invalidate Redis (handled outside this method by caller)
+          2. Load profile, append summary, compute overflow trim
+          3. INSERT session_summaries_archive for overflow (before profile UPDATE so the
+             cold copy is written in the same txn as the trimmed JSON — no partial commit)
+          4. UPDATE user_profiles (optimistic lock on version)
+          5. INSERT user_profile_snapshots (reason='session_end')
+          6. INSERT sync_outbox (session.ended)
+          7. Invalidate Redis (handled outside this method by caller)
         """
         import secrets
 
@@ -425,6 +434,23 @@ class SessionSummarizer:
                             profile["safety_flags"]["ever_sos_triggered"] = True
                             profile["safety_flags"]["last_sos_at"] = now.isoformat()
 
+                        # 3. Persist overflow to archive before profile UPDATE (same txn)
+                        for overflow in overflow_summaries:
+                            await conn.execute(
+                                """
+                                INSERT INTO session_summaries_archive
+                                    (user_id, session_id, summary, session_started_at,
+                                     dominant_emotion, sos_triggered)
+                                VALUES ($1, $2, $3::jsonb, $4, $5, $6)
+                                """,
+                                user_id,
+                                overflow.get("session_id"),
+                                json.dumps(overflow),
+                                datetime.fromisoformat(overflow["started_at"]) if overflow.get("started_at") else None,
+                                overflow.get("dominant_emotion"),
+                                overflow.get("sos_triggered", False),
+                            )
+
                         upd = await conn.execute(
                             """
                             UPDATE user_profiles
@@ -443,23 +469,6 @@ class SessionSummarizer:
                         )
                         if upd != "UPDATE 1":
                             raise _ProfileVersionConflictError()
-
-                        # 3. Archive overflow summaries
-                        for overflow in overflow_summaries:
-                            await conn.execute(
-                                """
-                                INSERT INTO session_summaries_archive
-                                    (user_id, session_id, summary, session_started_at,
-                                     dominant_emotion, sos_triggered)
-                                VALUES ($1, $2, $3::jsonb, $4, $5, $6)
-                                """,
-                                user_id,
-                                overflow.get("session_id"),
-                                json.dumps(overflow),
-                                datetime.fromisoformat(overflow["started_at"]) if overflow.get("started_at") else None,
-                                overflow.get("dominant_emotion"),
-                                overflow.get("sos_triggered", False),
-                            )
 
                         # 4. Snapshot
                         await conn.execute(
