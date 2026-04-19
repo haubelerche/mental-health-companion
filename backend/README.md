@@ -1,5 +1,12 @@
 # Serene API (FastAPI)
 
+Cài dependency (từ thư mục gốc repo):
+
+```powershell
+pip install -r backend/requirements.txt
+```
+
+Chạy server:
 
 ```powershell
 cd backend
