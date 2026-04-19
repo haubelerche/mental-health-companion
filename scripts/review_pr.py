@@ -60,9 +60,18 @@ def _model_uses_openai(model: str) -> bool:
 
 
 def run_git(cmd: list) -> str:
+    """Run git; decode as UTF-8 with replacement (Windows cp1252 breaks on binary-ish diffs)."""
     try:
-        return subprocess.check_output(cmd, text=True, stderr=subprocess.PIPE).strip()
-    except subprocess.CalledProcessError:
+        r = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=True,
+        )
+        return (r.stdout or "").strip()
+    except (subprocess.CalledProcessError, OSError):
         return ""
 
 
