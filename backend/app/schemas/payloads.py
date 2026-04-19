@@ -34,6 +34,22 @@ class PolicyAckRequest(BaseModel):
     policy_version: str = Field(min_length=1, max_length=32)
 
 
+class VoiceConsentRequest(BaseModel):
+    consent: bool
+
+
+class TrustedContactRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    phone: str = Field(min_length=3, max_length=32)
+    relation: str | None = Field(default=None, max_length=50)
+
+
+class SafetyEscalateRequest(BaseModel):
+    session_id: str = Field(min_length=1, max_length=50)
+    risk_level: int = Field(ge=0, le=5)
+    reason: str = Field(min_length=1, max_length=500)
+
+
 class GuestHeartbeatRequest(BaseModel):
     guest_session_id: str = Field(min_length=1, max_length=80)
 
