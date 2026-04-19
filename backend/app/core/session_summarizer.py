@@ -142,6 +142,10 @@ class SummarizerResult:
 # ---------------------------------------------------------------------------
 
 
+class _ProfileVersionConflictError(Exception):
+    """Raised when optimistic lock on user_profiles.version fails; transaction should roll back."""
+
+
 class SessionSummarizer:
     """
     Summarizes a completed session and updates the user's profile.
@@ -149,6 +153,8 @@ class SessionSummarizer:
     Public API:
       - summarize_session(session_id, user_id) -> SummarizerResult | None
     """
+
+    MAX_RETRY = 3
 
     def __init__(self, pg_pool: asyncpg.Pool) -> None:
         self._pg = pg_pool
@@ -336,7 +342,6 @@ class SessionSummarizer:
         """
         import secrets
 
-        memory_id = f"mem_{secrets.token_hex(8)}"
         dominant_emotion = self._extract_dominant_emotion(messages)
         key_triggers = self._extract_key_triggers(messages)
         now = datetime.now(timezone.utc)
@@ -349,7 +354,7 @@ class SessionSummarizer:
             "ended_at": session_ended_at.isoformat(),
             "turn_count": len(messages),
             "summary": summary,
-            "summary_embedding_ref": memory_id,
+            "summary_embedding_ref": "",
             "dominant_emotion": dominant_emotion,
             "key_triggers": key_triggers,
             "resources_suggested": [],
@@ -368,116 +373,136 @@ class SessionSummarizer:
             "sos_triggered": sos_triggered,
         }
 
-        overflow_summaries: list[dict] = []
+        for attempt in range(self.MAX_RETRY):
+            memory_id = f"mem_{secrets.token_hex(8)}"
+            summary_entry["summary_embedding_ref"] = memory_id
+            overflow_summaries = []
 
-        async with self._pg.acquire() as conn:
-            await conn.execute(
-                "SET LOCAL app.current_role = 'service'; SET LOCAL app.current_user_id = $1",
-                user_id,
+            async with self._pg.acquire() as conn:
+                await conn.execute(
+                    "SET LOCAL app.current_role = 'service'; SET LOCAL app.current_user_id = $1",
+                    user_id,
+                )
+
+                try:
+                    async with conn.transaction():
+                        # 1. Insert conversation_memories
+                        await conn.execute(
+                            """
+                            INSERT INTO conversation_memories
+                                (memory_id, user_id, session_id, content, memory_type,
+                                 embedding, importance_score, confidence)
+                            VALUES ($1, $2, $3, $4, 'session_summary', $5::vector, 0.9, 0.95)
+                            ON CONFLICT DO NOTHING
+                            """,
+                            memory_id, user_id, session_id, summary, str(embedding),
+                        )
+
+                        # 2. Load current profile and append summary
+                        row = await conn.fetchrow(
+                            "SELECT version, profile FROM user_profiles WHERE user_id = $1 FOR UPDATE",
+                            user_id,
+                        )
+                        if row is None:
+                            raise LookupError(f"Profile not found for user_id={user_id}")
+
+                        current_version = row["version"]
+                        profile = json.loads(row["profile"])
+                        summaries: list = profile.get("session_summaries", [])
+
+                        # Prepend newest first
+                        summaries.insert(0, summary_entry)
+
+                        # Trim to 50
+                        if len(summaries) > 50:
+                            overflow_summaries = summaries[50:]
+                            summaries = summaries[:50]
+
+                        profile["session_summaries"] = summaries
+                        profile.setdefault("meta", {})["last_rollup_at"] = now.isoformat()
+                        profile.setdefault("safety_flags", {})
+                        if sos_triggered:
+                            profile["safety_flags"]["ever_sos_triggered"] = True
+                            profile["safety_flags"]["last_sos_at"] = now.isoformat()
+
+                        upd = await conn.execute(
+                            """
+                            UPDATE user_profiles
+                            SET profile = $1::jsonb,
+                                summary_count = $2,
+                                last_active_session_id = $3,
+                                version = version + 1,
+                                updated_at = NOW()
+                            WHERE user_id = $4 AND version = $5
+                            """,
+                            json.dumps(profile),
+                            len(summaries),
+                            session_id,
+                            user_id,
+                            current_version,
+                        )
+                        if upd != "UPDATE 1":
+                            raise _ProfileVersionConflictError()
+
+                        # 3. Archive overflow summaries
+                        for overflow in overflow_summaries:
+                            await conn.execute(
+                                """
+                                INSERT INTO session_summaries_archive
+                                    (user_id, session_id, summary, session_started_at,
+                                     dominant_emotion, sos_triggered)
+                                VALUES ($1, $2, $3::jsonb, $4, $5, $6)
+                                """,
+                                user_id,
+                                overflow.get("session_id"),
+                                json.dumps(overflow),
+                                datetime.fromisoformat(overflow["started_at"]) if overflow.get("started_at") else None,
+                                overflow.get("dominant_emotion"),
+                                overflow.get("sos_triggered", False),
+                            )
+
+                        # 4. Snapshot
+                        await conn.execute(
+                            """
+                            INSERT INTO user_profile_snapshots (user_id, version, profile, reason)
+                            VALUES ($1, $2, $3::jsonb, 'session_end')
+                            ON CONFLICT (user_id, version) DO NOTHING
+                            """,
+                            user_id, current_version + 1, json.dumps(profile),
+                        )
+
+                        # 5. Queue outbox event (PII-masked, no raw content)
+                        await conn.execute(
+                            """
+                            INSERT INTO sync_outbox (event_type, payload, user_id, status)
+                            VALUES ('session.ended', $1::jsonb, $2, 'pending')
+                            """,
+                            json.dumps(outbox_payload), user_id,
+                        )
+                except _ProfileVersionConflictError:
+                    logger.warning(
+                        "Session persist version conflict for user_id=%s session=%s (attempt %d/%d)",
+                        user_id,
+                        session_id,
+                        attempt + 1,
+                        self.MAX_RETRY,
+                    )
+                    continue
+
+            return SummarizerResult(
+                session_id=session_id,
+                user_id=user_id,
+                summary=summary,
+                memory_id=memory_id,
+                dominant_emotion=dominant_emotion,
+                key_triggers=key_triggers,
+                sos_triggered=sos_triggered,
+                overflow_summaries=overflow_summaries,
             )
 
-            async with conn.transaction():
-                # 1. Insert conversation_memories
-                await conn.execute(
-                    """
-                    INSERT INTO conversation_memories
-                        (memory_id, user_id, session_id, content, memory_type,
-                         embedding, importance_score, confidence)
-                    VALUES ($1, $2, $3, $4, 'session_summary', $5::vector, 0.9, 0.95)
-                    ON CONFLICT DO NOTHING
-                    """,
-                    memory_id, user_id, session_id, summary, str(embedding),
-                )
-
-                # 2. Load current profile and append summary
-                row = await conn.fetchrow(
-                    "SELECT version, profile FROM user_profiles WHERE user_id = $1 FOR UPDATE",
-                    user_id,
-                )
-                if row is None:
-                    raise LookupError(f"Profile not found for user_id={user_id}")
-
-                current_version = row["version"]
-                profile = json.loads(row["profile"])
-                summaries: list = profile.get("session_summaries", [])
-
-                # Prepend newest first
-                summaries.insert(0, summary_entry)
-
-                # Trim to 50
-                if len(summaries) > 50:
-                    overflow_summaries = summaries[50:]
-                    summaries = summaries[:50]
-
-                profile["session_summaries"] = summaries
-                profile.setdefault("meta", {})["last_rollup_at"] = now.isoformat()
-                profile.setdefault("safety_flags", {})
-                if sos_triggered:
-                    profile["safety_flags"]["ever_sos_triggered"] = True
-                    profile["safety_flags"]["last_sos_at"] = now.isoformat()
-
-                await conn.execute(
-                    """
-                    UPDATE user_profiles
-                    SET profile = $1::jsonb,
-                        summary_count = $2,
-                        last_active_session_id = $3,
-                        version = version + 1,
-                        updated_at = NOW()
-                    WHERE user_id = $4 AND version = $5
-                    """,
-                    json.dumps(profile),
-                    len(summaries),
-                    session_id,
-                    user_id,
-                    current_version,
-                )
-
-                # 3. Archive overflow summaries
-                for overflow in overflow_summaries:
-                    await conn.execute(
-                        """
-                        INSERT INTO session_summaries_archive
-                            (user_id, session_id, summary, session_started_at,
-                             dominant_emotion, sos_triggered)
-                        VALUES ($1, $2, $3::jsonb, $4, $5, $6)
-                        """,
-                        user_id,
-                        overflow.get("session_id"),
-                        json.dumps(overflow),
-                        datetime.fromisoformat(overflow["started_at"]) if overflow.get("started_at") else None,
-                        overflow.get("dominant_emotion"),
-                        overflow.get("sos_triggered", False),
-                    )
-
-                # 4. Snapshot
-                await conn.execute(
-                    """
-                    INSERT INTO user_profile_snapshots (user_id, version, profile, reason)
-                    VALUES ($1, $2, $3::jsonb, 'session_end')
-                    ON CONFLICT (user_id, version) DO NOTHING
-                    """,
-                    user_id, current_version + 1, json.dumps(profile),
-                )
-
-                # 5. Queue outbox event (PII-masked, no raw content)
-                await conn.execute(
-                    """
-                    INSERT INTO sync_outbox (event_type, payload, user_id, status)
-                    VALUES ('session.ended', $1::jsonb, $2, 'pending')
-                    """,
-                    json.dumps(outbox_payload), user_id,
-                )
-
-        return SummarizerResult(
-            session_id=session_id,
-            user_id=user_id,
-            summary=summary,
-            memory_id=memory_id,
-            dominant_emotion=dominant_emotion,
-            key_triggers=key_triggers,
-            sos_triggered=sos_triggered,
-            overflow_summaries=overflow_summaries,
+        raise RuntimeError(
+            f"Failed to persist session summary after {self.MAX_RETRY} retries "
+            f"(user_id={user_id}, session_id={session_id})"
         )
 
 
