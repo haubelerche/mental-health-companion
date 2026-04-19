@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-on-surface": "#9d9d9a",
+                    "on-surface": "#2f342e",
+                    "tertiary-fixed-dim": "#e5e6e1",
+                    "surface": "#faf9f5",
+                    "secondary-dim": "#5b5240",
+                    "surface-bright": "#faf9f5",
+                    "secondary-fixed": "#eee1c9",
+                    "on-primary-fixed": "#2f443a",
+                    "error": "#9f403d",
+                    "error-dim": "#4e0309",
+                    "on-surface-variant": "#5c605a",
+                    "tertiary-container": "#f4f4ef",
+                    "on-error": "#fff7f6",
+                    "on-tertiary-fixed": "#484a47",
+                    "outline": "#787c75",
+                    "surface-container": "#edeee8",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-container": "#5b5c59",
+                    "inverse-primary": "#dbf4e6",
+                    "tertiary-fixed": "#f4f4ef",
+                    "surface-container-low": "#f4f4ef",
+                    "on-primary-fixed-variant": "#4b6056",
+                    "primary-fixed": "#d0e8db",
+                    "primary": "#4d6359",
+                    "surface-variant": "#e0e4dc",
+                    "surface-tint": "#4d6359",
+                    "inverse-surface": "#0d0f0d",
+                    "surface-dim": "#d6dcd2",
+                    "outline-variant": "#afb3ac",
+                    "on-secondary": "#fff8ef",
+                    "on-primary-container": "#41564c",
+                    "on-error-container": "#752121",
+                    "primary-dim": "#42574d",
+                    "surface-container-high": "#e6e9e2",
+                    "primary-fixed-dim": "#c2dacd",
+                    "on-tertiary-fixed-variant": "#656763",
+                    "background": "#faf9f5",
+                    "surface-container-highest": "#e0e4dc",
+                    "tertiary": "#5e605c",
+                    "primary-container": "#d0e8db",
+                    "on-tertiary": "#f9f9f4",
+                    "on-secondary-container": "#59513e",
+                    "secondary-fixed-dim": "#e0d3bb",
+                    "secondary": "#675e4b",
+                    "error-container": "#fe8983",
+                    "secondary-container": "#eee1c9",
+                    "on-secondary-fixed": "#463f2d",
+                    "tertiary-dim": "#525450",
+                    "on-background": "#2f342e",
+                    "on-secondary-fixed-variant": "#635b48",
+                    "on-primary": "#e5fdf0"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Newsreader"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(250, 249, 245, 0.65);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface min-h-screen relative overflow-hidden">
+<!-- Background Image Layer -->
+<div class="fixed inset-0 z-0">
+<img class="w-full h-full object-cover opacity-80" data-alt="Peaceful sunset ocean beach with soft orange and pink hues reflecting on calm waves for a serene meditative atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuApSfGD5nH1gjrVn9f86fLJ2aZ9uoLO-ST6p-USrX8eSbOoG0DmKY80c9l-nC5_-ISmB9N9xDLc2FqUriUtrFD5n-HUutWbXgsSNurq_M1_TZvWV4yO3eXb9rixO7gsNNi2Ni03q4k5nwYnYZnxtlOVJkeu4MaTluMKz0C4z1p4urUnWR80h1Bfy6ryndzf1WLK9tniPIGi3HPUTsA_1_1J94YumVTZxS2j6vAXVnE1ef3A4cdXmc4hdrw-_6EzTvnNiwlVmXAZ4dE"/>
+</div>
+<!-- SideNavBar (The Anchor) -->
+<nav class="fixed left-0 top-0 h-full w-72 flex flex-col p-6 z-40 bg-stone-100/40 dark:bg-stone-950/40 backdrop-blur-2xl h-screen rounded-r-3xl shadow-[40px_0_60px_-15px_rgba(0,0,0,0.05)]">
+<div class="mb-12 px-4">
+<h1 class="text-xl font-newsreader italic text-emerald-900 dark:text-emerald-100">Serene</h1>
+<p class="font-inter text-sm tracking-widest uppercase text-emerald-800/60 mt-1">Finding peace</p>
+</div>
+<div class="flex flex-col gap-2 flex-grow">
+<!-- Navigation Items -->
+<a class="flex items-center gap-4 text-emerald-800/60 dark:text-emerald-200/60 px-6 py-3 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 rounded-full transition-all group" href="#">
+<span class="material-symbols-outlined transition-transform duration-500 group-hover:translate-x-1" data-icon="home">home</span>
+<span class="font-inter text-sm tracking-widest uppercase">Home</span>
+</a>
+<a class="flex items-center gap-4 bg-emerald-900/10 dark:bg-emerald-100/10 text-emerald-950 dark:text-emerald-50 rounded-full px-6 py-3 font-semibold transition-all group" href="#">
+<span class="material-symbols-outlined transition-transform duration-500 group-hover:translate-x-1" data-icon="chat_bubble" style="font-variation-settings: 'FILL' 1;">chat_bubble</span>
+<span class="font-inter text-sm tracking-widest uppercase">Chat</span>
+</a>
+<a class="flex items-center gap-4 text-emerald-800/60 dark:text-emerald-200/60 px-6 py-3 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 rounded-full transition-all group" href="#">
+<span class="material-symbols-outlined transition-transform duration-500 group-hover:translate-x-1" data-icon="self_improvement">self_improvement</span>
+<span class="font-inter text-sm tracking-widest uppercase">Reflect</span>
+</a>
+<a class="flex items-center gap-4 text-emerald-800/60 dark:text-emerald-200/60 px-6 py-3 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 rounded-full transition-all group" href="#">
+<span class="material-symbols-outlined transition-transform duration-500 group-hover:translate-x-1" data-icon="auto_stories">auto_stories</span>
+<span class="font-inter text-sm tracking-widest uppercase">Resources</span>
+</a>
+<a class="flex items-center gap-4 text-emerald-800/60 dark:text-emerald-200/60 px-6 py-3 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 rounded-full transition-all group" href="#">
+<span class="material-symbols-outlined transition-transform duration-500 group-hover:translate-x-1" data-icon="group">group</span>
+<span class="font-inter text-sm tracking-widest uppercase">Connect</span>
+</a>
+</div>
+<div class="mt-auto px-4 flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/15">
+<img class="w-full h-full object-cover" data-alt="Portrait of a young woman with a calm expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3_xOjmjXsOTDcWOL0sKdsnYlKhmdJrx2zM40KiN6tmXoDiMOXcGce9p5LbjyCddSB8riUafTC_KS-0w7vQ0sKYvK3_AeLBQPrGQdwcjbNZ_Gmz_KjToZQYCCkaftMD5t3FRMICiM54YGDA5Fg76twNc6YQXfZ1l5c6PTR_De4Msp5IG2ovnxMrpMpQ6R9ZOJaw_fsg0P-7Q0vSC5EkKfAT2CQU0Zse1rcbbauO6JaUalvpsAbp0kHfUv38Y6lhRdbEi93lzR8k0I"/>
+</div>
+<div>
+<p class="text-sm font-semibold text-emerald-950">Minh Anh</p>
+<p class="text-xs text-emerald-800/60">Gói Tĩnh Lặng</p>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="relative z-10 ml-72 h-screen flex items-center justify-center p-8">
+<div class="w-full max-w-4xl h-full max-h-[870px] flex flex-col glass-panel rounded-xl shadow-[0_40px_100px_-20px_rgba(0,0,0,0.1)] overflow-hidden">
+<!-- Chat Header -->
+<header class="px-10 py-8 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl" data-icon="spa" style="font-variation-settings: 'FILL' 1;">spa</span>
+</div>
+<div>
+<h2 class="font-headline text-2xl font-bold text-on-surface">Serene</h2>
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+<span class="text-xs font-label uppercase tracking-widest text-on-surface-variant">Đang lắng nghe</span>
+</div>
+</div>
+</div>
+<div class="flex gap-4">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-variant/40 transition-colors">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-variant/40 transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</header>
+<!-- Chat Messages Area -->
+<div class="flex-grow overflow-y-auto px-10 py-4 flex flex-col gap-8 scrollbar-hide">
+<!-- Date/Time Stamp -->
+<div class="flex justify-center">
+<span class="text-[10px] font-label uppercase tracking-[0.2em] text-on-surface-variant/60">Hôm nay, 5:30 Chiều</span>
+</div>
+<!-- User Message -->
+<div class="flex justify-end">
+<div class="max-w-[70%] bg-white/40 backdrop-blur-md rounded-2xl rounded-tr-none px-6 py-4 shadow-sm border border-white/20">
+<p class="text-on-surface leading-relaxed italic">Cảm thấy hơi ngộp vì bài vở quá nhiều...</p>
+</div>
+</div>
+<!-- Serene Response -->
+<div class="flex justify-start gap-4">
+<div class="w-8 h-8 rounded-full bg-primary-fixed flex-shrink-0 flex items-center justify-center text-primary-dim">
+<span class="material-symbols-outlined text-sm" data-icon="spa">spa</span>
+</div>
+<div class="flex flex-col gap-4 max-w-[75%]">
+<div class="bg-primary/5 rounded-2xl rounded-tl-none px-6 py-4 border border-primary/10">
+<p class="text-on-surface leading-relaxed">Mình hiểu mà. Đôi khi mọi thứ dồn dập khiến ta thấy khó thở. Cậu thử dành 2 phút làm bài tập này cùng mình nhé?</p>
+</div>
+<!-- Attachment Card -->
+<div class="bg-white/60 backdrop-blur-xl rounded-xl p-6 shadow-sm flex items-center gap-6 group hover:shadow-md transition-all border border-white/40">
+<div class="w-14 h-14 rounded-xl bg-secondary-container flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined text-3xl" data-icon="air">air</span>
+</div>
+<div class="flex-grow">
+<p class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Bài tập đề xuất</p>
+<h3 class="font-headline text-lg font-bold text-on-surface">BÀI TẬP: Thở 4-7-8</h3>
+</div>
+<button class="bg-primary text-on-primary px-6 py-2.5 rounded-full font-label text-sm font-semibold tracking-wide shadow-lg hover:shadow-primary/20 transition-all active:scale-95">
+                                Bắt đầu
+                            </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Input Area -->
+<footer class="p-8 mt-auto">
+<div class="relative flex items-center gap-3">
+<div class="flex-grow relative">
+<input class="w-full bg-surface-container-low/60 backdrop-blur-md border-none focus:ring-0 rounded-full px-8 py-5 text-on-surface placeholder-on-surface-variant/50 pr-16 text-lg transition-all focus:bg-surface-container-low/80" placeholder="Chia sẻ cùng Serene..." type="text"/>
+<div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="mic">mic</span>
+</button>
+</div>
+</div>
+<button class="w-16 h-16 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-3xl" data-icon="send" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+<div class="mt-4 flex justify-center gap-8">
+<button class="flex items-center gap-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant/70 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="sentiment_satisfied">sentiment_satisfied</span>
+                        Tâm trạng hiện tại
+                    </button>
+<button class="flex items-center gap-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant/70 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="photo_library">photo_library</span>
+                        Gửi ảnh bình yên
+                    </button>
+</div>
+</footer>
+</div>
+</main>
+<!-- Visual Polish: Ambient Shadows & Layers -->
+<div class="fixed top-0 right-0 w-1/3 h-1/3 bg-primary-fixed/20 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2 z-0"></div>
+<div class="fixed bottom-0 left-0 w-1/4 h-1/4 bg-secondary-fixed/20 blur-[100px] rounded-full translate-y-1/2 -translate-x-1/2 z-0"></div>
+</body></html>
