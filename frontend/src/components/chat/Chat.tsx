@@ -94,7 +94,7 @@ export default function Chat() {
 
   const handleSendIcon = (icon: React.ReactNode, label: string) => {
     const newMessage: Message = {
-      id: Date.now().toString(),
+      id: Date.toString(),
       type: 'user',
       icon,
       content: label,
@@ -122,7 +122,7 @@ export default function Chat() {
         <div className="absolute inset-0 bg-white/20" />
       </div>
 
-      <main className="flex min-h-[80dvh] justify-center">
+      <main className="flex min-h-screen justify-center">
         <section className="flex w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-white/40 bg-white/65 backdrop-blur-3xl ">
           <header className="flex items-center justify-between px-5 py-5 sm:px-8 sm:py-7">
             <div className="flex items-center gap-4">
@@ -165,7 +165,7 @@ export default function Chat() {
               ref={messagesContainerRef}
               className="flex flex-1 flex-col gap-6 overflow-y-auto px-1 py-2 sm:px-2"
             >
-              {messages.map((msg, idx) => (
+              {messages.map((msg) => (
                 <div key={msg.id} className={`flex gap-3 sm:gap-4 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {msg.type === 'serene' && (
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-serene-on-primary text-primary shadow-sm">
@@ -174,7 +174,25 @@ export default function Chat() {
                   )}
 
                   <div className={`flex max-w-[82%] flex-col gap-2 ${msg.type === 'user' ? 'items-end' : 'items-start'} sm:max-w-[70%]`}>
-                    {msg.type === 'serene' && idx === messages.length - 2 && msg.id === messages[messages.length - 2]?.id && (
+
+
+                    {msg.icon ? (
+                      <div className={`flex h-12 w-12 items-center justify-center rounded-3xl ${msg.type === 'user' ? 'bg-serene-primary text-serene-on-primary' : 'bg-white/45 text-serene-primary'} shadow-md sm:h-14 sm:w-14`}>
+                        {msg.icon}
+                      </div>
+                    ) : (
+                      <div
+                        className={`rounded-3xl ${msg.type === 'user'
+                          ? 'rounded-tr-none border border-white/20 bg-white/45 text-on-surface'
+                          : 'rounded-tl-none border border-serene-ink/10 bg-serene-primary/5 text-on-surface'
+                          } px-5 py-3 shadow-sm sm:px-6 sm:py-4`}
+                      >
+                        <p className="text-sm leading-relaxed sm:text-base">
+                          {msg.content}
+                        </p>
+                      </div>
+                    )}
+                    {msg.type === 'serene' && msg.id === messages[messages.length - 1]?.id && (
                       <div className="group mb-2 flex w-full items-center gap-3 rounded-2xl border border-white/40 bg-white/65 p-4 shadow-sm backdrop-blur-xl transition hover:shadow-md sm:gap-4 sm:p-5">
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-serene-primary shadow-sm sm:h-14 sm:w-14">
                           {suggestedExercise.icon}
@@ -193,23 +211,6 @@ export default function Chat() {
                         >
                           {suggestedExercise.cta}
                         </button>
-                      </div>
-                    )}
-
-                    {msg.icon ? (
-                      <div className={`flex h-12 w-12 items-center justify-center rounded-3xl ${msg.type === 'user' ? 'bg-serene-primary text-serene-on-primary' : 'bg-white/45 text-serene-primary'} shadow-md sm:h-14 sm:w-14`}>
-                        {msg.icon}
-                      </div>
-                    ) : (
-                      <div
-                        className={`rounded-3xl ${msg.type === 'user'
-                          ? 'rounded-tr-none border border-white/20 bg-white/45 text-on-surface'
-                          : 'rounded-tl-none border border-serene-ink/10 bg-serene-primary/5 text-on-surface'
-                          } px-5 py-3 shadow-sm sm:px-6 sm:py-4`}
-                      >
-                        <p className="text-sm leading-relaxed sm:text-base">
-                          {msg.content}
-                        </p>
                       </div>
                     )}
                   </div>
