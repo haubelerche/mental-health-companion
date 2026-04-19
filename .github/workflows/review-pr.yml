@@ -10,8 +10,8 @@ permissions:
 
 jobs:
   review:
-    name: GPT Code Review
-    runs-on: ubuntu-latest
+    name: Code Review
+    runs-on: [self-hosted, Linux, X64, phoenix-runner]
     # Same-repo PRs get secrets + token write; fork PRs skip LLM/comment (GitHub does not pass secrets / limits token).
     env:
       IS_FORK_PR: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
@@ -33,7 +33,7 @@ jobs:
       - name: Run AI code review
         id: review
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets['OPENAI_API_KEY'] }}
           DEFAULT_MODEL: gpt-4o-mini
           MAX_DIFF_CHARS: "100000"
           CI: "true"
