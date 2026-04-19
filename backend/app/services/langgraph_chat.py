@@ -6,11 +6,13 @@ BACKEND_PLAN §3.3, MVP_CANVAS.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
 from app.core.config import get_settings
+from app.core.product_constants import CHAT_AGENT_DISPLAY_NAME
 from app.services.safety_scoring import build_snapshot
 
 logger = logging.getLogger(__name__)
@@ -25,10 +27,58 @@ class ChatGraphState(TypedDict, total=False):
     analyst_calls_this_turn: int
     crisis_route_finalized: bool
     analyst_instruction: str
+    supervisor_route: str
+    supervisor_reason: str
     reply: str
     tone_cam_xuc: str
     goi_y_nhanh: list[str]
     the_dinh_kem: list[dict[str, Any]]
+
+
+_GREETING_RE = re.compile(r"\b(chao|hi|hello|helo|xin chao|yo|hey)\b", re.IGNORECASE)
+_DISTRESS_HINT_RE = re.compile(
+    r"\b(buon|met|kiet suc|ap luc|bat an|stress|lo au|that bai|khong on)\b",
+    re.IGNORECASE,
+)
+_ANALYST_CALLS_CAP = 2
+
+
+def supervisor_node(state: ChatGraphState) -> dict[str, Any]:
+    hist = list(state.get("routing_history") or [])
+    hist.append("supervisor")
+
+    msg = (state.get("user_message") or "").strip()
+    lowered = msg.lower()
+    calls = int(state.get("analyst_calls_this_turn") or 0)
+    distress = float(state.get("distress_score") or 0.0)
+    mood = (state.get("mood_today") or {}).get("mood")
+
+    if state.get("crisis_route_finalized"):
+        route = "friend"
+        reason = "crisis_already_finalized"
+    elif calls >= _ANALYST_CALLS_CAP:
+        route = "friend"
+        reason = "analyst_cap_reached"
+    elif distress >= 0.55 or mood in {"stressed", "restless", "melancholic"}:
+        route = "analyst"
+        reason = "distress_or_mood_signal"
+    elif len(msg) <= 60 and _GREETING_RE.search(lowered) and not _DISTRESS_HINT_RE.search(lowered):
+        route = "friend"
+        reason = "light_greeting"
+    else:
+        route = "analyst"
+        reason = "default_need_context"
+
+    return {
+        "routing_history": hist,
+        "supervisor_route": route,
+        "supervisor_reason": reason,
+    }
+
+
+def route_after_supervisor(state: ChatGraphState) -> str:
+    route = state.get("supervisor_route")
+    return "analyst" if route == "analyst" else "friend"
 
 
 def analyst_node(state: ChatGraphState) -> dict[str, Any]:
@@ -139,9 +189,15 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
 
 def build_chat_graph():
     g = StateGraph(ChatGraphState)
+    g.add_node("supervisor", supervisor_node)
     g.add_node("analyst", analyst_node)
     g.add_node("friend", friend_node)
-    g.add_edge(START, "analyst")
+    g.add_edge(START, "supervisor")
+    g.add_conditional_edges(
+        "supervisor",
+        route_after_supervisor,
+        {"analyst": "analyst", "friend": "friend"},
+    )
     g.add_edge("analyst", "friend")
     g.add_edge("friend", END)
     return g.compile()
@@ -206,6 +262,7 @@ def build_normal_envelope(
 ) -> dict[str, Any]:
     return {
         "session_id": session_id,
+        "agent_display_name": CHAT_AGENT_DISPLAY_NAME,
         "conversation_mode": snap.conversation_mode,
         "distress_score": snap.distress_score,
         "safety_tier": snap.safety_tier,

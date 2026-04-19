@@ -1,0 +1,52 @@
+[
+  {
+    "id": "sos_explicit_keyword",
+    "kind": "sos",
+    "message": "Toi muon tu tu",
+    "expected_sos": true
+  },
+  {
+    "id": "normal_greeting",
+    "kind": "supervisor",
+    "state": {
+      "user_message": "chao ban",
+      "mood_today": null,
+      "distress_score": 0.1,
+      "analyst_calls_this_turn": 0,
+      "crisis_route_finalized": false
+    },
+    "expected_route": "friend"
+  },
+  {
+    "id": "distress_go_analyst",
+    "kind": "supervisor",
+    "state": {
+      "user_message": "Minh rat ap luc va met moi",
+      "mood_today": {"mood": "stressed"},
+      "distress_score": 0.72,
+      "analyst_calls_this_turn": 0,
+      "crisis_route_finalized": false
+    },
+    "expected_route": "analyst"
+  },
+  {
+    "id": "escalation_threshold",
+    "kind": "escalation",
+    "current_distress": 0.93,
+    "previous_distress": [0.4, 0.45, 0.55],
+    "threshold": 0.9,
+    "delta_threshold": 0.3,
+    "window_turns": 6,
+    "expected_escalate": true
+  },
+  {
+    "id": "escalation_not_triggered",
+    "kind": "escalation",
+    "current_distress": 0.5,
+    "previous_distress": [0.42, 0.44, 0.45],
+    "threshold": 0.9,
+    "delta_threshold": 0.3,
+    "window_turns": 6,
+    "expected_escalate": false
+  }
+]
