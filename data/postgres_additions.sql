@@ -173,11 +173,16 @@ CREATE TABLE IF NOT EXISTS sync_outbox (
 
     -- Timestamps
     created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
-    processed_at    TIMESTAMP
+    processed_at    TIMESTAMP,
+    -- Set when status becomes processing (for stale recovery if worker dies mid-flight)
+    processing_started_at TIMESTAMP
 
     -- Note: no FK to users.user_id intentionally —
     -- outbox must survive even if user is soft-deleted.
 );
+
+-- Existing deployments: add column without rewriting full CREATE (CREATE IF NOT EXISTS skips ALTER)
+ALTER TABLE sync_outbox ADD COLUMN IF NOT EXISTS processing_started_at TIMESTAMP;
 
 -- Primary consumer index: pending events, oldest first
 CREATE INDEX IF NOT EXISTS idx_outbox_pending_fifo
