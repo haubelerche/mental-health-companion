@@ -351,45 +351,62 @@ class ProfileService:
     ) -> None:
         """
         Increment trigger_tags[tag].count and update avg_intensity.
-        Uses atomic JSONB update — no optimistic concurrency needed
-        (scalar increment is commutative).
+        Uses atomic JSONB update (no version field conflict). Retries on
+        transient Postgres errors; raises LookupError if no profile row exists.
         """
         if not (0.0 <= intensity <= 1.0):
             raise ValueError(f"intensity must be 0.0–1.0, got {intensity}")
 
         now_iso = datetime.now(timezone.utc).isoformat()
 
-        async with self._pg.acquire() as conn:
-            await self._set_rls_context(conn, user_id, role="service")
-            await conn.execute(
-                """
-                UPDATE user_profiles
-                SET profile = jsonb_set(
-                    jsonb_set(
-                        jsonb_set(
-                            profile,
-                            ARRAY['trigger_tags', $2, 'count'],
-                            (COALESCE(
-                                (profile->'trigger_tags'->$2->>'count')::int, 0
-                            ) + 1)::text::jsonb
+        for attempt in range(self.MAX_RETRY):
+            try:
+                async with self._pg.acquire() as conn:
+                    await self._set_rls_context(conn, user_id, role="service")
+                    result = await conn.execute(
+                        """
+                        UPDATE user_profiles
+                        SET profile = jsonb_set(
+                            jsonb_set(
+                                jsonb_set(
+                                    profile,
+                                    ARRAY['trigger_tags', $2, 'count'],
+                                    (COALESCE(
+                                        (profile->'trigger_tags'->$2->>'count')::int, 0
+                                    ) + 1)::text::jsonb
+                                ),
+                                ARRAY['trigger_tags', $2, 'last_seen'],
+                                to_jsonb($3::text)
+                            ),
+                            ARRAY['trigger_tags', $2, 'avg_intensity'],
+                            (
+                                (COALESCE((profile->'trigger_tags'->$2->>'avg_intensity')::numeric, 0)
+                                 * COALESCE((profile->'trigger_tags'->$2->>'count')::int, 0)
+                                 + $4::numeric)
+                                / (COALESCE((profile->'trigger_tags'->$2->>'count')::int, 0) + 1)
+                            )::text::jsonb
                         ),
-                        ARRAY['trigger_tags', $2, 'last_seen'],
-                        to_jsonb($3::text)
-                    ),
-                    ARRAY['trigger_tags', $2, 'avg_intensity'],
-                    (
-                        (COALESCE((profile->'trigger_tags'->$2->>'avg_intensity')::numeric, 0)
-                         * COALESCE((profile->'trigger_tags'->$2->>'count')::int, 0)
-                         + $4::numeric)
-                        / (COALESCE((profile->'trigger_tags'->$2->>'count')::int, 0) + 1)
-                    )::text::jsonb
-                ),
-                updated_at = NOW()
-                WHERE user_id = $1
-                """,
-                user_id, tag, now_iso, intensity,
-            )
-        await self.invalidate_cache(user_id)
+                        updated_at = NOW()
+                        WHERE user_id = $1
+                        """,
+                        user_id, tag, now_iso, intensity,
+                    )
+            except asyncpg.exceptions.PostgresError as exc:
+                if attempt + 1 >= self.MAX_RETRY:
+                    raise
+                logger.warning(
+                    "increment_trigger_tag: transient DB error for %s (attempt %d/%d): %s",
+                    user_id,
+                    attempt + 1,
+                    self.MAX_RETRY,
+                    exc,
+                )
+                continue
+
+            if result == "UPDATE 1":
+                await self.invalidate_cache(user_id)
+                return
+            raise LookupError(f"Profile not found: {user_id}")
 
     async def record_coping_attempt(
         self, user_id: str, action: str, resource_id: str | None, effective: bool
