@@ -94,7 +94,7 @@ export default function Chat() {
 
   const handleSendIcon = (icon: React.ReactNode, label: string) => {
     const newMessage: Message = {
-      id: Date.toString(),
+      id: Date.now().toString(),
       type: 'user',
       icon,
       content: label,
