@@ -6,7 +6,7 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]  # backend/app/core -> repo root
+_REPO_ROOT = Path(__file__).resolve().parents[3]  # backend/app/core -> repo root
 
 
 def _aura_instance_from_uri(uri: str) -> str | None:
@@ -22,10 +22,7 @@ def _aura_instance_from_uri(uri: str) -> str | None:
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(
-            str(_REPO_ROOT / ".env"),
-            str(_REPO_ROOT / "backend" / ".env"),
-        ),
+        env_file=str(_REPO_ROOT / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
