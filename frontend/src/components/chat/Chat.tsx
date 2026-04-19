@@ -122,8 +122,8 @@ export default function Chat() {
         <div className="absolute inset-0 bg-white/20" />
       </div>
 
-      <main className="relative z-10 flex min-h-screen items-center justify-center p-4 sm:p-6 ">
-        <section className="flex h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border border-white/40 bg-white/65  backdrop-blur-3xl sm:h-[calc(100vh-3rem)] lg:max-h-[870px]">
+      <main className="flex min-h-[80dvh] justify-center">
+        <section className="flex w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-white/40 bg-white/65 backdrop-blur-3xl ">
           <header className="flex items-center justify-between px-5 py-5 sm:px-8 sm:py-7">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-serene-on-primary text-primary shadow-sm">
@@ -245,7 +245,7 @@ export default function Chat() {
                     </button>
                     <button
                       type="button"
-                     
+
                       className="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant transition hover:text-primary"
                       aria-label="Biểu cảm"
                     >
