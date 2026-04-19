@@ -15,7 +15,7 @@ export default function AppRoutes() {
             <Route path={ROUTE_PATHS.register} element={<Register />} />
             <Route path={ROUTE_PATHS.landing} element={<Landing />} />
 
-            <Route path={ROUTE_PATHS.app} element={<Main />}>
+            <Route path={ROUTE_PATHS.home} element={<Main />}>
                 <Route index element={<Home />} />
                 <Route path="chat" element={<Chat />} />
             </Route>

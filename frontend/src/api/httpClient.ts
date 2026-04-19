@@ -1,7 +1,7 @@
 import type { ApiEnvelope } from './types'
 import { ApiRequestError } from './types'
 
-const DEFAULT_API_BASE_URL = 'http://127.0.0.1:8000/v1'
+const DEFAULT_API_BASE_URL = 'http://192.168.110.15:8000/v1'
 
 const API_BASE_URL =
     (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || DEFAULT_API_BASE_URL

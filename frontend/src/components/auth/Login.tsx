@@ -10,7 +10,7 @@ export default function Login() {
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
         console.log({ email, password })
-        navigate(ROUTE_PATHS.app)
+        navigate(ROUTE_PATHS.home)
     }
 
     return (

@@ -48,7 +48,7 @@ export default function Register() {
             })
 
             toast.success('Đăng ký thành công. Chào mừng bạn đến với Serene!')
-            navigate(ROUTE_PATHS.app)
+            navigate(ROUTE_PATHS.home)
         } catch (error) {
             if (error instanceof ApiRequestError) {
                 toast.error(error.message)
@@ -110,7 +110,6 @@ export default function Register() {
                                     onChange={(event) => setSchool(event.target.value)}
                                     placeholder="Đại học Bách Khoa Hà Nội"
                                     className="auth-input-soft"
-                                    required
                                 />
                             </div>
                         </div>

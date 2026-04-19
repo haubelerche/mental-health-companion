@@ -3,6 +3,8 @@ export const ROUTE_PATHS = {
     landing: '/landing',
     login: '/login',
     register: '/register',
-    app: '/serene',
+    
+    // serene
+    home: '/serene',
     chat: '/serene/chat',
 } as const
