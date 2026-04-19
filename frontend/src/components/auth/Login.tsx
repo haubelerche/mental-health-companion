@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import bg from '../../assets/bg.png'
+import { ROUTE_PATHS } from '../../routes/paths'
 export default function Login() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
@@ -9,7 +10,7 @@ export default function Login() {
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
         console.log({ email, password })
-        navigate('/home')
+        navigate(ROUTE_PATHS.home)
     }
 
     return (
@@ -103,7 +104,7 @@ export default function Login() {
                         <p className="text-xs tracking-tight text-serene-muted/60">
                             Bạn chưa có tài khoản?{' '}
                             <Link
-                                to="/register"
+                                to={ROUTE_PATHS.register}
                                 className="auth-link"
                             >
                                 Tham gia ngay
@@ -112,7 +113,7 @@ export default function Login() {
                     </footer>
                 </section>
 
-         
+
             </main>
         </div>
     )

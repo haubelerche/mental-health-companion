@@ -2,20 +2,23 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import bg2 from '../../assets/bg2.png'
+import { ApiRequestError } from '../../api/types'
+import { useAuth } from '../../hooks/useAuth'
+import { ROUTE_PATHS } from '../../routes/paths'
 
 export default function Register() {
     const [fullName, setFullName] = useState('')
-    const [school, setSchool] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
     const [acknowledged, setAcknowledged] = useState(false)
     const navigate = useNavigate()
+    const { signup, isLoading } = useAuth()
 
 
     const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
 
-    const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
 
         if (!strongPasswordRegex.test(password)) {
@@ -35,9 +38,24 @@ export default function Register() {
         }
 
 
-        console.log({ fullName, school, email })
-        toast.success('Đăng ký thành công. Chào mừng bạn đến với Serene!')
-        navigate('/home')
+        try {
+            await signup({
+                display_name: fullName.trim(),
+                email: email.trim(),
+                password,
+                disclaimer_accepted: acknowledged,
+            })
+
+            toast.success('Đăng ký thành công. Chào mừng bạn đến với Serene!')
+            navigate(ROUTE_PATHS.home)
+        } catch (error) {
+            if (error instanceof ApiRequestError) {
+                toast.error(error.message)
+                return
+            }
+
+            toast.error('Đăng ký thất bại. Vui lòng thử lại sau.')
+        }
     }
 
     return (
@@ -65,36 +83,23 @@ export default function Register() {
                     </header>
 
                     <form className="space-y-6" onSubmit={handleSubmit}>
-                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                            <div className="space-y-1">
-                                <label className="auth-label ml-1" htmlFor="fullName">
-                                    Họ và Tên
-                                </label>
-                                <input
-                                    id="fullName"
-                                    type="text"
-                                    value={fullName}
-                                    onChange={(event) => setFullName(event.target.value)}
-                                    placeholder="Nguyễn Văn A"
-                                    className="auth-input-soft"
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-1">
-                                <label className="auth-label ml-1" htmlFor="school">
-                                    Trường Đại học
-                                </label>
-                                <input
-                                    id="school"
-                                    type="text"
-                                    value={school}
-                                    onChange={(event) => setSchool(event.target.value)}
-                                    placeholder="Đại học Bách Khoa Hà Nội"
-                                    className="auth-input-soft"
-                                    required
-                                />
-                            </div>
+
+                        <div className="space-y-1">
+                            <label className="auth-label ml-1" htmlFor="fullName">
+                                Họ và Tên
+                            </label>
+                            <input
+                                id="fullName"
+                                type="text"
+                                value={fullName}
+                                onChange={(event) => setFullName(event.target.value)}
+                                placeholder="Nguyễn Văn A"
+                                className="auth-input-soft"
+                                required
+                            />
                         </div>
+
+
 
                         <div className="space-y-1">
                             <label className="auth-label ml-1" htmlFor="email">
@@ -160,14 +165,15 @@ export default function Register() {
 
                         <button
                             type="submit"
+                            disabled={isLoading}
                             className="auth-cta"
                         >
-                            Bắt đầu hành trình
+                            {isLoading ? 'Đang tạo tài khoản...' : 'Bắt đầu hành trình'}
                         </button>
 
                         <p className="pt-1 text-center text-sm text-serene-muted">
                             Đã có tài khoản?{' '}
-                            <Link to="/login" className="auth-link">
+                            <Link to={ROUTE_PATHS.login} className="auth-link">
                                 Đăng nhập ngay
                             </Link>
                         </p>
