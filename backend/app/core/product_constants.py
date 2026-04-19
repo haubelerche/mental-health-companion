@@ -11,3 +11,6 @@ DISTRESS_CRITICAL = 0.9
 
 # Policy document version surfaced to clients
 CURRENT_POLICY_VERSION = "1.0"
+
+# Persona name shown in SOS / consent payloads (Product-facing string)
+CHAT_AGENT_DISPLAY_NAME = "Mây"

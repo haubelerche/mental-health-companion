@@ -7,6 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+EscalationReason = Literal["none", "threshold_crossed", "rapid_escalation"]
+
 
 
 """nhận đầu vào là điểm số bất ổn tâm lý (distress score) từ 0 đến 1 (có thể do Agent LLM đánh giá trả về) 
@@ -26,6 +28,15 @@ class SafetySnapshot:
     risk_level: int
     safety_tier: SafetyTier
     conversation_mode: ConversationMode
+
+
+@dataclass(frozen=True)
+class EscalationSignal:
+    rolling_window_turns: int
+    rolling_score: float
+    delta_score: float
+    escalate: bool
+    trigger_reason: str
 
 
 def clamp01(x: float) -> float:
@@ -77,6 +88,32 @@ def tier_to_conversation_mode(tier: SafetyTier, *, sos: bool) -> ConversationMod
     return "normal"
 
 
+def compute_escalation_signal(
+    *,
+    current_distress: float,
+    previous_distress: list[float],
+    threshold: float,
+    delta_threshold: float,
+    window_turns: int,
+) -> EscalationSignal:
+    """Detect abrupt distress jumps vs absolute crisis threshold (auditable rules)."""
+    cur = clamp01(current_distress)
+    thr = clamp01(threshold)
+    dthr = max(0.0, delta_threshold)
+    window = max(1, window_turns)
+    hist = [clamp01(x) for x in previous_distress[-window:]]
+
+    if cur >= thr:
+        return EscalationSignal(escalate=True, trigger_reason="threshold_crossed")
+
+    if hist:
+        baseline = min(hist)
+        if cur - baseline >= dthr:
+            return EscalationSignal(escalate=True, trigger_reason="rapid_escalation")
+
+    return EscalationSignal(escalate=False, trigger_reason="none")
+
+
 def build_snapshot(
     distress_score: float,
     *,
@@ -97,6 +134,48 @@ def build_snapshot(
         risk_level=rl,
         safety_tier=tier,
         conversation_mode=mode,
+    )
+
+
+def compute_escalation_signal(
+    *,
+    current_distress: float,
+    previous_distress: list[float],
+    threshold: float,
+    delta_threshold: float,
+    window_turns: int,
+) -> EscalationSignal:
+    window = [clamp01(x) for x in previous_distress[-max(0, window_turns - 1) :]]
+    window.append(clamp01(current_distress))
+    if not window:
+        return EscalationSignal(rolling_window_turns=0, rolling_score=0.0, delta_score=0.0, escalate=False, trigger_reason="none")
+
+    rolling_score = sum(window) / float(len(window))
+    baseline = window[0]
+    delta = clamp01(window[-1] - baseline)
+
+    if window[-1] >= threshold:
+        return EscalationSignal(
+            rolling_window_turns=len(window),
+            rolling_score=rolling_score,
+            delta_score=delta,
+            escalate=True,
+            trigger_reason="threshold_crossed",
+        )
+    if window[-1] >= 0.7 and delta >= delta_threshold:
+        return EscalationSignal(
+            rolling_window_turns=len(window),
+            rolling_score=rolling_score,
+            delta_score=delta,
+            escalate=True,
+            trigger_reason="rapid_escalation",
+        )
+    return EscalationSignal(
+        rolling_window_turns=len(window),
+        rolling_score=rolling_score,
+        delta_score=delta,
+        escalate=False,
+        trigger_reason="none",
     )
 """nhận vào điểm bất ổn, các ngưỡng, và biến cảnh báo (cờ sos_triggered). Hàm này chạy qua tất cả các hàm trên để tính toán một lượt và trả về SafetySnapshot.
 Điểm đáng chú ý về cơ chế "ghi đè" (Override) an toàn:
