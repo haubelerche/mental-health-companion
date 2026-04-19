@@ -1,4 +1,5 @@
-import {  History, Image, Leaf, Mic, MoreVertical, Send, Smile, Wind } from 'lucide-react'
+import { Heart, History, Image, Leaf, Mic, MoreVertical, Send, Smile, Wind } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
 import bg from '../../assets/bg2.png'
 
 const suggestedExercise = {
@@ -8,7 +9,112 @@ const suggestedExercise = {
   cta: 'Bắt đầu',
 }
 
+type Message = {
+  id: string
+  type: 'user' | 'serene'
+  content?: string
+  icon?: React.ReactNode
+  timestamp: Date
+}
+
+const mockMessages: Message[] = [
+  {
+    id: '1',
+    type: 'serene',
+    content: 'Xin chào! Mình là Serene. Hôm nay bạn cảm thấy thế nào?',
+    timestamp: new Date(Date.now() - 5 * 60000),
+  },
+  {
+    id: '2',
+    type: 'user',
+    content: 'Cảm thấy hơi ngộp vì bài vở quá nhiều...',
+    timestamp: new Date(Date.now() - 4 * 60000),
+  },
+  {
+    id: '3',
+    type: 'serene',
+    content: 'Mình hiểu mà. Đôi khi mọi thứ dồn dập khiến ta thấy khó thở. Cậu thử dành 2 phút làm bài tập này cùng mình nhé?',
+    timestamp: new Date(Date.now() - 3 * 60000),
+  },
+]
+
+const moodIcons = [
+  { id: 'happy', icon: <Smile className="h-6 w-6" />, label: 'Vui' },
+  { id: 'love', icon: <Heart className="h-6 w-6" />, label: 'Yêu thích' },
+  { id: 'wind', icon: <Wind className="h-6 w-6" />, label: 'Thư thái' },
+  { id: 'leaf', icon: <Leaf className="h-6 w-6" />, label: 'Bình yên' },
+]
+
 export default function Chat() {
+  const [messages, setMessages] = useState<Message[]>(mockMessages)
+  const [inputValue, setInputValue] = useState('')
+  const [showMoodEmojis, setShowMoodEmojis] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
+
+  const handleSendMessage = () => {
+    if (!inputValue.trim()) return
+
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      type: 'user',
+      content: inputValue,
+      timestamp: new Date(),
+    }
+
+    setMessages((prev) => [...prev, newMessage])
+    setInputValue('')
+
+    // Mock response sau 1 giây
+    setTimeout(() => {
+      const responses = [
+        'Cảm ơn bạn đã chia sẻ. Mình lắng nghe bạn đây.',
+        'Điều đó rất bình thường. Hãy thở sâu và từ từ.',
+        'Bạn làm rất tốt khi chia sẻ với mình.',
+        'Mình hiểu. Cùng nhau vượt qua nhé!',
+      ]
+      const randomResponse = responses[Math.floor(Math.random() * responses.length)]
+      const sereneMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'serene',
+        content: randomResponse,
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, sereneMessage])
+    }, 1000)
+  }
+
+  const handleSendIcon = (icon: React.ReactNode, label: string) => {
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      type: 'user',
+      icon,
+      content: label,
+      timestamp: new Date(),
+    }
+
+    setMessages((prev) => [...prev, newMessage])
+    setShowMoodEmojis(false)
+
+    // Mock response
+    setTimeout(() => {
+      const sereneMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'serene',
+        content: `Tuyệt vời! Tâm trạng "${label}" của bạn rất đẹp.`,
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, sereneMessage])
+    }, 800)
+  }
   return (
     <div className="relative min-h-screen text-serene-ink">
       <div className="fixed inset-0 -z-20">
@@ -55,57 +161,61 @@ export default function Chat() {
           </header>
 
           <div className="flex flex-1 flex-col overflow-hidden px-4 pb-4 sm:px-8">
-            <div className="flex flex-1 flex-col gap-8 overflow-y-auto px-1 py-2 sm:px-2">
-              <div className="flex justify-center">
-                <span className="rounded-full bg-white/45 px-4 py-1 text-[10px] uppercase tracking-[0.2em] text-on-surface-variant/70 shadow-sm backdrop-blur-md">
-                  Hôm nay, 5:30 chiều
-                </span>
-              </div>
-
-              <div className="flex justify-end">
-                <div className="max-w-[78%] rounded-3xl rounded-tr-none border border-white/20 bg-white/45 px-5 py-4 shadow-sm backdrop-blur-md sm:max-w-[70%] sm:px-6">
-                  <p className="text-sm leading-relaxed italic text-on-surface sm:text-base">
-                    Cảm thấy hơi ngộp vì bài vở quá nhiều...
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex justify-start gap-3 sm:gap-4">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-serene-on-primary text-primary shadow-sm">
-                  <Leaf className='w-4 h-4'/>
-                </div>
-
-                <div className="flex max-w-[82%] flex-col gap-4 sm:max-w-[75%]">
-                  <div className="rounded-3xl rounded-tl-none border border-serene-ink/10 bg-serene-primary/5 px-5 py-4 shadow-sm sm:px-6">
-                    <p className="text-sm leading-relaxed text-on-surface sm:text-base">
-                      Mình hiểu mà. Đôi khi mọi thứ dồn dập khiến ta thấy khó thở. Cậu thử dành 2 phút
-                      làm bài tập này cùng mình nhé?
-                    </p>
-                  </div>
-
-                  <div className="group flex items-center gap-4 rounded-full border border-white/40 bg-white/65 p-4 shadow-sm backdrop-blur-xl transition hover:shadow-md sm:gap-5 sm:p-6">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full  shadow-sm sm:h-16 sm:w-16">
-                      {suggestedExercise.icon}
+            <div
+              ref={messagesContainerRef}
+              className="flex flex-1 flex-col gap-6 overflow-y-auto px-1 py-2 sm:px-2"
+            >
+              {messages.map((msg, idx) => (
+                <div key={msg.id} className={`flex gap-3 sm:gap-4 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {msg.type === 'serene' && (
+                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-serene-on-primary text-primary shadow-sm">
+                      <Leaf className="h-4 w-4" />
                     </div>
+                  )}
 
-                    <div className="min-w-0 flex-1">
-                      <p className="mb-1 text-[10px] uppercase tracking-wide ">
-                        {suggestedExercise.description}
-                      </p>
-                      <h3 className="font-display text-lg font-semibold text-on-surface sm:text-xl">
-                        {suggestedExercise.title}
-                      </h3>
-                    </div>
+                  <div className={`flex max-w-[82%] flex-col gap-2 ${msg.type === 'user' ? 'items-end' : 'items-start'} sm:max-w-[70%]`}>
+                    {msg.type === 'serene' && idx === messages.length - 2 && msg.id === messages[messages.length - 2]?.id && (
+                      <div className="group mb-2 flex w-full items-center gap-3 rounded-2xl border border-white/40 bg-white/65 p-4 shadow-sm backdrop-blur-xl transition hover:shadow-md sm:gap-4 sm:p-5">
+                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl text-serene-primary shadow-sm sm:h-14 sm:w-14">
+                          {suggestedExercise.icon}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[9px] uppercase tracking-wide text-on-surface-variant/75 sm:text-[10px]">
+                            {suggestedExercise.description}
+                          </p>
+                          <h3 className="font-display text-sm font-semibold text-on-surface sm:text-base">
+                            {suggestedExercise.title}
+                          </h3>
+                        </div>
+                        <button
+                          type="button"
+                          className="whitespace-nowrap rounded-full bg-serene-primary px-3 py-2 text-xs font-semibold text-serene-on-primary shadow-md transition hover:brightness-105 active:scale-95 sm:px-4 sm:py-2.5 sm:text-sm"
+                        >
+                          {suggestedExercise.cta}
+                        </button>
+                      </div>
+                    )}
 
-                    <button
-                      type="button"
-                      className="rounded-full bg-serene-primary text-serene-bg px-4 py-2.5 text-xs font-semibold tracking-wide text-on-primary shadow-lg transition active:scale-95 hover:brightness-105 sm:px-6 sm:text-sm"
-                    >
-                      {suggestedExercise.cta}
-                    </button>
+                    {msg.icon ? (
+                      <div className={`flex h-12 w-12 items-center justify-center rounded-3xl ${msg.type === 'user' ? 'bg-serene-primary text-serene-on-primary' : 'bg-white/45 text-serene-primary'} shadow-md sm:h-14 sm:w-14`}>
+                        {msg.icon}
+                      </div>
+                    ) : (
+                      <div
+                        className={`rounded-3xl ${msg.type === 'user'
+                          ? 'rounded-tr-none border border-white/20 bg-white/45 text-on-surface'
+                          : 'rounded-tl-none border border-serene-ink/10 bg-serene-primary/5 text-on-surface'
+                        } px-5 py-3 shadow-sm sm:px-6 sm:py-4`}
+                      >
+                        <p className="text-sm leading-relaxed sm:text-base">
+                          {msg.content}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              ))}
+              <div ref={messagesEndRef} />
             </div>
 
             <footer className="mt-4 border-t border-white/25 pt-4 sm:mt-6 sm:pt-6">
@@ -114,7 +224,15 @@ export default function Chat() {
                   <input
                     type="text"
                     placeholder="Chia sẻ cùng Serene..."
-                    className="w-full rounded-full border-none bg-white/70 px-5 py-4 pr-24 text-sm  shadow-sm outline-none ring-0 placeholder:text-on-surface-variant/50 focus:bg-surface-container-low/85 focus:ring-0 sm:px-8 sm:py-5 sm:text-lg"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSendMessage()
+                      }
+                    }}
+                    className="w-full rounded-full border-none bg-white/70 px-5 py-4 pr-24 text-sm shadow-sm outline-none ring-0 placeholder:text-on-surface-variant/50 focus:bg-surface-container-low/85 focus:ring-0 sm:px-8 sm:py-5 sm:text-lg"
                   />
 
                   <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1 sm:gap-2">
@@ -127,6 +245,7 @@ export default function Chat() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => setShowMoodEmojis(!showMoodEmojis)}
                       className="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant transition hover:text-primary"
                       aria-label="Biểu cảm"
                     >
@@ -137,6 +256,7 @@ export default function Chat() {
 
                 <button
                   type="button"
+                  onClick={handleSendMessage}
                   className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary bg-serene-primary text-serene-bg shadow-md transition hover:scale-105 active:scale-95 sm:h-16 sm:w-16"
                   aria-label="Gửi"
                 >
@@ -144,17 +264,39 @@ export default function Chat() {
                 </button>
               </div>
 
-              <div className="mt-4 flex flex-wrap justify-center gap-4 sm:mt-5 sm:gap-8">
+              {showMoodEmojis && (
+                <div className="mt-3 flex flex-wrap justify-center gap-2 sm:gap-3">
+                  {moodIcons.map((mood) => (
+                    <button
+                      key={mood.id}
+                      type="button"
+                      onClick={() => handleSendIcon(mood.icon, mood.label)}
+                      className="flex flex-col items-center gap-1 rounded-lg bg-white/50 p-2 text-center transition hover:bg-white/70 active:scale-95 sm:p-3"
+                      title={mood.label}
+                    >
+                      <span className="text-serene-primary">
+                        {mood.icon}
+                      </span>
+                      <span className="text-[8px] uppercase tracking-wide text-on-surface-variant/70 sm:text-[9px]">
+                        {mood.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-3 flex flex-wrap justify-center gap-4 sm:mt-4 sm:gap-8">
                 <button
                   type="button"
-                  className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-serene-muted transition hover:text-primary sm:text-xs"
+                  onClick={() => setShowMoodEmojis(!showMoodEmojis)}
+                  className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-serene-muted transition hover:text-primary sm:gap-2 sm:text-xs"
                 >
-                  <Smile />
+                  <Smile className="h-4 w-4" />
                   Tâm trạng hiện tại
                 </button>
                 <button
                   type="button"
-                  className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-serene-muted transition hover:text-primary sm:text-xs"
+                  className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-serene-muted transition hover:text-primary sm:gap-2 sm:text-xs"
                 >
                   <Image className="h-4 w-4" />
                   Gửi ảnh bình yên
@@ -165,7 +307,7 @@ export default function Chat() {
         </section>
       </main>
 
-     
+
     </div>
   )
 }
