@@ -70,7 +70,7 @@ def test_chat_message_non_sos_success(monkeypatch):
         body = resp.json()
         assert body["success"] is True
         assert body["data"]["sos_triggered"] is False
-        assert "ở đây với cậu." in body["data"]["reply"]
+        assert body["data"]["reply"] == "Mình luôn ở đây với cậu."
         assert fake_db.committed is True
     finally:
         app.dependency_overrides.clear()

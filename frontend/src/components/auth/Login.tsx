@@ -1,32 +1,16 @@
 import { useState } from 'react'
-import type { ComponentProps } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { toast } from 'react-toastify'
 import bg from '../../assets/bg.png'
-import { api } from '../../lib/api'
+import { ROUTE_PATHS } from '../../routes/paths'
 export default function Login() {
-    type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
-    const [submitting, setSubmitting] = useState(false)
     const navigate = useNavigate()
 
-    const handleSubmit: FormSubmitHandler = async (event) => {
+    const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
-        if (submitting) return
-        setSubmitting(true)
-        try {
-            await api.login({ email, password })
-            await api.ensureCsrfToken()
-            const policy = await api.getCurrentPolicy()
-            await api.acknowledgePolicy(policy.version)
-            toast.success('Đăng nhập thành công')
-            navigate('/serene/chat')
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : 'Đăng nhập thất bại')
-        } finally {
-            setSubmitting(false)
-        }
+        console.log({ email, password })
+        navigate(ROUTE_PATHS.home)
     }
 
     return (
@@ -109,10 +93,9 @@ export default function Login() {
                         <div className="pt-2">
                             <button
                                 type="submit"
-                                className="auth-cta disabled:cursor-not-allowed disabled:opacity-70"
-                                disabled={submitting}
+                                className="auth-cta"
                             >
-                                {submitting ? 'Đang đăng nhập...' : 'Bước vào'}
+                                Bước vào
                             </button>
                         </div>
                     </form>
@@ -121,7 +104,7 @@ export default function Login() {
                         <p className="text-xs tracking-tight text-serene-muted/60">
                             Bạn chưa có tài khoản?{' '}
                             <Link
-                                to="/register"
+                                to={ROUTE_PATHS.register}
                                 className="auth-link"
                             >
                                 Tham gia ngay
@@ -130,7 +113,7 @@ export default function Login() {
                     </footer>
                 </section>
 
-         
+
             </main>
         </div>
     )
