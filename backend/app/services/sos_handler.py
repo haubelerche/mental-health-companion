@@ -6,11 +6,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.core.product_constants import DISTRESS_CRITICAL, DISTRESS_VOICE_HINT
+from app.core.product_constants import CHAT_AGENT_DISPLAY_NAME, DISTRESS_CRITICAL, DISTRESS_VOICE_HINT
 from app.services.vn_hotlines import hotline_cards_sos
 from app.services.safety_scoring import SafetySnapshot, build_snapshot, clamp01
-
-DEFAULT_AGENT_DISPLAY_NAME = "Mây"
 
 EXPLICIT_HIGH_RISK = [
     "muon chet",
@@ -186,7 +184,7 @@ def build_sos_chat_response_data(
             "user_alert_sent": False,
         },
         "risk_level": snapshot.risk_level,
-        "agent_display_name": DEFAULT_AGENT_DISPLAY_NAME,
+        "agent_display_name": CHAT_AGENT_DISPLAY_NAME,
         "reply": None,
         "assistant_text": _ASSISTANT_TEXT_SOS_VI,
         "assistant_strategy": {

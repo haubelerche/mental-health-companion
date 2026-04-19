@@ -7,6 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+EscalationReason = Literal["none", "threshold_crossed", "rapid_escalation"]
+
 
 
 """nhận đầu vào là điểm số bất ổn tâm lý (distress score) từ 0 đến 1 (có thể do Agent LLM đánh giá trả về) 
@@ -26,6 +28,12 @@ class SafetySnapshot:
     risk_level: int
     safety_tier: SafetyTier
     conversation_mode: ConversationMode
+
+
+@dataclass(frozen=True)
+class EscalationSignal:
+    escalate: bool
+    trigger_reason: EscalationReason
 
 
 def clamp01(x: float) -> float:
@@ -75,6 +83,32 @@ def tier_to_conversation_mode(tier: SafetyTier, *, sos: bool) -> ConversationMod
     if tier in ("elevated", "voice_recommended"):
         return "supportive"
     return "normal"
+
+
+def compute_escalation_signal(
+    *,
+    current_distress: float,
+    previous_distress: list[float],
+    threshold: float,
+    delta_threshold: float,
+    window_turns: int,
+) -> EscalationSignal:
+    """Detect abrupt distress jumps vs absolute crisis threshold (auditable rules)."""
+    cur = clamp01(current_distress)
+    thr = clamp01(threshold)
+    dthr = max(0.0, delta_threshold)
+    window = max(1, window_turns)
+    hist = [clamp01(x) for x in previous_distress[-window:]]
+
+    if cur >= thr:
+        return EscalationSignal(escalate=True, trigger_reason="threshold_crossed")
+
+    if hist:
+        baseline = min(hist)
+        if cur - baseline >= dthr:
+            return EscalationSignal(escalate=True, trigger_reason="rapid_escalation")
+
+    return EscalationSignal(escalate=False, trigger_reason="none")
 
 
 def build_snapshot(
