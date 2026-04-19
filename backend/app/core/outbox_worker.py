@@ -341,28 +341,29 @@ class OutboxWorker:
     async def _process_batch(self) -> None:
         """Fetch and process one batch of pending events."""
         async with self._pg.acquire() as conn:
-            # Lock rows for processing (skip locked = skip events being processed elsewhere)
+            # Select-for-update and flip to processing in one statement so the claim
+            # is not split across round trips (avoids races between lock and status update).
             rows = await conn.fetch(
                 """
-                SELECT outbox_id, event_type, payload, user_id, attempts, created_at
-                FROM sync_outbox
-                WHERE status = 'pending'
-                ORDER BY created_at ASC
-                LIMIT $1
-                FOR UPDATE SKIP LOCKED
+                WITH picked AS (
+                    SELECT outbox_id
+                    FROM sync_outbox
+                    WHERE status = 'pending'
+                    ORDER BY created_at ASC
+                    LIMIT $1
+                    FOR UPDATE SKIP LOCKED
+                )
+                UPDATE sync_outbox o
+                SET status = 'processing'
+                FROM picked p
+                WHERE o.outbox_id = p.outbox_id
+                RETURNING o.outbox_id, o.event_type, o.payload, o.user_id, o.attempts, o.created_at
                 """,
                 self.BATCH_SIZE,
             )
 
             if not rows:
                 return
-
-            # Mark as processing
-            ids = [r["outbox_id"] for r in rows]
-            await conn.execute(
-                "UPDATE sync_outbox SET status = 'processing' WHERE outbox_id = ANY($1)",
-                ids,
-            )
 
         events = [
             OutboxEvent(
