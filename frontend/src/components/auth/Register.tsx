@@ -8,7 +8,6 @@ import { ROUTE_PATHS } from '../../routes/paths'
 
 export default function Register() {
     const [fullName, setFullName] = useState('')
-    const [school, setSchool] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
@@ -84,35 +83,23 @@ export default function Register() {
                     </header>
 
                     <form className="space-y-6" onSubmit={handleSubmit}>
-                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                            <div className="space-y-1">
-                                <label className="auth-label ml-1" htmlFor="fullName">
-                                    Họ và Tên
-                                </label>
-                                <input
-                                    id="fullName"
-                                    type="text"
-                                    value={fullName}
-                                    onChange={(event) => setFullName(event.target.value)}
-                                    placeholder="Nguyễn Văn A"
-                                    className="auth-input-soft"
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-1">
-                                <label className="auth-label ml-1" htmlFor="school">
-                                    Trường Đại học
-                                </label>
-                                <input
-                                    id="school"
-                                    type="text"
-                                    value={school}
-                                    onChange={(event) => setSchool(event.target.value)}
-                                    placeholder="Đại học Bách Khoa Hà Nội"
-                                    className="auth-input-soft"
-                                />
-                            </div>
+
+                        <div className="space-y-1">
+                            <label className="auth-label ml-1" htmlFor="fullName">
+                                Họ và Tên
+                            </label>
+                            <input
+                                id="fullName"
+                                type="text"
+                                value={fullName}
+                                onChange={(event) => setFullName(event.target.value)}
+                                placeholder="Nguyễn Văn A"
+                                className="auth-input-soft"
+                                required
+                            />
                         </div>
+
+
 
                         <div className="space-y-1">
                             <label className="auth-label ml-1" htmlFor="email">
