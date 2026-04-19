@@ -9,6 +9,7 @@ Version: 3.0 | Last updated: 2026-04-14
 Design contract:
   - IDEMPOTENT: running the worker twice on the same event produces the same graph state.
   - PII-FREE: payload must be pre-masked before INSERT into sync_outbox.
+  - Stale `processing` rows (worker crash) are reset to `pending` after STALE_PROCESSING_AFTER.
   - crisis_logs are NEVER in the outbox — admin-only, stays in Postgres.
 
 Changes from v2.0 (mirrors neo4j_bootstrap_v3.0):
@@ -27,7 +28,7 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import asyncpg
 from neo4j import AsyncGraphDatabase, AsyncDriver
@@ -310,6 +311,7 @@ class OutboxWorker:
     BATCH_SIZE = 50
     MAX_ATTEMPTS = 3
     BASE_BACKOFF = 2  # seconds (doubles each retry: 2, 4, 8)
+    STALE_PROCESSING_AFTER = timedelta(minutes=10)
 
     def __init__(self, pg_pool: asyncpg.Pool, neo4j_driver: AsyncDriver) -> None:
         self._pg = pg_pool
@@ -331,8 +333,25 @@ class OutboxWorker:
         self._running = False
         logger.info("OutboxWorker stopped")
 
+    async def _reap_stale_processing(self) -> None:
+        """Return stuck `processing` rows to `pending` so another worker can retry."""
+        async with self._pg.acquire() as conn:
+            result = await conn.execute(
+                """
+                UPDATE sync_outbox
+                SET status = 'pending', processing_started_at = NULL
+                WHERE status = 'processing'
+                  AND COALESCE(processing_started_at, created_at) < NOW() - $1::interval
+                """,
+                self.STALE_PROCESSING_AFTER,
+            )
+        if result != "UPDATE 0":
+            logger.warning("OutboxWorker requeued stale processing rows: %s", result)
+
     async def _process_batch(self) -> None:
         """Fetch and process one batch of pending events."""
+        await self._reap_stale_processing()
+
         async with self._pg.acquire() as conn:
             # Select-for-update and flip to processing in one statement so the claim
             # is not split across round trips (avoids races between lock and status update).
@@ -347,7 +366,8 @@ class OutboxWorker:
                     FOR UPDATE SKIP LOCKED
                 )
                 UPDATE sync_outbox o
-                SET status = 'processing'
+                SET status = 'processing',
+                    processing_started_at = NOW()
                 FROM picked p
                 WHERE o.outbox_id = p.outbox_id
                 RETURNING o.outbox_id, o.event_type, o.payload, o.user_id, o.attempts, o.created_at
@@ -405,7 +425,10 @@ class OutboxWorker:
             await conn.execute(
                 """
                 UPDATE sync_outbox
-                SET status = 'done', processed_at = NOW(), attempts = attempts + 1
+                SET status = 'done',
+                    processed_at = NOW(),
+                    attempts = attempts + 1,
+                    processing_started_at = NULL
                 WHERE outbox_id = $1
                 """,
                 outbox_id,
@@ -416,7 +439,10 @@ class OutboxWorker:
             await conn.execute(
                 """
                 UPDATE sync_outbox
-                SET status = 'failed', processed_at = NOW(), attempts = $2
+                SET status = 'failed',
+                    processed_at = NOW(),
+                    attempts = $2,
+                    processing_started_at = NULL
                 WHERE outbox_id = $1
                 """,
                 outbox_id, total_attempts,
