@@ -1,0 +1,4 @@
+# Backend installs: reuse repo root deps, then test tools.
+-r ../requirements.txt
+
+pytest>=8.0.0
