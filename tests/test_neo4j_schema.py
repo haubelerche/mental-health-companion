@@ -39,7 +39,7 @@ NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "")
 pytestmark = pytest.mark.asyncio
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def driver() -> AsyncDriver:
     if not NEO4J_URI or not NEO4J_PASSWORD:
         pytest.skip("NEO4J_URI / NEO4J_PASSWORD not set — skipping Neo4j integration tests")
@@ -125,20 +125,22 @@ async def test_distortions_have_amplifies_edges(driver: AsyncDriver) -> None:
 
 
 async def test_emotion_labels_normalized(driver: AsyncDriver) -> None:
-    """All Emotion nodes must have a .vi display property."""
+    """All Emotion nodes must have a Vietnamese display string (v3: name_vi)."""
     async with driver.session() as s:
+        # Remove pre-v3 test debris (MERGE on :Emotion {label}) that lacks slug/name_vi.
+        await s.run("MATCH (e:Emotion) WHERE e.slug IS NULL DETACH DELETE e")
         result = await s.run(
-            "MATCH (e:Emotion) WHERE e.vi IS NULL RETURN e.label AS label"
+            "MATCH (e:Emotion) WHERE e.name_vi IS NULL RETURN coalesce(e.slug, e.label) AS id"
         )
-        missing = [rec["label"] async for rec in result]
-    assert missing == [], f"Emotions missing .vi property: {missing}"
+        missing = [rec["id"] async for rec in result]
+    assert missing == [], f"Emotions missing name_vi: {missing}"
 
 
 async def test_emotion_lo_lang_removed(driver: AsyncDriver) -> None:
     """Legacy 'lo_lang' node must not exist (renamed to 'anxious' in v3.0)."""
     async with driver.session() as s:
         result = await s.run(
-            "MATCH (e:Emotion {label: 'lo_lang'}) RETURN count(e) AS n"
+            "MATCH (e:Emotion {slug: 'lo_lang'}) RETURN count(e) AS n"
         )
         row = await result.single()
     assert row["n"] == 0, "'lo_lang' emotion node still exists — run migration DETACH DELETE"
@@ -149,7 +151,7 @@ async def test_safety_keywords_seeded(driver: AsyncDriver) -> None:
     async with driver.session() as s:
         result = await s.run(
             """
-            MATCH (k:SafetyKeyword)-[:INDICATES]->(s:Symptom {name: 'suicidal_ideation'})
+            MATCH (k:SafetyKeyword)-[:INDICATES]->(s:Symptom {slug: 'suicidal_ideation'})
             RETURN count(k) AS n
             """
         )
@@ -201,7 +203,7 @@ async def test_experienced_multi_user_isolation(driver: AsyncDriver) -> None:
             await s.run(
                 """
                 MERGE (u:User {user_id: $uid})
-                MERGE (t:Trigger {label: $trigger})
+                MERGE (t:Trigger {slug: $trigger})
                 MERGE (u)-[r:EXPERIENCED]->(t)
                 ON CREATE SET r.count = 1, r.first_seen = datetime(), r.last_seen = datetime()
                 ON MATCH SET  r.count = r.count + 1, r.last_seen = datetime()
@@ -212,7 +214,7 @@ async def test_experienced_multi_user_isolation(driver: AsyncDriver) -> None:
         await s.run(
             """
             MERGE (u:User {user_id: $uid})
-            MERGE (t:Trigger {label: $trigger})
+            MERGE (t:Trigger {slug: $trigger})
             MERGE (u)-[r:EXPERIENCED]->(t)
             ON CREATE SET r.count = 1, r.first_seen = datetime(), r.last_seen = datetime()
             ON MATCH SET  r.count = r.count + 1, r.last_seen = datetime()
@@ -223,7 +225,7 @@ async def test_experienced_multi_user_isolation(driver: AsyncDriver) -> None:
         # Verify isolation
         result = await s.run(
             """
-            MATCH (u:User)-[r:EXPERIENCED]->(:Trigger {label: $trigger})
+            MATCH (u:User)-[r:EXPERIENCED]->(:Trigger {slug: $trigger})
             WHERE u.user_id IN [$uid_a, $uid_b]
             RETURN u.user_id AS uid, r.count AS cnt
             ORDER BY u.user_id
@@ -256,7 +258,7 @@ async def test_felt_multi_user_isolation(driver: AsyncDriver) -> None:
             await s.run(
                 """
                 MERGE (u:User {user_id: $uid})
-                MERGE (e:Emotion {label: $emotion})
+                MERGE (e:Emotion {slug: $emotion})
                 MERGE (u)-[r:FELT]->(e)
                 ON CREATE SET r.count = 1, r.first_seen = datetime(), r.last_seen = datetime()
                 ON MATCH SET  r.count = r.count + 1, r.last_seen = datetime()
@@ -266,7 +268,7 @@ async def test_felt_multi_user_isolation(driver: AsyncDriver) -> None:
         await s.run(
             """
             MERGE (u:User {user_id: $uid})
-            MERGE (e:Emotion {label: $emotion})
+            MERGE (e:Emotion {slug: $emotion})
             MERGE (u)-[r:FELT]->(e)
             ON CREATE SET r.count = 1, r.first_seen = datetime(), r.last_seen = datetime()
             ON MATCH SET  r.count = r.count + 1, r.last_seen = datetime()
@@ -276,7 +278,7 @@ async def test_felt_multi_user_isolation(driver: AsyncDriver) -> None:
 
         result = await s.run(
             """
-            MATCH (u:User)-[r:FELT]->(:Emotion {label: $emotion})
+            MATCH (u:User)-[r:FELT]->(:Emotion {slug: $emotion})
             WHERE u.user_id IN [$uid_a, $uid_b]
             RETURN u.user_id AS uid, r.count AS cnt
             """,
@@ -303,7 +305,7 @@ async def test_experienced_first_seen_set(driver: AsyncDriver) -> None:
         await s.run(
             """
             MERGE (u:User {user_id: $uid})
-            MERGE (t:Trigger {label: 'loneliness'})
+            MERGE (t:Trigger {slug: 'loneliness'})
             MERGE (u)-[r:EXPERIENCED]->(t)
             ON CREATE SET r.count = 1, r.first_seen = datetime('2026-01-01T00:00:00Z'),
                           r.last_seen = datetime('2026-01-01T00:00:00Z')
@@ -315,7 +317,7 @@ async def test_experienced_first_seen_set(driver: AsyncDriver) -> None:
         await s.run(
             """
             MERGE (u:User {user_id: $uid})
-            MERGE (t:Trigger {label: 'loneliness'})
+            MERGE (t:Trigger {slug: 'loneliness'})
             MERGE (u)-[r:EXPERIENCED]->(t)
             ON CREATE SET r.count = 1, r.first_seen = datetime('2026-06-01T00:00:00Z'),
                           r.last_seen = datetime('2026-06-01T00:00:00Z')
@@ -326,7 +328,7 @@ async def test_experienced_first_seen_set(driver: AsyncDriver) -> None:
 
         result = await s.run(
             """
-            MATCH (u:User {user_id: $uid})-[r:EXPERIENCED]->(t:Trigger {label: 'loneliness'})
+            MATCH (u:User {user_id: $uid})-[r:EXPERIENCED]->(t:Trigger {slug: 'loneliness'})
             RETURN r.count AS cnt, toString(r.first_seen) AS fs, toString(r.last_seen) AS ls
             """,
             uid=uid,
@@ -402,7 +404,7 @@ async def test_session_links_to_user_and_triggers(driver: AsyncDriver) -> None:
         await s.run(
             """
             MATCH (sess:Session {session_id: $sid})
-            MERGE (t:Trigger {label: 'deadline'})
+            MERGE (t:Trigger {slug: 'deadline'})
             MERGE (sess)-[:MENTIONS_TRIGGER]->(t)
             """,
             sid=sid,
@@ -412,7 +414,7 @@ async def test_session_links_to_user_and_triggers(driver: AsyncDriver) -> None:
             """
             MATCH (u:User {user_id: $uid})-[:HAS_SESSION]->(sess:Session {session_id: $sid})
                   -[:MENTIONS_TRIGGER]->(t:Trigger)
-            RETURN u.user_id AS uid, sess.session_id AS sid, t.label AS trigger
+            RETURN u.user_id AS uid, sess.session_id AS sid, coalesce(t.slug, t.label) AS trigger
             """,
             uid=uid, sid=sid,
         )
@@ -435,7 +437,7 @@ async def test_analyst_symptom_instrument_mapping(driver: AsyncDriver) -> None:
     async with driver.session() as s:
         result = await s.run(
             """
-            MATCH (sym:Symptom {name: 'insomnia'})<-[:MEASURES]-(q:Item)<-[:HAS_ITEM]-(i:Instrument)
+            MATCH (sym:Symptom {slug: 'insomnia'})<-[:MEASURES]-(q:Item)<-[:HAS_ITEM]-(i:Instrument)
             RETURN i.code AS instrument, q.code AS item
             ORDER BY i.code, q.code
             """
@@ -455,7 +457,7 @@ async def test_analyst_resource_recommendation(driver: AsyncDriver) -> None:
     async with driver.session() as s:
         result = await s.run(
             """
-            MATCH (r:Resource)-[h:HELPS_WITH]->(s:Symptom {name: 'insomnia'})
+            MATCH (r:Resource)-[h:HELPS_WITH]->(s:Symptom {slug: 'insomnia'})
             RETURN r.resource_id AS rid, r.title_vi AS title, h.strength AS strength
             ORDER BY h.strength DESC
             """
@@ -473,8 +475,8 @@ async def test_analyst_co_occurring_symptoms(driver: AsyncDriver) -> None:
     async with driver.session() as s:
         result = await s.run(
             """
-            MATCH (:Symptom {name: 'excessive_worry'})-[c:CO_OCCURS_WITH]->(s:Symptom)
-            RETURN s.name AS symptom, c.weight AS weight
+            MATCH (:Symptom {slug: 'excessive_worry'})-[c:CO_OCCURS_WITH]->(s:Symptom)
+            RETURN s.slug AS symptom, c.weight AS weight
             ORDER BY c.weight DESC
             """
         )

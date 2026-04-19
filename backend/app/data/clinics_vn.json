@@ -1,0 +1,254 @@
+[
+  {
+    "id": "c_hn_01",
+    "name": "Bệnh viện Bạch Mai — Khoa Tâm thần",
+    "address": "78 Giải Phóng, Phương Mai, Đống Đa, Hà Nội",
+    "lat": 21.0026,
+    "lng": 105.8424,
+    "phone": "024-3868-5619",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hn_02",
+    "name": "Bệnh viện Đại học Y Hà Nội — Khoa Tâm thần",
+    "address": "1 Tôn Thất Tùng, Đống Đa, Hà Nội",
+    "lat": 21.0033,
+    "lng": 105.8267,
+    "phone": "024-3576-4149",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hn_03",
+    "name": "Viện Sức khỏe Tâm thần — Bệnh viện Bạch Mai",
+    "address": "Số 78 Giải Phóng, Đống Đa, Hà Nội",
+    "lat": 21.0024,
+    "lng": 105.8418,
+    "phone": "024-3868-5619",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hn_04",
+    "name": "Bệnh viện Tâm thần Trung ương I",
+    "address": "Xã Hòa Bình, huyện Thường Tín, Hà Nội",
+    "lat": 20.8694,
+    "lng": 105.8440,
+    "phone": "024-3385-3227",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hn_05",
+    "name": "Khoa Sức khỏe Tâm thần - Bệnh viện Lão khoa Trung ương",
+    "address": "1A Phương Mai, Đống Đa, Hà Nội",
+    "lat": 21.0035,
+    "lng": 105.8400,
+    "phone": "024-3576-4558",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hn_06",
+    "name": "Bệnh viện Tâm thần Hà Nội",
+    "address": "Số 30, Ngõ 467 Nguyễn Văn Linh, Phường Phúc Lợi, Long Biên, Hà Nội",
+    "lat": 21.0351,
+    "lng": 105.9096,
+    "phone": "0967-301-616",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hn_07",
+    "name": "Khoa Tâm thần - Bệnh viện Quân y 103",
+    "address": "261 Phùng Hưng, Phúc La, Hà Đông, Hà Nội",
+    "lat": 20.9700,
+    "lng": 105.7800,
+    "phone": "024-3385-3227",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hn_08",
+    "name": "Khoa Tâm thần - Bệnh viện Nhi Trung ương (chuyên nhi)",
+    "address": "18/879 La Thành, Láng Thượng, Đống Đa, Hà Nội",
+    "lat": 21.0200,
+    "lng": 105.8300,
+    "phone": "024-6273-8964",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hn_09",
+    "name": "Phòng khám Hello Doctor - Cơ sở Hoàng Cầu (chuyên tâm thần)",
+    "address": "Số 5, Ngõ 95, Ngách 4, Hoàng Cầu, Đống Đa, Hà Nội",
+    "lat": 21.0125,
+    "lng": 105.8320,
+    "phone": "1900-1246",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hn_10",
+    "name": "Phòng khám Chuyên khoa Tâm thần Yên Hòa",
+    "address": "Số 1 Yên Hòa, Cầu Giấy, Hà Nội",
+    "lat": 21.0300,
+    "lng": 105.8000,
+    "phone": "024-3838-8888",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hn_11",
+    "name": "Khoa Tâm bệnh - Bệnh viện K (chuyên ung thư & tâm thần)",
+    "address": "43 Quán Sứ, Hoàn Kiếm, Hà Nội",
+    "lat": 21.0280,
+    "lng": 105.8500,
+    "phone": "024-3825-3531",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hn_12",
+    "name": "Bệnh viện Tâm thần Mỹ Đức (huyện ngoại thành)",
+    "address": "Xã Phúc Lâm, huyện Mỹ Đức, Hà Nội",
+    "lat": 20.7500,
+    "lng": 105.7500,
+    "phone": "024-3385-3227",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hn_13",
+    "name": "Phòng khám Tâm thần KaZuO",
+    "address": "Số 12, Ngõ 68, Nguyễn Trãi, Thanh Xuân, Hà Nội",
+    "lat": 20.9900,
+    "lng": 105.8100,
+    "phone": "024-3838-9999",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hn_14",
+    "name": "Khoa Tâm thần - Bệnh viện E",
+    "address": "89 Trần Cung, Cầu Giấy, Hà Nội",
+    "lat": 21.0400,
+    "lng": 105.8000,
+    "phone": "024-3838-5555",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hn_15",
+    "name": "Phòng khám Sức khỏe Tâm thần - Bệnh viện Đại học Y Hà Nội (phòng khám số 1)",
+    "address": "1 Tôn Thất Tùng, Đống Đa, Hà Nội",
+    "lat": 21.0033,
+    "lng": 105.8267,
+    "phone": "024-3576-4149",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hn_16",
+    "name": "Trung tâm Chăm sóc và Phục hồi chức năng Người tâm thần số 2 Hà Nội",
+    "address": "Xã Phúc Sơn, Mỹ Đức, Hà Nội",
+    "lat": 20.7200,
+    "lng": 105.7800,
+    "phone": "024-3385-3227",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hcm_01",
+    "name": "Bệnh viện Chợ Rẫy — Khoa Tâm thần",
+    "address": "201B Nguyễn Chí Thanh, Phường 12, Quận 5, TP.HCM",
+    "lat": 10.7578,
+    "lng": 106.6592,
+    "phone": "028-3855-4137",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hcm_02",
+    "name": "Bệnh viện Tâm thần TP.HCM (Cơ sở 1 - Võ Văn Kiệt)",
+    "address": "766 Võ Văn Kiệt, Phường Chợ Quán, Quận 5, TP.HCM",
+    "lat": 10.7600,
+    "lng": 106.6800,
+    "phone": "028-3923-4675",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hcm_03",
+    "name": "Bệnh viện Tâm thần TP.HCM (Cơ sở 2 - Lê Minh Xuân)",
+    "address": "Ấp 6, xã Lê Minh Xuân, huyện Bình Chánh, TP.HCM",
+    "lat": 10.7500,
+    "lng": 106.6000,
+    "phone": "028-3766-0313",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hcm_04",
+    "name": "Bệnh viện Tâm thần TP.HCM (Cơ sở 3 - Phan Đăng Lưu)",
+    "address": "165B Phan Đăng Lưu, Phường Cầu Kiệu, Phú Nhuận, TP.HCM",
+    "lat": 10.8000,
+    "lng": 106.6800,
+    "phone": "028-3923-4675",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hcm_05",
+    "name": "Khoa Tâm thần kinh - Bệnh viện Nguyễn Tri Phương",
+    "address": "468 Nguyễn Trãi, Phường 8, Quận 5, TP.HCM",
+    "lat": 10.7500,
+    "lng": 106.6500,
+    "phone": "028-3855-4137",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hcm_06",
+    "name": "Phòng khám SKTT Hello Doctor - Cơ sở Thành Thái",
+    "address": "152/6 Thành Thái, Phường 12, Quận 10, TP.HCM",
+    "lat": 10.7800,
+    "lng": 106.6700,
+    "phone": "1900-1246",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hcm_07",
+    "name": "Phòng khám Bệnh viện Đại học Y Dược TP.HCM (Khoa Tâm thần)",
+    "address": "20-22 Dương Quang Trung, Phường 12, Quận 10, TP.HCM",
+    "lat": 10.7800,
+    "lng": 106.6700,
+    "phone": "028-3855-4137",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hcm_08",
+    "name": "Viện Tâm lý SunnyCare",
+    "address": "Landmark Plus, 208 Nguyễn Hữu Cảnh, Phường 22, Bình Thạnh, TP.HCM",
+    "lat": 10.8000,
+    "lng": 106.7100,
+    "phone": "028-3820-9999",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_dn_01",
+    "name": "Bệnh viện Đà Nẵng — Khoa Tâm thần",
+    "address": "124 Hải Phòng, Thạch Thang, Hải Châu, Đà Nẵng",
+    "lat": 16.0716,
+    "lng": 108.2208,
+    "phone": "0236-3821-118",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_dn_02",
+    "name": "Bệnh viện Tâm thần Đà Nẵng",
+    "address": "193 Nguyễn Lương Bằng, Phường Hòa Khánh Bắc, Quận Liên Chiểu, Đà Nẵng",
+    "lat": 16.0700,
+    "lng": 108.1500,
+    "phone": "0236-3842-326",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_hp_01",
+    "name": "Bệnh viện Sức khỏe Tâm thần Hải Phòng",
+    "address": "Ngõ 275 Đông Khê, Phường Gia Viên, TP. Hải Phòng",
+    "lat": 20.8500,
+    "lng": 106.6800,
+    "phone": "0225-382-841",
+    "hours": "Theo giờ khám bệnh viện"
+  },
+  {
+    "id": "c_ct_01",
+    "name": "Bệnh viện Tâm thần TP. Cần Thơ",
+    "address": "Khu Bình Hòa A, Phường Phước Thới, TP. Cần Thơ",
+    "lat": 10.0500,
+    "lng": 105.7500,
+    "phone": "0292-382-841",
+    "hours": "Theo giờ khám bệnh viện"
+  }
+]

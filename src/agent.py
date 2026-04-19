@@ -1,12 +1,15 @@
 """
-Basic agent loop using the Anthropic Claude API.
+Basic agent loop using the OpenAI Chat Completions API with tools.
 Receives user input, calls tools as needed, and returns results.
 """
 
+import json
 import logging
-from anthropic import Anthropic
-from .config import ANTHROPIC_API_KEY, DEFAULT_MODEL, LOG_LEVEL
-from .tools import get_tool_schemas, execute_tool
+
+from openai import OpenAI
+
+from .config import OPENAI_API_KEY, DEFAULT_MODEL, LOG_LEVEL
+from .tools import TOOLS, execute_tool
 
 logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -16,74 +19,103 @@ You can use the provided tools to complete tasks.
 Think step by step and use tools when necessary."""
 
 
-def create_agent():
-    """Create an agent with the Anthropic client."""
-    if not ANTHROPIC_API_KEY:
-        raise ValueError("ANTHROPIC_API_KEY is not configured. Check your .env file")
-    return Anthropic(api_key=ANTHROPIC_API_KEY)
+def _openai_tool_definitions() -> list[dict]:
+    """Build OpenAI Chat Completions `tools` list from TOOLS registry."""
+    out: list[dict] = []
+    for name, tool in TOOLS.items():
+        props = {
+            k: {"type": "string", "description": k}
+            for k in tool["parameters"]
+        }
+        out.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "description": tool["description"],
+                    "parameters": {
+                        "type": "object",
+                        "properties": props,
+                        "required": list(tool["parameters"].keys()),
+                    },
+                },
+            }
+        )
+    return out
 
 
-def run_agent_loop(client: Anthropic, user_input: str, max_turns: int = 10) -> str:
+def create_agent() -> OpenAI:
+    """Create an agent with the OpenAI client."""
+    if not OPENAI_API_KEY:
+        raise ValueError("OPENAI_API_KEY is not configured. Check your .env file")
+    return OpenAI(api_key=OPENAI_API_KEY)
+
+
+def run_agent_loop(client: OpenAI, user_input: str, max_turns: int = 10) -> str:
     """
     Run the agent loop: send message -> receive response -> call tool -> repeat.
 
     Args:
-        client: Anthropic client
+        client: OpenAI client
         user_input: User's question or request
         max_turns: Maximum number of tool-calling turns
 
     Returns:
         The agent's final response
     """
-    messages = [{"role": "user", "content": user_input}]
-    tools = get_tool_schemas()
+    messages: list[dict] = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_input},
+    ]
+    tools = _openai_tool_definitions()
 
     for turn in range(max_turns):
-        logger.info(f"Turn {turn + 1}/{max_turns}")
+        logger.info("Turn %s/%s", turn + 1, max_turns)
 
-        response = client.messages.create(
+        response = client.chat.completions.create(
             model=DEFAULT_MODEL,
-            max_tokens=4096,
-            system=SYSTEM_PROMPT,
-            tools=tools,
             messages=messages,
+            tools=tools,
+            tool_choice="auto",
+            max_tokens=4096,
         )
+        msg = response.choices[0].message
 
-        # If agent stops (no more tool calls)
-        if response.stop_reason == "end_turn":
-            final_text = ""
-            for block in response.content:
-                if hasattr(block, "text"):
-                    final_text += block.text
-            return final_text
+        if not msg.tool_calls:
+            return (msg.content or "").strip()
 
-        # Handle tool calls
-        tool_results = []
-        has_tool_use = False
+        assistant_payload: dict = {
+            "role": "assistant",
+            "content": msg.content,
+            "tool_calls": [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments or "{}",
+                    },
+                }
+                for tc in msg.tool_calls
+            ],
+        }
+        messages.append(assistant_payload)
 
-        for block in response.content:
-            if block.type == "tool_use":
-                has_tool_use = True
-                logger.info(f"Calling tool: {block.name}({block.input})")
-                result = execute_tool(block.name, block.input)
-                logger.info(f"Result: {result[:200]}")
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
+        for tc in msg.tool_calls:
+            try:
+                args = json.loads(tc.function.arguments or "{}")
+            except json.JSONDecodeError:
+                args = {}
+            logger.info("Calling tool: %s(%s)", tc.function.name, args)
+            result = execute_tool(tc.function.name, args)
+            logger.info("Result: %s", result[:200])
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tc.id,
                     "content": result,
-                })
-
-        if not has_tool_use:
-            # No tool calls, return text
-            final_text = ""
-            for block in response.content:
-                if hasattr(block, "text"):
-                    final_text += block.text
-            return final_text
-
-        # Add assistant response and tool results to messages
-        messages.append({"role": "assistant", "content": response.content})
-        messages.append({"role": "user", "content": tool_results})
+                }
+            )
 
     return "Agent reached the maximum number of processing turns."
 
@@ -104,7 +136,7 @@ def main():
             response = run_agent_loop(client, user_input)
             print(f"\nAgent: {response}")
         except Exception as e:
-            logger.error(f"Error: {e}")
+            logger.error("Error: %s", e)
             print(f"\nError: {e}")
 
 

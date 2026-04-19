@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import func, select
+
 from sqlalchemy.orm import Session
 
 from app.api.deps import enforce_admin_ip, get_admin_claims
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.db.models import AdminAuditLog, CrisisLog
+from app.db.models import AdminAuditLog, Conversation, CrisisLog
 from app.db.session import get_db
 from app.schemas.payloads import AdminLoginRequest
 from app.services.cookies import set_auth_cookies
@@ -86,7 +87,8 @@ def admin_dashboard(
     claims: dict = Depends(get_admin_claims),
 ):
     enforce_admin_ip(request)
-    total_sessions = db.scalar(select(func.count(CrisisLog.log_id))) or 0
+    total_sessions = db.scalar(select(func.count(Conversation.session_id))) or 0
+    sos_events = db.scalar(select(func.count(CrisisLog.log_id))) or 0
     _audit(db, claims["sub"], "GET_DASHBOARD", request)
     return ok(
         {
@@ -94,7 +96,10 @@ def admin_dashboard(
             "total_sessions": total_sessions,
             "avg_session_depth": 8.3,
             "mood_distribution": {"great": 18, "okay": 45, "stressed": 61, "struggling": 18},
-            "sos_events": total_sessions,
+            "sos_events": sos_events,
             "top_resource_categories": ["meditate", "sleep"],
         }
     )
+
+
+#nhóm build lại dashboard

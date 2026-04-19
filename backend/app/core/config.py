@@ -1,12 +1,34 @@
 from functools import lru_cache
+from pathlib import Path
+from typing import Self
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]  # backend/app/core -> repo root
+
+
+def _aura_instance_from_uri(uri: str) -> str | None:
+    if "databases.neo4j.io" not in uri:
+        return None
+    try:
+        rest = uri.split("://", 1)[1]
+        host = rest.split("/", 1)[0].split(":", 1)[0]
+        return host.split(".", 1)[0]
+    except (IndexError, ValueError):
+        return None
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file="backend/.env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=(
+            str(_REPO_ROOT / ".env"),
+            str(_REPO_ROOT / "backend" / ".env"),
+        ),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     app_name: str = "Serene API"
     app_version: str = "1.0.0"
@@ -33,6 +55,37 @@ class Settings(BaseSettings):
     admin_totp_secret: str = ""
 
     redis_url: str = "redis://localhost:6379/0"
+
+    openai_api_key: str = ""
+    openai_model_analyst: str = "gpt-4o-mini"
+    openai_model_friend: str = "gpt-4o-mini"
+    llm_timeout_seconds: float = 10.0
+
+    distress_voice_hint: float = 0.8
+    distress_critical: float = 0.9
+
+    profile_cache_ttl_seconds: int = 30
+
+    neo4j_uri: str = ""
+    neo4j_user: str = "neo4j"
+    neo4j_password: str = ""
+    neo4j_database: str = "neo4j"
+
+    @model_validator(mode="after")
+    def _aura_neo4j_defaults(self) -> Self:
+        """Aura Bolt user and default DB are *neo4j*, not the hostname instance id."""
+        uri = (self.neo4j_uri or "").strip()
+        inst = _aura_instance_from_uri(uri)
+        if not inst:
+            return self
+        updates: dict[str, str] = {}
+        if self.neo4j_user == inst:
+            updates["neo4j_user"] = "neo4j"
+        if self.neo4j_database == inst:
+            updates["neo4j_database"] = "neo4j"
+        if updates:
+            return self.model_copy(update=updates)
+        return self
     auth_rate_limit_per_minute: int = 5
     chat_rate_limit_per_minute: int = 30
     auth_lockout_threshold: int = 5

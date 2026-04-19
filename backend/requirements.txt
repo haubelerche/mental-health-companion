@@ -12,3 +12,8 @@ pgvector
 alembic
 redis
 pyotp
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+openai>=1.0.0
+neo4j>=5.0.0
