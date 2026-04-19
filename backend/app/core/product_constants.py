@@ -11,3 +11,6 @@ DISTRESS_CRITICAL = 0.9
 
 # Policy document version surfaced to clients
 CURRENT_POLICY_VERSION = "1.0"
+
+# User-facing persona labels (Frontend Plan 2.0)
+CHAT_AGENT_DISPLAY_NAME = "Mây"

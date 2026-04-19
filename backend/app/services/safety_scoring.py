@@ -28,6 +28,15 @@ class SafetySnapshot:
     conversation_mode: ConversationMode
 
 
+@dataclass(frozen=True)
+class EscalationSignal:
+    rolling_window_turns: int
+    rolling_score: float
+    delta_score: float
+    escalate: bool
+    trigger_reason: str
+
+
 def clamp01(x: float) -> float:
     return max(0.0, min(1.0, x))   # buộc điểm số nằm trong khoảng 0 đến 1
 
@@ -97,6 +106,48 @@ def build_snapshot(
         risk_level=rl,
         safety_tier=tier,
         conversation_mode=mode,
+    )
+
+
+def compute_escalation_signal(
+    *,
+    current_distress: float,
+    previous_distress: list[float],
+    threshold: float,
+    delta_threshold: float,
+    window_turns: int,
+) -> EscalationSignal:
+    window = [clamp01(x) for x in previous_distress[-max(0, window_turns - 1) :]]
+    window.append(clamp01(current_distress))
+    if not window:
+        return EscalationSignal(rolling_window_turns=0, rolling_score=0.0, delta_score=0.0, escalate=False, trigger_reason="none")
+
+    rolling_score = sum(window) / float(len(window))
+    baseline = window[0]
+    delta = clamp01(window[-1] - baseline)
+
+    if window[-1] >= threshold:
+        return EscalationSignal(
+            rolling_window_turns=len(window),
+            rolling_score=rolling_score,
+            delta_score=delta,
+            escalate=True,
+            trigger_reason="threshold_crossed",
+        )
+    if window[-1] >= 0.7 and delta >= delta_threshold:
+        return EscalationSignal(
+            rolling_window_turns=len(window),
+            rolling_score=rolling_score,
+            delta_score=delta,
+            escalate=True,
+            trigger_reason="rapid_escalation",
+        )
+    return EscalationSignal(
+        rolling_window_turns=len(window),
+        rolling_score=rolling_score,
+        delta_score=delta,
+        escalate=False,
+        trigger_reason="none",
     )
 """nhận vào điểm bất ổn, các ngưỡng, và biến cảnh báo (cờ sos_triggered). Hàm này chạy qua tất cả các hàm trên để tính toán một lượt và trả về SafetySnapshot.
 Điểm đáng chú ý về cơ chế "ghi đè" (Override) an toàn:

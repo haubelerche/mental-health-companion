@@ -60,8 +60,19 @@ class Settings(BaseSettings):
 
     distress_voice_hint: float = 0.8
     distress_critical: float = 0.9
+    proactive_voice_threshold: float = 0.9
+    proactive_voice_delta_threshold: float = 0.3
+    proactive_voice_cooldown_seconds: int = 120
+    proactive_voice_window_turns: int = 6
+    voice_tts_auto_process_on_enqueue: bool = True
 
     profile_cache_ttl_seconds: int = 30
+
+    elevenlabs_api_key: str = ""
+    elevenlabs_voice_id: str = "iSFxP4Z6YNcx9OXl62Ic"
+    elevenlabs_model_id: str = "eleven_multilingual_v2"
+    elevenlabs_output_format: str = "mp3_44100_128"
+    trusted_contact_outbound_enabled: bool = False
 
     neo4j_uri: str = ""
     neo4j_user: str = "neo4j"
