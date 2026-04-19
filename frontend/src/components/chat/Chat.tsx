@@ -123,7 +123,7 @@ export default function Chat() {
       </div>
 
       <main className="relative z-10 flex min-h-screen items-center justify-center p-4 sm:p-6 ">
-        <section className="flex h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border border-white/40 bg-white/65 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.16)] backdrop-blur-3xl sm:h-[calc(100vh-3rem)] lg:max-h-[870px]">
+        <section className="flex h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border border-white/40 bg-white/65  backdrop-blur-3xl sm:h-[calc(100vh-3rem)] lg:max-h-[870px]">
           <header className="flex items-center justify-between px-5 py-5 sm:px-8 sm:py-7">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-serene-on-primary text-primary shadow-sm">
@@ -168,7 +168,7 @@ export default function Chat() {
               {messages.map((msg, idx) => (
                 <div key={msg.id} className={`flex gap-3 sm:gap-4 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {msg.type === 'serene' && (
-                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-serene-on-primary text-primary shadow-sm">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-serene-on-primary text-primary shadow-sm">
                       <Leaf className="h-4 w-4" />
                     </div>
                   )}
@@ -176,7 +176,7 @@ export default function Chat() {
                   <div className={`flex max-w-[82%] flex-col gap-2 ${msg.type === 'user' ? 'items-end' : 'items-start'} sm:max-w-[70%]`}>
                     {msg.type === 'serene' && idx === messages.length - 2 && msg.id === messages[messages.length - 2]?.id && (
                       <div className="group mb-2 flex w-full items-center gap-3 rounded-2xl border border-white/40 bg-white/65 p-4 shadow-sm backdrop-blur-xl transition hover:shadow-md sm:gap-4 sm:p-5">
-                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl text-serene-primary shadow-sm sm:h-14 sm:w-14">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-serene-primary shadow-sm sm:h-14 sm:w-14">
                           {suggestedExercise.icon}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -205,7 +205,7 @@ export default function Chat() {
                         className={`rounded-3xl ${msg.type === 'user'
                           ? 'rounded-tr-none border border-white/20 bg-white/45 text-on-surface'
                           : 'rounded-tl-none border border-serene-ink/10 bg-serene-primary/5 text-on-surface'
-                        } px-5 py-3 shadow-sm sm:px-6 sm:py-4`}
+                          } px-5 py-3 shadow-sm sm:px-6 sm:py-4`}
                       >
                         <p className="text-sm leading-relaxed sm:text-base">
                           {msg.content}
@@ -245,7 +245,7 @@ export default function Chat() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setShowMoodEmojis(!showMoodEmojis)}
+                     
                       className="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant transition hover:text-primary"
                       aria-label="Biểu cảm"
                     >
