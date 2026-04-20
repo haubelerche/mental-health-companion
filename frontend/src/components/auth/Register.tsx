@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { ComponentProps } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import bg2 from '../../assets/bg2.png'
@@ -7,18 +8,20 @@ import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
 
 export default function Register() {
+    type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
     const [fullName, setFullName] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
     const [acknowledged, setAcknowledged] = useState(false)
+    const [voiceConsent, setVoiceConsent] = useState(true)
     const navigate = useNavigate()
     const { signup, isLoading } = useAuth()
 
 
     const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
 
-    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit: FormSubmitHandler = async (event) => {
         event.preventDefault()
 
         if (!strongPasswordRegex.test(password)) {
@@ -44,6 +47,7 @@ export default function Register() {
                 email: email.trim(),
                 password,
                 disclaimer_accepted: acknowledged,
+                voice_consent: voiceConsent,
             })
 
             toast.success('Đăng ký thành công. Chào mừng bạn đến với Serene!')
@@ -110,7 +114,7 @@ export default function Register() {
                                 type="email"
                                 value={email}
                                 onChange={(event) => setEmail(event.target.value)}
-                                placeholder="email@hust.edu.vn"
+                                placeholder="email của bạn..."
                                 className="auth-input-soft"
                                 required
                             />
@@ -159,6 +163,21 @@ export default function Register() {
                                 />
                                 <span>
                                     Mình hiểu <span className="font-semibold text-serene-primary">Serene</span> là AI đồng hành, không phải bác sĩ. Trong trường hợp khẩn cấp, mình sẽ gọi <span className="font-bold text-serene-ink">1800-599-920</span> hoặc <span className="font-bold text-serene-ink">115</span>.
+                                </span>
+                            </label>
+                        </div>
+
+                        <div className="auth-disclaimer">
+                            <label className="flex items-start gap-3 text-xs leading-relaxed text-serene-muted sm:text-sm" htmlFor="voiceConsent">
+                                <input
+                                    id="voiceConsent"
+                                    type="checkbox"
+                                    checked={voiceConsent}
+                                    onChange={(event) => setVoiceConsent(event.target.checked)}
+                                    className="mt-0.5 h-5 w-5 rounded border-serene-outline bg-serene-bg/50 text-serene-primary focus:ring-serene-primary"
+                                />
+                                <span>
+                                    Cho phép hỗ trợ bằng voice khi mức căng thẳng tăng cao.
                                 </span>
                             </label>
                         </div>

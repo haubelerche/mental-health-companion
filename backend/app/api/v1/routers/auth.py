@@ -74,6 +74,12 @@ def signup(payload: SignupRequest, response: Response, request: Request, db: Ses
             )
         )
         db.commit()
+    except AppError:
+        db.rollback()
+        raise
+    except RuntimeError as exc:
+        db.rollback()
+        raise AppError("CONFIG_ERROR", str(exc), 500) from exc
     except Exception as exc:
         db.rollback()
         raise AppError("SCHEMA_VALIDATION_FAILED", "Đăng ký thất bại, vui lòng thử lại", 500) from exc

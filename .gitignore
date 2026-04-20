@@ -40,6 +40,11 @@ docker-compose.yml
 
 
 .vscode/
+.idea/
+
+# Local SQLite (dev / pytest)
+backend/serene_local.db
+backend/test_serene.db
 # Raw text corpus (không version trong repo)
 
 backend/.env
