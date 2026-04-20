@@ -6,9 +6,9 @@ type SidebarProps = {
 }
 const navItems = [
     { icon: <HomeIcon className="h-5 w-5" />, label: 'Trang chủ', route: '/serene' },
-    { icon: <MessageSquare className="h-5 w-5 fill-current" />, label: 'Chat', route: '/serene/chat' },
-    { icon: <Leaf className="h-5 w-5" />, label: 'Reflect', route: '/serene/reflect' },
-    { icon: <BookOpen className="h-5 w-5" />, label: 'Resources', route: '/serene/resources' },
+    { icon: <MessageSquare className="h-5 w-5 fill-current" />, label: 'Trò chuyện', route: '/serene/chat' },
+    { icon: <Leaf className="h-5 w-5" />, label: 'Nhìn lại', route: '/serene/reflect' },
+    { icon: <BookOpen className="h-5 w-5" />, label: 'Tài nguyên', route: '/serene/resources' },
     { icon: <Group className="h-5 w-5" />, label: 'Kết nối', route: '/serene/connect' },
 ]
 
@@ -51,29 +51,27 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                     type="button"
                     className="mt-8 rounded-2xl bg-serene-primary py-4 font-display text-xl italic text-serene-on-primary shadow-[0_14px_34px_rgba(47,52,46,0.24)] transition hover:brightness-105"
                 >
-                    Breathe Now
+                    Thở ngay
                 </button>
             </aside>
 
             {/* for mobile view */}
-            {isOpen && (
-                <nav className="fixed bottom-4 left-1/2 z-50 flex w-[min(94vw,560px)] -translate-x-1/2 items-center justify-between rounded-3xl border border-white/45 bg-white/70 px-4 py-2 backdrop-blur-xl lg:hidden">
-                    {navItems.map((item) => (
-                        <NavLink
-                            key={item.label}
-                            to={item.route}
-                            end
-                            className={({ isActive }) => [
-                                'flex flex-1 flex-col items-center gap-1 rounded-2xl py-2 text-[11px] transition',
-                                isActive ? 'bg-white text-serene-primary' : 'text-serene-muted',
-                            ].join(' ')}
-                        >
-                            {item.icon}
-                            <span>{item.label}</span>
-                        </NavLink>
-                    ))}
-                </nav>
-            )}
+            <nav className="fixed bottom-4 left-1/2 z-50 flex w-[min(94vw,560px)] -translate-x-1/2 items-center justify-between rounded-3xl border border-white/45 bg-white/70 px-4 py-2 backdrop-blur-xl lg:hidden">
+                {navItems.map((item) => (
+                    <NavLink
+                        key={item.label}
+                        to={item.route}
+                        end
+                        className={({ isActive }) => [
+                            'flex flex-1 flex-col items-center gap-1 rounded-2xl py-2 text-[11px] transition',
+                            isActive ? 'bg-white text-serene-primary' : 'text-serene-muted',
+                        ].join(' ')}
+                    >
+                        {item.icon}
+                        <span>{item.label}</span>
+                    </NavLink>
+                ))}
+            </nav>
         </>
     )
 }
