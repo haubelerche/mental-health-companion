@@ -203,6 +203,7 @@ def build_sos_chat_response_data(
         "grounding_actions": [{"id": "grounding_54321"}, {"id": "breath_478"}],
         "referral_options": [{"type": "counselor"}, {"type": "trusted_contact"}],
         "followup_priority": True,
+        "routing_history": ["sos_handler"],
     }
 
 
