@@ -60,7 +60,9 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model_analyst: str = "gpt-4o-mini"
     openai_model_friend: str = "gpt-4o-mini"
+    openai_model_friend_fast: str = "gpt-4.1-nano"
     llm_timeout_seconds: float = 10.0
+    chat_response_cache_ttl_seconds: int = 45
 
     distress_voice_hint: float = 0.8
     distress_critical: float = 0.9
