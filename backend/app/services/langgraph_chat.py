@@ -26,6 +26,7 @@ class ChatGraphState(TypedDict, total=False):
     routing_history: list[str]
     analyst_calls_this_turn: int
     crisis_route_finalized: bool
+    use_fast_friend_model: bool
     analyst_instruction: str
     supervisor_route: str
     supervisor_reason: str
@@ -40,7 +41,62 @@ _DISTRESS_HINT_RE = re.compile(
     r"\b(buon|met|kiet suc|ap luc|bat an|stress|lo au|that bai|khong on)\b",
     re.IGNORECASE,
 )
+_ANALYST_TRIGGER_RE = re.compile(
+    r"\b(phan tich|ke hoach|khong biet lam sao|khong biet phai lam gi|toi roi|hoang mang)\b",
+    re.IGNORECASE,
+)
 _ANALYST_CALLS_CAP = 2
+
+
+def _default_user_quick_replies(user_message: str, distress_score: float) -> list[str]:
+    lowered = user_message.lower()
+    if distress_score >= 0.55:
+        return [
+            "Mình đang rất quá tải, cậu giúp mình từng bước nhé.",
+            "Mình muốn nói thêm điều làm mình sợ nhất lúc này.",
+            "Cậu hướng dẫn mình một bài thở ngắn ngay bây giờ nhé.",
+        ]
+    if any(k in lowered for k in ("khong ngu", "mat ngu", "ngu")):
+        return [
+            "Mình khó ngủ mấy hôm nay, cậu giúp mình ổn định lại nhé.",
+            "Mình muốn thử một cách thư giãn trước khi ngủ.",
+            "Mình cần một kế hoạch nhẹ cho tối nay.",
+        ]
+    return [
+        "Mình muốn kể thêm về chuyện này.",
+        "Mình đang thấy khó chịu và cần cậu lắng nghe.",
+        "Cậu gợi ý cho mình một bước nhỏ lúc này nhé.",
+    ]
+
+
+def _normalize_user_quick_replies(
+    replies: list[str] | None,
+    *,
+    user_message: str,
+    distress_score: float,
+) -> list[str]:
+    defaults = _default_user_quick_replies(user_message, distress_score)
+    if not replies:
+        return defaults
+
+    cleaned: list[str] = []
+    for text in replies:
+        s = str(text or "").strip()
+        if not s:
+            continue
+        s = s.replace("\n", " ")
+        if len(s) > 80:
+            s = s[:77].rstrip() + "..."
+        cleaned.append(s)
+
+    if len(cleaned) < 3:
+        return defaults
+
+    # Ensure quick replies are in user's voice (first person) instead of asking the user questions.
+    user_voice = [s for s in cleaned if re.search(r"\b(minh|em|toi)\b", s, re.IGNORECASE)]
+    if len(user_voice) >= 3:
+        return user_voice[:3]
+    return defaults
 
 
 def supervisor_node(state: ChatGraphState) -> dict[str, Any]:
@@ -62,9 +118,15 @@ def supervisor_node(state: ChatGraphState) -> dict[str, Any]:
     elif distress >= 0.55 or mood in {"stressed", "restless", "melancholic"}:
         route = "analyst"
         reason = "distress_or_mood_signal"
+    elif _ANALYST_TRIGGER_RE.search(lowered):
+        route = "analyst"
+        reason = "explicit_analysis_request"
     elif len(msg) <= 60 and _GREETING_RE.search(lowered) and not _DISTRESS_HINT_RE.search(lowered):
         route = "friend"
         reason = "light_greeting"
+    elif len(msg) <= 180 and not _DISTRESS_HINT_RE.search(lowered):
+        route = "friend"
+        reason = "low_latency_friend_path"
     else:
         route = "analyst"
         reason = "default_need_context"
@@ -145,6 +207,10 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         + (state.get("analyst_instruction") or "")
     )
     user_text = state.get("user_message", "")
+    use_fast_model = bool(state.get("use_fast_friend_model"))
+    preferred_friend_model = (
+        settings.openai_model_friend_fast if use_fast_model and settings.openai_model_friend_fast else settings.openai_model_friend
+    )
 
     payload: dict[str, Any] = {
         "reply": "Mình nghe cậu. Cảm ơn cậu đã chia sẻ — mình ở đây cùng cậu nhé.",
@@ -160,15 +226,28 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
 
             from openai import OpenAI
 
-            client = OpenAI(api_key=settings.openai_api_key, timeout=settings.llm_timeout_seconds)
-            resp = client.chat.completions.create(
-                model=settings.openai_model_friend,
-                temperature=0.7,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user_text},
-                ],
-            )
+            client = OpenAI(api_key=settings.openai_api_key, timeout=min(settings.llm_timeout_seconds, 6.0))
+            try:
+                resp = client.chat.completions.create(
+                    model=preferred_friend_model,
+                    temperature=0.6 if use_fast_model else 0.7,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user_text},
+                    ],
+                )
+            except Exception:
+                if preferred_friend_model != settings.openai_model_friend:
+                    resp = client.chat.completions.create(
+                        model=settings.openai_model_friend,
+                        temperature=0.7,
+                        messages=[
+                            {"role": "system", "content": system},
+                            {"role": "user", "content": user_text},
+                        ],
+                    )
+                else:
+                    raise
             raw = (resp.choices[0].message.content or "").strip()
             m = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw)
             if m:
@@ -182,7 +261,11 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         "routing_history": hist,
         "reply": str(payload.get("reply") or ""),
         "tone_cam_xuc": str(payload.get("tone_cam_xuc") or "xac_nhan"),
-        "goi_y_nhanh": list(payload.get("goi_y_nhanh") or []),
+        "goi_y_nhanh": _normalize_user_quick_replies(
+            list(payload.get("goi_y_nhanh") or []),
+            user_message=user_text,
+            distress_score=float(state.get("distress_score") or 0.0),
+        ),
         "the_dinh_kem": list(payload.get("the_dinh_kem") or []),
     }
 
@@ -237,6 +320,7 @@ def run_non_sos_turn(
             "distress_score": distress_score,
             "crisis_route_finalized": False,
             "analyst_calls_this_turn": 0,
+            "use_fast_friend_model": snap.safety_tier == "normal",
             "routing_history": [],
         }
     )
@@ -259,6 +343,7 @@ def build_normal_envelope(
     goi_y_nhanh: list[str],
     the_dinh_kem: list[dict[str, Any]],
     voice_hint: str | None = None,
+    routing_history: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
         "session_id": session_id,
@@ -275,4 +360,5 @@ def build_normal_envelope(
         "goi_y_nhanh": goi_y_nhanh,
         "the_dinh_kem": the_dinh_kem,
         "sos_triggered": False,
+        "routing_history": routing_history or [],
     }

@@ -17,6 +17,7 @@ from app.db.models import AdminAuditLog, Conversation, CrisisLog, Message, User
 from app.db.session import get_db
 from app.schemas.payloads import ChatEndRequest, ChatMessageRequest
 from app.services.chat_context import load_chat_context_sync
+from app.services.chat_response_cache import get_cached_turn, hash_message, set_cached_turn
 from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn
 from app.services.pii_mask import mask_pii
 from app.services.rate_limit import get_rate_limiter
@@ -262,22 +263,35 @@ def send_message(
     if ctx.mood_today and ctx.mood_today.get("mood") in ("stressed", "restless", "melancholic"):
         distress = min(1.0, distress + 0.08)
 
-    try:
-        turn = run_non_sos_turn(
-            user_message=raw_text,
-            recent_messages=ctx.recent_messages,
-            mood_today=ctx.mood_today,
-            distress_score=distress,
-        )
-    except Exception as exc:
-        logger.exception("langgraph chat failed")
-        raise AppError("LLM_TIMEOUT", "Phản hồi quá lâu, vui lòng thử lại", 504) from exc
+    turn = None
+    message_hash = hash_message(raw_text)
+    if settings.chat_response_cache_ttl_seconds > 0:
+        turn = get_cached_turn(session.session_id, message_hash)
+
+    if turn is None:
+        try:
+            turn = run_non_sos_turn(
+                user_message=raw_text,
+                recent_messages=ctx.recent_messages,
+                mood_today=ctx.mood_today,
+                distress_score=distress,
+            )
+            set_cached_turn(
+                session.session_id,
+                message_hash,
+                turn,
+                ttl_seconds=settings.chat_response_cache_ttl_seconds,
+            )
+        except Exception as exc:
+            logger.exception("langgraph chat failed")
+            raise AppError("LLM_TIMEOUT", "Phản hồi quá lâu, vui lòng thử lại", 504) from exc
 
     snap = turn["session_fields"]
     assistant_content = turn["reply"]
     tone = turn["tone_cam_xuc"]
     goi_y = turn["goi_y_nhanh"]
     the_dinh = turn["the_dinh_kem"]
+    routing_hist: list[str] = turn.get("routing_history") or []
 
     assistant_msg = Message(
         message_id=make_id("msg"),
@@ -308,6 +322,7 @@ def send_message(
         goi_y_nhanh=goi_y,
         the_dinh_kem=the_dinh,
         voice_hint=vhint,
+        routing_history=routing_hist,
     )
     data["intervention"] = None
     history = _recent_distress_history(
