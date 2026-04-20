@@ -25,7 +25,7 @@ from scripts.config import NEO4J_DATABASE, NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER
 
 # ── Config ──────────────────────────────────────────────────────────────────
 
-BASE_DIR   = Path(__file__).resolve().parent.parent
+BASE_DIR   = Path(__file__).resolve().parent
 CATS_CSV   = BASE_DIR / "data_raw" / "disorder_categories.csv"
 DIS_CSV    = BASE_DIR / "data_raw" / "disorders.csv"
 

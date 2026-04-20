@@ -1,19 +1,4 @@
-pydantic
-fastapi
-uvicorn[standard]
-sqlalchemy
-psycopg[binary]
-pydantic-settings
-email-validator
-python-jose[cryptography]
-PyJWT[crypto]
-bcrypt
-pgvector
-alembic
-redis
-pyotp
-langgraph>=0.2.0
-langchain-core>=0.3.0
-langchain-openai>=0.2.0
-openai>=1.0.0
-neo4j>=5.0.0
+# Backend installs: reuse repo root deps, then test tools.
+-r ../requirements.txt
+
+pytest>=8.0.0

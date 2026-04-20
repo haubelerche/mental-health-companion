@@ -9,8 +9,32 @@ permissions:
   contents: read
 
 jobs:
+  backend-tests:
+    name: Backend Tests
+    runs-on: [self-hosted, Linux, X64, phoenix-runner]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend test dependencies
+        run: |
+          pip install -r backend/requirements.txt pytest
+
+      - name: Run backend tests
+        env:
+          PYTHONPATH: backend
+        run: pytest backend/tests -q
+
   review:
     name: Code Review
+    needs: backend-tests
     runs-on: [self-hosted, Linux, X64, phoenix-runner]
     # Same-repo PRs get secrets + token write; fork PRs skip LLM/comment (GitHub does not pass secrets / limits token).
     env:

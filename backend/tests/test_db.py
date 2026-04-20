@@ -2,7 +2,7 @@
 Kiểm tra kết nối Supabase Postgres (wire) + Neo4j + client Python.
 
 Chạy từ thư mục gốc repo:
-  python tests/test_db.py
+  python backend/tests/test_db.py
 
 Biến môi trường (.env):
   DATABASE_URL      — Postgres (Supabase)
@@ -11,8 +11,10 @@ Biến môi trường (.env):
 """
 import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.getcwd())
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPO_ROOT))
 
 import httpx
 

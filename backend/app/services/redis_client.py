@@ -6,6 +6,7 @@ from functools import lru_cache
 from typing import Any
 
 import redis
+from redis.exceptions import RedisError
 
 from app.core.config import get_settings
 
@@ -29,7 +30,10 @@ def cache_get_json(key: str) -> Any | None:
     r = get_redis()
     if not r:
         return None
-    raw = r.get(key)
+    try:
+        raw = r.get(key)
+    except RedisError:
+        return None
     if not raw:
         return None
     import json
@@ -46,10 +50,17 @@ def cache_set_json(key: str, value: Any, ttl_sec: int) -> None:
         return
     import json
 
-    r.setex(key, ttl_sec, json.dumps(value, default=str))
+    try:
+        r.setex(key, ttl_sec, json.dumps(value, default=str))
+    except RedisError:
+        return
 
 
 def cache_delete(key: str) -> None:
     r = get_redis()
-    if r:
+    if not r:
+        return
+    try:
         r.delete(key)
+    except RedisError:
+        return
