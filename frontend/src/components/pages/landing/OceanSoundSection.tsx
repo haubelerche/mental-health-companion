@@ -1,5 +1,5 @@
 import { Droplets, Waves, Wind } from 'lucide-react'
-import bg from '../../../assets/bg.png'
+import bg from '../../../assets/healing.jpg'
 import RevealSection from '../../../utils/RevealSection'
 
 export default function OceanSoundSection() {
@@ -38,7 +38,7 @@ export default function OceanSoundSection() {
 
                 <div className="relative">
                     <div className="aspect-3/4 overflow-hidden rounded-4xl border border-white/15">
-                        <img src={bg} alt="Ocean water detail" className="h-full w-full object-cover" />
+                        <img src={bg} alt="Ocean water detail" height={540} width={480} className="object-cover" />
                         <div className="absolute inset-0 bg-linear-to-t from-black/75 via-transparent to-transparent border border-white/10 rounded-4xl" />
                         <div className="absolute inset-0 bg-linear-to-b from-black/45 via-transparent to-transparent border border-white/10 rounded-4xl" />
                     </div>
