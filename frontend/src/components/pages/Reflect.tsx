@@ -1,5 +1,5 @@
 import { ArrowRight, ChevronRight, Leaf, MoonStar, Sparkles, Wind } from 'lucide-react'
-import bg from '../../assets/bg.png'
+import bg from '../../assets/bg-reflect.png'
 
 const moodBars = [
     { height: 'h-2/3', fill: 'h-1/2' },
@@ -29,9 +29,11 @@ const quickExercises = [
 export default function Reflect() {
     return (
         <div className="relative min-h-screen overflow-hidden text-serene-ink ">
+         
                 <div className="flex-1">
+                    
                     <div className="mx-auto flex w-full max-w-5xl flex-col items-center">
-                        <section className="border border-white/35 bg-white/60 backdrop-blur-xl w-full rounded-4xl  p-5 shadow-md md:p-10 lg:p-12">
+                        <section className="border border-white/35 bg-white/40 backdrop-blur-xl w-full rounded-4xl  p-5 shadow-md md:p-10 lg:p-12">
                             <div className="text-center">
                                 <h1 className="font-display text-5xl font-light leading-tight text-[#2F342E] md:text-6xl lg:text-7xl">
                                     Chào <span className="italic text-primary font-medium">Elena</span>
@@ -130,7 +132,7 @@ export default function Reflect() {
                             </section>
 
                             <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
-                                <div className="rounded-3xl border border-white/25 bg-white/30 p-6 backdrop-blur-md lg:col-span-2 md:p-8">
+                                <div className="rounded-3xl border border-white/25 bg-white/10 p-6 backdrop-blur-md lg:col-span-2 md:p-8">
                                     <div className="mb-7 flex items-center justify-between gap-4">
                                         <div className="flex items-center gap-3">
                                             <Leaf className="h-5 w-5 text-primary" />
@@ -152,7 +154,7 @@ export default function Reflect() {
                                     </button>
                                 </div>
 
-                                <aside className="rounded-3xl border border-white/25 bg-white/30 p-6 backdrop-blur-md md:p-8">
+                                <aside className="rounded-3xl border border-white/25 bg-white/10 p-6 backdrop-blur-md md:p-8">
                                     <h3 className="mb-6 font-display text-2xl text-on-surface">Bài tập nhanh</h3>
                                     <div className="space-y-4">
                                         {quickExercises.map((exercise) => {
@@ -162,9 +164,9 @@ export default function Reflect() {
                                                 <button
                                                     key={exercise.title}
                                                     type="button"
-                                                    className="group flex w-full items-center gap-4 rounded-xl bg-white/40 p-4 text-left transition-all hover:bg-white/60"
+                                                    className="group flex w-full items-center gap-4 rounded-full bg-white p-4 text-left transition-all hover:bg-white/60"
                                                 >
-                                                    <div className={`flex h-10 w-10 items-center justify-center rounded-full ${exercise.tone}`}>
+                                                    <div className={`flex h-10 w-10 items-center justify-center rounded-full ${exercise.tone} bg-serene-on-primary `}>
                                                         <Icon className="h-5 w-5" />
                                                     </div>
                                                     <div>
