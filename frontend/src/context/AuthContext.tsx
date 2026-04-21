@@ -1,4 +1,4 @@
-import { createContext, useMemo, useState } from 'react'
+import { createContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { authService } from '../services/authService'
 import type {
@@ -29,7 +29,32 @@ type AuthProviderProps = {
 
 export function AuthProvider({ children }: AuthProviderProps) {
     const [user, setUser] = useState<AuthUser | null>(null)
-    const [isLoading, setIsLoading] = useState(false)
+    const [isLoading, setIsLoading] = useState(true)
+
+    useEffect(() => {
+        let mounted = true
+        authService
+            .me()
+            .then((data) => {
+                if (!mounted) return
+                setUser({
+                    userId: data.user_id,
+                    email: data.email,
+                    displayName: data.display_name,
+                })
+            })
+            .catch(() => {
+                if (!mounted) return
+                setUser(null)
+            })
+            .finally(() => {
+                if (!mounted) return
+                setIsLoading(false)
+            })
+        return () => {
+            mounted = false
+        }
+    }, [])
 
     const signup = async (payload: SignupPayload) => {
         setIsLoading(true)

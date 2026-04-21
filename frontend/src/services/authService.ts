@@ -23,6 +23,12 @@ export type LoginResponse = {
     expires_in: number
 }
 
+export type MeResponse = {
+    user_id: string
+    email: string
+    display_name: string
+}
+
 type CurrentPolicyResponse = {
     version: string
     title: string
@@ -42,7 +48,8 @@ export const authService = {
             password: payload.password,
             disclaimer_accepted: payload.disclaimer_accepted,
         })
-        await httpClient.ensureCsrfToken()
+        httpClient.resetCsrfToken()
+        await httpClient.ensureCsrfToken(true)
         const currentPolicy = await httpClient.get<CurrentPolicyResponse>('/policies/current')
         await httpClient.postWithCsrf<PolicyAcknowledgeResponse>('/policies/acknowledge', {
             policy_version: currentPolicy.version,
@@ -56,11 +63,13 @@ export const authService = {
     },
     login: async (payload: LoginPayload) => {
         const data = await httpClient.post<LoginResponse>('/auth/login', payload)
-        await httpClient.ensureCsrfToken()
+        httpClient.resetCsrfToken()
+        await httpClient.ensureCsrfToken(true)
         const currentPolicy = await httpClient.get<CurrentPolicyResponse>('/policies/current')
         await httpClient.postWithCsrf<PolicyAcknowledgeResponse>('/policies/acknowledge', {
             policy_version: currentPolicy.version,
         })
         return data
     },
+    me: () => httpClient.get<MeResponse>('/auth/me'),
 }
