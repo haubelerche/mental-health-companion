@@ -13,11 +13,21 @@ from app.core.config import get_settings
 
 
 @lru_cache(maxsize=1)
-def _resolved_keys() -> tuple[str, str]:
+def _jwt_material() -> tuple[str, str, str]:
+    """(signing_key, verifying_key, algorithm). RS256: priv/pub. HS256: same secret twice."""
     settings = get_settings()
-    if not settings.jwt_private_key or not settings.jwt_public_key:
-        raise RuntimeError("JWT keys are missing. Set JWT_PRIVATE_KEY and JWT_PUBLIC_KEY.")
-    return settings.jwt_private_key, settings.jwt_public_key
+    priv = (settings.jwt_private_key or "").strip()
+    pub = (settings.jwt_public_key or "").strip()
+    if priv and pub:
+        alg = (settings.jwt_algorithm or "RS256").strip().upper()
+        return priv, pub, alg
+    secret = (settings.jwt_dev_secret or "").strip()
+    if len(secret) >= 16:
+        return secret, secret, "HS256"
+    raise RuntimeError(
+        "Thiếu cấu hình JWT: đặt JWT_PRIVATE_KEY và JWT_PUBLIC_KEY (RS256), "
+        "hoặc JWT_DEV_SECRET (chuỗi >= 16 ký tự) để ký bằng HS256 trên máy local."
+    )
 
 
 def hash_password(password: str) -> str:
@@ -49,7 +59,7 @@ def verify_totp(code: str, secret: str) -> bool:
 
 def issue_access_token(subject: str, role: str = "user", scope: str = "user") -> str:
     settings = get_settings()
-    private_key, _ = _resolved_keys()
+    sign_key, _, algorithm = _jwt_material()
     now = datetime.now(UTC)
     payload = {
         "sub": subject,
@@ -58,12 +68,12 @@ def issue_access_token(subject: str, role: str = "user", scope: str = "user") ->
         "iat": int(now.timestamp()),
         "exp": int(now.timestamp()) + settings.access_token_ttl_seconds,
     }
-    return jose_jwt.encode(payload, private_key, algorithm=settings.jwt_algorithm)
+    return jose_jwt.encode(payload, sign_key, algorithm=algorithm)
 
 
 def issue_admin_token(subject: str) -> str:
     settings = get_settings()
-    private_key, _ = _resolved_keys()
+    sign_key, _, algorithm = _jwt_material()
     now = datetime.now(UTC)
     payload = {
         "sub": subject,
@@ -72,13 +82,12 @@ def issue_admin_token(subject: str) -> str:
         "iat": int(now.timestamp()),
         "exp": int(now.timestamp()) + settings.admin_token_ttl_seconds,
     }
-    return jose_jwt.encode(payload, private_key, algorithm=settings.jwt_algorithm)
+    return jose_jwt.encode(payload, sign_key, algorithm=algorithm)
 
 
 def decode_token(token: str) -> dict:
-    settings = get_settings()
-    _, public_key = _resolved_keys()
-    return jose_jwt.decode(token, public_key, algorithms=[settings.jwt_algorithm])
+    _, verify_key, algorithm = _jwt_material()
+    return jose_jwt.decode(token, verify_key, algorithms=[algorithm])
 
 
 def generate_refresh_token() -> str:

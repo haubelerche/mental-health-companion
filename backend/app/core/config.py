@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Self
+from typing import Any, Self
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from pydantic import Field, model_validator
@@ -25,6 +25,8 @@ class Settings(BaseSettings):
         env_file=str(_REPO_ROOT / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
+        # Docker / IDE thường export JWT_*="" — mặc định pydantic ưu tiên env và ghi đè .env → khóa rỗng.
+        env_ignore_empty=True,
     )
 
     app_name: str = "Serene API"
@@ -41,8 +43,10 @@ class Settings(BaseSettings):
     jwt_private_key: str = ""
     jwt_public_key: str = ""
     jwt_algorithm: str = "RS256"
+    """Khi không dùng RS256: đặt chuỗi bí mật >= 16 ký tự; API ký JWT bằng HS256 (chỉ nên dùng local)."""
+    jwt_dev_secret: str = ""
 
-    cookie_secure: bool = True
+    cookie_secure: bool = False
     cookie_domain: str | None = None
     csrf_trusted_origins: str = ""
 
@@ -56,7 +60,9 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model_analyst: str = "gpt-4o-mini"
     openai_model_friend: str = "gpt-4o-mini"
+    openai_model_friend_fast: str = "gpt-4.1-nano"
     llm_timeout_seconds: float = 10.0
+    chat_response_cache_ttl_seconds: int = 45
 
     distress_voice_hint: float = 0.8
     distress_critical: float = 0.9
@@ -94,6 +100,19 @@ class Settings(BaseSettings):
         if updates:
             return self.model_copy(update=updates)
         return self
+
+    @model_validator(mode="after")
+    def _local_database_defaults(self) -> Self:
+        """Không có DATABASE_URL → SQLite file trong cwd (thường là `backend/`) + tạo bảng tự động."""
+        if (self.database_url or "").strip():
+            return self
+        return self.model_copy(
+            update={
+                "database_url": "sqlite:///./serene_local.db",
+                "auto_create_schema": True,
+            }
+        )
+
     auth_rate_limit_per_minute: int = 5
     chat_rate_limit_per_minute: int = 30
     auth_lockout_threshold: int = 5
@@ -102,7 +121,7 @@ class Settings(BaseSettings):
     def normalized_database_url(self) -> str:
         raw = self.database_url.strip()
         if not raw:
-            raise ValueError("DATABASE_URL is required")
+            raise ValueError("DATABASE_URL is required (validator _local_database_defaults should set a default)")
         if raw.startswith("postgresql://"):
             raw = raw.replace("postgresql://", "postgresql+psycopg://", 1)
         parsed = urlparse(raw)

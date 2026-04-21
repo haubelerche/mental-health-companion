@@ -1,10 +1,33 @@
 import type { ApiEnvelope } from './types'
 import { ApiRequestError } from './types'
 
-const DEFAULT_API_BASE_URL = 'http://192.168.110.15:8000/v1'
+/** Production / khi chạy FE tách host — trỏ thẳng FastAPI. */
+const DEFAULT_API_BASE_URL = 'http://127.0.0.1:8000/v1'
 
-const API_BASE_URL =
-    (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || DEFAULT_API_BASE_URL
+function resolveApiBaseUrl(): string {
+    const fromEnv = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim()
+    if (fromEnv) return fromEnv
+    /** Dev: cùng origin + proxy Vite → tránh CORS và dễ chạy song song `npm run dev` + uvicorn. */
+    if (import.meta.env.DEV) return '/v1'
+    return DEFAULT_API_BASE_URL
+}
+
+const API_BASE_URL = resolveApiBaseUrl()
+
+/** Dùng cho `<Audio src>` khi `audio_url` là path tương đối `/v1/...`. */
+export function resolveMediaUrl(path: string): string {
+    if (path.startsWith('http://') || path.startsWith('https://')) return path
+    if (API_BASE_URL.startsWith('http')) {
+        const origin = API_BASE_URL.replace(/\/v1\/?$/, '')
+        return `${origin}${path.startsWith('/') ? path : `/${path}`}`
+    }
+    if (typeof window !== 'undefined') {
+        return `${window.location.origin}${path.startsWith('/') ? path : `/${path}`}`
+    }
+    return path
+}
+
+let csrfToken: string | null = null
 
 function isEnvelope<T>(value: unknown): value is ApiEnvelope<T> {
     return typeof value === 'object' && value !== null && 'success' in value && 'data' in value
@@ -19,14 +42,30 @@ async function parseJsonSafely(response: Response): Promise<unknown> {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-        credentials: 'include',
-        ...init,
-        headers: {
-            'Content-Type': 'application/json',
-            ...(init.headers || {}),
-        },
-    })
+    const headers = new Headers(init.headers || {})
+    if (!headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json')
+    }
+
+    let response: Response
+    try {
+        response = await fetch(`${API_BASE_URL}${path}`, {
+            credentials: 'include',
+            ...init,
+            headers,
+        })
+    } catch (err) {
+        const isNetwork =
+            err instanceof TypeError ||
+            (err instanceof Error && /Failed to fetch|NetworkError|Load failed/i.test(err.message))
+        if (isNetwork) {
+            throw new ApiRequestError(
+                'Không kết nối được máy chủ API. Hãy bật backend (ví dụ: trong thư mục backend chạy `uvicorn app.main:app --reload --host 127.0.0.1 --port 8000`), rồi tải lại trang.',
+                { code: 'NETWORK_ERROR', status: 0 },
+            )
+        }
+        throw err
+    }
 
     const payload = await parseJsonSafely(response)
 
@@ -63,7 +102,27 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     return payload as T
 }
 
+async function ensureCsrfToken(): Promise<string> {
+    if (csrfToken) return csrfToken
+    const data = await request<{ csrf_token: string }>('/auth/csrf-token', { method: 'GET' })
+    csrfToken = data.csrf_token
+    return csrfToken
+}
+
+async function postWithCsrf<T>(path: string, body?: unknown, init: RequestInit = {}): Promise<T> {
+    const token = await ensureCsrfToken()
+    const headers = new Headers(init.headers || {})
+    headers.set('X-CSRF-Token', token)
+    return request<T>(path, {
+        method: 'POST',
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        ...init,
+        headers,
+    })
+}
+
 export const httpClient = {
+    ensureCsrfToken,
     get: <T>(path: string, init?: RequestInit) => request<T>(path, { method: 'GET', ...init }),
     post: <T>(path: string, body?: unknown, init?: RequestInit) =>
         request<T>(path, {
@@ -71,4 +130,5 @@ export const httpClient = {
             body: body !== undefined ? JSON.stringify(body) : undefined,
             ...init,
         }),
+    postWithCsrf,
 }
