@@ -118,6 +118,23 @@ class Settings(BaseSettings):
     auth_lockout_threshold: int = 5
     auth_lockout_minutes: int = 15
 
+    auth_email_verify_ttl_minutes: int = 30
+    auth_password_reset_ttl_minutes: int = 30
+    auth_email_resend_cooldown_seconds: int = 60
+
+    backend_public_base_url: str = "http://127.0.0.1:8000"
+    frontend_home_url: str = "http://127.0.0.1:5173/home"
+    frontend_reset_password_url: str = "http://127.0.0.1:5173/reset-password"
+
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_starttls: bool = True
+    smtp_use_ssl: bool = False
+    smtp_from_email: str = ""
+    smtp_from_name: str = "Serene"
+
     def normalized_database_url(self) -> str:
         raw = self.database_url.strip()
         if not raw:
