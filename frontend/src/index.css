@@ -43,13 +43,11 @@
 @utility auth-noise {
     /* Không tải SVG ngoài — tránh 403/bị chặn mạng; chỉ lớp grain nhẹ bằng CSS */
     @apply fixed inset-0 pointer-events-none opacity-[0.04];
-    background-image: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 1px,
-        rgb(47 52 46 / 0.03) 1px,
-        rgb(47 52 46 / 0.03) 2px
-    );
+    background-image: repeating-linear-gradient(0deg,
+            transparent,
+            transparent 1px,
+            rgb(47 52 46 / 0.03) 1px,
+            rgb(47 52 46 / 0.03) 2px);
 }
 
 @utility auth-main {

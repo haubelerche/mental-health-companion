@@ -46,7 +46,7 @@ export default function Reflect() {
                             <h1 className="font-display text-5xl font-light leading-tight text-[#2F342E] md:text-6xl lg:text-7xl">
                                 Chào <span className="italic text-primary font-medium">Elena</span>
                             </h1>
-                            <p className="mx-auto mt-5 max-w-2xl text-sm italic leading-relaxed text-on-surface-variant/80 md:text-lg">
+                            <p className="mx-auto mt-5 max-w-2xl text-sm italic leading-relaxed text-serene-primary/80 md:text-lg">
                                 Thủy triều tối nay thật êm đềm. Chúng ta hãy cùng nhìn lại nhé?
                             </p>
                         </div>
@@ -77,15 +77,15 @@ export default function Reflect() {
                                     </svg>
 
                                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                        <span className="font-display text-5xl font-light text-on-surface md:text-6xl">
+                                        <span className="font-display text-5xl font-light text-serene-pborder-serene-primary md:text-6xl">
                                             82<span className="text-xl opacity-40 md:text-2xl">%</span>
                                         </span>
-                                        <span className="mt-2 text-[10px] uppercase tracking-[0.3em] text-primary-dim">
+                                        <span className="mt-2 text-[10px] uppercase tracking-[0.3em] text-serene-primary-dim">
                                             Harmonized
                                         </span>
                                     </div>
                                 </div>
-                                <p className="mx-auto mt-6 max-w-sm text-sm leading-relaxed text-on-surface-variant">
+                                <p className="mx-auto mt-6 max-w-sm text-sm leading-relaxed">
                                     Sự thay đổi nhịp tim và nhịp thở của bạn cải thiện 12% so với ngày hôm qua.
                                 </p>
                             </div>
@@ -93,8 +93,8 @@ export default function Reflect() {
                             <div className="rounded-[1.75rem] border border-white/25 bg-white/30 p-6 backdrop-blur-md md:p-8">
                                 <div className="mb-6 flex items-end justify-between gap-4">
                                     <div>
-                                        <h2 className="font-display text-2xl text-on-surface md:text-[2rem]">Biểu đồ cảm xúc</h2>
-                                        <p className="text-[10px] uppercase tracking-[0.28em] text-on-surface-variant/60">
+                                        <h2 className="font-display text-2xl text-serene-pborder-serene-primary md:text-[2rem]">Biểu đồ cảm xúc</h2>
+                                        <p className="text-[10px] uppercase tracking-[0.28em] text-serene-primary/60">
                                             7 ngày qua
                                         </p>
                                     </div>
@@ -149,7 +149,7 @@ export default function Reflect() {
                                     </ResponsiveContainer>
                                 </div>
 
-                                <div className="mt-5 flex justify-between px-1 text-[10px] uppercase tracking-widest text-on-surface-variant/70">
+                                <div className="mt-5 flex justify-between px-1 text-[10px] uppercase tracking-widest text-serene-primary/70">
                                     <span>T2</span>
                                     <span className="font-bold text-primary">T6</span>
                                     <span>CN</span>
@@ -157,7 +157,7 @@ export default function Reflect() {
                             </div>
                         </div>
 
-                        <section className="mt-8 rounded-3xl border-l-4 border-primary/30 bg-primary/5 p-6 md:p-8">
+                        <section className="mt-8 rounded-3xl border-l-4 border-serene-primary bg-serene-primary/5 p-6 md:p-8">
                             <div className="mb-5 flex items-center gap-4">
                                 <div className="rounded-full bg-primary/10 p-3 text-primary">
                                     <Sparkles className="h-6 w-6" />
@@ -166,7 +166,7 @@ export default function Reflect() {
                                     Lời nhắn tuần từ Serene
                                 </h2>
                             </div>
-                            <p className="text-base leading-relaxed text-on-surface-variant/90 md:text-lg">
+                            <p className="text-base leading-relaxed text-serene-ink/90 md:text-lg">
                                 “Sự tĩnh lặng của bạn đạt đỉnh sau những buổi đi dạo trong rừng buổi sáng. Không khí ngày mai sẽ rất trong lành - có lẽ một khoảnh khắc yên bình dưới tán cây sẽ nuôi dưỡng sự tập trung của bạn.”
                             </p>
                         </section>
@@ -176,18 +176,18 @@ export default function Reflect() {
                                 <div className="mb-7 flex items-center justify-between gap-4">
                                     <div className="flex items-center gap-3">
                                         <Leaf className="h-5 w-5 text-primary" />
-                                        <h3 className="font-display text-2xl text-on-surface">Nhật ký gần đây</h3>
+                                        <h3 className="font-display text-2xl text-serene-pborder-serene-primary">Nhật ký gần đây</h3>
                                     </div>
-                                    <span className="text-[10px] uppercase tracking-widest text-on-surface-variant/50">3 giờ trước</span>
+                                    <span className="text-[10px] uppercase tracking-widest text-serene-primary/50">3 giờ trước</span>
                                 </div>
 
-                                <blockquote className="mb-6 font-display text-2xl italic leading-relaxed text-primary-dim md:text-3xl">
+                                <blockquote className="mb-6 font-display text-xl italic leading-relaxed text-serene-primary-dim md:text-3xl">
                                     “Đại dương không ép buộc những con sóng, nó chỉ đơn giản để chúng hiện hữu.”
                                 </blockquote>
 
                                 <button
                                     type="button"
-                                    className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-primary transition-transform hover:translate-x-0.5"
+                                    className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-serene-primary transition-transform hover:translate-x-0.5"
                                 >
                                     Đọc toàn bộ
                                     <ArrowRight className="h-4 w-4" />
@@ -195,7 +195,7 @@ export default function Reflect() {
                             </div>
 
                             <aside className="rounded-3xl border border-white/25 bg-white/10 p-6 backdrop-blur-md md:p-8">
-                                <h3 className="mb-6 font-display text-2xl text-on-surface">Bài tập nhanh</h3>
+                                <h3 className="mb-6 font-display text-2xl text-serene-pborder-serene-primary">Bài tập nhanh</h3>
                                 <div className="space-y-4">
                                     {quickExercises.map((exercise) => {
                                         const Icon = exercise.icon
@@ -210,10 +210,10 @@ export default function Reflect() {
                                                     <Icon className="h-5 w-5" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-bold text-on-surface">{exercise.title}</p>
-                                                    <p className="text-[10px] text-on-surface-variant">{exercise.duration}</p>
+                                                    <p className="text-sm font-bold text-serene-pborder-serene-primary">{exercise.title}</p>
+                                                    <p className="text-[10px] text-serene-primary">{exercise.duration}</p>
                                                 </div>
-                                                <ChevronRight className="ml-auto h-4 w-4 text-on-surface-variant/30 transition-transform group-hover:translate-x-1" />
+                                                <ChevronRight className="ml-auto h-4 w-4 text-serene-primary/30 transition-transform group-hover:translate-x-1" />
                                             </button>
                                         )
                                     })}
@@ -221,8 +221,8 @@ export default function Reflect() {
                             </aside>
                         </section>
 
-                        <div className="mt-8 border-t border-on-surface/5 pt-10 text-center">
-                            <p className="font-display text-lg italic text-on-surface/50 md:text-xl">
+                        <div className="mt-8 border-t border-serene-primary/5 pt-10 text-center">
+                            <p className="font-display text-lg italic text-serene-primary border-serene-primary/50 md:text-xl">
                                 “Học cách chữa lành là hành trình đẹp đẽ nhất của mỗi con người.”
                             </p>
                         </div>
