@@ -51,9 +51,9 @@ export default function Login() {
 
             <main className="auth-main px-6 py-10">
                 <div className="mb-8 text-center">
-                    <h1 className="auth-brand">
+                    <Link to={ROUTE_PATHS.landing} className="auth-brand">
                         Serene
-                    </h1>
+                    </Link>
                     <p className="auth-brand-sub">
                         Digital Sanctuary
                     </p>
