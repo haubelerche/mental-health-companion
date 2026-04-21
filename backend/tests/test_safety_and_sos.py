@@ -22,6 +22,31 @@ def test_decide_sos_true_for_explicit_keyword():
     assert distress >= 0.94
 
 
+def test_decide_sos_true_for_slang_self_harm_phrase():
+    sos, distress = decide_sos("tao đi chết đây")
+    assert sos is True
+    assert distress >= 0.94
+
+
+def test_decide_sos_true_for_violent_intent_phrase():
+    sos, distress = decide_sos("thấy hơi buồn, tôi muốn giết nó")
+    assert sos is True
+    assert distress >= 0.95
+
+
+def test_decide_sos_contextual_escalation_with_recent_window():
+    sos, distress = decide_sos(
+        "khong biet phai tiep tuc sao nua",
+        recent_user_messages=[
+            "met qua roi",
+            "chan song roi",
+            "tat ca deu vo nghia",
+        ],
+    )
+    assert sos is True
+    assert distress >= 0.9
+
+
 def test_decide_sos_false_for_regular_message():
     sos, distress = decide_sos("Hom nay minh thay hoi met vi hoc nhieu")
     assert sos is False
@@ -50,3 +75,15 @@ def test_escalation_signal_rapid_delta():
     )
     assert signal.escalate is True
     assert signal.trigger_reason == "rapid_escalation"
+
+
+def test_escalation_signal_high_rolling_window_triggers_voice():
+    signal = compute_escalation_signal(
+        current_distress=0.79,
+        previous_distress=[0.75, 0.78, 0.8],
+        threshold=0.84,
+        delta_threshold=0.22,
+        window_turns=6,
+    )
+    assert signal.escalate is True
+    assert signal.trigger_reason == "rolling_window_high"
