@@ -20,6 +20,11 @@ class ChatMessageRequest(BaseModel):
     session_id: str | None = Field(default=None, max_length=50)
 
 
+class GuestChatMessageRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+    guest_session_id: str | None = Field(default=None, max_length=80)
+
+
 class ChatEndRequest(BaseModel):
     session_id: str = Field(min_length=1, max_length=50)
 

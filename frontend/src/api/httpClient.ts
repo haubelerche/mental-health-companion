@@ -29,6 +29,13 @@ export function resolveMediaUrl(path: string): string {
 
 let csrfToken: string | null = null
 
+function readCookie(name: string): string | null {
+    if (typeof document === 'undefined') return null
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`))
+    return match ? decodeURIComponent(match[1]) : null
+}
+
 function isEnvelope<T>(value: unknown): value is ApiEnvelope<T> {
     return typeof value === 'object' && value !== null && 'success' in value && 'data' in value
 }
@@ -102,11 +109,20 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     return payload as T
 }
 
-async function ensureCsrfToken(): Promise<string> {
-    if (csrfToken) return csrfToken
+async function ensureCsrfToken(forceRefresh = false): Promise<string> {
+    const tokenFromCookie = readCookie('csrf_token')
+    if (!forceRefresh && tokenFromCookie) {
+        csrfToken = tokenFromCookie
+        return tokenFromCookie
+    }
+    if (!forceRefresh && csrfToken) return csrfToken
     const data = await request<{ csrf_token: string }>('/auth/csrf-token', { method: 'GET' })
     csrfToken = data.csrf_token
     return csrfToken
+}
+
+function resetCsrfToken(): void {
+    csrfToken = null
 }
 
 async function postWithCsrf<T>(path: string, body?: unknown, init: RequestInit = {}): Promise<T> {
@@ -121,8 +137,25 @@ async function postWithCsrf<T>(path: string, body?: unknown, init: RequestInit =
     })
 }
 
+async function postStreamWithCsrf(path: string, body?: unknown, init: RequestInit = {}): Promise<Response> {
+    const token = await ensureCsrfToken()
+    const headers = new Headers(init.headers || {})
+    headers.set('Content-Type', 'application/json')
+    headers.set('X-CSRF-Token', token)
+
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+        method: 'POST',
+        credentials: 'include',
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        ...init,
+        headers,
+    })
+    return response
+}
+
 export const httpClient = {
     ensureCsrfToken,
+    resetCsrfToken,
     get: <T>(path: string, init?: RequestInit) => request<T>(path, { method: 'GET', ...init }),
     post: <T>(path: string, body?: unknown, init?: RequestInit) =>
         request<T>(path, {
@@ -131,4 +164,5 @@ export const httpClient = {
             ...init,
         }),
     postWithCsrf,
+    postStreamWithCsrf,
 }

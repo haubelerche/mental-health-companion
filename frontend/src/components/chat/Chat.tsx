@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentProps } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { resolveMediaUrl } from '../../api/httpClient'
+import { ApiRequestError } from '../../api/types'
+import { useAuth } from '../../hooks/useAuth'
+import { ROUTE_PATHS } from '../../routes/paths'
 import { chatService } from '../../services/chatService'
 import { policyService } from '../../services/policyService'
 
@@ -258,6 +262,7 @@ function CrisisPanel({ data }: { data: ChatApiData }) {
 
 export default function Chat() {
     type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
+    const GUEST_CHAT_DURATION_SECONDS = 120
 
     const [sessionId, setSessionId] = useState<string | null>(null)
     const [messages, setMessages] = useState<UiMessage[]>([])
@@ -267,8 +272,13 @@ export default function Chat() {
     const [voiceStatus, setVoiceStatus] = useState('')
     const [lastFailedText, setLastFailedText] = useState<string | null>(null)
     const [showDebug, setShowDebug] = useState(true)
+    const [guestSecondsLeft, setGuestSecondsLeft] = useState<number>(GUEST_CHAT_DURATION_SECONDS)
     const pollRef = useRef<number | null>(null)
     const bottomRef = useRef<HTMLDivElement | null>(null)
+    const guestDeadlineRef = useRef<number | null>(null)
+    const { user } = useAuth()
+    const navigate = useNavigate()
+    const isGuestMode = !user
 
     useEffect(() => {
         policyService
@@ -276,6 +286,30 @@ export default function Chat() {
             .then((res) => setVoiceConsent(Boolean(res.voice_consent)))
             .catch(() => undefined)
     }, [])
+
+    useEffect(() => {
+        if (!isGuestMode) {
+            setGuestSecondsLeft(GUEST_CHAT_DURATION_SECONDS)
+            guestDeadlineRef.current = null
+            return
+        }
+        if (!guestDeadlineRef.current) {
+            guestDeadlineRef.current = Date.now() + GUEST_CHAT_DURATION_SECONDS * 1000
+        }
+
+        const tick = () => {
+            const deadline = guestDeadlineRef.current ?? Date.now()
+            const next = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
+            setGuestSecondsLeft(next)
+            if (next <= 0) {
+                toast.info('Bạn đã dùng hết 2 phút chat thử. Đăng ký để tiếp tục nhé.')
+                navigate(ROUTE_PATHS.register, { replace: true })
+            }
+        }
+        tick()
+        const timer = window.setInterval(tick, 1000)
+        return () => window.clearInterval(timer)
+    }, [isGuestMode, navigate])
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -296,8 +330,14 @@ export default function Chat() {
         })
     }
 
-    const pollVoiceJob = async (ttsJobId: string, attempts = 0) => {
-        if (attempts > 10) return
+    const pollVoiceJob = async (ttsJobId: string, fallbackScript?: string, attempts = 0) => {
+        if (attempts > 8) {
+            setVoiceStatus('Voice phản hồi chậm, đang dùng bản text trước.')
+            if (fallbackScript) {
+                setMessages((prev) => [...prev, { id: `vs_to_${Date.now()}`, role: 'assistant', content: fallbackScript }])
+            }
+            return
+        }
         try {
             const job = await chatService.getVoiceJob(ttsJobId)
             setVoiceStatus(`Voice: ${job.status}`)
@@ -306,89 +346,193 @@ export default function Chat() {
                 return
             }
             if (job.status === 'failed') {
-                setVoiceStatus('Voice lỗi, chuyển về text.')
+                setVoiceStatus(job.error_message ? `Voice lỗi: ${job.error_message}` : 'Voice lỗi, chuyển về text.')
+                if (fallbackScript) {
+                    setMessages((prev) => [
+                        ...prev,
+                        { id: `vs_fail_${Date.now()}`, role: 'assistant', content: fallbackScript },
+                    ])
+                }
                 return
             }
         } catch {
+            if (fallbackScript) {
+                setMessages((prev) => [...prev, { id: `vs_err_${Date.now()}`, role: 'assistant', content: fallbackScript }])
+            }
             return
         }
         pollRef.current = window.setTimeout(() => {
-            void pollVoiceJob(ttsJobId, attempts + 1)
+            void pollVoiceJob(ttsJobId, fallbackScript, attempts + 1)
         }, 2000)
     }
 
+    const applyIntervention = (data: ChatApiData) => {
+        const intervention = data.intervention
+        if (intervention?.type !== 'proactive_voice') return
+        if (intervention.copy_ngan) {
+            setMessages((prev) => [...prev, { id: `i_${Date.now()}`, role: 'assistant', content: intervention.copy_ngan ?? '' }])
+        }
+        if (Array.isArray(intervention.next_actions) && intervention.next_actions.length > 0) {
+            const labels = intervention.next_actions.map((a) => `• ${a.label}`).join('\n')
+            setMessages((prev) => [...prev, { id: `na_${Date.now()}`, role: 'assistant', content: `Gợi ý tiếp theo:\n${labels}` }])
+        }
+        const ttsJobId = intervention.voice?.tts_job_id
+        const audioUrl = intervention.voice?.audio_url
+        if (audioUrl) {
+            playAudioUrl(audioUrl)
+        } else if (ttsJobId) {
+            setVoiceStatus('Đang tạo voice...')
+            void pollVoiceJob(ttsJobId, intervention.voice_script)
+        } else if (intervention.voice_script) {
+            setMessages((prev) => [...prev, { id: `vs_${Date.now()}`, role: 'assistant', content: intervention.voice_script ?? '' }])
+        }
+    }
+
+    const consumeChatSse = async (response: Response, pendingId: string) => {
+        if (!response.ok) {
+            throw new Error('Streaming chat thất bại')
+        }
+        const reader = response.body?.getReader()
+        if (!reader) {
+            throw new Error('Không đọc được stream phản hồi')
+        }
+        const decoder = new TextDecoder('utf-8')
+        let buffer = ''
+        let currentEvent = ''
+        let streamedText = ''
+        let finalData: ChatApiData | null = null
+
+        while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
+
+            for (const line of lines) {
+                if (line.startsWith('event:')) {
+                    currentEvent = line.slice(6).trim()
+                    continue
+                }
+                if (!line.startsWith('data:')) continue
+                const raw = line.slice(5).trim()
+                if (!raw) continue
+                try {
+                    const payload = JSON.parse(raw) as Record<string, unknown>
+                    if (currentEvent === 'delta') {
+                        streamedText += String(payload.text ?? '')
+                        setMessages((prev) =>
+                            prev.map((m) => (m.id === pendingId ? { ...m, content: streamedText || '...' } : m)),
+                        )
+                    } else if (currentEvent === 'heartbeat') {
+                        const stage = String(payload.stage ?? 'pre_llm')
+                        const elapsedMs = Number(payload.elapsed_ms ?? 0)
+                        setVoiceStatus(`Đang xử lý (${stage}) · ${elapsedMs}ms`)
+                    } else if (currentEvent === 'status') {
+                        if (payload.stage === 'ready' && typeof payload.latency_ms === 'number') {
+                            setVoiceStatus(`Latency backend: ${payload.latency_ms}ms`)
+                        }
+                    } else if (currentEvent === 'final') {
+                        finalData = payload as unknown as ChatApiData
+                    }
+                } catch {
+                    // ignore malformed line
+                }
+            }
+        }
+
+        if (!finalData) {
+            throw new Error('Không nhận được dữ liệu cuối từ stream')
+        }
+        const sid = typeof finalData.session_id === 'string' ? finalData.session_id : null
+        if (sid) setSessionId(sid)
+        const assistantText =
+            typeof finalData.reply === 'string' && finalData.reply
+                ? finalData.reply
+                : typeof finalData.assistant_text === 'string' && finalData.assistant_text
+                  ? finalData.assistant_text
+                  : streamedText || 'Mình vẫn đang ở đây cùng bạn.'
+        setMessages((prev) =>
+            prev.map((m) =>
+                m.id === pendingId
+                    ? {
+                          id: `a_${Date.now()}`,
+                          role: 'assistant',
+                          content: assistantText,
+                          apiData: finalData ?? undefined,
+                      }
+                    : m,
+            ),
+        )
+        applyIntervention(finalData)
+    }
+
     const doSend = async (text: string) => {
+        if (isGuestMode && guestSecondsLeft <= 0) {
+            toast.info('Phiên chat thử đã hết. Mời bạn đăng ký tài khoản để tiếp tục.')
+            navigate(ROUTE_PATHS.register)
+            return
+        }
+        const now = Date.now()
+        const pendingId = `p_${now}`
         setInput('')
         setLastFailedText(null)
-        setMessages((prev) => [...prev, { id: `u_${Date.now()}`, role: 'user', content: text }])
+        setMessages((prev) => [
+            ...prev,
+            { id: `u_${now}`, role: 'user', content: text },
+            { id: pendingId, role: 'assistant', content: 'Mây đang phản hồi nhanh cho bạn...' },
+        ])
         setSending(true)
 
         try {
-            const rawData = await chatService.sendMessage({ message: text, session_id: sessionId })
-            const data = rawData as ChatApiData
-
-            const sid = typeof data.session_id === 'string' ? data.session_id : null
-            if (sid) setSessionId(sid)
-
-            const assistantText =
-                typeof data.reply === 'string' && data.reply
-                    ? data.reply
-                    : typeof data.assistant_text === 'string' && data.assistant_text
-                      ? data.assistant_text
-                      : 'Mình vẫn đang ở đây cùng bạn.'
-
-            setMessages((prev) => [
-                ...prev,
-                {
-                    id: `a_${Date.now()}`,
-                    role: 'assistant',
-                    content: assistantText,
-                    apiData: data,
-                },
-            ])
-
-            // Proactive voice intervention
-            const intervention = data.intervention
-            if (intervention?.type === 'proactive_voice') {
-                if (intervention.copy_ngan) {
-                    setMessages((prev) => [
-                        ...prev,
-                        { id: `i_${Date.now()}`, role: 'assistant', content: intervention.copy_ngan ?? '' },
-                    ])
-                }
-                if (Array.isArray(intervention.next_actions) && intervention.next_actions.length > 0) {
-                    const labels = intervention.next_actions.map((a) => `• ${a.label}`).join('\n')
-                    setMessages((prev) => [
-                        ...prev,
-                        { id: `na_${Date.now()}`, role: 'assistant', content: `Gợi ý tiếp theo:\n${labels}` },
-                    ])
-                }
-                const ttsJobId = intervention.voice?.tts_job_id
-                const audioUrl = intervention.voice?.audio_url
-                if (audioUrl) {
-                    playAudioUrl(audioUrl)
-                } else if (ttsJobId) {
-                    setVoiceStatus('Đang tạo voice...')
-                    void pollVoiceJob(ttsJobId)
-                } else if (intervention.voice_script) {
-                    setMessages((prev) => [
-                        ...prev,
-                        { id: `vs_${Date.now()}`, role: 'assistant', content: intervention.voice_script ?? '' },
-                    ])
-                }
+            if (!isGuestMode) {
+                const streamResponse = await chatService.sendMessageStream({ message: text, session_id: sessionId })
+                await consumeChatSse(streamResponse, pendingId)
+            } else {
+                const rawData = await chatService.sendGuestMessage({ message: text, guest_session_id: sessionId })
+                const data = rawData as ChatApiData
+                const sid = typeof data.session_id === 'string' ? data.session_id : null
+                if (sid) setSessionId(sid)
+                const assistantText =
+                    typeof data.reply === 'string' && data.reply
+                        ? data.reply
+                        : typeof data.assistant_text === 'string' && data.assistant_text
+                          ? data.assistant_text
+                          : 'Mình vẫn đang ở đây cùng bạn.'
+                setMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === pendingId
+                            ? {
+                                  id: `a_${Date.now()}`,
+                                  role: 'assistant',
+                                  content: assistantText,
+                                  apiData: data,
+                              }
+                            : m,
+                    ),
+                )
+                applyIntervention(data)
             }
         } catch (err) {
+            if (err instanceof ApiRequestError && err.code === 'GUEST_TRIAL_EXPIRED') {
+                toast.info('Bạn đã dùng hết 2 phút chat thử. Mời bạn đăng ký để tiếp tục.')
+                navigate(ROUTE_PATHS.register)
+                return
+            }
             const errorMessage = err instanceof Error ? err.message : 'Gửi tin nhắn thất bại'
             toast.error(errorMessage)
             setLastFailedText(text)
-            setMessages((prev) => [
-                ...prev,
-                {
-                    id: `e_${Date.now()}`,
-                    role: 'assistant',
-                    content: 'Mình bị gián đoạn một chút, bạn thử lại giúp mình nhé.',
-                },
-            ])
+            setMessages((prev) =>
+                prev.map((m) =>
+                    m.id === pendingId
+                        ? {
+                              id: `e_${Date.now()}`,
+                              role: 'assistant',
+                              content: 'Mình bị gián đoạn một chút, bạn thử lại giúp mình nhé.',
+                          }
+                        : m,
+                ),
+            )
         } finally {
             setSending(false)
         }
@@ -441,6 +585,11 @@ export default function Chat() {
                         )}
                     </div>
                     <div className="flex items-center gap-2">
+                        {isGuestMode && (
+                            <span className="rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                                Chat thử còn {guestSecondsLeft}s
+                            </span>
+                        )}
                         <button
                             type="button"
                             onClick={() => setShowDebug((v) => !v)}
@@ -451,6 +600,7 @@ export default function Chat() {
                         <button
                             type="button"
                             onClick={handleToggleVoiceConsent}
+                            disabled={isGuestMode}
                             className="rounded-full bg-serene-primary px-4 py-2 text-sm text-white"
                         >
                             Voice hỗ trợ: {voiceConsent ? 'BẬT' : 'TẮT'}
@@ -482,7 +632,7 @@ export default function Chat() {
             </div>
 
             {/* ── Message feed ──────────────────────────────────────────── */}
-            <div className="h-[480px] overflow-y-auto rounded-3xl border border-white/35 bg-white/65 p-4 backdrop-blur-xl">
+            <div className="min-h-[70dvh] overflow-y-auto rounded-3xl border border-white/35 bg-white/65 p-4 backdrop-blur-xl">
                 {messages.length === 0 ? (
                     <p className="text-serene-muted">Hãy bắt đầu cuộc trò chuyện. Mình đang lắng nghe bạn.</p>
                 ) : (
