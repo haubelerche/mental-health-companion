@@ -96,7 +96,7 @@ export default function HeaderMain({ isSidebarOpen, onToggleSidebar }: HeaderMai
                     {isDropdownOpen && (
                         <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-white/25 bg-white p-2 shadow-xl">
                             <div className="px-4 py-3 border-b border-white/20">
-                                <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                                <p className="text-xs font-label uppercase tracking-widest text-serene-muted">
                                     Chào {displayName}
                                 </p>
                                 <p className="text-sm font-display text-on-surface mt-1">{user?.email}</p>
@@ -108,7 +108,7 @@ export default function HeaderMain({ isSidebarOpen, onToggleSidebar }: HeaderMai
                                     navigate(`${ROUTE_PATHS.home}/profile`)
                                     setIsDropdownOpen(false)
                                 }}
-                                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-on-surface transition hover:bg-primary/10 rounded-lg"
+                                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-on-surface transition hover:bg-serene-primary/10 rounded-lg"
                             >
                                 <User className="h-4 w-4 text-primary" />
                                 Hồ sơ
@@ -117,7 +117,7 @@ export default function HeaderMain({ isSidebarOpen, onToggleSidebar }: HeaderMai
                             <button
                                 type="button"
                                 onClick={handleSettingsNavigation}
-                                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-on-surface transition hover:bg-primary/10 rounded-lg"
+                                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-on-surface transition hover:bg-serene-primary/10 rounded-lg"
                             >
                                 <Settings className="h-4 w-4 text-primary" />
                                 Cài đặt
