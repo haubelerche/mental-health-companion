@@ -51,7 +51,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                     type="button"
                     className="mt-8 rounded-2xl bg-serene-primary py-4 font-display text-xl italic text-serene-on-primary shadow-[0_14px_34px_rgba(47,52,46,0.24)] transition hover:brightness-105"
                 >
-                    Thở ngay
+                    Viết nhật ký
                 </button>
             </aside>
 
