@@ -3,7 +3,7 @@ Product / Legal knobs (BACKEND_PLAN §15). Tune with Product before production.
 """
 
 # Guest trial — max session wall time (seconds)
-GUEST_TRIAL_MAX_DURATION_SEC = 900
+GUEST_TRIAL_MAX_DURATION_SEC = 120
 
 # Distress ladder (BACKEND_PLAN §7.9) — align distress_score 0.0–1.0
 DISTRESS_VOICE_HINT = 0.8

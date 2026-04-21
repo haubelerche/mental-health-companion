@@ -33,17 +33,22 @@ def _override_user():
 
 def test_chat_message_non_sos_success(monkeypatch):
     fake_db = FakeDB()
+    captured: dict[str, object] = {}
     monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
     monkeypatch.setattr(chat_router, "get_voice_consent", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(
+        chat_router,
+        "get_user_longterm_memories",
+        lambda *_args, **_kwargs: ["Lần trước bạn mất ngủ vì deadline.", "Bạn từng thấy đỡ hơn khi đi bộ ngắn."],
+    )
     monkeypatch.setattr(
         chat_router,
         "load_chat_context_sync",
         lambda *_args, **_kwargs: SimpleNamespace(recent_messages=[], mood_today=None),
     )
-    monkeypatch.setattr(
-        chat_router,
-        "run_non_sos_turn",
-        lambda **_kwargs: {
+    def fake_turn(**kwargs):
+        captured.update(kwargs)
+        return {
             "session_fields": SafetySnapshot(
                 distress_score=0.15,
                 risk_level=0,
@@ -54,8 +59,9 @@ def test_chat_message_non_sos_success(monkeypatch):
             "tone_cam_xuc": "xac_nhan",
             "goi_y_nhanh": ["Cậu cứ kể đi", "Mình đang nghe", "Cần giúp gì nữa không"],
             "the_dinh_kem": [],
-        },
-    )
+        }
+
+    monkeypatch.setattr(chat_router, "run_non_sos_turn", fake_turn)
 
     def override_db():
         yield fake_db
@@ -71,6 +77,7 @@ def test_chat_message_non_sos_success(monkeypatch):
         assert body["success"] is True
         assert body["data"]["sos_triggered"] is False
         assert body["data"]["reply"] == "Mình luôn ở đây với cậu."
+        assert captured["long_term_memories"] == []
         assert fake_db.committed is True
     finally:
         app.dependency_overrides.clear()
@@ -80,6 +87,7 @@ def test_chat_message_sos_skips_graph(monkeypatch):
     fake_db = FakeDB()
     monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
     monkeypatch.setattr(chat_router, "get_voice_consent", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(chat_router, "get_user_longterm_memories", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(chat_router, "decide_sos", lambda _message: (True, 0.95))
     monkeypatch.setattr(
         chat_router,
@@ -119,6 +127,7 @@ def test_chat_message_non_sos_triggers_proactive_voice(monkeypatch):
     fake_db = FakeDB()
     monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
     monkeypatch.setattr(chat_router, "decide_sos", lambda _message: (False, 0.72))
+    monkeypatch.setattr(chat_router, "get_user_longterm_memories", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(chat_router, "get_voice_consent", lambda *_args, **_kwargs: True)
     monkeypatch.setattr(chat_router, "cooldown_active", lambda **_kwargs: (False, 0))
     monkeypatch.setattr(
@@ -167,5 +176,59 @@ def test_chat_message_non_sos_triggers_proactive_voice(monkeypatch):
         assert body["success"] is True
         assert body["data"]["intervention"]["type"] == "proactive_voice"
         assert body["data"]["intervention"]["voice"]["tts_job_id"] == "tts_100"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_chat_message_stream_returns_sse(monkeypatch):
+    fake_db = FakeDB()
+    monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
+    monkeypatch.setattr(chat_router, "get_voice_consent", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(chat_router, "decide_sos", lambda *_args, **_kwargs: (False, 0.2))
+    monkeypatch.setattr(chat_router, "get_cached_turn", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(chat_router, "set_cached_turn", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        chat_router,
+        "load_chat_context_sync",
+        lambda *_args, **_kwargs: SimpleNamespace(recent_messages=[], mood_today=None),
+    )
+    monkeypatch.setattr(
+        chat_router,
+        "stream_non_sos_turn_events",
+        lambda **_kwargs: iter(
+            [
+                {"type": "token", "text": "Mình đang "},
+                {
+                    "type": "final",
+                    "turn": {
+                        "session_fields": SafetySnapshot(
+                            distress_score=0.2,
+                            risk_level=0,
+                            safety_tier="normal",
+                            conversation_mode="normal",
+                        ),
+                        "reply": "Mình đang ở đây cùng bạn nhé.",
+                        "tone_cam_xuc": "xac_nhan",
+                        "goi_y_nhanh": [],
+                        "the_dinh_kem": [],
+                        "routing_history": ["supervisor", "friend"],
+                    },
+                },
+            ]
+        ),
+    )
+
+    def override_db():
+        yield fake_db
+
+    app.dependency_overrides[chat_router.ensure_policy_acknowledged] = _override_user
+    app.dependency_overrides[chat_router.get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            resp = client.post("/v1/chat/message/stream", json={"message": "chao"})
+        assert resp.status_code == 200
+        assert "event: status" in resp.text
+        assert "event: final" in resp.text
+        assert "Mình đang ở đây cùng bạn nhé." in resp.text
     finally:
         app.dependency_overrides.clear()
