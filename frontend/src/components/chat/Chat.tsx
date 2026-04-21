@@ -482,7 +482,7 @@ export default function Chat() {
             </div>
 
             {/* ── Message feed ──────────────────────────────────────────── */}
-            <div className="h-[480px] overflow-y-auto rounded-3xl border border-white/35 bg-white/65 p-4 backdrop-blur-xl">
+            <div className="min-h-[70dvh] overflow-y-auto rounded-3xl border border-white/35 bg-white/65 p-4 backdrop-blur-xl">
                 {messages.length === 0 ? (
                     <p className="text-serene-muted">Hãy bắt đầu cuộc trò chuyện. Mình đang lắng nghe bạn.</p>
                 ) : (
