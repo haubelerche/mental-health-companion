@@ -22,10 +22,11 @@
 | `disclaimer_accepted` | BOOLEAN | DEFAULT FALSE | Bắt buộc tick khi signup |
 | `analytics_opt_in` | BOOLEAN | DEFAULT FALSE | Quyền dùng data cho analytics |
 | `data_retention_days` | INTEGER | DEFAULT 90 | Số ngày giữ dữ liệu |
-| `is_active` | BOOLEAN | DEFAULT TRUE | Soft disable account |
+| `is_active` | BOOLEAN | DEFAULT FALSE | Chỉ active sau khi xác nhận email |
 | `created_at` | TIMESTAMP | DEFAULT NOW() | |
 | `last_active` | TIMESTAMP | DEFAULT NOW() | Cập nhật mỗi lần request |
 | `updated_at` | TIMESTAMP | DEFAULT NOW() | Cập nhật khi sửa profile (display_name, email, v.v.) — dùng cho audit trail |
+| `email_verified_at` | TIMESTAMP | NULLABLE | Thời điểm xác nhận email thành công |
 
 > ⚠️ **`data_retention_days` — Không tự enforce:** Trường này chỉ là metadata. Cần một scheduled job (pg_cron hoặc external cron) thực sự xóa dữ liệu sau N ngày. **GDPR compliance gap** cho đến khi job tồn tại và được kiểm thử.
 
@@ -47,7 +48,35 @@
 
 ---
 
-### 2.3 `conversations` — Phiên chat
+### 2.3 `email_verification_tokens` — One-time token xác nhận email
+
+| Field | Type | Constraint | Mô tả |
+|---|---|---|---|
+| `token_id` | VARCHAR(50) | PK | |
+| `user_id` | VARCHAR(50) | FK → users ON DELETE CASCADE | |
+| `token_hash` | VARCHAR(255) | UNIQUE NOT NULL | SHA-256 hash của verify token |
+| `expires_at` | TIMESTAMP | NOT NULL | TTL xác nhận email |
+| `used_at` | TIMESTAMP | NULLABLE | Set khi token đã dùng |
+| `resend_count` | INTEGER | DEFAULT 0 | Số lần resend |
+| `last_sent_at` | TIMESTAMP | DEFAULT NOW() | Mốc cooldown resend |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | |
+
+---
+
+### 2.4 `password_reset_tokens` — One-time token đặt lại mật khẩu
+
+| Field | Type | Constraint | Mô tả |
+|---|---|---|---|
+| `token_id` | VARCHAR(50) | PK | |
+| `user_id` | VARCHAR(50) | FK → users ON DELETE CASCADE | |
+| `token_hash` | VARCHAR(255) | UNIQUE NOT NULL | SHA-256 hash của reset token |
+| `expires_at` | TIMESTAMP | NOT NULL | TTL reset password |
+| `used_at` | TIMESTAMP | NULLABLE | Set khi token đã dùng |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | |
+
+---
+
+### 2.5 `conversations` — Phiên chat
 
 | Field | Type | Constraint | Mô tả |
 |---|---|---|---|
