@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentProps } from 'react'
+import { History, Leaf, MoreVertical } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { resolveMediaUrl } from '../../api/httpClient'
@@ -8,6 +9,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { chatService } from '../../services/chatService'
 import { policyService } from '../../services/policyService'
+import { Switch } from '../ui/switch'
 
 // ─── API response types ────────────────────────────────────────────────────────
 
@@ -244,8 +246,8 @@ function CrisisPanel({ data }: { data: ChatApiData }) {
                             {r.type === 'counselor'
                                 ? '👨‍⚕️ Tư vấn viên'
                                 : r.type === 'trusted_contact'
-                                  ? '🤝 Người tin cậy'
-                                  : r.type}
+                                    ? '🤝 Người tin cậy'
+                                    : r.type}
                         </span>
                     ))}
                 </div>
@@ -272,9 +274,11 @@ export default function Chat() {
     const [voiceStatus, setVoiceStatus] = useState('')
     const [lastFailedText, setLastFailedText] = useState<string | null>(null)
     const [showDebug, setShowDebug] = useState(true)
+    const [showOptions, setShowOptions] = useState(false)
     const [guestSecondsLeft, setGuestSecondsLeft] = useState<number>(GUEST_CHAT_DURATION_SECONDS)
     const pollRef = useRef<number | null>(null)
     const bottomRef = useRef<HTMLDivElement | null>(null)
+    const optionsRef = useRef<HTMLDivElement | null>(null)
     const guestDeadlineRef = useRef<number | null>(null)
     const { user } = useAuth()
     const navigate = useNavigate()
@@ -319,6 +323,16 @@ export default function Chat() {
         return () => {
             if (pollRef.current) window.clearTimeout(pollRef.current)
         }
+    }, [])
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (optionsRef.current && !optionsRef.current.contains(event.target as Node)) {
+                setShowOptions(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
     const canSend = useMemo(() => !sending && input.trim().length > 0, [sending, input])
@@ -450,17 +464,17 @@ export default function Chat() {
             typeof finalData.reply === 'string' && finalData.reply
                 ? finalData.reply
                 : typeof finalData.assistant_text === 'string' && finalData.assistant_text
-                  ? finalData.assistant_text
-                  : streamedText || 'Mình vẫn đang ở đây cùng bạn.'
+                    ? finalData.assistant_text
+                    : streamedText || 'Mình vẫn đang ở đây cùng bạn.'
         setMessages((prev) =>
             prev.map((m) =>
                 m.id === pendingId
                     ? {
-                          id: `a_${Date.now()}`,
-                          role: 'assistant',
-                          content: assistantText,
-                          apiData: finalData ?? undefined,
-                      }
+                        id: `a_${Date.now()}`,
+                        role: 'assistant',
+                        content: assistantText,
+                        apiData: finalData ?? undefined,
+                    }
                     : m,
             ),
         )
@@ -497,17 +511,17 @@ export default function Chat() {
                     typeof data.reply === 'string' && data.reply
                         ? data.reply
                         : typeof data.assistant_text === 'string' && data.assistant_text
-                          ? data.assistant_text
-                          : 'Mình vẫn đang ở đây cùng bạn.'
+                            ? data.assistant_text
+                            : 'Mình vẫn đang ở đây cùng bạn.'
                 setMessages((prev) =>
                     prev.map((m) =>
                         m.id === pendingId
                             ? {
-                                  id: `a_${Date.now()}`,
-                                  role: 'assistant',
-                                  content: assistantText,
-                                  apiData: data,
-                              }
+                                id: `a_${Date.now()}`,
+                                role: 'assistant',
+                                content: assistantText,
+                                apiData: data,
+                            }
                             : m,
                     ),
                 )
@@ -526,10 +540,10 @@ export default function Chat() {
                 prev.map((m) =>
                     m.id === pendingId
                         ? {
-                              id: `e_${Date.now()}`,
-                              role: 'assistant',
-                              content: 'Mình bị gián đoạn một chút, bạn thử lại giúp mình nhé.',
-                          }
+                            id: `e_${Date.now()}`,
+                            role: 'assistant',
+                            content: 'Mình bị gián đoạn một chút, bạn thử lại giúp mình nhé.',
+                        }
                         : m,
                 ),
             )
@@ -568,23 +582,31 @@ export default function Chat() {
         lastData?.conversation_mode === 'de_escalation'
             ? { text: '🆘 Khủng hoảng', cls: 'bg-red-100 text-red-700' }
             : lastData?.conversation_mode === 'supportive'
-              ? { text: '🤗 Hỗ trợ', cls: 'bg-amber-100 text-amber-700' }
-              : null
+                ? { text: '🤗 Hỗ trợ', cls: 'bg-amber-100 text-amber-700' }
+                : null
 
     return (
-        <section className="space-y-4">
+        <section className="space-y-4 max-w-4xl relative z-10 px-4 py-6 mx-auto">
             {/* ── Header ─────────────────────────────────────────────────── */}
             <div className="rounded-3xl border border-white/35 bg-white/60 p-5 backdrop-blur-xl">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                        <h2 className="font-display text-4xl text-serene-ink">Trò chuyện</h2>
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-serene-accent/70 text-serene-primary">
+                            <Leaf className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h2 className="font-display text-3xl text-serene-ink">Serene</h2>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-600">
+                                ● Đang lắng nghe
+                            </p>
+                        </div>
                         {modeLabel && (
                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${modeLabel.cls}`}>
                                 {modeLabel.text}
                             </span>
                         )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2" ref={optionsRef}>
                         {isGuestMode && (
                             <span className="rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
                                 Chat thử còn {guestSecondsLeft}s
@@ -592,19 +614,61 @@ export default function Chat() {
                         )}
                         <button
                             type="button"
-                            onClick={() => setShowDebug((v) => !v)}
-                            className="rounded-full bg-serene-ink/10 px-3 py-1.5 text-xs text-serene-ink/60 hover:bg-serene-ink/20"
+                            onClick={() => toast.info('Lịch sử chat sẽ sớm có mặt.')}
+                            className="rounded-full p-2 text-serene-ink/70 transition hover:bg-serene-ink/10"
+                            aria-label="Lịch sử chat"
                         >
-                            {showDebug ? 'Ẩn debug' : 'Debug'}
+                            <History className="h-5 w-5" />
                         </button>
-                        <button
-                            type="button"
-                            onClick={handleToggleVoiceConsent}
-                            disabled={isGuestMode}
-                            className="rounded-full bg-serene-primary px-4 py-2 text-sm text-white"
-                        >
-                            Voice hỗ trợ: {voiceConsent ? 'BẬT' : 'TẮT'}
-                        </button>
+
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setShowOptions((prev) => !prev)}
+                                className="rounded-full p-2 text-serene-ink/70 transition hover:bg-serene-ink/10"
+                                aria-label="Tùy chọn"
+                                role='menu'
+                                aria-haspopup="true"
+                                aria-expanded={showOptions}
+                            >
+                                <MoreVertical className="h-5 w-5" />
+                            </button>
+
+                            {showOptions && (
+                                <div className="absolute right-0 top-11 z-20 w-72 rounded-2xl border border-white/40 bg-white/95 p-3 shadow-xl backdrop-blur-xl">
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between rounded-xl border border-serene-outline/25 bg-white px-3 py-2.5">
+                                            <div>
+                                                <p className="text-sm font-semibold text-serene-ink">Voice hỗ trợ</p>
+                                                <p className="text-[11px] text-serene-muted">
+                                                    Gợi ý giọng nói chủ động khi cần
+                                                </p>
+                                            </div>
+                                            <Switch
+                                                checked={voiceConsent}
+                                                onCheckedChange={() => void handleToggleVoiceConsent()}
+                                                disabled={isGuestMode}
+                                                aria-label="Voice hỗ trợ"
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center justify-between rounded-xl border border-serene-outline/25 bg-white px-3 py-2.5">
+                                            <div>
+                                                <p className="text-sm font-semibold text-serene-ink">Hiển thị debug</p>
+                                                <p className="text-[11px] text-serene-muted">
+                                                    Distress, routing, safety badge
+                                                </p>
+                                            </div>
+                                            <Switch
+                                                checked={showDebug}
+                                                onCheckedChange={setShowDebug}
+                                                aria-label="Hiển thị debug"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
                 {voiceStatus ? <p className="mt-2 text-xs text-serene-muted">{voiceStatus}</p> : null}
@@ -632,9 +696,9 @@ export default function Chat() {
             </div>
 
             {/* ── Message feed ──────────────────────────────────────────── */}
-            <div className="min-h-[70dvh] overflow-y-auto rounded-3xl border border-white/35 bg-white/65 p-4 backdrop-blur-xl">
+            <div className="min-h-[70dvh]  overflow-y-auto rounded-3xl border border-white/35 bg-white/75 p-4">
                 {messages.length === 0 ? (
-                    <p className="text-serene-muted">Hãy bắt đầu cuộc trò chuyện. Mình đang lắng nghe bạn.</p>
+                    <p className="text-serene-ink">Hãy bắt đầu cuộc trò chuyện. Mình đang lắng nghe bạn.</p>
                 ) : (
                     <div className="space-y-4">
                         {messages.map((m) => (
@@ -647,10 +711,10 @@ export default function Chat() {
                                             m.role === 'user'
                                                 ? 'bg-serene-primary text-white'
                                                 : m.apiData?.sos_triggered
-                                                  ? 'border border-red-200 bg-red-50 text-serene-ink'
-                                                  : m.apiData?.conversation_mode === 'supportive'
-                                                    ? 'border border-amber-100 bg-amber-50 text-serene-ink'
-                                                    : 'bg-white text-serene-ink',
+                                                    ? 'border border-red-200 bg-red-50 text-serene-ink'
+                                                    : m.apiData?.conversation_mode === 'supportive'
+                                                        ? 'border border-amber-100 bg-amber-50 text-serene-ink'
+                                                        : 'bg-white text-serene-ink',
                                         ].join(' ')}
                                     >
                                         {m.content}

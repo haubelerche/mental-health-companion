@@ -6,6 +6,7 @@ import bg2 from '../../assets/bg2.png'
 import { ApiRequestError } from '../../api/types'
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
+import { ArrowLeft } from 'lucide-react'
 
 export default function Register() {
     type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
@@ -74,13 +75,18 @@ export default function Register() {
             </div>
 
             <nav className="fixed top-0 z-20 w-full px-8 py-6">
-                <div className="font-display text-3xl italic text-serene-ink">Serene</div>
+                <Link to={ROUTE_PATHS.landing} className="font-display text-3xl italic text-serene-ink">Serene</Link>
             </nav>
 
             <main className="auth-main">
                 <section className="auth-card max-w-xl p-8 sm:p-12">
                     <header className="mb-10 text-center">
-                        <h1 className="font-display text-4xl text-serene-ink sm:text-5xl">Bắt đầu hành trình</h1>
+                        <div className="flex items-center justify-center gap-3">
+                            <Link to={ROUTE_PATHS.login} >
+                                <ArrowLeft className="h-6 w-6" />
+                            </Link>
+                            <h1 className="font-display text-4xl text-serene-ink sm:text-5xl">Bắt đầu hành trình</h1>
+                        </div>
                         <p className="mt-3 text-xs uppercase tracking-[0.22em] text-serene-muted/80">
                             Tạo tài khoản cá nhân của bạn
                         </p>
