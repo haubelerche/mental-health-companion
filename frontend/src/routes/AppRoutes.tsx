@@ -9,6 +9,7 @@ import Landing from '../components/pages/Landing.tsx'
 import Reflect from '../components/pages/Reflect.tsx'
 import Resources from '../components/pages/Resources.tsx'
 import { ROUTE_PATHS } from './paths'
+import Setting from '../components/pages/Setting.tsx'
 
 export default function AppRoutes() {
     return (
@@ -24,6 +25,7 @@ export default function AppRoutes() {
                 <Route path="reflect" element={<Reflect />} />
                 <Route path="resources" element={<Resources />} />
                 <Route path="connect" element={<Connect />} />
+                <Route path="setting" element={<Setting />} />
             </Route>
 
             <Route path="*" element={<Navigate to={ROUTE_PATHS.landing} replace />} />
