@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-EscalationReason = Literal["none", "threshold_crossed", "rapid_escalation"]
+EscalationReason = Literal["none", "threshold_crossed", "rapid_escalation", "rolling_window_high"]
 
 
 
@@ -135,6 +135,16 @@ def compute_escalation_signal(
             delta_score=delta,
             escalate=True,
             trigger_reason="threshold_crossed",
+        )
+    # Escalate when sustained high distress across recent turns even if no single turn crosses hard threshold.
+    high_turns = sum(1 for v in window[-3:] if v >= max(0.72, threshold - 0.18))
+    if rolling_score >= max(0.72, threshold - 0.08) and high_turns >= 2:
+        return EscalationSignal(
+            rolling_window_turns=len(window),
+            rolling_score=rolling_score,
+            delta_score=delta,
+            escalate=True,
+            trigger_reason="rolling_window_high",
         )
     if window[-1] >= 0.7 and delta >= delta_threshold:
         return EscalationSignal(

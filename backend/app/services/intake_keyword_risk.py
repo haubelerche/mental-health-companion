@@ -81,7 +81,7 @@ _CRITICAL = [
     ("tuc chet di", 0.87),
     ("chet cho xong", 0.86),
     ("tuc minh chet qua", 0.85),
-    ("cutting", 0.88),
+   
     ("tu ket lieu", 0.93),
     ("muon bien mat", 0.89),
     ("khong muon ton tai", 0.90),
