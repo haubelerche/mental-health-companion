@@ -19,6 +19,7 @@ type AuthContextValue = {
     isLoading: boolean
     signup: (payload: SignupPayload) => Promise<SignupResponse>
     login: (payload: LoginPayload) => Promise<LoginResponse>
+    logout: () => void
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
@@ -64,8 +65,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
     }
 
+    const logout = () => {
+        setUser(null)
+    }
+
     const value = useMemo(
-        () => ({ user, isLoading, signup, login }),
+        () => ({ user, isLoading, signup, login, logout }),
         [user, isLoading],
     )
 
