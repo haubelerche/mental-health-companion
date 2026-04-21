@@ -20,6 +20,7 @@ from app.services.security import (
     verify_password,
 )
 from app.services.utils import make_id, now_plus, utc_now
+from app.api.deps import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -173,3 +174,14 @@ def logout(response: Response, refresh_token: str | None = Cookie(default=None),
 
     clear_auth_cookies(response)
     return ok({"logged_out_at": utc_now().isoformat().replace("+00:00", "Z")}, response=response)
+
+
+@router.get("/me")
+def me(current_user: User = Depends(get_current_user)):
+    return ok(
+        {
+            "user_id": current_user.user_id,
+            "email": current_user.email,
+            "display_name": current_user.display_name,
+        }
+    )
