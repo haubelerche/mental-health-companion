@@ -80,6 +80,7 @@ export default function Setting() {
   const [weeklySummary, setWeeklySummary] = useState(initialSettings.weeklySummary)
   const [sosAccess, setSosAccess] = useState(initialSettings.sosAccess)
   const [selectedTheme, setSelectedTheme] = useState<ThemeOption>(initialSettings.theme)
+  const [savedSettings, setSavedSettings] = useState(initialSettings)
 
   const displayName = user?.displayName || 'Lê Minh Anh'
   const email = user?.email || 'minhanh.le@serenemail.com'
@@ -98,6 +99,7 @@ export default function Setting() {
     toast.success('Cài đặt đã được lưu thành công!')
     scrollTo({ top: 0, behavior: 'smooth' }) // cuộn lên đầu trang để người dùng thấy thông báo
     console.log('Saved setting states:', settings)
+    setSavedSettings(settings)
   }
 
   const handleCancel = () => {
@@ -113,7 +115,7 @@ export default function Setting() {
   return (
     <div className="relative min-h-full text-serene-ink">
       <div className="mx-auto flex w-full max-w-4xl flex-col items-center px-0 pb-10 pt-2 sm:px-3 lg:pb-14 lg:pt-4">
-        <div className="w-full rounded-4xl border border-white/40 bg-white/40 px-5 py-6 shadow-md backdrop-blur-2xl sm:px-8 sm:py-8 lg:px-10 lg:py-10">
+        <div className="w-full rounded-4xl border border-white/50 bg-white/50 px-5 py-6 shadow-md backdrop-blur-2xl sm:px-8 sm:py-8 lg:px-10 lg:py-10">
           <header className="text-center">
             <h1 className="font-display text-5xl font-light leading-tight text-serene-ink sm:text-6xl lg:text-7xl">
               Cài đặt
@@ -233,7 +235,7 @@ export default function Setting() {
             </div>
           </section>
 
-          <section className="mt-12 rounded-3xl  p-6 backdrop-blur-sm sm:p-8">
+          <section className="my-12 rounded-3xl  p-6 backdrop-blur-sm sm:p-8">
             <div className="mb-6 flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600/20 text-red-600">
                 <TriangleAlert className="h-6 w-6" />
@@ -249,22 +251,31 @@ export default function Setting() {
             />
           </section>
 
-          <footer className="mt-12 flex flex-col-reverse gap-3 border-t border-serene-ink/5 pt-8 sm:flex-row sm:justify-end sm:gap-5">
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="rounded-full px-8 py-3 text-xs font-medium uppercase tracking-[0.28em] text-serene-primary transition hover:bg-serene-primary/5"
-            >
-              Hủy bỏ
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveChanges}
-              className="rounded-full bg-serene-primary px-10 py-4 text-xs font-bold uppercase tracking-[0.28em] text-serene-on-primary shadow-[0_18px_36px_rgba(47,52,46,0.18)] transition hover:brightness-105"
-            >
-              Lưu thay đổi
-            </button>
-          </footer>
+          {/*nếu có thay đổi thì mới hiện*/}
+
+          {(maskIdentity !== savedSettings.maskIdentity ||
+            shareData !== savedSettings.shareData ||
+            reminder !== savedSettings.reminder ||
+            weeklySummary !== savedSettings.weeklySummary ||
+            sosAccess !== savedSettings.sosAccess ||
+            selectedTheme !== savedSettings.theme) && (
+              <footer className="mt-12 flex flex-col-reverse gap-3 border-t border-serene-ink/5 pt-8 sm:flex-row sm:justify-end sm:gap-5">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="rounded-full px-8 py-3 text-xs font-medium uppercase tracking-[0.28em] text-serene-primary transition hover:bg-serene-primary/5"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveChanges}
+                  className="rounded-full bg-serene-primary px-10 py-4 text-xs font-bold uppercase tracking-[0.28em] text-serene-on-primary shadow-[0_18px_36px_rgba(47,52,46,0.18)] transition hover:brightness-105"
+                >
+                  Lưu thay đổi
+                </button>
+              </footer>
+            )}
         </div>
 
 
