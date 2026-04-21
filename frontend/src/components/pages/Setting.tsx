@@ -6,11 +6,12 @@ import {
   TriangleAlert,
   User,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import bg from '../../assets/bg.png'
 import bg2 from '../../assets/bg2.png'
 import bg3 from '../../assets/bg3.png'
 import forest from '../../assets/forest.png'
+import avatar from '../../assets/avatar.png'
 import { useAuth } from '../../hooks/useAuth'
 import { Switch } from '../ui/switch'
 
@@ -70,7 +71,7 @@ function ThemeCard({ label, image, selected, onSelect }: ThemeCardProps) {
 
 export default function Setting() {
   const { user } = useAuth()
-  const [maskIdentity, setMaskIdentity] = useState(true)
+  const [maskIdentity, setMaskIdentity] = useState(false)
   const [shareData, setShareData] = useState(false)
   const [reminder, setReminder] = useState(true)
   const [weeklySummary, setWeeklySummary] = useState(true)
@@ -79,6 +80,9 @@ export default function Setting() {
 
   const displayName = user?.displayName || 'Lê Minh Anh'
   const email = user?.email || 'minhanh.le@serenemail.com'
+  useEffect(() => {
+    console.log('User data:', user)
+  }, [user])
 
   return (
     <div className="relative min-h-full text-serene-ink">
@@ -93,46 +97,41 @@ export default function Setting() {
             </p>
           </header>
 
-          <section className="mt-10 space-y-6">
+          <section id='user-profile' className="mt-10 space-y-6">
             <div className="flex items-center gap-2 border-b border-serene-ink/5 pb-2">
-              <User className="h-4 w-4 text-serene-primary" />
+              <User className="h-5 w-5 text-serene-primary" />
               <h2 className="font-display text-2xl text-serene-ink">Hồ sơ cá nhân</h2>
             </div>
 
             <div className="flex flex-col gap-6 rounded-3xl border border-white/35 bg-white/35 p-6 sm:flex-row sm:items-center sm:p-8">
               <div className="relative h-28 w-28 shrink-0">
-                 <img
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuC6xpig2l3SMnAnmPD3226klv7fSDDOAMHWjUcCZaakIEznH7s6gqVLuhEbeQ_ioWvn515mTic_UfBHcOp799nLyXYwNMRIrHn-dwI-g2tFHEOcNNCrWuoTCKErn1V0RYZ6Mr1Wl7evlwFzsL4tHYsEfQWmGwaz1HKOirvXAuuFa1IvMCQwBLMCe-SBnR0VSZDTIvV_m9VYUGHjpEZ7c9J6p_GIXUM-MY6KD5l6LKA2L2ylmr9tsRl5Sn05lyM2SsF6x-eveAtafiM"
-                    alt="Ảnh hồ sơ"
-                    className="rounded-full border-2 border-white/70 object-cover"
+                <img
+                  src={avatar}
+                  alt="Ảnh hồ sơ"
+                  className="rounded-full border-2 border-white/70 object-cover"
                 />
                 <button
                   type="button"
                   className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-serene-primary text-serene-on-primary shadow-lg transition hover:brightness-110"
                   aria-label="Chỉnh sửa ảnh hồ sơ"
                 >
-                  <Check className="h-4 w-4" />
+                  <Check className="h-5 w-5" />
                 </button>
               </div>
 
               <div className="space-y-2 text-center sm:text-left">
                 <p className="font-display text-3xl italic text-serene-ink sm:text-4xl">{displayName}</p>
                 <p className="text-sm text-serene-muted sm:text-base">{email}</p>
-                <div className="flex flex-wrap items-center justify-center gap-2 pt-2 sm:justify-start">
-                  <span className="rounded-full border border-serene-primary/20 bg-serene-accent/25 px-4 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-serene-primary">
-                    Premium Member
-                  </span>
-                  <span className="rounded-full border border-serene-outline/30 bg-serene-surface/80 px-4 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-serene-muted">
-                    Verified
-                  </span>
-                </div>
+                <span className="rounded-full border border-serene-outline/30 bg-green-500/20 px-4 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-green-600">
+                  Verified
+                </span>
               </div>
             </div>
           </section>
 
           <section className="mt-12 space-y-6">
             <div className="flex items-center gap-2 border-b border-serene-ink/5 pb-2">
-              <Shield className="h-4 w-4 text-serene-primary" />
+              <Shield className="h-5 w-5 text-serene-primary" />
               <h2 className="font-display text-2xl text-serene-ink">Quyền riêng tư &amp; Bảo mật</h2>
             </div>
 
@@ -154,7 +153,7 @@ export default function Setting() {
 
           <section className="mt-12 space-y-6">
             <div className="flex items-center gap-2 border-b border-serene-ink/5 pb-2">
-              <Palette className="h-4 w-4 text-serene-primary" />
+              <Palette className="h-5 w-5 text-serene-primary" />
               <h2 className="font-display text-2xl text-serene-ink">Giao diện</h2>
             </div>
 
@@ -188,7 +187,7 @@ export default function Setting() {
 
           <section className="mt-12 space-y-6">
             <div className="flex items-center gap-2 border-b border-serene-ink/5 pb-2">
-              <BellRing className="h-4 w-4 text-serene-primary" />
+              <BellRing className="h-5 w-5 text-serene-primary" />
               <h2 className="font-display text-2xl text-serene-ink">Thông báo</h2>
             </div>
 
@@ -208,12 +207,12 @@ export default function Setting() {
             </div>
           </section>
 
-          <section className="mt-12 rounded-3xl border border-red-500/20 bg-red-500/8 p-6 backdrop-blur-sm sm:p-8">
+          <section className="mt-12 rounded-3xl  p-6 backdrop-blur-sm sm:p-8">
             <div className="mb-6 flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-600">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600/20 text-red-600">
                 <TriangleAlert className="h-6 w-6" />
               </div>
-              <h2 className="font-display text-2xl text-red-950">Trợ giúp Khẩn cấp</h2>
+              <h2 className="font-display text-2xl text-red-600">Trợ giúp Khẩn cấp</h2>
             </div>
 
             <ToggleRow

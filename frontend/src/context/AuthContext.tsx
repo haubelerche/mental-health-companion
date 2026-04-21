@@ -90,8 +90,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
     }
 
-    const logout = () => {
-        setUser(null)
+    const logout = async () => {
+        setIsLoading(true)
+        try {
+            await authService.logout()
+            setUser(null)
+        } catch (error) {
+            console.error('Error occurred while logging out:', error)
+        } finally {
+            setIsLoading(false)
+        }
     }
 
     const value = useMemo(

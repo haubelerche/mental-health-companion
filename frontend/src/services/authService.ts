@@ -71,5 +71,9 @@ export const authService = {
         })
         return data
     },
+    logout: async () => {
+        await httpClient.postWithCsrf('/auth/logout')
+        httpClient.resetCsrfToken()
+    },
     me: () => httpClient.get<MeResponse>('/auth/me'),
 }

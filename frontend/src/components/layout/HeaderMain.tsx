@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
+import { toast } from 'react-toastify'
 
 type HeaderMainProps = {
     isSidebarOpen: boolean
@@ -44,6 +45,7 @@ export default function HeaderMain({ isSidebarOpen, onToggleSidebar }: HeaderMai
 
     const handleLogout = () => {
         logout()
+        toast.success('Đăng xuất thành công!')
         setIsDropdownOpen(false)
         navigate(ROUTE_PATHS.landing)
     }
@@ -105,7 +107,7 @@ export default function HeaderMain({ isSidebarOpen, onToggleSidebar }: HeaderMai
                             <button
                                 type="button"
                                 onClick={() => {
-                                    navigate(`${ROUTE_PATHS.home}/profile`)
+                                    navigate(`${ROUTE_PATHS.setting}#user-profile`)
                                     setIsDropdownOpen(false)
                                 }}
                                 className="flex w-full items-center gap-3 px-4 py-3 text-sm text-on-surface transition hover:bg-serene-primary/10 rounded-lg"
