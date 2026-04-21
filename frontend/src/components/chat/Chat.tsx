@@ -627,12 +627,15 @@ export default function Chat() {
                                 onClick={() => setShowOptions((prev) => !prev)}
                                 className="rounded-full p-2 text-serene-ink/70 transition hover:bg-serene-ink/10"
                                 aria-label="Tùy chọn"
+                                role='menu'
+                                aria-haspopup="true"
+                                aria-expanded={showOptions}
                             >
                                 <MoreVertical className="h-5 w-5" />
                             </button>
 
                             {showOptions && (
-                                <div className="absolute right-0 top-11 z-99 w-72 rounded-2xl border border-white/40 bg-white/95 p-3 shadow-xl backdrop-blur-xl">
+                                <div className="absolute right-0 top-11 z-20 w-72 rounded-2xl border border-white/40 bg-white/95 p-3 shadow-xl backdrop-blur-xl">
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between rounded-xl border border-serene-outline/25 bg-white px-3 py-2.5">
                                             <div>
