@@ -55,34 +55,35 @@
 ## 1. Auth
 
 ### `POST /auth/signup`
-Đăng ký tài khoản. Bắt buộc user tick disclaimer "AI không thay thế chuyên gia tâm lý".
+Đăng ký tài khoản. Bắt buộc user tick disclaimer. Flow mới: tạo account chưa active và gửi email xác nhận.
 
 ```json
 // Request
 {
   "display_name": "Minh Anh",
   "email": "user@example.com",
-  "password": "••••••••",
+  "password": "Password123!",
   "disclaimer_accepted": true
 }
-// Chỉ thu thập tối thiểu — không hỏi trường học, MSSV hay thông tin tổ chức
 
-// Response 201 — token KHÔNG trả trong body, được set qua Set-Cookie header
+// Response 202
 {
   "success": true,
   "data": {
-    "user_id": "hashed_abc123",
-    "expires_in": 3600
+    "user_id": "usr_xxx",
+    "verification_required": true,
+    "message": "Vui lòng kiểm tra email để xác nhận tài khoản"
   },
   "error": null
 }
-// Header: Set-Cookie: access_token=<jwt>; HttpOnly; Secure; SameSite=Strict; Max-Age=3600
-// Header: Set-Cookie: refresh_token=<rt>; HttpOnly; Secure; SameSite=Strict; Path=/auth/refresh
 ```
 
-> Nếu `disclaimer_accepted = false` → trả lỗi `DISCLAIMER_NOT_ACCEPTED` (400).
+> Signup không set access_token/refresh_token.
 
-**Rate limit:** 5 lần/phút/IP. Vượt → `RATE_LIMIT_AUTH` (429). Sau 5 lần sai mật khẩu liên tiếp → khóa 15 phút (`AUTH_TOO_MANY_ATTEMPTS`).
+**Error chính:**
+- `DISCLAIMER_NOT_ACCEPTED` (400)
+- `INVALID_PARAMETER` (400, email tồn tại)
+- `RATE_LIMIT_AUTH` (429)
 
 ---
 
@@ -91,56 +92,146 @@
 // Request
 {
   "email": "user@example.com",
-  "password": "••••••••"
+  "password": "Password123!"
 }
 
-// Response 200 — token KHÔNG trả trong body
+// Response 200
 {
   "success": true,
   "data": {
-    "user_id": "hashed_abc123",
+    "user_id": "usr_xxx",
     "expires_in": 3600
   },
   "error": null
 }
 // Header: Set-Cookie: access_token=<jwt>; HttpOnly; Secure; SameSite=Strict; Max-Age=3600
-// Header: Set-Cookie: refresh_token=<rt>; HttpOnly; Secure; SameSite=Strict; Path=/auth/refresh
+// Header: Set-Cookie: refresh_token=<rt>; HttpOnly; Secure; SameSite=Strict; Path=/v1/auth/refresh
 ```
 
-> Lỗi sai email/mật khẩu luôn trả cùng 1 message `"Email hoặc mật khẩu không đúng"` — không tiết lộ email có tồn tại hay không (chống timing/enumeration attack).
+**Error chính:**
+- `AUTH_INVALID_TOKEN` (401) cho sai email/mật khẩu
+- `AUTH_EMAIL_NOT_VERIFIED` (403) nếu đúng mật khẩu nhưng chưa xác nhận email
+- `RATE_LIMIT_AUTH` (429)
+- `AUTH_TOO_MANY_ATTEMPTS` (429)
 
-**Rate limit:** 5 lần/phút/IP.
+---
+
+### `GET /auth/verify-email?token=...`
+Xác nhận email bằng one-time token. Khi thành công backend sẽ active user, set cookie auth và redirect về `FRONTEND_HOME_URL`.
+
+- Response thành công: HTTP 302 redirect
+- Set-Cookie: access_token, refresh_token, csrf_token
+
+**Error chính:**
+- `AUTH_VERIFY_TOKEN_INVALID` (400)
+- `AUTH_VERIFY_TOKEN_EXPIRED` (400)
+
+---
+
+### `POST /auth/resend-verification`
+Gửi lại email xác nhận cho account chưa active.
+
+```json
+// Request
+{
+  "email": "user@example.com"
+}
+
+// Response 200 (luôn message trung tính)
+{
+  "success": true,
+  "data": {
+    "resent": true,
+    "message": "Nếu email tồn tại, chúng tôi đã gửi lại email xác nhận"
+  },
+  "error": null
+}
+```
+
+> Có cooldown theo `AUTH_EMAIL_RESEND_COOLDOWN_SECONDS`.
+
+---
+
+### `POST /auth/forgot-password`
+Tạo yêu cầu quên mật khẩu, gửi email reset link.
+
+```json
+// Request
+{
+  "email": "user@example.com"
+}
+
+// Response 200 (không tiết lộ email có tồn tại hay không)
+{
+  "success": true,
+  "data": {
+    "sent": true,
+    "message": "Nếu email tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu"
+  },
+  "error": null
+}
+```
+
+---
+
+### `POST /auth/reset-password`
+Đặt mật khẩu mới bằng token từ email reset.
+
+```json
+// Request
+{
+  "token": "<one_time_reset_token>",
+  "new_password": "NewPassword123!"
+}
+
+// Response 200
+{
+  "success": true,
+  "data": {
+    "reset": true,
+    "message": "Đặt lại mật khẩu thành công"
+  },
+  "error": null
+}
+```
+
+**Error chính:**
+- `AUTH_RESET_TOKEN_INVALID` (400)
+- `AUTH_RESET_TOKEN_USED` (400)
+- `AUTH_RESET_TOKEN_EXPIRED` (400)
 
 ---
 
 ### `POST /auth/refresh`
-Làm mới access token. **Không có request body** — server tự đọc `refresh_token` từ httpOnly cookie (trình duyệt gửi tự động). Yêu cầu CSRF token header.
+Làm mới access token. Không có request body, đọc refresh token từ cookie.
 
 ```
 // Request: không có body
 // Header: X-CSRF-Token: <csrf_token>
-// Cookie: refresh_token=<rt> (gửi tự động bởi trình duyệt, Path=/auth/refresh)
+// Cookie: refresh_token=<rt>
 
-// Response 200 — token mới set qua Set-Cookie, KHÔNG trong body
+// Response 200
 {
   "success": true,
   "data": { "expires_in": 3600 },
   "error": null
 }
-// Header: Set-Cookie: access_token=<new_jwt>; HttpOnly; Secure; SameSite=Strict; Max-Age=3600
 ```
 
-> Lỗi refresh token: `AUTH_REFRESH_EXPIRED` (401) nếu hết hạn, `AUTH_REFRESH_REVOKED` (401) nếu đã bị thu hồi (logout trước đó), `AUTH_REFRESH_MALFORMED` (401) nếu không hợp lệ. Ba trường hợp đều trả cùng 1 HTTP status để không tiết lộ lý do cụ thể.
+**Error chính:**
+- `AUTH_REFRESH_MALFORMED` (401)
+- `AUTH_REFRESH_REVOKED` (401)
+- `AUTH_REFRESH_EXPIRED` (401)
 
 ---
 
 ### `POST /auth/logout`
-Thu hồi refresh token. **Không có request body** — server đọc `refresh_token` từ httpOnly cookie. Yêu cầu CSRF token header.
+Thu hồi refresh token và xóa cookie auth.
 
 ```
 // Request: không có body
 // Header: X-CSRF-Token: <csrf_token>
-// Cookie: refresh_token=<rt> (gửi tự động)
+// Cookie: refresh_token=<rt>
 
 // Response 200
 {
@@ -148,8 +239,6 @@ Thu hồi refresh token. **Không có request body** — server đọc `refresh_
   "data": { "logged_out_at": "2026-04-12T08:00:00Z" },
   "error": null
 }
-// Header: Set-Cookie: access_token=; Max-Age=0 (xóa cookie)
-// Header: Set-Cookie: refresh_token=; Max-Age=0 (xóa cookie)
 ```
 
 ---
