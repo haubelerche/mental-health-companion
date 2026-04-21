@@ -100,10 +100,12 @@ export default function Setting() {
             </div>
 
             <div className="flex flex-col gap-6 rounded-3xl border border-white/35 bg-white/35 p-6 sm:flex-row sm:items-center sm:p-8">
-              <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-full border-4 border-white/60 bg-linear-to-br from-serene-primary to-[#89a794] shadow-[0_18px_40px_rgba(47,52,46,0.18)]">
-                <div className="flex h-full w-full items-center justify-center bg-black/10 text-4xl font-display italic text-white/95">
-                  {displayName.charAt(0)}
-                </div>
+              <div className="relative h-28 w-28 shrink-0">
+                 <img
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuC6xpig2l3SMnAnmPD3226klv7fSDDOAMHWjUcCZaakIEznH7s6gqVLuhEbeQ_ioWvn515mTic_UfBHcOp799nLyXYwNMRIrHn-dwI-g2tFHEOcNNCrWuoTCKErn1V0RYZ6Mr1Wl7evlwFzsL4tHYsEfQWmGwaz1HKOirvXAuuFa1IvMCQwBLMCe-SBnR0VSZDTIvV_m9VYUGHjpEZ7c9J6p_GIXUM-MY6KD5l6LKA2L2ylmr9tsRl5Sn05lyM2SsF6x-eveAtafiM"
+                    alt="Ảnh hồ sơ"
+                    className="rounded-full border-2 border-white/70 object-cover"
+                />
                 <button
                   type="button"
                   className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-serene-primary text-serene-on-primary shadow-lg transition hover:brightness-110"
@@ -206,7 +208,7 @@ export default function Setting() {
             </div>
           </section>
 
-          <section className="mt-12 rounded-[1.5rem] border border-red-500/20 bg-red-500/8 p-6 backdrop-blur-sm sm:p-8">
+          <section className="mt-12 rounded-3xl border border-red-500/20 bg-red-500/8 p-6 backdrop-blur-sm sm:p-8">
             <div className="mb-6 flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-600">
                 <TriangleAlert className="h-6 w-6" />
