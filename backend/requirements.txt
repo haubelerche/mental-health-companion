@@ -1,4 +1,25 @@
-# Backend installs: reuse repo root deps, then test tools.
--r ../requirements.txt
-
+alembic
+anthropic
+bcrypt
+email-validator
+fastapi
+httpx
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+langgraph>=0.2.0
+neo4j>=5.0.0
+openai>=1.0.0
+pgvector
+psycopg[binary]
 pytest>=8.0.0
+pytest-asyncio>=0.24.0
+pydantic
+pydantic-settings
+PyJWT[crypto]
+python-dotenv
+python-jose[cryptography]
+pyotp
+redis
+sqlalchemy
+supabase
+uvicorn[standard]
