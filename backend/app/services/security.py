@@ -98,5 +98,13 @@ def hash_refresh_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def generate_one_time_token() -> str:
+    return secrets.token_urlsafe(48)
+
+
+def hash_one_time_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
 def generate_csrf_token() -> str:
     return secrets.token_urlsafe(32)
