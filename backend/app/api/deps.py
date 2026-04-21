@@ -30,6 +30,14 @@ def _trusted_origins(raw: str) -> set[str]:
     return {item.strip().rstrip("/").lower() for item in raw.split(",") if item.strip()}
 
 
+def _is_loopback_origin(value: str | None) -> bool:
+    if not value:
+        return False
+    parsed = urlparse(value)
+    host = (parsed.hostname or "").lower()
+    return host in {"localhost", "127.0.0.1", "::1"}
+
+
 def require_csrf(
     request: Request,
     x_csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
@@ -46,10 +54,10 @@ def require_csrf(
     request_origin = _normalized_origin(request.headers.get("origin"))
     request_referer_origin = _normalized_origin(request.headers.get("referer"))
     if request_origin:
-        if request_origin not in trusted_origins:
+        if request_origin not in trusted_origins and not _is_loopback_origin(request_origin):
             raise AppError("CSRF_TOKEN_INVALID", "Origin/Referer không hợp lệ", 403)
     elif request_referer_origin:
-        if request_referer_origin not in trusted_origins:
+        if request_referer_origin not in trusted_origins and not _is_loopback_origin(request_referer_origin):
             raise AppError("CSRF_TOKEN_INVALID", "Origin/Referer không hợp lệ", 403)
     else:
         # Allow non-browser API clients (e.g. Postman) that do not send Origin/Referer.

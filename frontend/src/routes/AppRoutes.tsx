@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import type { ReactElement } from 'react'
 import Login from '../components/auth/Login.tsx'
 import Register from '../components/auth/Register.tsx'
 import Chat from '../components/chat/Chat.tsx'
@@ -8,8 +9,19 @@ import Home from '../components/pages/Home.tsx'
 import Landing from '../components/pages/Landing.tsx'
 import Reflect from '../components/pages/Reflect.tsx'
 import Resources from '../components/pages/Resources.tsx'
+import { useAuth } from '../hooks/useAuth'
 import { ROUTE_PATHS } from './paths'
-import Setting from '../components/pages/Setting.tsx'
+
+function RequireAuth({ children }: { children: ReactElement }) {
+    const { user, isLoading } = useAuth()
+    if (isLoading) {
+        return null
+    }
+    if (!user) {
+        return <Navigate to={ROUTE_PATHS.login} replace />
+    }
+    return children
+}
 
 export default function AppRoutes() {
     return (
@@ -19,13 +31,43 @@ export default function AppRoutes() {
             <Route path={ROUTE_PATHS.register} element={<Register />} />
             <Route path={ROUTE_PATHS.landing} element={<Landing />} />
 
-            <Route path={ROUTE_PATHS.home} element={<Main />}>
-                <Route index element={<Home />} />
+            <Route
+                path={ROUTE_PATHS.home}
+                element={<Main />}
+            >
+                <Route
+                    index
+                    element={
+                        <RequireAuth>
+                            <Home />
+                        </RequireAuth>
+                    }
+                />
                 <Route path="chat" element={<Chat />} />
-                <Route path="reflect" element={<Reflect />} />
-                <Route path="resources" element={<Resources />} />
-                <Route path="connect" element={<Connect />} />
-                <Route path="setting" element={<Setting />} />
+                <Route
+                    path="reflect"
+                    element={
+                        <RequireAuth>
+                            <Reflect />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="resources"
+                    element={
+                        <RequireAuth>
+                            <Resources />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path="connect"
+                    element={
+                        <RequireAuth>
+                            <Connect />
+                        </RequireAuth>
+                    }
+                />
             </Route>
 
             <Route path="*" element={<Navigate to={ROUTE_PATHS.landing} replace />} />
