@@ -12,13 +12,13 @@ import bg2 from '../../assets/bg2.png'
 import bg3 from '../../assets/bg3.png'
 import forest from '../../assets/forest.png'
 import { useAuth } from '../../hooks/useAuth'
+import { Switch } from '../ui/switch'
 
 type ToggleRowProps = {
   title: string
   description: string
   checked: boolean
   onChange: (checked: boolean) => void
-  tone?: 'primary' | 'danger'
 }
 
 type ThemeCardProps = {
@@ -28,29 +28,14 @@ type ThemeCardProps = {
   onSelect: () => void
 }
 
-function ToggleRow({ title, description, checked, onChange, tone = 'primary' }: ToggleRowProps) {
-  const activeColor = tone === 'danger' ? 'bg-red-500' : 'bg-serene-primary'
-
+function ToggleRow({ title, description, checked, onChange }: ToggleRowProps) {
   return (
     <div className="flex items-center justify-between rounded-3xl border border-white/35 bg-white/30 p-5 transition hover:bg-white/45 sm:p-6">
       <div className="pr-4">
         <p className="text-base font-medium text-serene-ink sm:text-lg">{title}</p>
         <p className="mt-1 text-sm text-serene-muted">{description}</p>
       </div>
-      <button
-        type="button"
-        onClick={() => onChange(!checked)}
-        className={`relative h-7 w-14 rounded-full transition ${checked ? activeColor : 'bg-serene-outline/30'}`}
-        aria-pressed={checked}
-        aria-label={title}
-      >
-        <span
-          className={[
-            'absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200',
-            checked ? 'translate-x-7' : 'translate-x-1',
-          ].join(' ')}
-        />
-      </button>
+      <Switch checked={checked} onCheckedChange={onChange} aria-label={title} />
     </div>
   )
 }
@@ -97,8 +82,8 @@ export default function Setting() {
 
   return (
     <div className="relative min-h-full text-serene-ink">
-      <div className="mx-auto flex w-full max-w-6xl flex-col items-center px-0 pb-10 pt-2 sm:px-3 lg:pb-14 lg:pt-4">
-        <div className="w-full rounded-4xl border border-white/40 bg-white/40 px-5 py-6 shadow-[0_30px_90px_rgba(47,52,46,0.12)] backdrop-blur-2xl sm:px-8 sm:py-8 lg:px-10 lg:py-10">
+      <div className="mx-auto flex w-full max-w-4xl flex-col items-center px-0 pb-10 pt-2 sm:px-3 lg:pb-14 lg:pt-4">
+        <div className="w-full rounded-4xl border border-white/40 bg-white/40 px-5 py-6 shadow-md backdrop-blur-2xl sm:px-8 sm:py-8 lg:px-10 lg:py-10">
           <header className="text-center">
             <h1 className="font-display text-5xl font-light leading-tight text-serene-ink sm:text-6xl lg:text-7xl">
               Cài đặt
@@ -234,7 +219,6 @@ export default function Setting() {
               description="Hiển thị nút hỗ trợ khẩn cấp trên màn hình chính."
               checked={sosAccess}
               onChange={setSosAccess}
-              tone="danger"
             />
           </section>
 
