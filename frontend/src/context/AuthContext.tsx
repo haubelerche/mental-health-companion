@@ -19,6 +19,7 @@ type AuthContextValue = {
     isLoading: boolean
     signup: (payload: SignupPayload) => Promise<SignupResponse>
     login: (payload: LoginPayload) => Promise<LoginResponse>
+    logout: () => void
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
@@ -89,8 +90,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
     }
 
+    const logout = async () => {
+        setIsLoading(true)
+        try {
+            await authService.logout()
+            setUser(null)
+        } catch (error) {
+            console.error('Error occurred while logging out:', error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
     const value = useMemo(
-        () => ({ user, isLoading, signup, login }),
+        () => ({ user, isLoading, signup, login, logout }),
         [user, isLoading],
     )
 

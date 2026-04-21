@@ -23,6 +23,10 @@ export type LoginResponse = {
     expires_in: number
 }
 
+export type LogoutResponse = {
+    logged_out_at: string
+}
+
 export type MeResponse = {
     user_id: string
     email: string
@@ -70,6 +74,10 @@ export const authService = {
             policy_version: currentPolicy.version,
         })
         return data
+    },
+    logout: async () => {
+        await httpClient.postWithCsrf<LogoutResponse>('/auth/logout')
+        httpClient.resetCsrfToken()
     },
     me: () => httpClient.get<MeResponse>('/auth/me'),
 }

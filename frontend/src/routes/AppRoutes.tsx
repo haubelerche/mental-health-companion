@@ -11,6 +11,7 @@ import Reflect from '../components/pages/Reflect.tsx'
 import Resources from '../components/pages/Resources.tsx'
 import { useAuth } from '../hooks/useAuth'
 import { ROUTE_PATHS } from './paths'
+import Setting from '../components/pages/Setting.tsx'
 
 function RequireAuth({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()
@@ -31,10 +32,7 @@ export default function AppRoutes() {
             <Route path={ROUTE_PATHS.register} element={<Register />} />
             <Route path={ROUTE_PATHS.landing} element={<Landing />} />
 
-            <Route
-                path={ROUTE_PATHS.home}
-                element={<Main />}
-            >
+            <Route path={ROUTE_PATHS.home} element={<Main />}>
                 <Route
                     index
                     element={
@@ -43,9 +41,9 @@ export default function AppRoutes() {
                         </RequireAuth>
                     }
                 />
-                <Route path="chat" element={<Chat />} />
+                <Route path={ROUTE_PATHS.chat} element={<Chat />} />
                 <Route
-                    path="reflect"
+                    path={ROUTE_PATHS.reflect}
                     element={
                         <RequireAuth>
                             <Reflect />
@@ -53,7 +51,7 @@ export default function AppRoutes() {
                     }
                 />
                 <Route
-                    path="resources"
+                    path={ROUTE_PATHS.resources}
                     element={
                         <RequireAuth>
                             <Resources />
@@ -61,10 +59,18 @@ export default function AppRoutes() {
                     }
                 />
                 <Route
-                    path="connect"
+                    path={ROUTE_PATHS.connect}
                     element={
                         <RequireAuth>
                             <Connect />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.setting}
+                    element={
+                        <RequireAuth>
+                            <Setting />
                         </RequireAuth>
                     }
                 />
