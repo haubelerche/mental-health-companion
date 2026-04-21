@@ -6,14 +6,16 @@ import {
   TriangleAlert,
   User,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import bg from '../../assets/bg.png'
 import bg2 from '../../assets/bg2.png'
 import bg3 from '../../assets/bg3.png'
-import forest from '../../assets/forest.png'
+import bg4 from '../../assets/bg-reflect.png'
 import avatar from '../../assets/avatar.png'
 import { useAuth } from '../../hooks/useAuth'
+import { readAppSettings, saveAppSettings, type ThemeOption } from '../../utils/appSettings'
 import { Switch } from '../ui/switch'
+import { toast } from 'react-toastify'
 
 type ToggleRowProps = {
   title: string
@@ -71,18 +73,42 @@ function ThemeCard({ label, image, selected, onSelect }: ThemeCardProps) {
 
 export default function Setting() {
   const { user } = useAuth()
-  const [maskIdentity, setMaskIdentity] = useState(false)
-  const [shareData, setShareData] = useState(false)
-  const [reminder, setReminder] = useState(true)
-  const [weeklySummary, setWeeklySummary] = useState(true)
-  const [sosAccess, setSosAccess] = useState(false)
-  const [selectedTheme, setSelectedTheme] = useState('sunset')
+  const initialSettings = readAppSettings()
+  const [maskIdentity, setMaskIdentity] = useState(initialSettings.maskIdentity)
+  const [shareData, setShareData] = useState(initialSettings.shareData)
+  const [reminder, setReminder] = useState(initialSettings.reminder)
+  const [weeklySummary, setWeeklySummary] = useState(initialSettings.weeklySummary)
+  const [sosAccess, setSosAccess] = useState(initialSettings.sosAccess)
+  const [selectedTheme, setSelectedTheme] = useState<ThemeOption>(initialSettings.theme)
 
   const displayName = user?.displayName || 'Lê Minh Anh'
   const email = user?.email || 'minhanh.le@serenemail.com'
-  useEffect(() => {
-    console.log('User data:', user)
-  }, [user])
+
+  const handleSaveChanges = () => {
+    const settings = {
+      theme: selectedTheme,
+      maskIdentity,
+      shareData,
+      reminder,
+      weeklySummary,
+      sosAccess,
+    }
+
+    saveAppSettings(settings)
+    toast.success('Cài đặt đã được lưu thành công!')
+    scrollTo({ top: 0, behavior: 'smooth' }) // cuộn lên đầu trang để người dùng thấy thông báo
+    console.log('Saved setting states:', settings)
+  }
+
+  const handleCancel = () => {
+    const settings = readAppSettings()
+    setSelectedTheme(settings.theme)
+    setMaskIdentity(settings.maskIdentity)
+    setShareData(settings.shareData)
+    setReminder(settings.reminder)
+    setWeeklySummary(settings.weeklySummary)
+    setSosAccess(settings.sosAccess)
+  }
 
   return (
     <div className="relative min-h-full text-serene-ink">
@@ -165,10 +191,10 @@ export default function Setting() {
                 onSelect={() => setSelectedTheme('sunset')}
               />
               <ThemeCard
-                label="Misty Forest"
-                image={forest}
-                selected={selectedTheme === 'forest'}
-                onSelect={() => setSelectedTheme('forest')}
+                label="Blue Ocean"
+                image={bg4}
+                selected={selectedTheme === 'ocean'}
+                onSelect={() => setSelectedTheme('ocean')}
               />
               <ThemeCard
                 label="Dawn Sky"
@@ -226,12 +252,14 @@ export default function Setting() {
           <footer className="mt-12 flex flex-col-reverse gap-3 border-t border-serene-ink/5 pt-8 sm:flex-row sm:justify-end sm:gap-5">
             <button
               type="button"
+              onClick={handleCancel}
               className="rounded-full px-8 py-3 text-xs font-medium uppercase tracking-[0.28em] text-serene-primary transition hover:bg-serene-primary/5"
             >
               Hủy bỏ
             </button>
             <button
               type="button"
+              onClick={handleSaveChanges}
               className="rounded-full bg-serene-primary px-10 py-4 text-xs font-bold uppercase tracking-[0.28em] text-serene-on-primary shadow-[0_18px_36px_rgba(47,52,46,0.18)] transition hover:brightness-105"
             >
               Lưu thay đổi
