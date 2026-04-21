@@ -81,10 +81,12 @@ export default function Register() {
             <main className="auth-main">
                 <section className="auth-card max-w-xl p-8 sm:p-12">
                     <header className="mb-10 text-center">
-                        <Link to={ROUTE_PATHS.login} className='flex items-center gap-5'>
-                            <ArrowLeft className="h-6 w-6" />
+                        <div className="flex items-center justify-center gap-3">
+                            <Link to={ROUTE_PATHS.login} >
+                                <ArrowLeft className="h-6 w-6" />
+                            </Link>
                             <h1 className="font-display text-4xl text-serene-ink sm:text-5xl">Bắt đầu hành trình</h1>
-                        </Link>
+                        </div>
                         <p className="mt-3 text-xs uppercase tracking-[0.22em] text-serene-muted/80">
                             Tạo tài khoản cá nhân của bạn
                         </p>

@@ -84,6 +84,7 @@ export default function Login() {
                                 onChange={(event) => setEmail(event.target.value)}
                                 placeholder="your@email.com"
                                 className="auth-input-line"
+                                required
                             />
                         </div>
 
@@ -109,6 +110,8 @@ export default function Login() {
                                 onChange={(event) => setPassword(event.target.value)}
                                 placeholder="••••••••"
                                 className="auth-input-line"
+                                required
+
                             />
                         </div>
 
