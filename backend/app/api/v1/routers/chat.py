@@ -35,7 +35,7 @@ from app.services.sos_handler import (
     snapshot_for_sos,
 )
 from app.services.clinical_profile import get_or_create_clinical_profile
-from app.services.safety_scoring import compute_escalation_signal
+from app.services.safety_scoring import SafetySnapshot, compute_escalation_signal
 from app.services.voice_consent import get_voice_consent
 from app.services.proactive_voice import (
     build_voice_script,
@@ -224,7 +224,7 @@ def send_message(
         db,
         session_id=session.session_id,
         user_id=current_user.user_id,
-        message_limit=6,
+        message_limit=10,
     )
     previous_user_messages = [str(m.get("content") or "") for m in ctx.recent_messages if m.get("role") == "user"]
     if previous_user_messages and previous_user_messages[-1] == stored_user_content:
@@ -294,11 +294,11 @@ def send_message(
     if turn is None:
         try:
             long_term_memories: list[str] = []
-            if distress >= 0.45 or len(raw_text) >= 80:
+            if distress >= 0.35 or len(raw_text) >= 40:
                 long_term_memories = get_user_longterm_memories(
                     db,
                     user_id=current_user.user_id,
-                    limit=2,
+                    limit=3,
                 )
             turn = run_non_sos_turn(
                 user_message=raw_text,
@@ -468,7 +468,7 @@ def send_message_stream(
                 db,
                 session_id=session.session_id,
                 user_id=current_user.user_id,
-                message_limit=6,
+                message_limit=10,
             )
             last_heartbeat, hb = _build_heartbeat_event(
                 started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_context_loaded"
@@ -547,8 +547,8 @@ def send_message_stream(
             turn = get_cached_turn(session.session_id, message_hash) if settings.chat_response_cache_ttl_seconds > 0 else None
             if turn is None:
                 long_term_memories: list[str] = []
-                if distress >= 0.45 or len(raw_text) >= 80:
-                    long_term_memories = get_user_longterm_memories(db, user_id=current_user.user_id, limit=2)
+                if distress >= 0.35 or len(raw_text) >= 40:
+                    long_term_memories = get_user_longterm_memories(db, user_id=current_user.user_id, limit=3)
                 last_heartbeat, hb = _build_heartbeat_event(
                     started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_memory_ready"
                 )
@@ -656,54 +656,94 @@ def send_message_stream(
 
 @router.post("/guest-message")
 def send_guest_message(payload: GuestChatMessageRequest, _: None = Depends(require_csrf)):
-    if payload.guest_session_id:
-        if not guest_heartbeat(payload.guest_session_id):
-            raise AppError(
-                "GUEST_TRIAL_EXPIRED",
-                "Phiên chat thử đã hết 2 phút. Vui lòng đăng ký để tiếp tục trò chuyện.",
-                403,
-            )
-        session_id = payload.guest_session_id
-    else:
-        session_id, _ = guest_start_session()
-
-    raw_text = payload.message
     try:
-        sos, distress = decide_sos(raw_text, recent_user_messages=[])
-    except TypeError:
-        # Backward-compatible path for tests/monkeypatches still using decide_sos(message).
-        sos, distress = decide_sos(raw_text)
-    if sos:
-        snap = snapshot_for_sos(distress)
-        data = build_sos_chat_response_data(session_id, snap)
+        if payload.guest_session_id:
+            try:
+                alive = guest_heartbeat(payload.guest_session_id)
+            except Exception as exc:
+                logger.exception("guest heartbeat failed")
+                raise AppError("GUEST_SESSION_ERROR", "Không thể kiểm tra phiên guest", 500) from exc
+            if not alive:
+                raise AppError(
+                    "GUEST_TRIAL_EXPIRED",
+                    "Phiên chat thử đã hết 2 phút. Vui lòng đăng ký để tiếp tục trò chuyện.",
+                    403,
+                )
+            session_id = payload.guest_session_id
+        else:
+            try:
+                session_id, _ = guest_start_session()
+            except Exception as exc:
+                logger.exception("guest session start failed")
+                raise AppError("GUEST_SESSION_ERROR", "Không thể tạo phiên guest", 500) from exc
+
+        raw_text = payload.message
+        try:
+            sos, distress = decide_sos(raw_text, recent_user_messages=[])
+        except TypeError:
+            # Backward-compatible path for tests/monkeypatches still using decide_sos(message).
+            sos, distress = decide_sos(raw_text)
+        if sos:
+            snap = snapshot_for_sos(distress)
+            data = build_sos_chat_response_data(session_id, snap)
+            data["intervention"] = None
+            return ok(data)
+
+        try:
+            turn = run_non_sos_turn(
+                user_message=raw_text,
+                recent_messages=[],
+                mood_today=None,
+                distress_score=distress,
+            )
+        except Exception as exc:
+            logger.exception("guest chat generation failed")
+            raise AppError("LLM_TIMEOUT", "Phản hồi quá lâu, vui lòng thử lại", 504) from exc
+
+        if not isinstance(turn, dict):
+            raise AppError("SCHEMA_VALIDATION_FAILED", "Phản hồi guest không hợp lệ", 500)
+
+        raw_snap = turn.get("session_fields")
+        if isinstance(raw_snap, SafetySnapshot):
+            snap = raw_snap
+        elif isinstance(raw_snap, dict):
+            snap = SafetySnapshot(
+                distress_score=float(raw_snap.get("distress_score", distress)),
+                risk_level=int(raw_snap.get("risk_level", 0)),
+                safety_tier=str(raw_snap.get("safety_tier", "normal")),
+                conversation_mode=str(raw_snap.get("conversation_mode", "normal")),
+            )
+        else:
+            snap = SafetySnapshot(
+                distress_score=float(distress),
+                risk_level=0,
+                safety_tier="normal",
+                conversation_mode="normal",
+            )
+
+        assistant_content = str(turn.get("reply") or "")
+        tone = str(turn.get("tone_cam_xuc") or "xac_nhan")
+        goi_y = turn.get("goi_y_nhanh") if isinstance(turn.get("goi_y_nhanh"), list) else []
+        the_dinh = turn.get("the_dinh_kem") if isinstance(turn.get("the_dinh_kem"), list) else []
+        routing_hist: list[str] = turn.get("routing_history") if isinstance(turn.get("routing_history"), list) else []
+
+        data = build_normal_envelope(
+            session_id,
+            snap=snap,
+            reply=assistant_content,
+            tone_cam_xuc=tone,
+            goi_y_nhanh=goi_y,
+            the_dinh_kem=the_dinh,
+            voice_hint=None,
+            routing_history=routing_hist,
+        )
         data["intervention"] = None
         return ok(data)
-
-    turn = run_non_sos_turn(
-        user_message=raw_text,
-        recent_messages=[],
-        mood_today=None,
-        distress_score=distress,
-    )
-    snap = turn["session_fields"]
-    assistant_content = turn["reply"]
-    tone = turn["tone_cam_xuc"]
-    goi_y = turn["goi_y_nhanh"]
-    the_dinh = turn["the_dinh_kem"]
-    routing_hist: list[str] = turn.get("routing_history") or []
-
-    data = build_normal_envelope(
-        session_id,
-        snap=snap,
-        reply=assistant_content,
-        tone_cam_xuc=tone,
-        goi_y_nhanh=goi_y,
-        the_dinh_kem=the_dinh,
-        voice_hint=None,
-        routing_history=routing_hist,
-    )
-    data["intervention"] = None
-    return ok(data)
+    except AppError:
+        raise
+    except Exception as exc:
+        logger.exception("guest message failed unexpectedly")
+        raise AppError("SCHEMA_VALIDATION_FAILED", "Đã xảy ra lỗi nội bộ", 500) from exc
 
 
 @router.get("/voice-jobs/{tts_job_id}")
