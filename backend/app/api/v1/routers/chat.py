@@ -229,11 +229,7 @@ def send_message(
     previous_user_messages = [str(m.get("content") or "") for m in ctx.recent_messages if m.get("role") == "user"]
     if previous_user_messages and previous_user_messages[-1] == stored_user_content:
         previous_user_messages = previous_user_messages[:-1]
-    try:
-        sos, distress0 = decide_sos(raw_text, recent_user_messages=previous_user_messages)
-    except TypeError:
-        # Backward-compatible path for tests/monkeypatches still using decide_sos(message).
-        sos, distress0 = decide_sos(raw_text)
+    sos, distress0 = decide_sos(raw_text, recent_user_messages=previous_user_messages)
     voice_consent = get_voice_consent(db, current_user.user_id)
     cooldown_is_active, cooldown_seconds = cooldown_active(
         user_id=current_user.user_id,
@@ -479,10 +475,7 @@ def send_message_stream(
             if previous_user_messages and previous_user_messages[-1] == stored_user_content:
                 previous_user_messages = previous_user_messages[:-1]
 
-            try:
-                sos, distress0 = decide_sos(raw_text, recent_user_messages=previous_user_messages)
-            except TypeError:
-                sos, distress0 = decide_sos(raw_text)
+            sos, distress0 = decide_sos(raw_text, recent_user_messages=previous_user_messages)
             last_heartbeat, hb = _build_heartbeat_event(
                 started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_safety_scored"
             )
@@ -656,6 +649,7 @@ def send_message_stream(
 
 @router.post("/guest-message")
 def send_guest_message(payload: GuestChatMessageRequest, _: None = Depends(require_csrf)):
+    settings = get_settings()
     if payload.guest_session_id:
         if not guest_heartbeat(payload.guest_session_id):
             raise AppError(
@@ -679,12 +673,21 @@ def send_guest_message(payload: GuestChatMessageRequest, _: None = Depends(requi
         data["intervention"] = None
         return ok(data)
 
-    turn = run_non_sos_turn(
-        user_message=raw_text,
-        recent_messages=[],
-        mood_today=None,
-        distress_score=distress,
-    )
+    message_hash = hash_message(raw_text)
+    turn = get_cached_turn(session_id, message_hash) if settings.chat_response_cache_ttl_seconds > 0 else None
+    if turn is None:
+        turn = run_non_sos_turn(
+            user_message=raw_text,
+            recent_messages=[],
+            mood_today=None,
+            distress_score=distress,
+        )
+        set_cached_turn(
+            session_id,
+            message_hash,
+            turn,
+            ttl_seconds=settings.chat_response_cache_ttl_seconds,
+        )
     snap = turn["session_fields"]
     assistant_content = turn["reply"]
     tone = turn["tone_cam_xuc"]
@@ -712,11 +715,10 @@ def get_voice_job_status(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _ = current_user
     job = get_voice_job(db, tts_job_id)
-    if not job:
+    if not job or job.get("user_id") != current_user.user_id:
         raise AppError("VOICE_JOB_NOT_FOUND", "Voice job không tồn tại", 404)
-    return ok(job)
+    return ok({k: v for k, v in job.items() if k != "user_id"})
 
 
 @router.get("/voice-jobs/{tts_job_id}/events")
@@ -725,7 +727,9 @@ async def stream_voice_job_events(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _ = current_user
+    job_check = get_voice_job(db, tts_job_id)
+    if not job_check or job_check.get("user_id") != current_user.user_id:
+        raise AppError("VOICE_JOB_NOT_FOUND", "Voice job không tồn tại", 404)
 
     async def event_stream():
         previous_status = None
@@ -736,7 +740,8 @@ async def stream_voice_job_events(
                 return
             status = job.get("status")
             if status != previous_status:
-                payload = json.dumps(job, ensure_ascii=False)
+                safe_job = {k: v for k, v in job.items() if k != "user_id"}
+                payload = json.dumps(safe_job, ensure_ascii=False)
                 yield f"event: status\ndata: {payload}\n\n"
                 previous_status = status
             if status in {"ready", "failed", "done", "synced"}:
@@ -752,7 +757,9 @@ def get_voice_job_audio(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _ = current_user
+    job = get_voice_job(db, tts_job_id)
+    if not job or job.get("user_id") != current_user.user_id:
+        raise AppError("VOICE_AUDIO_NOT_READY", "Audio chưa sẵn sàng", 404)
     audio_path = get_voice_audio_path(db, tts_job_id)
     if not audio_path:
         raise AppError("VOICE_AUDIO_NOT_READY", "Audio chưa sẵn sàng", 404)
