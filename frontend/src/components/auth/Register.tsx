@@ -24,6 +24,7 @@ export default function Register() {
 
     const handleSubmit: FormSubmitHandler = async (event) => {
         event.preventDefault()
+        const clickStartedAt = performance.now()
 
         if (!strongPasswordRegex.test(password)) {
             toast.error('Mật khẩu phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.')
@@ -53,7 +54,9 @@ export default function Register() {
 
             toast.success('Đăng ký thành công. Chào mừng bạn đến với Serene!')
             navigate(ROUTE_PATHS.home)
+            console.info('[auth-metrics] signup.click_to_navigate_ms', Math.round(performance.now() - clickStartedAt))
         } catch (error) {
+            console.info('[auth-metrics] signup.failed_ms', Math.round(performance.now() - clickStartedAt))
             if (error instanceof ApiRequestError) {
                 toast.error(error.message)
                 return

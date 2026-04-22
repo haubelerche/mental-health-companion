@@ -18,12 +18,18 @@ export type VoiceJobResponse = {
     error_message?: string | null
 }
 
+export type GuestSessionStartResponse = {
+    guest_session_id: string
+    max_duration_sec: number
+}
+
 export const chatService = {
     sendMessage: (payload: ChatMessageRequest) =>
         httpClient.postWithCsrf<Record<string, unknown>>('/chat/message', payload),
     sendMessageStream: (payload: ChatMessageRequest) => httpClient.postStreamWithCsrf('/chat/message/stream', payload),
     sendGuestMessage: (payload: GuestChatMessageRequest) =>
         httpClient.postWithCsrf<Record<string, unknown>>('/chat/guest-message', payload),
+    startGuestSession: () => httpClient.postWithCsrf<GuestSessionStartResponse>('/guest/session/start'),
     getVoiceJob: (ttsJobId: string) =>
         httpClient.get<VoiceJobResponse>(`/chat/voice-jobs/${ttsJobId}`),
 }

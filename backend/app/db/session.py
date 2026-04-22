@@ -11,7 +11,18 @@ class Base(DeclarativeBase):
 @lru_cache(maxsize=1)
 def get_engine():
     settings = get_settings()
-    return create_engine(settings.normalized_database_url(), future=True)
+    database_url = settings.normalized_database_url()
+    if database_url.startswith(("postgresql+psycopg://", "postgresql://")):
+        return create_engine(
+            database_url,
+            future=True,
+            pool_size=settings.db_pool_size,
+            max_overflow=settings.db_max_overflow,
+            pool_timeout=settings.db_pool_timeout_seconds,
+            pool_recycle=settings.db_pool_recycle_seconds,
+            pool_pre_ping=settings.db_pool_pre_ping,
+        )
+    return create_engine(database_url, future=True)
 
 
 @lru_cache(maxsize=1)

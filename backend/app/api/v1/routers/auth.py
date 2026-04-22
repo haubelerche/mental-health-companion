@@ -1,11 +1,15 @@
+import logging
+import time
+
 from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_csrf
+from app.api.deps import get_current_user, require_csrf
 from app.core.config import get_settings
 from app.core.errors import AppError
+from app.core.product_constants import CURRENT_POLICY_VERSION
 from app.core.responses import ok
 from app.db.models import EmailVerificationToken, PasswordResetToken, RefreshToken, User
 from app.db.session import get_db
@@ -18,6 +22,7 @@ from app.schemas.payloads import (
 )
 from app.services.auth_email import send_password_reset_email, send_verification_email
 from app.services.cookies import clear_auth_cookies, set_auth_cookies, set_csrf_cookie
+from app.services.auth_latency_metrics import observe_auth_latency
 from app.services.rate_limit import get_rate_limiter
 from app.services.security import (
     generate_csrf_token,
@@ -30,9 +35,13 @@ from app.services.security import (
     verify_password,
 )
 from app.services.utils import make_id, now_plus, utc_now
-from app.api.deps import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
+
+
+def _elapsed_ms(start: float) -> float:
+    return round((time.perf_counter() - start) * 1000, 2)
 
 
 def _utc_naive_now():
@@ -92,40 +101,56 @@ def csrf_token(response: Response):
 
 @router.post("/signup")
 def signup(payload: SignupRequest, response: Response, request: Request, db: Session = Depends(get_db)):
+    total_start = time.perf_counter()
+    db_ms = 0.0
+    bcrypt_ms = 0.0
+    redis_ms = 0.0
+    success = False
     settings = get_settings()
     limiter = get_rate_limiter()
     ip = request.client.host if request.client else "unknown"
+    redis_start = time.perf_counter()
     limiter.enforce_per_minute(
         key=f"auth:signup:{ip}",
         limit=settings.auth_rate_limit_per_minute,
         code="RATE_LIMIT_AUTH",
         message="Bạn đã vượt quá giới hạn thử xác thực",
     )
+    redis_ms += _elapsed_ms(redis_start)
 
     if not payload.disclaimer_accepted:
         raise AppError("DISCLAIMER_NOT_ACCEPTED", "Bạn cần chấp nhận disclaimer", 400)
 
+    db_start = time.perf_counter()
     exists = db.scalar(select(User).where(User.email == payload.email))
+    db_ms += _elapsed_ms(db_start)
     if exists:
         raise AppError("INVALID_PARAMETER", "Email đã tồn tại", 400)
 
+    now = utc_now().replace(tzinfo=None)
+    bcrypt_start = time.perf_counter()
+    password_hash = hash_password(payload.password)
+    bcrypt_ms += _elapsed_ms(bcrypt_start)
     user = User(
         user_id=make_id("usr"),
         display_name=payload.display_name,
         email=payload.email,
-        password_hash=hash_password(payload.password),
+        password_hash=password_hash,
         is_active=False,
         email_verified_at=None,
         disclaimer_accepted=True,
-        policy_acknowledged_at=None,
-        policy_version_ack=None,
+        policy_acknowledged_at=now,
+        policy_version_ack=CURRENT_POLICY_VERSION,
     )
     db.add(user)
     try:
         db.flush()
         verify_token = _create_email_verification_token(db=db, user_id=user.user_id)
         send_verification_email(to_email=user.email, display_name=user.display_name, token=verify_token)
+        db_start = time.perf_counter()
         db.commit()
+        db_ms += _elapsed_ms(db_start)
+        success = True
     except AppError:
         db.rollback()
         raise
@@ -136,6 +161,27 @@ def signup(payload: SignupRequest, response: Response, request: Request, db: Ses
         db.rollback()
         raise AppError("SCHEMA_VALIDATION_FAILED", "Đăng ký thất bại, vui lòng thử lại", 500) from exc
 
+    total_ms = _elapsed_ms(total_start)
+    signup_snapshot = observe_auth_latency(flow="signup", duration_ms=total_ms, success=success)
+    if signup_snapshot.should_log:
+        logger.info(
+            "auth.benchmark flow=%s window=%d success_rate=%.2f avg_ms=%.2f p95_ms=%.2f target_p95_ms=%.2f within_sla=%s",
+            signup_snapshot.flow,
+            signup_snapshot.count,
+            signup_snapshot.success_rate,
+            signup_snapshot.avg_ms,
+            signup_snapshot.p95_ms,
+            signup_snapshot.target_p95_ms,
+            signup_snapshot.within_sla,
+        )
+    logger.info(
+        "auth.signup metrics success=%s db_ms=%.2f bcrypt_ms=%.2f redis_ms=%.2f auth_total_ms=%.2f",
+        success,
+        db_ms,
+        bcrypt_ms,
+        redis_ms,
+        total_ms,
+    )
     return ok(
         {
             "user_id": user.user_id,
@@ -149,43 +195,96 @@ def signup(payload: SignupRequest, response: Response, request: Request, db: Ses
 
 @router.post("/login")
 def login(payload: LoginRequest, response: Response, request: Request, db: Session = Depends(get_db)):
+    total_start = time.perf_counter()
+    db_ms = 0.0
+    bcrypt_ms = 0.0
+    redis_ms = 0.0
+    success = False
     settings = get_settings()
     limiter = get_rate_limiter()
     ip = request.client.host if request.client else "unknown"
     identity = f"{payload.email.lower()}:{ip}"
-    limiter.enforce_per_minute(
-        key=f"auth:login:{ip}",
-        limit=settings.auth_rate_limit_per_minute,
-        code="RATE_LIMIT_AUTH",
-        message="Bạn đã vượt quá giới hạn thử xác thực",
-    )
-    limiter.enforce_auth_lockout(
-        identity=identity,
-        threshold=settings.auth_lockout_threshold,
-        lock_minutes=settings.auth_lockout_minutes,
-        code="AUTH_TOO_MANY_ATTEMPTS",
-        message="Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau.",
-    )
-
-    user = db.scalar(select(User).where(User.email == payload.email))
-    if not user or not verify_password(payload.password, user.password_hash):
-        limiter.record_auth_failure(
+    try:
+        redis_start = time.perf_counter()
+        limiter.enforce_per_minute(
+            key=f"auth:login:{ip}",
+            limit=settings.auth_rate_limit_per_minute,
+            code="RATE_LIMIT_AUTH",
+            message="Bạn đã vượt quá giới hạn thử xác thực",
+        )
+        limiter.enforce_auth_lockout(
             identity=identity,
             threshold=settings.auth_lockout_threshold,
             lock_minutes=settings.auth_lockout_minutes,
+            code="AUTH_TOO_MANY_ATTEMPTS",
+            message="Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau.",
         )
-        raise AppError("AUTH_INVALID_TOKEN", "Email hoặc mật khẩu không đúng", 401)
+        redis_ms += _elapsed_ms(redis_start)
 
-    limiter.clear_auth_failure(identity)
-    if not user.is_active:
-        raise AppError(
-            "AUTH_EMAIL_NOT_VERIFIED",
-            "Tài khoản chưa xác nhận email. Vui lòng kiểm tra hộp thư hoặc gửi lại email xác nhận.",
-            403,
+        db_start = time.perf_counter()
+        user = db.scalar(select(User).where(User.email == payload.email))
+        db_ms += _elapsed_ms(db_start)
+
+        is_valid_password = False
+        if user:
+            bcrypt_start = time.perf_counter()
+            is_valid_password = verify_password(payload.password, user.password_hash)
+            bcrypt_ms += _elapsed_ms(bcrypt_start)
+
+        if not user or not is_valid_password:
+            redis_start = time.perf_counter()
+            limiter.record_auth_failure(
+                identity=identity,
+                threshold=settings.auth_lockout_threshold,
+                lock_minutes=settings.auth_lockout_minutes,
+            )
+            redis_ms += _elapsed_ms(redis_start)
+            raise AppError("AUTH_INVALID_TOKEN", "Email hoặc mật khẩu không đúng", 401)
+
+        redis_start = time.perf_counter()
+        limiter.clear_auth_failure(identity)
+        redis_ms += _elapsed_ms(redis_start)
+
+        now = utc_now().replace(tzinfo=None)
+        if user.policy_version_ack != CURRENT_POLICY_VERSION:
+            user.policy_acknowledged_at = now
+            user.policy_version_ack = CURRENT_POLICY_VERSION
+
+        if not user.is_active:
+            raise AppError(
+                "AUTH_EMAIL_NOT_VERIFIED",
+                "Tài khoản chưa xác nhận email. Vui lòng kiểm tra hộp thư hoặc gửi lại email xác nhận.",
+                403,
+            )
+
+        db_start = time.perf_counter()
+        _issue_login_session(user=user, response=response, request=request, db=db)
+        db_ms += _elapsed_ms(db_start)
+        success = True
+
+        return ok({"user_id": user.user_id, "expires_in": get_settings().access_token_ttl_seconds}, response=response)
+    finally:
+        total_ms = _elapsed_ms(total_start)
+        login_snapshot = observe_auth_latency(flow="login", duration_ms=total_ms, success=success)
+        if login_snapshot.should_log:
+            logger.info(
+                "auth.benchmark flow=%s window=%d success_rate=%.2f avg_ms=%.2f p95_ms=%.2f target_p95_ms=%.2f within_sla=%s",
+                login_snapshot.flow,
+                login_snapshot.count,
+                login_snapshot.success_rate,
+                login_snapshot.avg_ms,
+                login_snapshot.p95_ms,
+                login_snapshot.target_p95_ms,
+                login_snapshot.within_sla,
+            )
+        logger.info(
+            "auth.login metrics success=%s db_ms=%.2f bcrypt_ms=%.2f redis_ms=%.2f auth_total_ms=%.2f",
+            success,
+            db_ms,
+            bcrypt_ms,
+            redis_ms,
+            total_ms,
         )
-
-    _issue_login_session(user=user, response=response, request=request, db=db)
-    return ok({"user_id": user.user_id, "expires_in": get_settings().access_token_ttl_seconds}, response=response)
 
 
 @router.get("/verify-email")
@@ -380,5 +479,6 @@ def me(current_user: User = Depends(get_current_user)):
             "user_id": current_user.user_id,
             "email": current_user.email,
             "display_name": current_user.display_name,
+            "policy_version_ack": current_user.policy_version_ack,
         }
     )

@@ -89,6 +89,12 @@ def _rule_based_reply(user_text: str) -> str | None:
             "Mình hiểu đây là cú sốc lớn và cảm giác mất mát đang rất thật. "
             "Lúc này điều nào đau nhất với bạn: bị bỏ rơi, tự trách, hay sợ tương lai?"
         )
+    if any(k in normalized for k in ("chia xa", "tam biet", "roi xa", "xa nhau")):
+        return (
+            "Mình nghe rõ nỗi buồn chia xa của bạn, nhất là khi mới quen nhưng đã thấy rất thân. "
+            "Cảm giác hụt hẫng và trống vắng lúc này là điều hoàn toàn dễ hiểu. "
+            "Bạn muốn mình cùng bạn giữ lại một điều đẹp từ mối kết nối này, hay giúp bạn đi qua khoảnh khắc buồn tối nay trước?"
+        )
     if any(k in normalized for k in ("toi dua thui", "toi dua", "just kidding")):
         return "Mình hiểu bạn đang đùa, nhưng mình vẫn muốn giữ an toàn cho bạn. Dạo này có điều gì làm bạn căng quá không?"
     return None
@@ -201,6 +207,20 @@ def _needs_deeper_empathy_reply(reply: str) -> bool:
 def _enforce_reply_quality(reply: str, user_message: str, distress_score: float) -> str:
     if not _needs_deeper_empathy_reply(reply):
         return reply
+    normalized_user = _normalize_guard_text(user_message)
+    if any(k in normalized_user for k in ("chia xa", "tam biet", "roi xa", "xa nhau")):
+        return (
+            "Mình nghe bạn đang buồn sâu vì sắp phải chia xa những người bạn mới quen, và cảm giác quyến luyến đến nhanh như vậy "
+            "thật sự có thể làm tim mình trống đi một nhịp. Phản ứng đó rất người và rất dễ hiểu, nhất là khi bạn đã kịp thấy "
+            "an toàn, được kết nối. Nếu bạn muốn, mình có thể cùng bạn giữ lại một điều ý nghĩa từ quãng thời gian này, rồi chọn "
+            "một cách nhẹ để đi qua tối nay. Điều bạn sợ nhất khi phải tạm xa họ là gì?"
+        )
+    if any(k in normalized_user for k in ("co don", "mot minh", "lac long", "khong ai hieu")):
+        return (
+            "Mình nghe bạn đang rất cô đơn và cảm giác như không ai thật sự hiểu mình, nên mệt và tủi lúc này là điều rất dễ hiểu. "
+            "Bạn không cần gồng lên một mình ở đây, mình sẽ đi cùng bạn từng chút một. Nếu được, mình muốn bắt đầu từ điều đang "
+            "làm bạn thấy lạc lõng nhất ngay lúc này, bạn kể cho mình nghe nhé?"
+        )
     if distress_score >= 0.6:
         return (
             "Mình nghe rõ là bạn đang rất quá tải và cảm giác này nặng nề thật, nhất là khi mọi thứ cứ dồn cùng lúc "
@@ -383,7 +403,7 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
     user_payload = user_text if distress_now < 0.42 and len(user_text) <= 140 else f"{friend_context}\n\nTin nhắn mới:\n{user_text}"
 
     payload: dict[str, Any] = {
-        "reply": "Mình nghe bạn. Mình ở đây cùng bạn, và bạn có thể kể thêm điều đang làm bạn nặng lòng nhất lúc này không?",
+        "reply": _enforce_reply_quality("", user_text, distress_now),
         "tone_cam_xuc": "xac_nhan",
         "goi_y_nhanh": ["Kể thêm đi cậu", "Mình nên làm gì bây giờ?", "Chỉ cần lắng nghe thôi"],
         "the_dinh_kem": [{"type": "breathing_exercise", "id": "breath_478", "title": "Thở 4-7-8 — Giảm căng thẳng"}],
@@ -626,7 +646,7 @@ def stream_non_sos_turn_events(
             yield {"type": "final", "turn": fallback}
             return
     else:
-        reply_text = "Mình nghe bạn. Mình ở đây cùng bạn, và bạn có thể kể thêm điều đang làm bạn nặng lòng nhất lúc này không?"
+        reply_text = _enforce_reply_quality("", user_text, distress_now)
 
     improved_reply = _enforce_reply_quality(reply_text, user_text, distress_now)
     safe_reply = _sanitize_assistant_reply(improved_reply)
