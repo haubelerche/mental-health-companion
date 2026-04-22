@@ -95,6 +95,18 @@ def test_enforce_reply_quality_keeps_long_empathic_reply():
     assert _enforce_reply_quality(original, "toi on", distress_score=0.2) == original
 
 
+def test_enforce_reply_quality_handles_separation_grief():
+    improved = _enforce_reply_quality(
+        "Mình hiểu.",
+        "mình sắp phải chia xa những người bạn mới quen và mình rất buồn",
+        distress_score=0.25,
+    )
+    lowered = improved.lower()
+    assert "chia xa" in lowered
+    assert "buồn" in lowered or "buon" in lowered
+    assert "?" in improved
+
+
 def test_build_friend_context_includes_long_term_memory():
     context = _build_friend_context(
         {

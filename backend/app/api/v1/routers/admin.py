@@ -11,6 +11,7 @@ from app.db.models import AdminAuditLog, Conversation, CrisisLog
 from app.db.session import get_db
 from app.schemas.payloads import AdminLoginRequest
 from app.services.cookies import set_auth_cookies
+from app.services.auth_latency_metrics import get_auth_latency_snapshot
 from app.services.security import issue_admin_token, verify_password, verify_totp
 from app.services.utils import make_id, utc_now
 
@@ -98,6 +99,38 @@ def admin_dashboard(
             "mood_distribution": {"great": 18, "okay": 45, "stressed": 61, "struggling": 18},
             "sos_events": sos_events,
             "top_resource_categories": ["meditate", "sleep"],
+        }
+    )
+
+
+@router.get("/auth/latency-sla")
+def admin_auth_latency_sla(
+    request: Request,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(get_admin_claims),
+):
+    enforce_admin_ip(request)
+    login = get_auth_latency_snapshot(flow="login")
+    signup = get_auth_latency_snapshot(flow="signup")
+    _audit(db, claims["sub"], "GET_AUTH_LATENCY_SLA", request)
+    return ok(
+        {
+            "login": {
+                "window": login.count,
+                "success_rate": login.success_rate,
+                "avg_ms": login.avg_ms,
+                "p95_ms": login.p95_ms,
+                "target_p95_ms": login.target_p95_ms,
+                "within_sla": login.within_sla,
+            },
+            "signup": {
+                "window": signup.count,
+                "success_rate": signup.success_rate,
+                "avg_ms": signup.avg_ms,
+                "p95_ms": signup.p95_ms,
+                "target_p95_ms": signup.target_p95_ms,
+                "within_sla": signup.within_sla,
+            },
         }
     )
 
