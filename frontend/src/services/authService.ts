@@ -67,12 +67,12 @@ export const authService = {
     },
     login: async (payload: LoginPayload) => {
         const data = await httpClient.post<LoginResponse>('/auth/login', payload)
-        httpClient.resetCsrfToken()
-        await httpClient.ensureCsrfToken(true)
-        const currentPolicy = await httpClient.get<CurrentPolicyResponse>('/policies/current')
-        await httpClient.postWithCsrf<PolicyAcknowledgeResponse>('/policies/acknowledge', {
-            policy_version: currentPolicy.version,
-        })
+        // httpClient.resetCsrfToken()
+        // await httpClient.ensureCsrfToken(true)
+        // const currentPolicy = await httpClient.get<CurrentPolicyResponse>('/policies/current')
+        // await httpClient.postWithCsrf<PolicyAcknowledgeResponse>('/policies/acknowledge', {
+        //     policy_version: currentPolicy.version,
+        // })
         return data
     },
     logout: async () => {

@@ -89,20 +89,14 @@ export default function Login() {
                         </div>
 
                         <div>
-                            <div className="mb-2 flex items-end justify-between gap-3">
-                                <label
-                                    htmlFor="password"
-                                    className="auth-label pl-1 font-medium tracking-[0.3em]"
-                                >
-                                    Mật khẩu
-                                </label>
-                                <button
-                                    type="button"
-                                    className="text-[10px] font-medium uppercase tracking-[0.3em] text-serene-primary/60 transition hover:text-serene-primary"
-                                >
-                                    Quên?
-                                </button>
-                            </div>
+
+                            <label
+                                htmlFor="password"
+                                className="auth-label pl-1 font-medium tracking-[0.3em]"
+                            >
+                                Mật khẩu
+                            </label>
+
                             <input
                                 id="password"
                                 type="password"
@@ -113,8 +107,17 @@ export default function Login() {
                                 required
 
                             />
-                        </div>
 
+                        </div>
+                        <div >
+                            <Link
+                                to={ROUTE_PATHS.forget}
+                                type="button"
+                                className="text-[10px] font-medium uppercase tracking-[0.3em] text-serene-primary transition hover:text-serene-primary"
+                            >
+                                Quên mật khẩu?
+                            </Link>
+                        </div>
                         <div className="pt-2">
                             <button
                                 type="submit"
