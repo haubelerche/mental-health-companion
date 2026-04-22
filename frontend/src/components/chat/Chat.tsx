@@ -264,7 +264,7 @@ function CrisisPanel({ data }: { data: ChatApiData }) {
 
 export default function Chat() {
     type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
-    const GUEST_CHAT_DURATION_SECONDS = 120
+    const FALLBACK_GUEST_CHAT_DURATION_SECONDS = 120
 
     const [sessionId, setSessionId] = useState<string | null>(null)
     const [messages, setMessages] = useState<UiMessage[]>([])
@@ -275,37 +275,75 @@ export default function Chat() {
     const [lastFailedText, setLastFailedText] = useState<string | null>(null)
     const [showDebug, setShowDebug] = useState(true)
     const [showOptions, setShowOptions] = useState(false)
-    const [guestSecondsLeft, setGuestSecondsLeft] = useState<number>(GUEST_CHAT_DURATION_SECONDS)
+    const [guestSecondsLeft, setGuestSecondsLeft] = useState<number>(FALLBACK_GUEST_CHAT_DURATION_SECONDS)
+    const [guestSessionLoading, setGuestSessionLoading] = useState(false)
     const pollRef = useRef<number | null>(null)
     const bottomRef = useRef<HTMLDivElement | null>(null)
     const optionsRef = useRef<HTMLDivElement | null>(null)
     const guestDeadlineRef = useRef<number | null>(null)
+    const guestExpiredNotifiedRef = useRef(false)
     const { user } = useAuth()
     const navigate = useNavigate()
     const isGuestMode = !user
 
     useEffect(() => {
+        if (!user) {
+            setVoiceConsent(false)
+            return
+        }
         policyService
             .getVoiceConsent()
             .then((res) => setVoiceConsent(Boolean(res.voice_consent)))
             .catch(() => undefined)
-    }, [])
+    }, [user])
 
     useEffect(() => {
+        let cancelled = false
         if (!isGuestMode) {
-            setGuestSecondsLeft(GUEST_CHAT_DURATION_SECONDS)
+            setGuestSecondsLeft(FALLBACK_GUEST_CHAT_DURATION_SECONDS)
             guestDeadlineRef.current = null
+            guestExpiredNotifiedRef.current = false
+            setGuestSessionLoading(false)
             return
         }
-        if (!guestDeadlineRef.current) {
-            guestDeadlineRef.current = Date.now() + GUEST_CHAT_DURATION_SECONDS * 1000
+        if (sessionId && !sessionId.startsWith('gst_')) {
+            setSessionId(null)
+            guestDeadlineRef.current = null
+            setGuestSecondsLeft(FALLBACK_GUEST_CHAT_DURATION_SECONDS)
+            return
+        }
+        if (!sessionId) {
+            setGuestSessionLoading(true)
+            void chatService
+                .startGuestSession()
+                .then((data) => {
+                    if (cancelled) return
+                    const duration = Number(data.max_duration_sec) > 0 ? Number(data.max_duration_sec) : FALLBACK_GUEST_CHAT_DURATION_SECONDS
+                    setSessionId(data.guest_session_id)
+                    setGuestSecondsLeft(duration)
+                    guestDeadlineRef.current = Date.now() + duration * 1000
+                    guestExpiredNotifiedRef.current = false
+                })
+                .catch(() => {
+                    if (cancelled) return
+                    setGuestSecondsLeft(FALLBACK_GUEST_CHAT_DURATION_SECONDS)
+                    guestDeadlineRef.current = Date.now() + FALLBACK_GUEST_CHAT_DURATION_SECONDS * 1000
+                    guestExpiredNotifiedRef.current = false
+                })
+                .finally(() => {
+                    if (!cancelled) setGuestSessionLoading(false)
+                })
+            return () => {
+                cancelled = true
+            }
         }
 
         const tick = () => {
             const deadline = guestDeadlineRef.current ?? Date.now()
             const next = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
             setGuestSecondsLeft(next)
-            if (next <= 0) {
+            if (next <= 0 && !guestExpiredNotifiedRef.current) {
+                guestExpiredNotifiedRef.current = true
                 toast.info('Bạn đã dùng hết 2 phút chat thử. Đăng ký để tiếp tục nhé.')
                 navigate(ROUTE_PATHS.register, { replace: true })
             }
@@ -313,7 +351,7 @@ export default function Chat() {
         tick()
         const timer = window.setInterval(tick, 1000)
         return () => window.clearInterval(timer)
-    }, [isGuestMode, navigate])
+    }, [FALLBACK_GUEST_CHAT_DURATION_SECONDS, isGuestMode, navigate, sessionId])
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -335,7 +373,18 @@ export default function Chat() {
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
-    const canSend = useMemo(() => !sending && input.trim().length > 0, [sending, input])
+    const canSend = useMemo(() => {
+        if (sending) return false
+        if (input.trim().length <= 0) return false
+        if (isGuestMode && (guestSessionLoading || guestSecondsLeft <= 0)) return false
+        return true
+    }, [sending, input, isGuestMode, guestSecondsLeft, guestSessionLoading])
+
+    const guestCountdownLabel = useMemo(() => {
+        const mins = Math.floor(guestSecondsLeft / 60)
+        const secs = guestSecondsLeft % 60
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+    }, [guestSecondsLeft])
 
     const playAudioUrl = (audioUrl: string) => {
         const audio = new Audio(resolveMediaUrl(audioUrl))
@@ -345,7 +394,7 @@ export default function Chat() {
     }
 
     const pollVoiceJob = async (ttsJobId: string, fallbackScript?: string, attempts = 0) => {
-        if (attempts > 8) {
+        if (attempts > 10) {
             setVoiceStatus('Voice phản hồi chậm, đang dùng bản text trước.')
             if (fallbackScript) {
                 setMessages((prev) => [...prev, { id: `vs_to_${Date.now()}`, role: 'assistant', content: fallbackScript }])
@@ -357,6 +406,7 @@ export default function Chat() {
             setVoiceStatus(`Voice: ${job.status}`)
             if (job.status === 'ready' && job.audio_url) {
                 playAudioUrl(job.audio_url)
+                setVoiceStatus('')
                 return
             }
             if (job.status === 'failed') {
@@ -375,9 +425,11 @@ export default function Chat() {
             }
             return
         }
+        // Adaptive backoff: fast checks when job is fresh, slower as it ages.
+        const delay = attempts < 3 ? 400 : attempts < 6 ? 800 : 1500
         pollRef.current = window.setTimeout(() => {
             void pollVoiceJob(ttsJobId, fallbackScript, attempts + 1)
-        }, 2000)
+        }, delay)
     }
 
     const applyIntervention = (data: ChatApiData) => {
@@ -507,6 +559,9 @@ export default function Chat() {
                 const data = rawData as ChatApiData
                 const sid = typeof data.session_id === 'string' ? data.session_id : null
                 if (sid) setSessionId(sid)
+                if (sid && !guestDeadlineRef.current) {
+                    guestDeadlineRef.current = Date.now() + FALLBACK_GUEST_CHAT_DURATION_SECONDS * 1000
+                }
                 const assistantText =
                     typeof data.reply === 'string' && data.reply
                         ? data.reply
@@ -529,6 +584,8 @@ export default function Chat() {
             }
         } catch (err) {
             if (err instanceof ApiRequestError && err.code === 'GUEST_TRIAL_EXPIRED') {
+                setGuestSecondsLeft(0)
+                guestExpiredNotifiedRef.current = true
                 toast.info('Bạn đã dùng hết 2 phút chat thử. Mời bạn đăng ký để tiếp tục.')
                 navigate(ROUTE_PATHS.register)
                 return
@@ -609,7 +666,7 @@ export default function Chat() {
                     <div className="flex items-center gap-2" ref={optionsRef}>
                         {isGuestMode && (
                             <span className="rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-                                Chat thử còn {guestSecondsLeft}s
+                                Chat thử còn {guestCountdownLabel}
                             </span>
                         )}
                         <button
@@ -762,6 +819,7 @@ export default function Chat() {
                 <input
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
+                    disabled={isGuestMode && guestSecondsLeft <= 0}
                     placeholder="Chia sẻ điều bạn đang cảm thấy..."
                     className="flex-1 rounded-2xl bg-white px-4 py-3 outline-none"
                 />

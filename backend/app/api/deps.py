@@ -30,12 +30,27 @@ def _trusted_origins(raw: str) -> set[str]:
     return {item.strip().rstrip("/").lower() for item in raw.split(",") if item.strip()}
 
 
-def _is_loopback_origin(value: str | None) -> bool:
-    if not value:
+def _is_loopback_origin(origin: str | None) -> bool:
+    if not origin:
         return False
-    parsed = urlparse(value)
-    host = (parsed.hostname or "").lower()
-    return host in {"localhost", "127.0.0.1", "::1"}
+    parsed = urlparse(origin)
+    host = parsed.hostname
+    if not host:
+        return False
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _is_origin_allowed(request_origin: str, trusted_origins: set[str]) -> bool:
+    if request_origin in trusted_origins:
+        return True
+    # Dev-friendly fallback: allow loopback origins across local ports
+    # (e.g. frontend auto-switches 5173 -> 5174 while backend keeps 5173 in env).
+    return _is_loopback_origin(request_origin) and any(_is_loopback_origin(item) for item in trusted_origins)
 
 
 def require_csrf(
@@ -50,19 +65,15 @@ def require_csrf(
     trusted_origins = _trusted_origins(settings.csrf_trusted_origins)
     request_origin = _normalized_origin(request.headers.get("origin"))
     request_referer_origin = _normalized_origin(request.headers.get("referer"))
-
-    # If trusted origins are not configured (common in CI/local tests), still enforce
-    # the double-submit token check below instead of failing with a server error.
-    if trusted_origins:
-        if request_origin:
-            if request_origin not in trusted_origins and not _is_loopback_origin(request_origin):
-                raise AppError("CSRF_TOKEN_INVALID", "Origin/Referer không hợp lệ", 403)
-        elif request_referer_origin:
-            if request_referer_origin not in trusted_origins and not _is_loopback_origin(request_referer_origin):
-                raise AppError("CSRF_TOKEN_INVALID", "Origin/Referer không hợp lệ", 403)
-        else:
-            # Allow non-browser API clients (e.g. Postman) that do not send Origin/Referer.
-            pass
+    if request_origin:
+        if not _is_origin_allowed(request_origin, trusted_origins):
+            raise AppError("CSRF_TOKEN_INVALID", "Origin/Referer không hợp lệ", 403)
+    elif request_referer_origin:
+        if not _is_origin_allowed(request_referer_origin, trusted_origins):
+            raise AppError("CSRF_TOKEN_INVALID", "Origin/Referer không hợp lệ", 403)
+    else:
+        # Allow non-browser API clients (e.g. Postman) that do not send Origin/Referer.
+        pass
 
     if not x_csrf_token or not csrf_token_cookie or x_csrf_token != csrf_token_cookie:
         raise AppError("CSRF_TOKEN_INVALID", "CSRF token thiếu hoặc không hợp lệ", 403)
