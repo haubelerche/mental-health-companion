@@ -23,6 +23,7 @@ def _unique_email(prefix: str) -> str:
 def _stub_tokens(monkeypatch):
     monkeypatch.setattr(auth_router, "issue_access_token", lambda *_args, **_kwargs: "test-access-token")
     monkeypatch.setattr(auth_router, "generate_refresh_token", lambda: "test-refresh-token")
+    monkeypatch.setattr(auth_router, "send_verification_email", lambda **_kwargs: None)
 
 
 @pytest.fixture
@@ -66,10 +67,11 @@ def test_signup_auto_acknowledges_policy_version(monkeypatch, auth_test_db):
             },
         )
 
-    assert resp.status_code == 201
+    assert resp.status_code == 202
     body = resp.json()
     assert body["success"] is True
     user_id = body["data"]["user_id"]
+    assert body["data"]["verification_required"] is True
 
     db = auth_test_db()
     try:
@@ -96,13 +98,14 @@ def test_login_updates_legacy_policy_acknowledgement(monkeypatch, auth_test_db):
                 "disclaimer_accepted": True,
             },
         )
-        assert signup_resp.status_code == 201
+        assert signup_resp.status_code == 202
         user_id = signup_resp.json()["data"]["user_id"]
 
         db = auth_test_db()
         try:
             user = db.scalar(select(User).where(User.user_id == user_id))
             assert user is not None
+            user.is_active = True
             user.policy_version_ack = "legacy"
             user.policy_acknowledged_at = None
             db.commit()
