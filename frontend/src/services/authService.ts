@@ -27,6 +27,23 @@ export type LogoutResponse = {
     logged_out_at: string
 }
 
+export type ForgotPasswordPayload = {
+    email: string
+}
+
+export type ForgotPasswordResponse = {
+    sent: boolean
+}
+
+export type ResetPasswordPayload = {
+    token: string
+    new_password: string
+}
+
+export type ResetPasswordResponse = {
+    reset: boolean
+}
+
 export type MeResponse = {
     user_id: string
     email: string
@@ -79,5 +96,9 @@ export const authService = {
         await httpClient.postWithCsrf<LogoutResponse>('/auth/logout')
         httpClient.resetCsrfToken()
     },
+    forgotPassword: (payload: ForgotPasswordPayload) =>
+        httpClient.post<ForgotPasswordResponse>('/auth/forgot-password', payload),
+    resetPassword: (payload: ResetPasswordPayload) =>
+        httpClient.post<ResetPasswordResponse>('/auth/reset-password', payload),
     me: () => httpClient.get<MeResponse>('/auth/me'),
 }

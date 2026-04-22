@@ -12,6 +12,7 @@ import Resources from '../components/pages/Resources.tsx'
 import { useAuth } from '../hooks/useAuth'
 import { ROUTE_PATHS } from './paths'
 import Setting from '../components/pages/Setting.tsx'
+import Forget from '../components/auth/Forget.tsx'
 
 function RequireAuth({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()
@@ -30,6 +31,7 @@ export default function AppRoutes() {
             <Route path={ROUTE_PATHS.root} element={<Navigate to={ROUTE_PATHS.landing} replace />} />
             <Route path={ROUTE_PATHS.login} element={<Login />} />
             <Route path={ROUTE_PATHS.register} element={<Register />} />
+            <Route path={ROUTE_PATHS.forget} element={<Forget />} />
             <Route path={ROUTE_PATHS.landing} element={<Landing />} />
 
             <Route path={ROUTE_PATHS.home} element={<Main />}>
