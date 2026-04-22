@@ -49,47 +49,33 @@ export type MeResponse = {
     email: string
     display_name: string
 }
-
-type CurrentPolicyResponse = {
-    version: string
-    title: string
-    summary: string
-}
-
-type PolicyAcknowledgeResponse = {
-    policy_version: string
-    acknowledged_at: string
-}
-
 export const authService = {
     signup: async (payload: SignupPayload) => {
+        const startedAt = performance.now()
         const data = await httpClient.post<SignupResponse>('/auth/signup', {
             display_name: payload.display_name,
             email: payload.email,
             password: payload.password,
             disclaimer_accepted: payload.disclaimer_accepted,
         })
-        httpClient.resetCsrfToken()
-        await httpClient.ensureCsrfToken(true)
-        const currentPolicy = await httpClient.get<CurrentPolicyResponse>('/policies/current')
-        await httpClient.postWithCsrf<PolicyAcknowledgeResponse>('/policies/acknowledge', {
-            policy_version: currentPolicy.version,
-        })
+        console.info('[auth-metrics] signup.auth_total_ms', Math.round(performance.now() - startedAt))
+        // Policy is auto-acknowledged by the server during signup.
+        // Voice consent is set in background — non-blocking.
         if (typeof payload.voice_consent === 'boolean') {
-            await httpClient.postWithCsrf<{ voice_consent: boolean }>('/policies/voice-consent', {
-                consent: payload.voice_consent,
-            })
+            void httpClient
+                .postWithCsrf<{ voice_consent: boolean }>('/policies/voice-consent', {
+                    consent: payload.voice_consent,
+                })
+                .catch(() => undefined)
         }
         return data
     },
+
     login: async (payload: LoginPayload) => {
+        const startedAt = performance.now()
         const data = await httpClient.post<LoginResponse>('/auth/login', payload)
-        httpClient.resetCsrfToken()
-        await httpClient.ensureCsrfToken(true)
-        const currentPolicy = await httpClient.get<CurrentPolicyResponse>('/policies/current')
-        await httpClient.postWithCsrf<PolicyAcknowledgeResponse>('/policies/acknowledge', {
-            policy_version: currentPolicy.version,
-        })
+        console.info('[auth-metrics] login.auth_total_ms', Math.round(performance.now() - startedAt))
+        // Policy is auto-acknowledged by the server during login.
         return data
     },
     logout: async () => {

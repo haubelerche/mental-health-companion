@@ -16,6 +16,7 @@ export default function Login() {
 
     const handleSubmit: FormSubmitHandler = async (event) => {
         event.preventDefault()
+        const clickStartedAt = performance.now()
 
         try {
             await login({
@@ -25,7 +26,9 @@ export default function Login() {
 
             toast.success('Đăng nhập thành công!')
             navigate(ROUTE_PATHS.home)
+            console.info('[auth-metrics] login.click_to_navigate_ms', Math.round(performance.now() - clickStartedAt))
         } catch (error) {
+            console.info('[auth-metrics] login.failed_ms', Math.round(performance.now() - clickStartedAt))
             if (error instanceof ApiRequestError) {
                 toast.error(error.message)
                 return
