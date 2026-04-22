@@ -63,9 +63,6 @@ def require_csrf(
 
     settings = get_settings()
     trusted_origins = _trusted_origins(settings.csrf_trusted_origins)
-    if not trusted_origins:
-        raise AppError("CSRF_CONFIG_MISSING", "Thiếu cấu hình CSRF trusted origins", 500)
-
     request_origin = _normalized_origin(request.headers.get("origin"))
     request_referer_origin = _normalized_origin(request.headers.get("referer"))
     if request_origin:
