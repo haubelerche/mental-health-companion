@@ -123,7 +123,7 @@ export default function Forget() {
 
                     <div className="mb-8 rounded-2xl bg-serene-surface/50 p-4">
                         <div className="flex items-center justify-between gap-4 text-xs uppercase tracking-[0.15em]">
-                            <div className={`flex items-center gap-2 ${step === 1 ? 'text-serene-primary' : 'text-serene-muted/80'}`}>
+                            <div className={`flex items-center rounded-full p-3 gap-2 ${step === 1 ? 'text-serene-surface bg-serene-primary' : 'text-serene-muted/80'}`}>
                                 <span className={`grid h-7 w-7 place-items-center rounded-full border ${step === 1 ? 'border-serene-primary bg-serene-accent/40' : 'border-serene-outline/50'}`}>
                                     <Mail className="h-4 w-4" />
                                 </span>
@@ -132,7 +132,7 @@ export default function Forget() {
 
                             <div className="h-px flex-1 bg-serene-outline/40" />
 
-                            <div className={`flex items-center gap-2 ${step === 2 ? 'text-serene-primary' : 'text-serene-muted/80'}`}>
+                            <div className={`flex items-center rounded-full p-3 gap-2 ${step === 2 ? 'text-serene-surface bg-serene-primary' : 'text-serene-muted/80'}`}>
                                 <span className={`grid h-7 w-7 place-items-center rounded-full border ${step === 2 ? 'border-serene-primary bg-serene-accent/40' : 'border-serene-outline/50'}`}>
                                     <KeyRound className="h-4 w-4" />
                                 </span>
@@ -227,14 +227,15 @@ export default function Forget() {
                                 </p>
                             </div>
 
-                            <div className="flex gap-3">
-                                <button
+                            <div className="flex gap-3 justify-center">
+                                {/* <button
                                     type="button"
                                     onClick={() => setStep(1)}
                                     className="w-1/3 rounded-full border border-serene-outline/60 px-4 py-3 text-xs uppercase tracking-[0.2em] text-serene-muted transition hover:border-serene-primary hover:text-serene-primary"
                                 >
                                     Quay lại
-                                </button>
+                                </button> */}
+                            
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
