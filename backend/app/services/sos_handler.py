@@ -236,6 +236,7 @@ def decide_sos(message: str, recent_user_messages: list[str] | None = None) -> t
     """
     Returns (sos_triggered, distress_score).
     SOS = explicit keyword path OR distress at/above critical heuristic.
+    recent_user_messages: optional context for future pattern analysis (reserved).
     """
     current = heuristic_distress(message)
     combined = contextual_distress(message, recent_user_messages)
