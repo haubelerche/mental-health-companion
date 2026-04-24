@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import secrets
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -13,7 +13,7 @@ PeriodKind = Literal["day", "week", "month"]
 
 
 def utc_now() -> datetime:
-    return datetime.now(UTC)
+    return datetime.now(timezone.utc)
 
 
 def now_plus(days: int = 0, seconds: int = 0) -> datetime:
@@ -28,7 +28,7 @@ def local_date_utc7(source: datetime | None = None):
 def utc_naive_vn_midnight(d: date) -> datetime:
     """Start of calendar day ``d`` in Vietnam, stored as naive UTC (matches DB timestamps)."""
     dt = datetime.combine(d, time.min, tzinfo=VN_TZ)
-    return dt.astimezone(UTC).replace(tzinfo=None)
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def vn_period_inclusive_dates(kind: PeriodKind, ref: date | None = None) -> tuple[date, date]:
