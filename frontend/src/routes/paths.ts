@@ -3,6 +3,7 @@ export const ROUTE_PATHS = {
     landing: '/landing',
     login: '/login',
     register: '/register',
+    forget: '/forget-password',
 
     // serene
     home: '/serene',
@@ -10,4 +11,5 @@ export const ROUTE_PATHS = {
     reflect: '/serene/reflect',
     resources: '/serene/resources',
     connect: '/serene/connect',
+    setting: '/serene/setting',
 } as const

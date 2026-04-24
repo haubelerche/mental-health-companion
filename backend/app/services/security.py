@@ -30,18 +30,23 @@ def _jwt_material() -> tuple[str, str, str]:
     )
 
 
-def hash_password(password: str) -> str:
+def _password_bytes(password: str) -> bytes:
     raw = password.encode("utf-8")
     # bcrypt works on max 72 bytes; pre-hash long inputs to keep deterministic behavior.
     if len(raw) > 72:
         raw = hashlib.sha256(raw).hexdigest().encode("utf-8")
-    return bcrypt.hashpw(raw, bcrypt.gensalt()).decode("utf-8")
+    return raw
+
+
+def hash_password(password: str) -> str:
+    settings = get_settings()
+    rounds = max(10, min(int(settings.bcrypt_rounds), 14))
+    raw = _password_bytes(password)
+    return bcrypt.hashpw(raw, bcrypt.gensalt(rounds=rounds)).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    raw = plain.encode("utf-8")
-    if len(raw) > 72:
-        raw = hashlib.sha256(raw).hexdigest().encode("utf-8")
+    raw = _password_bytes(plain)
     if hashed and not hashed.startswith("$") and hashed.startswith(("2a$", "2b$", "2y$")):
         hashed = f"${hashed}"
     return bcrypt.checkpw(raw, hashed.encode("utf-8"))

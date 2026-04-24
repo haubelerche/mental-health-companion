@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func, select
-
 from sqlalchemy.orm import Session
 
 from app.api.deps import enforce_admin_ip, get_admin_claims
@@ -10,8 +9,13 @@ from app.core.errors import AppError
 from app.core.responses import ok
 from app.db.models import AdminAuditLog, Conversation, CrisisLog, Resource
 from app.db.session import get_db
-from app.schemas.payloads import AdminLoginRequest, AdminResourceCreateRequest, AdminResourceUpdateRequest
+from app.schemas.payloads import (
+    AdminLoginRequest,
+    AdminResourceCreateRequest,
+    AdminResourceUpdateRequest,
+)
 from app.services.cookies import set_auth_cookies
+from app.services.auth_latency_metrics import get_auth_latency_snapshot
 from app.services.security import issue_admin_token, verify_password, verify_totp
 from app.services.utils import make_id, utc_now
 
@@ -41,6 +45,7 @@ def _validate_resource_payload(category: str, format_value: str):
         raise AppError("INVALID_PARAMETER", "Format không hợp lệ", 400)
 
 
+# ================= AUTH =================
 @router.post("/auth/login")
 def admin_login(payload: AdminLoginRequest, request: Request, response: Response):
     enforce_admin_ip(request)
@@ -61,9 +66,77 @@ def admin_login(payload: AdminLoginRequest, request: Request, response: Response
     admin_id = make_id("adm")
     token = issue_admin_token(admin_id)
     set_auth_cookies(response, access_token=token)
+
     return ok({"admin_id": admin_id, "expires_in": 900}, response=response)
 
 
+@router.get("/auth/latency-sla")
+def admin_auth_latency_sla(
+    request: Request,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(get_admin_claims),
+):
+    enforce_admin_ip(request)
+
+    login = get_auth_latency_snapshot(flow="login")
+    signup = get_auth_latency_snapshot(flow="signup")
+
+    _audit(db, claims["sub"], "GET_AUTH_LATENCY_SLA", request)
+
+    return ok(
+        {
+            "login": {
+                "window": login.count,
+                "success_rate": login.success_rate,
+                "avg_ms": login.avg_ms,
+                "p95_ms": login.p95_ms,
+                "target_p95_ms": login.target_p95_ms,
+                "within_sla": login.within_sla,
+            },
+            "signup": {
+                "window": signup.count,
+                "success_rate": signup.success_rate,
+                "avg_ms": signup.avg_ms,
+                "p95_ms": signup.p95_ms,
+                "target_p95_ms": signup.target_p95_ms,
+                "within_sla": signup.within_sla,
+            },
+        }
+    )
+
+
+# ================= DASHBOARD =================
+@router.get("/dashboard/aggregate")
+def admin_dashboard(
+    request: Request,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(get_admin_claims),
+):
+    enforce_admin_ip(request)
+
+    total_sessions = db.scalar(select(func.count(Conversation.session_id))) or 0
+    sos_events = db.scalar(select(func.count(CrisisLog.log_id))) or 0
+
+    _audit(db, claims["sub"], "GET_DASHBOARD", request)
+
+    return ok(
+        {
+            "period": {"from": "2026-04-01", "to": utc_now().date().isoformat()},
+            "total_sessions": total_sessions,
+            "avg_session_depth": 8.3,
+            "mood_distribution": {
+                "great": 18,
+                "okay": 45,
+                "stressed": 61,
+                "struggling": 18,
+            },
+            "sos_events": sos_events,
+            "top_resource_categories": ["meditate", "sleep"],
+        }
+    )
+
+
+# ================= CRISIS LOG =================
 @router.get("/crisis-logs")
 def admin_crisis_logs(
     request: Request,
@@ -71,8 +144,15 @@ def admin_crisis_logs(
     claims: dict = Depends(get_admin_claims),
 ):
     enforce_admin_ip(request)
-    logs = db.scalars(select(CrisisLog).order_by(CrisisLog.triggered_at.desc()).limit(100)).all()
+
+    logs = db.scalars(
+        select(CrisisLog)
+        .order_by(CrisisLog.triggered_at.desc())
+        .limit(100)
+    ).all()
+
     _audit(db, claims["sub"], "GET_CRISIS_LOGS", request)
+
     return ok(
         {
             "logs": [
@@ -91,28 +171,7 @@ def admin_crisis_logs(
     )
 
 
-@router.get("/dashboard/aggregate")
-def admin_dashboard(
-    request: Request,
-    db: Session = Depends(get_db),
-    claims: dict = Depends(get_admin_claims),
-):
-    enforce_admin_ip(request)
-    total_sessions = db.scalar(select(func.count(Conversation.session_id))) or 0
-    sos_events = db.scalar(select(func.count(CrisisLog.log_id))) or 0
-    _audit(db, claims["sub"], "GET_DASHBOARD", request)
-    return ok(
-        {
-            "period": {"from": "2026-04-01", "to": utc_now().date().isoformat()},
-            "total_sessions": total_sessions,
-            "avg_session_depth": 8.3,
-            "mood_distribution": {"great": 18, "okay": 45, "stressed": 61, "struggling": 18},
-            "sos_events": sos_events,
-            "top_resource_categories": ["meditate", "sleep"],
-        }
-    )
-
-
+# ================= RESOURCE MANAGEMENT =================
 @router.get("/resources")
 def admin_list_resources(
     request: Request,
@@ -124,27 +183,35 @@ def admin_list_resources(
     claims: dict = Depends(get_admin_claims),
 ):
     enforce_admin_ip(request)
+
     if category is not None and category not in RESOURCE_CATEGORIES:
         raise AppError("INVALID_PARAMETER", "Category không hợp lệ", 400)
+
     if limit < 1 or limit > 100 or offset < 0:
         raise AppError("INVALID_PARAMETER", "limit/offset không hợp lệ", 400)
 
     where_conditions = []
-    if category is not None:
+    if category:
         where_conditions.append(Resource.category == category)
     if not include_inactive:
         where_conditions.append(Resource.is_active.is_(True))
 
     base_query = select(Resource)
     count_query = select(func.count(Resource.resource_id))
+
     if where_conditions:
         base_query = base_query.where(*where_conditions)
         count_query = count_query.where(*where_conditions)
 
     total = db.scalar(count_query) or 0
-    rows = db.scalars(base_query.order_by(Resource.created_at.desc()).offset(offset).limit(limit)).all()
+    rows = db.scalars(
+        base_query.order_by(Resource.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
 
     _audit(db, claims["sub"], "LIST_RESOURCES", request)
+
     return ok(
         {
             "items": [
@@ -177,6 +244,7 @@ def admin_create_resource(
     claims: dict = Depends(get_admin_claims),
 ):
     enforce_admin_ip(request)
+
     _validate_resource_payload(payload.category, payload.format)
 
     row = Resource(
@@ -191,10 +259,12 @@ def admin_create_resource(
         tags=payload.tags,
         is_active=payload.is_active,
     )
+
     db.add(row)
     db.commit()
 
     _audit(db, claims["sub"], "CREATE_RESOURCE", request)
+
     return ok(
         {
             "resource_id": row.resource_id,
@@ -213,6 +283,7 @@ def admin_update_resource(
     claims: dict = Depends(get_admin_claims),
 ):
     enforce_admin_ip(request)
+
     row = db.scalar(select(Resource).where(Resource.resource_id == resource_id))
     if not row:
         raise AppError("RESOURCE_NOT_FOUND", "Resource không tồn tại", 404)
@@ -243,8 +314,15 @@ def admin_update_resource(
         row.is_active = payload.is_active
 
     db.commit()
+
     _audit(db, claims["sub"], "UPDATE_RESOURCE", request)
-    return ok({"resource_id": row.resource_id, "updated_at": utc_now().isoformat().replace("+00:00", "Z")})
+
+    return ok(
+        {
+            "resource_id": row.resource_id,
+            "updated_at": utc_now().isoformat().replace("+00:00", "Z"),
+        }
+    )
 
 
 @router.delete("/resources/{resource_id}")
@@ -255,6 +333,7 @@ def admin_delete_resource(
     claims: dict = Depends(get_admin_claims),
 ):
     enforce_admin_ip(request)
+
     row = db.scalar(select(Resource).where(Resource.resource_id == resource_id))
     if not row:
         raise AppError("RESOURCE_NOT_FOUND", "Resource không tồn tại", 404)
@@ -264,10 +343,17 @@ def admin_delete_resource(
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise AppError("RESOURCE_IN_USE", "Resource đang có dữ liệu liên quan, không thể xóa cứng", 409) from exc
+        raise AppError(
+            "RESOURCE_IN_USE",
+            "Resource đang có dữ liệu liên quan, không thể xóa cứng",
+            409,
+        ) from exc
 
     _audit(db, claims["sub"], "DELETE_RESOURCE", request)
-    return ok({"resource_id": resource_id, "deleted_at": utc_now().isoformat().replace("+00:00", "Z")})
 
-
-#nhóm build lại dashboard
+    return ok(
+        {
+            "resource_id": resource_id,
+            "deleted_at": utc_now().isoformat().replace("+00:00", "Z"),
+        }
+    )

@@ -16,6 +16,7 @@ export default function Login() {
 
     const handleSubmit: FormSubmitHandler = async (event) => {
         event.preventDefault()
+        const clickStartedAt = performance.now()
 
         try {
             await login({
@@ -25,7 +26,9 @@ export default function Login() {
 
             toast.success('Đăng nhập thành công!')
             navigate(ROUTE_PATHS.home)
+            console.info('[auth-metrics] login.click_to_navigate_ms', Math.round(performance.now() - clickStartedAt))
         } catch (error) {
+            console.info('[auth-metrics] login.failed_ms', Math.round(performance.now() - clickStartedAt))
             if (error instanceof ApiRequestError) {
                 toast.error(error.message)
                 return
@@ -51,9 +54,9 @@ export default function Login() {
 
             <main className="auth-main px-6 py-10">
                 <div className="mb-8 text-center">
-                    <h1 className="auth-brand">
+                    <Link to={ROUTE_PATHS.landing} className="auth-brand">
                         Serene
-                    </h1>
+                    </Link>
                     <p className="auth-brand-sub">
                         Digital Sanctuary
                     </p>
@@ -84,24 +87,19 @@ export default function Login() {
                                 onChange={(event) => setEmail(event.target.value)}
                                 placeholder="your@email.com"
                                 className="auth-input-line"
+                                required
                             />
                         </div>
 
                         <div>
-                            <div className="mb-2 flex items-end justify-between gap-3">
-                                <label
-                                    htmlFor="password"
-                                    className="auth-label pl-1 font-medium tracking-[0.3em]"
-                                >
-                                    Mật khẩu
-                                </label>
-                                <button
-                                    type="button"
-                                    className="text-[10px] font-medium uppercase tracking-[0.3em] text-serene-primary/60 transition hover:text-serene-primary"
-                                >
-                                    Quên?
-                                </button>
-                            </div>
+
+                            <label
+                                htmlFor="password"
+                                className="auth-label pl-1 font-medium tracking-[0.3em]"
+                            >
+                                Mật khẩu
+                            </label>
+
                             <input
                                 id="password"
                                 type="password"
@@ -109,9 +107,20 @@ export default function Login() {
                                 onChange={(event) => setPassword(event.target.value)}
                                 placeholder="••••••••"
                                 className="auth-input-line"
-                            />
-                        </div>
+                                required
 
+                            />
+
+                        </div>
+                        <div >
+                            <Link
+                                to={ROUTE_PATHS.forget}
+                                type="button"
+                                className="text-[10px] font-medium uppercase tracking-[0.3em] text-serene-primary transition hover:text-serene-primary"
+                            >
+                                Quên mật khẩu?
+                            </Link>
+                        </div>
                         <div className="pt-2">
                             <button
                                 type="submit"
