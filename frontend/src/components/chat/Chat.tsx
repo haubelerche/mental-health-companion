@@ -670,6 +670,7 @@ export default function Chat() {
     }
 
     const loadSessionMessages = async (targetSessionId: string) => {
+        setSosActive(false)
         try {
             const data = await chatService.getSessionMessages(targetSessionId, 100, 0)
             setSessionId(targetSessionId)
