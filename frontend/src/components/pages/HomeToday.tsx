@@ -78,7 +78,10 @@ export function HomeToday() {
           transition={{ delay: 0.15 }}
           className="text-sm italic text-[var(--color-serene-muted)] my-4 leading-relaxed border-l-2 border-[var(--color-serene-outline)] pl-3"
         >
-          {feed.quote_of_day}
+          "{feed.quote_of_day.text}"
+          {feed.quote_of_day.author && (
+            <span className="not-italic ml-1">— {feed.quote_of_day.author}</span>
+          )}
         </motion.p>
       )}
 
