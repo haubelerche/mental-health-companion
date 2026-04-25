@@ -111,10 +111,28 @@ export function ScreeningFlow() {
             >
               <div className="font-semibold text-[var(--color-serene-ink)] text-lg">{inst.title}</div>
               <div className="text-sm text-[var(--color-serene-muted)] mt-1">
-                {inst.id === 'phq9' ? '9' : '7'} câu · ~3 phút
+                {inst.item_count} câu · ~3 phút
               </div>
             </motion.button>
           ))}
+        </div>
+      </div>
+    )
+  }
+
+  // Guard: if instrument selected but no questions found, go back to selection
+  if (questions.length === 0) {
+    return (
+      <div className="min-h-screen bg-[var(--color-lua-bg)] flex items-center justify-center p-6">
+        <div className="text-center">
+          <p className="text-[var(--color-serene-muted)] mb-4">Không thể tải câu hỏi.</p>
+          <button
+            type="button"
+            onClick={() => setSelected(null)}
+            className="text-[var(--color-serene-primary)] font-medium text-sm"
+          >
+            ← Chọn lại
+          </button>
         </div>
       </div>
     )
