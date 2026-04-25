@@ -8,17 +8,22 @@ import {
     Sparkles,
     Volume2,
 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'react-toastify'
 import type { ReactNode } from 'react'
 import exercise from '../../assets/exercise.png'
 import journal from '../../assets/journal.png'
 import ethereal from '../../assets/ethereal.png'
 import forest from '../../assets/forest.png'
+import { homeService } from '../../services/homeService'
 
 type MoodCard = {
     icon: ReactNode
     title: string
     desc: string
     active?: boolean
+    apiMood: string
+    emoji?: string
 }
 
 type QuickItem = {
@@ -33,22 +38,29 @@ const moods: MoodCard[] = [
         icon: <Leaf className="h-7 w-7" />,
         title: 'Bình yên',
         desc: 'Nhẹ như mặt nước phẳng lặng.',
+        apiMood: 'calm',
+        emoji: '🍃',
     },
     {
         icon: <Cloud className="h-7 w-7" />,
         title: 'Lắng lại',
         desc: 'Một cơn mưa nhỏ trong lòng.',
-        active: true,
+        apiMood: 'melancholic',
+        emoji: '☁️',
     },
     {
         icon: <Sparkles className="h-7 w-7" />,
         title: 'Rạng rỡ',
         desc: 'Năng lượng đang mở ra.',
+        apiMood: 'bright',
+        emoji: '✨',
     },
     {
         icon: <AirVent className="h-7 w-7" />,
         title: 'Bồn chồn',
         desc: 'Cần một nhịp thở sâu.',
+        apiMood: 'restless',
+        emoji: '🌬️',
     },
 ]
 
@@ -75,6 +87,49 @@ const quickItems: QuickItem[] = [
 ]
 
 export default function Home() {
+    const [checkedInMood, setCheckedInMood] = useState<string | null>(null)
+    const [quote, setQuote] = useState<{ text: string; author?: string | null } | null>(null)
+    const [submittingMood, setSubmittingMood] = useState<string | null>(null)
+
+    useEffect(() => {
+        let mounted = true
+        homeService
+            .feed()
+            .then((data) => {
+                if (!mounted) return
+                setCheckedInMood(data.mood_today.mood)
+                setQuote(data.quote_of_day)
+            })
+            .catch(() => undefined)
+        return () => {
+            mounted = false
+        }
+    }, [])
+
+    const moodCards = useMemo(
+        () =>
+            moods.map((mood) => ({
+                ...mood,
+                active: checkedInMood ? checkedInMood === mood.apiMood : Boolean(mood.active),
+            })),
+        [checkedInMood],
+    )
+
+    const onCheckinMood = async (mood: MoodCard) => {
+        if (submittingMood) return
+        try {
+            setSubmittingMood(mood.apiMood)
+            await homeService.checkin({ mood: mood.apiMood, emoji: mood.emoji })
+            setCheckedInMood(mood.apiMood)
+            toast.success('Đã lưu mood check-in hôm nay.')
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Không thể lưu check-in'
+            toast.info(message)
+        } finally {
+            setSubmittingMood(null)
+        }
+    }
+
     return (
         <div className="space-y-12 lg:space-y-16">
 
@@ -85,15 +140,17 @@ export default function Home() {
             </h2>
 
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
-                {moods.map((mood) => (
+                {moodCards.map((mood) => (
                     <article
                         key={mood.title}
+                        onClick={() => void onCheckinMood(mood)}
                         className={[
-                            'rounded-[26px] border px-6 py-7 backdrop-blur-xl transition',
+                            'rounded-[26px] border px-6 py-7 backdrop-blur-xl transition cursor-pointer',
                             mood.active
                                 ? 'border-serene-primary/20 bg-serene-primary/90 text-serene-on-primary shadow-lg'
                                 : 'border-white/45 bg-white/55 hover:bg-white/70',
                         ].join(' ')}
+                        aria-busy={submittingMood === mood.apiMood}
                     >
                         <div className={mood.active ? 'text-serene-accent' : 'text-serene-primary'}>
                             {mood.icon}
@@ -176,10 +233,10 @@ export default function Home() {
             <section className="rounded-4xl border border-white/30 bg-serene-primary/80 px-7 py-14 text-center backdrop-blur-xl sm:px-12 lg:px-20 lg:py-20">
                 <Leaf className="mx-auto h-12 w-12 text-serene-accent/80" />
                 <blockquote className="mx-auto mt-6 max-w-4xl font-display text-3xl italic leading-snug text-serene-on-primary sm:text-5xl">
-                    “Giây phút hiện tại là nơi duy nhất sự sống thực sự tồn tại.”
+                    {quote?.text ? `“${quote.text}”` : '“Giây phút hiện tại là nơi duy nhất sự sống thực sự tồn tại.”'}
                 </blockquote>
                 <p className="mt-5 text-xs uppercase tracking-[0.25em] text-serene-on-primary/65">
-                    Thích Nhất Hạnh
+                    {quote?.author || 'Thích Nhất Hạnh'}
                 </p>
             </section>
         </div>
