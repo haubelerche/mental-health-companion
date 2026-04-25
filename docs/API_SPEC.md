@@ -418,12 +418,11 @@ Endpoint chạy LangGraph: Middleware → Supervisor → Analyst (nếu cần) �
   },
   "cooldown": { "active": false, "seconds_remaining": 0 },
   "voice": {
-    "provider": "elevenlabs",
+    "provider": "blaze",
     "tts_job_id": "tts_123",
     "audio_url": null,
     "status": "queued",
-    "voice_id": "iSFxP4Z6YNcx9OXl62Ic",
-    "model_id": "eleven_multilingual_v2"
+    "model_id": "blaze-tts-1"
   },
   "voice_script": "Mình đang ở đây với cậu...",
   "copy_ngan": "Mình gửi cậu một lời nhắn thoại ngắn để đồng hành ngay lúc này.",

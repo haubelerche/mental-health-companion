@@ -180,6 +180,60 @@ def test_chat_message_non_sos_triggers_proactive_voice(monkeypatch):
         app.dependency_overrides.clear()
 
 
+def test_chat_message_triggers_voice_when_graph_raises_distress(monkeypatch):
+    fake_db = FakeDB()
+    monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
+    monkeypatch.setattr(chat_router, "decide_sos", lambda _message, **_kw: (False, 0.72))
+    monkeypatch.setattr(chat_router, "get_user_longterm_memories", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(chat_router, "get_voice_consent", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(chat_router, "cooldown_active", lambda **_kwargs: (False, 0))
+    monkeypatch.setattr(
+        chat_router,
+        "load_chat_context_sync",
+        lambda *_args, **_kwargs: SimpleNamespace(recent_messages=[], mood_today=None),
+    )
+    captured: dict[str, object] = {}
+
+    def fake_voice_intervention(**kwargs):
+        captured.update(kwargs)
+        return {"type": "proactive_voice", "voice": {"tts_job_id": "tts_101", "status": "queued"}}
+
+    monkeypatch.setattr(chat_router, "_build_voice_intervention", fake_voice_intervention)
+    monkeypatch.setattr(
+        chat_router,
+        "run_non_sos_turn",
+        lambda **_kwargs: {
+            "session_fields": SafetySnapshot(
+                distress_score=0.92,
+                risk_level=5,
+                safety_tier="critical",
+                conversation_mode="supportive",
+            ),
+            "reply": "Mình luôn ở đây với cậu.",
+            "tone_cam_xuc": "lam_diu",
+            "goi_y_nhanh": [],
+            "the_dinh_kem": [],
+        },
+    )
+
+    def override_db():
+        yield fake_db
+
+    app.dependency_overrides[chat_router.ensure_policy_acknowledged] = _override_user
+    app.dependency_overrides[chat_router.get_db] = override_db
+
+    try:
+        with TestClient(app) as client:
+            resp = client.post("/v1/chat/message", json={"message": "Minh dang rat qua tai"})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["success"] is True
+        assert body["data"]["intervention"]["type"] == "proactive_voice"
+        assert captured["snapshot"].distress_score == 0.92
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_chat_message_stream_returns_sse(monkeypatch):
     fake_db = FakeDB()
     monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())

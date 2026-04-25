@@ -1,6 +1,7 @@
 from app.services.langgraph_chat import (
     _build_friend_context,
     _enforce_reply_quality,
+    _should_skip_cold_start_profile,
     _rule_based_reply,
     _sanitize_assistant_reply,
     get_chat_graph,
@@ -107,7 +108,8 @@ def test_enforce_reply_quality_handles_separation_grief():
     assert "?" in improved
 
 
-def test_build_friend_context_includes_long_term_memory():
+def test_build_friend_context_tier2_omits_longterm_memory():
+    """Tier 2 (medium distress < 0.65) skips long-term memory to reduce tokens."""
     context = _build_friend_context(
         {
             "distress_score": 0.25,
@@ -116,5 +118,58 @@ def test_build_friend_context_includes_long_term_memory():
             "long_term_memories": ["Bạn từng căng thẳng vì deadline.", "Đi bộ 10 phút từng giúp bạn dịu hơn."],
         }
     )
-    assert "Long-term memory về người dùng" in context
+    # Tier 2: recent transcript is present, but long-term memory is excluded.
+    assert "mất ngủ" in context
+    assert "deadline" not in context
+
+
+def test_build_friend_context_recall_includes_memory_even_when_low_distress():
+    context = _build_friend_context(
+        {
+            "user_message": "Bạn còn nhớ tôi là ai không?",
+            "distress_score": 0.12,
+            "mood_today": None,
+            "recent_messages": [{"role": "user", "content": "Mình từng kể là mình mất ngủ vì deadline."}],
+            "long_term_memories": ["Bạn từng mất ngủ vì deadline và thấy đi bộ ngắn giúp dịu hơn."],
+            "mem0_facts": ["Người dùng thích được lắng nghe trước khi nhận lời khuyên."],
+        }
+    )
+
+    assert "Ký ức liên quan" in context
     assert "deadline" in context
+    assert "đi bộ" in context
+
+
+def test_build_friend_context_tier3_includes_longterm_memory():
+    """Tier 3 (high distress ≥ 0.65) includes long-term memory for full context."""
+    context = _build_friend_context(
+        {
+            "distress_score": 0.70,
+            "mood_today": {"mood": "stressed", "emoji": ":("},
+            "recent_messages": [{"role": "user", "content": "Mình lại mất ngủ."}],
+            "long_term_memories": ["Bạn từng căng thẳng vì deadline.", "Đi bộ 10 phút từng giúp bạn dịu hơn."],
+            "mem0_facts": [],
+        }
+    )
+    assert "deadline" in context
+    assert "Tóm tắt session gần" in context
+
+
+def test_should_skip_cold_start_profile_for_short_low_distress_turn():
+    assert _should_skip_cold_start_profile(
+        user_message="ok",
+        distress_score=0.12,
+        mem0_facts=[],
+        long_term_memories=[],
+        user_traits={},
+    ) is True
+
+
+def test_should_not_skip_cold_start_profile_for_meaningful_distress_turn():
+    assert _should_skip_cold_start_profile(
+        user_message="Mình đang kiệt sức vì áp lực kéo dài và không biết bắt đầu từ đâu",
+        distress_score=0.48,
+        mem0_facts=[],
+        long_term_memories=[],
+        user_traits={},
+    ) is False

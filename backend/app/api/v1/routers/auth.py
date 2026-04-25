@@ -3,7 +3,7 @@ import time
 
 from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_csrf
@@ -11,7 +11,18 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.product_constants import CURRENT_POLICY_VERSION
 from app.core.responses import ok
-from app.db.models import EmailVerificationToken, PasswordResetToken, RefreshToken, User
+from app.db.models import (
+    Conversation,
+    ConversationMemory,
+    CrisisLog,
+    EmailVerificationToken,
+    Message,
+    PasswordResetToken,
+    RefreshToken,
+    User,
+    UserProfile,
+    UserProfileSnapshot,
+)
 from app.db.session import get_db
 from app.schemas.payloads import (
     ForgotPasswordRequest,
@@ -24,6 +35,8 @@ from app.services.auth_email import send_password_reset_email, send_verification
 from app.services.cookies import clear_auth_cookies, set_auth_cookies, set_csrf_cookie
 from app.services.auth_latency_metrics import observe_auth_latency
 from app.services.rate_limit import get_rate_limiter
+from app.services.redis_client import cache_delete, profile_cache_key
+from app.services.mem0_service import MemoryManager
 from app.services.security import (
     generate_csrf_token,
     generate_one_time_token,
@@ -482,3 +495,23 @@ def me(current_user: User = Depends(get_current_user)):
             "policy_version_ack": current_user.policy_version_ack,
         }
     )
+
+
+@router.delete("/me/data", dependencies=[Depends(require_csrf)])
+def erase_my_data(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    user_id = current_user.user_id
+    now = utc_now().replace(tzinfo=None)
+    db.execute(delete(Message).where(Message.user_id == user_id))
+    db.execute(delete(ConversationMemory).where(ConversationMemory.user_id == user_id))
+    db.execute(delete(CrisisLog).where(CrisisLog.user_id == user_id))
+    db.execute(delete(Conversation).where(Conversation.user_id == user_id))
+    db.execute(delete(UserProfileSnapshot).where(UserProfileSnapshot.user_id == user_id))
+    db.execute(delete(UserProfile).where(UserProfile.user_id == user_id))
+    db.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
+    db.execute(delete(EmailVerificationToken).where(EmailVerificationToken.user_id == user_id))
+    db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user_id))
+    db.execute(delete(User).where(User.user_id == user_id))
+    db.commit()
+    cache_delete(profile_cache_key(user_id))
+    MemoryManager.instance().delete_user(user_id)
+    return ok({"deleted": True, "deleted_at": now.isoformat() + "Z"})
