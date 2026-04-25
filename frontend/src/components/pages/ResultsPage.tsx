@@ -94,7 +94,9 @@ export function ResultsPage() {
   const { state } = useLocation()
   const navigate = useNavigate()
   const result = state?.result as ScreeningResult | undefined
-  const severity = result?.severity_label ?? 'minimal'
+  const rawSeverity = result?.severity_label
+  const severity: ScreeningResult['severity_label'] =
+    rawSeverity != null && rawSeverity in SEVERITY_MAP ? rawSeverity : 'minimal'
   const meta = SEVERITY_MAP[severity]
 
   const handleAction = (path: string) => {
@@ -119,7 +121,7 @@ export function ResultsPage() {
           </h1>
           {result && (
             <p className="text-xs text-[var(--color-serene-muted)] mt-1">
-              Điểm: {result.raw_score} · {result.instrument_id.toUpperCase()}
+              Điểm: {result.raw_score} · {result.instrument_id?.toUpperCase() ?? result.instrument_id}
             </p>
           )}
         </div>
