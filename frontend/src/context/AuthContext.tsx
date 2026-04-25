@@ -7,6 +7,7 @@ import type {
     SignupPayload,
     SignupResponse,
 } from '../services/authService'
+import { chatService } from '../services/chatService'
 
 type AuthUser = {
     userId: string
@@ -20,6 +21,9 @@ type AuthContextValue = {
     signup: (payload: SignupPayload) => Promise<SignupResponse>
     login: (payload: LoginPayload) => Promise<LoginResponse>
     logout: () => void
+    guestSession: { guest_session_id: string; expiresAt: number } | null
+    startGuestSession: () => Promise<void>
+    clearGuestSession: () => void
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
@@ -31,6 +35,20 @@ type AuthProviderProps = {
 export function AuthProvider({ children }: AuthProviderProps) {
     const [user, setUser] = useState<AuthUser | null>(null)
     const [isLoading, setIsLoading] = useState(true)
+    const [guestSession, setGuestSession] = useState<{
+        guest_session_id: string
+        expiresAt: number
+    } | null>(null)
+
+    const startGuestSession = async () => {
+        const data = await chatService.startGuestSession()
+        setGuestSession({
+            guest_session_id: data.guest_session_id,
+            expiresAt: Date.now() + data.max_duration_sec * 1000,
+        })
+    }
+
+    const clearGuestSession = () => setGuestSession(null)
 
     useEffect(() => {
         let mounted = true
@@ -103,8 +121,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     const value = useMemo(
-        () => ({ user, isLoading, signup, login, logout }),
-        [user, isLoading],
+        () => ({ user, isLoading, signup, login, logout, guestSession, startGuestSession, clearGuestSession }),
+        [user, isLoading, guestSession],
     )
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

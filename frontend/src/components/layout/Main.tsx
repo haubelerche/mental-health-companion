@@ -16,6 +16,7 @@ import {
 } from '../../utils/appSettings'
 import HeaderMain from './HeaderMain'
 import Sidebar from './Sidebar'
+import { GuestBanner } from '../guest/GuestBanner'
 
 const themeBackgroundMap: Record<ThemeOption, string> = {
     sunset: sunset,
@@ -60,6 +61,7 @@ export default function Main() {
 
     return (
         <div className="relative min-h-screen">
+            <GuestBanner />
             <div className="fixed inset-0 -z-20">
                 <img
                     src={backgroundImage}
