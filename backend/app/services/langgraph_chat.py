@@ -581,6 +581,25 @@ def _quick_non_sos_turn(
     return None
 
 
+def _should_skip_cold_start_profile(
+    *,
+    user_message: str,
+    distress_score: float,
+    mem0_facts: list[str],
+    long_term_memories: list[str],
+    user_traits: dict[str, Any],
+) -> bool:
+    """Return True if cold-start LLM screening should be skipped for this turn.
+
+    Skipped when the user already has warm memory/traits (screener not needed),
+    or when the message is trivially short with low distress (not worth the LLM cost).
+    """
+    if mem0_facts or long_term_memories or user_traits:
+        return True
+    word_count = len(user_message.split())
+    return word_count <= 4 and distress_score < 0.3
+
+
 def _apply_cold_start_profile(
     *,
     settings,
