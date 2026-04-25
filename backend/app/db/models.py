@@ -126,6 +126,8 @@ class MoodCheckin(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
     mood: Mapped[str] = mapped_column(String(50), nullable=False)
     emoji: Mapped[str | None] = mapped_column(String(10))
+    emotions: Mapped[list[Any] | None] = mapped_column(JSON)
+    triggers: Mapped[list[Any] | None] = mapped_column(JSON)
     note: Mapped[str | None] = mapped_column(Text)
     logged_date: Mapped[date] = mapped_column(Date, nullable=False)
     logged_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
@@ -277,6 +279,7 @@ class UserProfile(Base):
     __tablename__ = "user_profiles"
 
     user_id: Mapped[str] = mapped_column(String(50), ForeignKey("users.user_id"), primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     profile: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
@@ -290,10 +293,25 @@ class UserProfileSnapshot(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
+class CounselingKnowledge(Base):
+    __tablename__ = "counseling_knowledge"
+
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    response: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str] = mapped_column(String(50), nullable=False, default="mental_health_v1")
+    if Vector is not None:
+        embedding: Mapped[Any] = mapped_column(Vector(1536), nullable=True)
+    else:
+        embedding: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
 class SyncOutbox(Base):
     __tablename__ = "sync_outbox"
 
     outbox_id: Mapped[int] = mapped_column(BIGINT, primary_key=True, autoincrement=True)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.user_id"), nullable=True)
     event_type: Mapped[str] = mapped_column(String(80), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
