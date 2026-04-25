@@ -7,6 +7,8 @@
 ## [Unreleased]
 
 ### Added
+- `ScreeningFlow` component (`frontend/src/components/pages/ScreeningFlow.tsx`) — PHQ-9 / GAD-7 instrument selection + question-by-question flow with animated progress bar; submits via `screeningService.submit()` and navigates to `/serene/results` with result state; falls back to static instrument list when catalog API unavailable
+- Route `/serene/screening` added to `AppRoutes.tsx` under `RequireAuth`
 - `PolicyWizard` component (`frontend/src/components/policy/PolicyWizard.tsx`) — 5-screen animated policy acknowledgment wizard shown post-signup; calls `policyService.acknowledge()` on final step and navigates to `/serene`
 - Public route `/onboarding/policy` added to `AppRoutes.tsx` (outside `RequireAuth`)
 - `Register.tsx`: redirect after successful signup now goes to `/onboarding/policy` (both verification-required and direct-login paths)
