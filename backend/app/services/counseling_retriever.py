@@ -115,6 +115,9 @@ def get_similar_counseling_examples(
                 }
             )
 
+        if not vector_ranked:
+            return []
+
         lexical_docs = [f"{str(r.question)} {str(r.response)}" for r in lex_rows]
         lexical_scores = _bm25_or_overlap(user_message, lexical_docs)
         lexical_ranked = sorted(
