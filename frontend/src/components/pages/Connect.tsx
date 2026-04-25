@@ -26,18 +26,18 @@ export default function Connect() {
 
     return (
         <section className="rounded-3xl border border-white/35 bg-white/60 p-8 backdrop-blur-xl">
-            <h2 className="font-display text-4xl text-serene-ink">Kết nối</h2>
+            <h2 className="font-display text-4xl text-serene-ink">Kết Nối</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <div>
                     <h3 className="mb-2 text-sm font-semibold text-serene-ink">Hotlines</h3>
                     <div className="space-y-2">
                         {hotlines.map((item) => (
                             <a
-                                key={`${item.label}-${item.phone}`}
-                                href={`tel:${item.phone.replace(/\s/g, '')}`}
+                                key={`${item.name}-${item.number}`}
+                                href={`tel:${item.number.replace(/\s/g, '')}`}
                                 className="block rounded-lg bg-white/80 px-3 py-2 text-sm text-serene-ink"
                             >
-                                {item.label}: <span className="font-semibold">{item.phone}</span>
+                                {item.name}: <span className="font-semibold">{item.number}</span>
                             </a>
                         ))}
                     </div>
@@ -57,7 +57,7 @@ export default function Connect() {
             {referrals.length > 0 && (
                 <section className="mt-6">
                     <h3 className="font-semibold text-[var(--color-serene-ink)] mb-3 text-base">
-                        <span aria-hidden="true">🧭</span> Kết nối hỗ trợ
+                        <span aria-hidden="true">🧭</span> Kết Nối hỗ trợ
                     </h3>
                     <div className="flex flex-col gap-3">
                         {referrals.map(r => {
