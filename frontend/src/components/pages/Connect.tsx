@@ -56,9 +56,9 @@ export default function Connect() {
             </div>
             {referrals.length > 0 && (
                 <section className="mt-6">
-                    <h2 className="font-semibold text-[var(--color-serene-ink)] mb-3 text-base">
-                        🧭 Kết nối hỗ trợ
-                    </h2>
+                    <h3 className="font-semibold text-[var(--color-serene-ink)] mb-3 text-base">
+                        <span aria-hidden="true">🧭</span> Kết nối hỗ trợ
+                    </h3>
                     <div className="flex flex-col gap-3">
                         {referrals.map(r => {
                             const meta = REFERRAL_META[r.type] ?? { label: r.type, sub: '', emoji: '📋' }
