@@ -11,6 +11,8 @@ export type SignupPayload = {
 export type SignupResponse = {
     user_id: string
     expires_in?: number
+    verification_required?: boolean
+    message?: string
 }
 
 export type LoginPayload = {

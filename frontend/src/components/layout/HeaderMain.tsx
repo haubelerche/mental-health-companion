@@ -1,4 +1,4 @@
-import { Bell, LogOut, PanelLeft, PanelLeftClose, Settings, User } from 'lucide-react'
+import { Bell, ChevronDown, KeyRound, LogIn, LogOut, PanelLeft, PanelLeftClose } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
@@ -43,16 +43,21 @@ export default function HeaderMain({ isSidebarOpen, onToggleSidebar }: HeaderMai
     const greeting = getGreetingByHour(now.getHours())
     const displayName = user?.displayName || 'Elena'
 
-    const handleLogout = () => {
-        logout()
+    const handleLoginNavigation = () => {
+        setIsDropdownOpen(false)
+        navigate(ROUTE_PATHS.login)
+    }
+
+    const handleChangePasswordNavigation = () => {
+        setIsDropdownOpen(false)
+        navigate(ROUTE_PATHS.forget)
+    }
+
+    const handleLogout = async () => {
+        await logout()
         toast.success('Đăng xuất thành công!')
         setIsDropdownOpen(false)
         navigate(ROUTE_PATHS.landing)
-    }
-
-    const handleSettingsNavigation = () => {
-        navigate(ROUTE_PATHS.setting)
-        setIsDropdownOpen(false)
     }
 
     return (
@@ -91,46 +96,40 @@ export default function HeaderMain({ isSidebarOpen, onToggleSidebar }: HeaderMai
                         type="button"
                         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                         className="rounded-full p-2 text-white/90 transition hover:bg-white/25"
+                        aria-label="Mở menu tài khoản"
+                        aria-haspopup="menu"
+                        aria-expanded={isDropdownOpen}
                     >
-                        <Settings className="h-5 w-5" />
+                        <ChevronDown className={`h-5 w-5 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
 
                     {isDropdownOpen && (
-                        <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-white/25 bg-white p-2 shadow-xl">
-                            <div className="px-4 py-3 border-b border-white/20">
-                                <p className="text-xs font-label uppercase tracking-widest text-serene-muted">
-                                    Chào {displayName}
-                                </p>
-                                <p className="text-sm font-display text-on-surface mt-1">{user?.email}</p>
-                            </div>
-
+                        <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-white/25 bg-white p-2 shadow-xl" role="menu">
                             <button
                                 type="button"
-                                onClick={() => {
-                                    navigate(`${ROUTE_PATHS.setting}#user-profile`)
-                                    setIsDropdownOpen(false)
-                                }}
+                                onClick={handleLoginNavigation}
                                 className="flex w-full items-center gap-3 px-4 py-3 text-sm text-on-surface transition hover:bg-serene-primary/10 rounded-lg"
+                                role="menuitem"
                             >
-                                <User className="h-4 w-4 text-primary" />
-                                Hồ sơ
+                                <LogIn className="h-4 w-4 text-primary" />
+                                Đăng nhập
                             </button>
 
                             <button
                                 type="button"
-                                onClick={handleSettingsNavigation}
+                                onClick={handleChangePasswordNavigation}
                                 className="flex w-full items-center gap-3 px-4 py-3 text-sm text-on-surface transition hover:bg-serene-primary/10 rounded-lg"
+                                role="menuitem"
                             >
-                                <Settings className="h-4 w-4 text-primary" />
-                                Cài đặt
+                                <KeyRound className="h-4 w-4 text-primary" />
+                                Đổi mật khẩu
                             </button>
-
-                            <div className="border-t border-white/20 my-1" />
 
                             <button
                                 type="button"
                                 onClick={handleLogout}
                                 className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-500 transition hover:bg-red-50 rounded-lg"
+                                role="menuitem"
                             >
                                 <LogOut className="h-4 w-4" />
                                 Đăng xuất

@@ -6,7 +6,7 @@ import { PolicyWizard } from '../components/policy/PolicyWizard'
 import Chat from '../components/chat/Chat.tsx'
 import Main from '../components/layout/Main.tsx'
 import Connect from '../components/pages/Connect.tsx'
-import { HomeToday } from '../components/pages/HomeToday'
+import Home from '../components/pages/Home.tsx'
 import Landing from '../components/pages/Landing.tsx'
 import Reflect from '../components/pages/Reflect.tsx'
 import Resources from '../components/pages/Resources.tsx'
@@ -46,7 +46,7 @@ export default function AppRoutes() {
                     index
                     element={
                         <RequireAuth>
-                            <HomeToday />
+                            <Home />
                         </RequireAuth>
                     }
                 />

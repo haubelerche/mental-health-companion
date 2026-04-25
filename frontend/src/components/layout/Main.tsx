@@ -27,14 +27,12 @@ const themeBackgroundMap: Record<ThemeOption, string> = {
 
 export default function Main() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-    const [backgroundImage, setBackgroundImage] = useState(
-        themeBackgroundMap[DEFAULT_APP_SETTINGS.theme],
-    )
+    const [backgroundImage, setBackgroundImage] = useState(() => {
+        const currentSettings = readAppSettings()
+        return themeBackgroundMap[currentSettings.theme]
+    })
 
     useEffect(() => {
-        const currentSettings = readAppSettings()
-        setBackgroundImage(themeBackgroundMap[currentSettings.theme])
-
         const handleSettingsUpdated = (event: Event) => {
             const customEvent = event as CustomEvent<AppSettings>
             const theme = customEvent.detail?.theme ?? DEFAULT_APP_SETTINGS.theme

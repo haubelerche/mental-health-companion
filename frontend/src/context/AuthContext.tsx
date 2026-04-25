@@ -1,32 +1,13 @@
-import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { AuthContext } from './authContextValue'
+import type { AuthUser } from './authContextValue'
 import { authService } from '../services/authService'
 import type {
     LoginPayload,
-    LoginResponse,
     SignupPayload,
-    SignupResponse,
 } from '../services/authService'
 import { chatService } from '../services/chatService'
-
-type AuthUser = {
-    userId: string
-    email: string
-    displayName: string
-}
-
-type AuthContextValue = {
-    user: AuthUser | null
-    isLoading: boolean
-    signup: (payload: SignupPayload) => Promise<SignupResponse>
-    login: (payload: LoginPayload) => Promise<LoginResponse>
-    logout: () => void
-    guestSession: { guest_session_id: string; expiresAt: number } | null
-    startGuestSession: () => Promise<void>
-    clearGuestSession: () => void
-}
-
-export const AuthContext = createContext<AuthContextValue | null>(null)
 
 type AuthProviderProps = {
     children: ReactNode

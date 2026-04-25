@@ -7,25 +7,25 @@ import { toast } from 'react-toastify'
 const SLIDES = [
   {
     icon: '🤝',
-    persona: 'An · Mây · Lửa · La Bàn · Gương',
+    persona: 'An · Trò Chuyện · Thư Viện · Kết Nối · Nhìn Lại',
     heading: 'Đồng hành, không chẩn đoán',
     body: 'Các nhân vật AI trong Serene chỉ hỗ trợ và tham vấn thông tin — không thay thế chuyên gia sức khoẻ tâm thần.',
   },
   {
     icon: '🆘',
-    persona: 'La Bàn',
+    persona: 'Kết Nối',
     heading: 'Khủng hoảng — ưu tiên người thật',
     body: 'Khi có nguy cơ, hãy liên hệ đường dây nóng 1800-599-920 hoặc cấp cứu 115 ngay. Serene sẽ luôn hiển thị hotline khi cần.',
   },
   {
     icon: '🔒',
-    persona: 'Gương',
+    persona: 'Nhìn Lại',
     heading: 'Dữ liệu của bạn, an toàn với bạn',
     body: 'Thông tin nhạy cảm được mã hoá và ẩn danh hoá trước khi lưu. Bạn có thể xoá dữ liệu bất cứ lúc nào trong Cài đặt.',
   },
   {
     icon: '🗣️',
-    persona: 'Mây',
+    persona: 'Trò Chuyện',
     heading: 'AI vẫn có thể nhầm',
     body: 'Phản hồi của AI dựa trên ngữ cảnh cuộc trò chuyện — không phải chẩn đoán lâm sàng. Luôn tham khảo chuyên gia khi nghi ngờ.',
   },
