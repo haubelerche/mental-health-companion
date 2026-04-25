@@ -546,7 +546,7 @@ export default function Chat() {
         setMessages((prev) => [
             ...prev,
             { id: `u_${now}`, role: 'user', content: text },
-            { id: pendingId, role: 'assistant', content: 'Mây đang phản hồi nhanh cho bạn...' },
+            { id: pendingId, role: 'assistant', content: 'Mây đang lắng nghe và viết lại thật cẩn thận cho bạn...' },
         ])
         setSending(true)
 

@@ -12,4 +12,12 @@ export const ROUTE_PATHS = {
     resources: '/serene/resources',
     connect: '/serene/connect',
     setting: '/serene/setting',
+
+    // onboarding & flows
+    onboardingPolicy: '/onboarding/policy',
+    safetyCheck: '/serene/safety-check',
+    checkin: '/serene/checkin',
+    screening: '/serene/screening',
+    results: '/serene/results',
+    exercises: '/serene/exercises',
 } as const

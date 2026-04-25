@@ -24,6 +24,12 @@ class ChatGraphState(TypedDict, total=False):
     recent_messages: list[dict[str, Any]]
     mood_today: dict[str, Any] | None
     long_term_memories: list[str]
+    mem0_facts: list[str]
+    user_traits: dict[str, Any] | None
+    top_triggers: list[str]
+    active_goals: list[str]
+    effective_coping: list[str]
+    clinical_trajectory: str | None
     distress_score: float
     routing_history: list[str]
     analyst_calls_this_turn: int
@@ -50,6 +56,10 @@ _ANALYST_TRIGGER_RE = re.compile(
 _ANALYST_CALLS_CAP = 2
 _QUICK_THANKS_RE = re.compile(r"\b(cam on|thanks|thank you)\b", re.IGNORECASE)
 _QUICK_GREETING_ONLY_RE = re.compile(r"^(chao|xin chao|hi|hello|hey|yo|ok|oke|d a|da|uhm|hmm|bn oi|e|ey|eyy|ei)\W*$", re.IGNORECASE)
+_GENERIC_FOLLOWUP_RE = re.compile(
+    r"(ban co the (noi|chia se|ke) them|noi them (cho|minh)|chia se them|ke them|muon noi them)",
+    re.IGNORECASE,
+)
 
 
 def _normalize_guard_text(text: str) -> str:
@@ -172,40 +182,129 @@ def _build_friend_context(state: ChatGraphState) -> str:
     transcript = "\n".join(transcript_lines) if transcript_lines else "(chưa có lịch sử)"
     memory_lines = [str(item or "").strip() for item in (state.get("long_term_memories") or []) if str(item or "").strip()]
     memory_blob = "\n".join(f"- {item}" for item in memory_lines[:3]) if memory_lines else "(chưa có memory dài hạn)"
+    mem0_facts = [str(item or "").strip() for item in (state.get("mem0_facts") or []) if str(item or "").strip()]
+    mem0_blob = "\n".join(f"- {item}" for item in mem0_facts[:5]) if mem0_facts else "(chưa có memory theo ngữ cảnh)"
+    top_triggers = [str(item or "").strip() for item in (state.get("top_triggers") or []) if str(item or "").strip()]
+    triggers_line = ", ".join(top_triggers[:3]) if top_triggers else "(chưa rõ)"
+    coping = [str(item or "").strip() for item in (state.get("effective_coping") or []) if str(item or "").strip()]
+    coping_line = ", ".join(coping[:3]) if coping else "(chưa rõ)"
+    goals = [str(item or "").strip() for item in (state.get("active_goals") or []) if str(item or "").strip()]
+    goals_line = "; ".join(goals[:2]) if goals else "(chưa có mục tiêu)"
+    traits = dict(state.get("user_traits") or {})
+    preferred_tone = str(traits.get("preferred_tone") or "").strip() or "(chưa rõ)"
+    communication_style = str(traits.get("communication_style") or "").strip() or "(chưa rõ)"
+    trajectory = str(state.get("clinical_trajectory") or "").strip() or "(chưa đủ dữ liệu)"
 
     return (
-        f"Distress score hiện tại: {float(state.get('distress_score') or 0.0):.2f}\n"
-        f"{mood_line}\n"
-        f"Long-term memory về người dùng:\n{memory_blob}\n"
+        f"Distress score hiện tại: {float(state.get('distress_score') or 0.0):.2f}\n{mood_line}\n"
+        f"--- Hồ sơ người dùng ---\n"
+        f"Giao tiếp: {communication_style} | Tông ưa thích: {preferred_tone}\n"
+        f"Chủ đề hay gặp: {triggers_line}\n"
+        f"Đối phó hiệu quả: {coping_line}\n"
+        f"Mục tiêu hiện tại: {goals_line}\n"
+        f"Hành trình: {trajectory}\n"
+        f"--- Ký ức liên quan (Mem0) ---\n{mem0_blob}\n"
+        f"Long-term memory về người dùng:\n"
+        f"--- Tóm tắt session gần đây ---\n{memory_blob}\n"
         f"Lịch sử gần đây:\n{transcript}\n"
         f"Gợi ý analyst (nếu có): {state.get('analyst_instruction') or '(không có)'}"
     )
 
 
-def _needs_deeper_empathy_reply(reply: str) -> bool:
+def _build_personality_hint(state: ChatGraphState) -> str:
+    traits = dict(state.get("user_traits") or {})
+    preferred_tone = str(traits.get("preferred_tone") or "").strip()
+    top_triggers = [str(item or "").strip() for item in (state.get("top_triggers") or []) if str(item or "").strip()]
+    trigger_hint = ", ".join(top_triggers[:2]) if top_triggers else "chưa rõ trigger"
+    tone_hint = preferred_tone or "dịu dàng"
+    return f"[User profile: tone={tone_hint}; hay gặp={trigger_hint}]"
+
+
+def _detect_hardship_signals(text: str) -> list[str]:
+    normalized = _normalize_guard_text(text)
+    cues: list[tuple[str, tuple[str, ...]]] = [
+        ("mat_ngu", ("khong ngu", "mat ngu", "thuc dem", "ngu khong duoc")),
+        ("tai_chinh", ("tien", "luong", "no", "thue", "chi phi")),
+        ("gia_dinh", ("gia dinh", "con cai", "bo me", "bao hieu")),
+        ("kiet_suc", ("kiet suc", "qua tai", "met moi", "ap luc", "that vong")),
+        ("co_don", ("co don", "khong ai", "mot minh", "khong duoc hieu")),
+    ]
+    matches: list[str] = []
+    for key, keywords in cues:
+        if any(word in normalized for word in keywords):
+            matches.append(key)
+    return matches
+
+
+def _build_empathy_anchor(user_message: str, distress_score: float) -> str:
+    signals = _detect_hardship_signals(user_message)
+    if "tai_chinh" in signals and "gia_dinh" in signals:
+        return (
+            "Mình nghe rất rõ gánh nặng phải gồng tài chính cho gia đình, nhất là khi bạn đã cố hết sức mà vẫn thấy chưa đủ. "
+            "Cảm giác bất lực trong hoàn cảnh đó là thật và rất đau."
+        )
+    if "mat_ngu" in signals and "kiet_suc" in signals:
+        return (
+            "Mất ngủ kéo dài làm mọi thứ nặng hơn rất nhiều, nên việc bạn thấy kiệt sức và dễ vỡ là phản ứng rất người. "
+            "Không phải bạn yếu, mà là cơ thể và tâm trí đang báo đã quá tải."
+        )
+    if "co_don" in signals:
+        return (
+            "Nghe như bạn đã phải ôm quá nhiều thứ một mình quá lâu, nên cảm giác trống và mệt là điều dễ hiểu. "
+            "Đôi khi chỉ cần có người thật sự hiểu cũng đã là một chỗ tựa quan trọng."
+        )
+    if "kiet_suc" in signals:
+        return (
+            "Mình nghe bạn đang bị dồn nén từ nhiều phía, và cảm giác nghẹt thở đó không hề nhỏ. "
+            "Trong trạng thái này, việc bạn chao đảo là điều hoàn toàn có thể hiểu."
+        )
+    if distress_score >= 0.6:
+        return (
+            "Mình nghe bạn đang phải chống đỡ quá nhiều thứ cùng lúc. "
+            "Khi cảm xúc bị dồn như vậy, thấy rối và mệt là phản ứng rất thật."
+        )
+    return (
+        "Mình nghe bạn và mình tin rằng cảm giác bạn đang mang là có lý do của nó, không hề 'làm quá'. "
+        "Đôi khi sống sót qua một ngày khó đã là một nỗ lực lớn."
+    )
+
+
+def _needs_deeper_empathy_reply(reply: str, user_message: str = "") -> bool:
     stripped = str(reply or "").strip()
     if not stripped:
         return True
     if len(stripped.split()) < 25:
         return True
     normalized = _normalize_guard_text(stripped)
+    if _GENERIC_FOLLOWUP_RE.search(normalized) and len(normalized.split()) < 55:
+        return True
     has_emotion_reflection = any(
         marker in normalized
         for marker in (
             "cam giac",
-            "miet",
+            "met",
             "bat an",
             "buc xuc",
             "ap luc",
             "kho",
             "rat de hieu",
+            "qua tai",
+            "bat luc",
         )
     )
-    return not has_emotion_reflection
+    if not has_emotion_reflection:
+        return True
+    if user_message:
+        user_signals = _detect_hardship_signals(user_message)
+        if user_signals:
+            mentions_context = any(token in normalized for token in ("mat ngu", "tien", "luong", "gia dinh", "kiet suc", "mot minh", "qua tai"))
+            if not mentions_context:
+                return True
+    return False
 
 
 def _enforce_reply_quality(reply: str, user_message: str, distress_score: float) -> str:
-    if not _needs_deeper_empathy_reply(reply):
+    if not _needs_deeper_empathy_reply(reply, user_message):
         return reply
     normalized_user = _normalize_guard_text(user_message)
     if any(k in normalized_user for k in ("chia xa", "tam biet", "roi xa", "xa nhau")):
@@ -221,17 +320,17 @@ def _enforce_reply_quality(reply: str, user_message: str, distress_score: float)
             "Bạn không cần gồng lên một mình ở đây, mình sẽ đi cùng bạn từng chút một. Nếu được, mình muốn bắt đầu từ điều đang "
             "làm bạn thấy lạc lõng nhất ngay lúc này, bạn kể cho mình nghe nhé?"
         )
+    anchor = _build_empathy_anchor(user_message, distress_score)
     if distress_score >= 0.6:
         return (
-            "Mình nghe rõ là bạn đang rất quá tải và cảm giác này nặng nề thật, nhất là khi mọi thứ cứ dồn cùng lúc "
-            "khiến bạn khó thở và khó nghĩ thông suốt. Phản ứng đó là dễ hiểu, và mình muốn đi cùng bạn từng bước nhỏ: "
-            "mình có thể cùng bạn làm một nhịp thở chậm 60 giây hoặc tách điều đang làm bạn sợ nhất ra trước. "
-            "Ngay lúc này, điều nào đang đè nặng bạn nhất để mình giúp đúng chỗ?"
+            f"{anchor} "
+            "Mình không muốn ép bạn phải ổn ngay. Nếu được, mình đề nghị một bước rất nhỏ và thực tế lúc này: "
+            "thả lỏng vai, thở chậm 4 nhịp, rồi nói cho mình một điều đang đè nặng nhất ngay trong tối nay để mình ở đây cùng bạn gỡ từng lớp."
         )
     return (
-        "Mình nghe được bạn đang bối rối và mệt vì chuyện này cứ lặp lại trong đầu, nên thấy bức bối là điều rất dễ hiểu. "
-        "Nếu bạn đồng ý, mình gợi ý một bước nhỏ trong 5 phút: viết nhanh điều bạn cần nhất lúc này và điều bạn có thể làm ngay "
-        "để tự đỡ áp lực hơn một chút. Bạn muốn bắt đầu từ việc làm rõ cảm xúc của mình hay từ một hành động cụ thể trước?"
+        f"{anchor} "
+        "Nếu bạn đồng ý, mình sẽ không nói lý thuyết dài: mình cùng bạn chọn một bước nhỏ đủ thực tế trong 5 phút tới để bớt nặng đi một chút. "
+        "Bạn muốn bắt đầu bằng việc đặt tên cảm xúc đang lớn nhất, hay chốt một việc nhỏ có thể làm ngay?"
     )
 
 
@@ -348,7 +447,26 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
         '`clinical_note` (ngắn, tiếng Việt), `suggested_probe` (một câu gợi mở cho Friend hỏi thêm nếu cần). '
         "Không chẩn đoán. Không nhắc PII."
     )
-    user_payload = f"{mood_note}\nLịch sử gần đây:\n{transcript}\nTin mới: {state.get('user_message', '')}"
+    mem0_facts = [str(item or "").strip() for item in (state.get("mem0_facts") or []) if str(item or "").strip()]
+    top_triggers = [str(item or "").strip() for item in (state.get("top_triggers") or []) if str(item or "").strip()]
+    effective_coping = [str(item or "").strip() for item in (state.get("effective_coping") or []) if str(item or "").strip()]
+    context_lines = []
+    if mem0_facts:
+        context_lines.append(f"Ký ức liên quan: {'; '.join(mem0_facts[:3])}")
+    if top_triggers:
+        context_lines.append(f"Trigger lặp lại: {', '.join(top_triggers[:3])}")
+    if effective_coping:
+        context_lines.append(f"Coping từng giúp: {', '.join(effective_coping[:3])}")
+    trajectory = str(state.get("clinical_trajectory") or "").strip()
+    if trajectory:
+        context_lines.append(f"Hành trình tâm lý: {trajectory}")
+    profile_context = "\n".join(context_lines) if context_lines else "(chưa có profile context)"
+    user_payload = (
+        f"{profile_context}\n"
+        f"{mood_note}\n"
+        f"Lịch sử gần đây:\n{transcript}\n"
+        f"Tin mới: {state.get('user_message', '')}"
+    )
 
     text_out = ""
     if settings.openai_api_key:
@@ -386,8 +504,14 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
     system = (
         "Bạn tên là Mây, đồng hành ấm áp và thực tế. "
         "Luôn xưng 'mình' và 'bạn', tuyệt đối không dùng 'mày/tao', không bắt chước chửi thề. "
-        "Reply ngắn gọn 2-3 câu: phản chiếu cảm xúc + một gợi ý nhỏ làm ngay + một câu hỏi mở. "
-        "Tránh sáo rỗng, tránh lan man. "
+        "Mục tiêu là khiến người đang đau thấy được thấu hiểu thật sự, không phải trả lời cho có. "
+        "Reply 3-5 câu ngắn, có chiều sâu: (1) phản chiếu chính xác nỗi đau cụ thể từ tin nhắn, "
+        "(2) xác nhận phản ứng của họ là hợp lý trong hoàn cảnh đó, "
+        "(3) đưa một bước nhỏ rất thực tế làm ngay, "
+        "(4) mời họ tiếp tục nếu họ muốn. "
+        "Ưu tiên ngôn ngữ đời thường, chân thành, có chút chiêm nghiệm nhưng không bi lụy, không giáo điều. "
+        "Không lặp công thức 'Bạn có thể chia sẻ thêm...?' ở mọi lượt. "
+        "Không hứa hẹn phi thực tế, không phán xét, không biến câu trả lời thành checklist khô cứng. "
         "Trả lời JSON với các khóa: reply, tone_cam_xuc (ho_tro|xac_nhan|vui_tuoi|lam_diu), "
         "goi_y_nhanh (3 chuỗi), the_dinh_kem (mảng object {type, id, title}). "
         "Gợi ý analyst: "
@@ -400,7 +524,10 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         settings.openai_model_friend_fast if use_fast_model and settings.openai_model_friend_fast else settings.openai_model_friend
     )
     friend_context = _build_friend_context(state)
-    user_payload = user_text if distress_now < 0.42 and len(user_text) <= 140 else f"{friend_context}\n\nTin nhắn mới:\n{user_text}"
+    if distress_now < 0.42 and len(user_text) <= 140:
+        user_payload = f"{_build_personality_hint(state)}\n{user_text}"
+    else:
+        user_payload = f"{friend_context}\n\nTin nhắn mới:\n{user_text}"
 
     payload: dict[str, Any] = {
         "reply": _enforce_reply_quality("", user_text, distress_now),
@@ -501,6 +628,12 @@ def run_non_sos_turn(
     mood_today: dict[str, Any] | None,
     distress_score: float,
     long_term_memories: list[str] | None = None,
+    mem0_facts: list[str] | None = None,
+    user_traits: dict[str, Any] | None = None,
+    top_triggers: list[str] | None = None,
+    active_goals: list[str] | None = None,
+    effective_coping: list[str] | None = None,
+    clinical_trajectory: str | None = None,
 ) -> dict[str, Any]:
     """Run Analyst→Friend. Caller builds API `data` envelope with safety ladder."""
     settings = get_settings()
@@ -527,6 +660,12 @@ def run_non_sos_turn(
             "recent_messages": recent_messages,
             "mood_today": mood_today,
             "long_term_memories": list(long_term_memories or []),
+            "mem0_facts": list(mem0_facts or []),
+            "user_traits": dict(user_traits or {}),
+            "top_triggers": list(top_triggers or []),
+            "active_goals": list(active_goals or []),
+            "effective_coping": list(effective_coping or []),
+            "clinical_trajectory": clinical_trajectory or "",
             "distress_score": distress_score,
             "crisis_route_finalized": False,
             "analyst_calls_this_turn": 0,
@@ -551,6 +690,12 @@ def stream_non_sos_turn_events(
     mood_today: dict[str, Any] | None,
     distress_score: float,
     long_term_memories: list[str] | None = None,
+    mem0_facts: list[str] | None = None,
+    user_traits: dict[str, Any] | None = None,
+    top_triggers: list[str] | None = None,
+    active_goals: list[str] | None = None,
+    effective_coping: list[str] | None = None,
+    clinical_trajectory: str | None = None,
 ) -> Iterator[dict[str, Any]]:
     """
     Yield streaming events for non-SOS turn:
@@ -585,6 +730,12 @@ def stream_non_sos_turn_events(
         "recent_messages": recent_messages,
         "mood_today": mood_today,
         "long_term_memories": list(long_term_memories or []),
+        "mem0_facts": list(mem0_facts or []),
+        "user_traits": dict(user_traits or {}),
+        "top_triggers": list(top_triggers or []),
+        "active_goals": list(active_goals or []),
+        "effective_coping": list(effective_coping or []),
+        "clinical_trajectory": clinical_trajectory or "",
         "distress_score": distress_score,
         "crisis_route_finalized": False,
         "analyst_calls_this_turn": 0,
@@ -613,11 +764,17 @@ def stream_non_sos_turn_events(
             use_fast_model = bool(state.get("use_fast_friend_model")) and distress_now < 0.55
             model = settings.openai_model_friend_fast if use_fast_model and settings.openai_model_friend_fast else settings.openai_model_friend
             system = (
-                "Bạn tên là Mây. Luôn xưng mình/bạn, không dùng mày/tao. "
-                "Trả lời tiếng Việt 2-3 câu, cụ thể, không sáo rỗng, kết thúc bằng câu hỏi mở."
+                "Bạn tên là Mây, đồng hành ấm áp và thực tế. "
+                "Luôn xưng mình/bạn, tuyệt đối không dùng mày/tao. "
+                "Viết 3-5 câu tiếng Việt, phản chiếu nỗi đau cụ thể, xác nhận cảm xúc là hợp lý, "
+                "và đưa một bước nhỏ thực tế có thể làm ngay. "
+                "Tránh sáo rỗng, không trả lời kiểu mẫu, không hỏi dồn dập."
             )
             friend_context = _build_friend_context(state)
-            user_payload = user_text if distress_now < 0.42 and len(user_text) <= 140 else f"{friend_context}\n\nTin nhắn mới:\n{user_text}"
+            if distress_now < 0.42 and len(user_text) <= 140:
+                user_payload = f"{_build_personality_hint(state)}\n{user_text}"
+            else:
+                user_payload = f"{friend_context}\n\nTin nhắn mới:\n{user_text}"
             client = OpenAI(api_key=settings.openai_api_key, timeout=min(settings.llm_timeout_seconds, 15.0))
             stream = client.chat.completions.create(
                 model=model,
@@ -642,6 +799,12 @@ def stream_non_sos_turn_events(
                 mood_today=mood_today,
                 distress_score=distress_score,
                 long_term_memories=long_term_memories,
+                mem0_facts=mem0_facts,
+                user_traits=user_traits,
+                top_triggers=top_triggers,
+                active_goals=active_goals,
+                effective_coping=effective_coping,
+                clinical_trajectory=clinical_trajectory,
             )
             yield {"type": "final", "turn": fallback}
             return

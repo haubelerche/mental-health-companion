@@ -23,7 +23,7 @@ from app.services.chat_response_cache import get_cached_turn, hash_message, set_
 from app.services.guest_service import heartbeat as guest_heartbeat
 from app.services.guest_service import start_session as guest_start_session
 from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn, stream_non_sos_turn_events
-from app.services.longterm_memory import get_user_longterm_memories
+from app.services.longterm_memory import build_user_memory_context, get_user_longterm_memories
 from app.services.pii_mask import mask_pii
 from app.services.rate_limit import get_rate_limiter
 from app.services.session_summary import close_session_summary
@@ -289,19 +289,32 @@ def send_message(
 
     if turn is None:
         try:
-            long_term_memories: list[str] = []
+            memory_ctx = None
+            compat_longterm: list[str] = []
             if distress >= 0.35 or len(raw_text) >= 40:
-                long_term_memories = get_user_longterm_memories(
-                    db,
-                    user_id=current_user.user_id,
-                    limit=3,
-                )
+                compat_longterm = get_user_longterm_memories(db, user_id=current_user.user_id, limit=3)
+                try:
+                    memory_ctx = build_user_memory_context(
+                        db,
+                        user_id=current_user.user_id,
+                        current_query=raw_text,
+                    )
+                    if not memory_ctx.recent_summaries and compat_longterm:
+                        memory_ctx.recent_summaries = compat_longterm
+                except Exception as exc:
+                    logger.warning("build_user_memory_context failed, fallback to compat list: %s", exc)
             turn = run_non_sos_turn(
                 user_message=raw_text,
                 recent_messages=ctx.recent_messages,
                 mood_today=ctx.mood_today,
                 distress_score=distress,
-                long_term_memories=long_term_memories,
+                long_term_memories=(memory_ctx.recent_summaries if memory_ctx else compat_longterm),
+                mem0_facts=(memory_ctx.mem0_facts if memory_ctx else []),
+                user_traits=(memory_ctx.traits if memory_ctx else {}),
+                top_triggers=(memory_ctx.top_triggers if memory_ctx else []),
+                active_goals=(memory_ctx.active_goals if memory_ctx else []),
+                effective_coping=(memory_ctx.effective_coping if memory_ctx else []),
+                clinical_trajectory=(memory_ctx.clinical_trajectory if memory_ctx else ""),
             )
             set_cached_turn(
                 session.session_id,
@@ -539,9 +552,20 @@ def send_message_stream(
             message_hash = hash_message(raw_text)
             turn = get_cached_turn(session.session_id, message_hash) if settings.chat_response_cache_ttl_seconds > 0 else None
             if turn is None:
-                long_term_memories: list[str] = []
+                memory_ctx = None
+                compat_longterm: list[str] = []
                 if distress >= 0.35 or len(raw_text) >= 40:
-                    long_term_memories = get_user_longterm_memories(db, user_id=current_user.user_id, limit=3)
+                    compat_longterm = get_user_longterm_memories(db, user_id=current_user.user_id, limit=3)
+                    try:
+                        memory_ctx = build_user_memory_context(
+                            db,
+                            user_id=current_user.user_id,
+                            current_query=raw_text,
+                        )
+                        if not memory_ctx.recent_summaries and compat_longterm:
+                            memory_ctx.recent_summaries = compat_longterm
+                    except Exception as exc:
+                        logger.warning("build_user_memory_context failed, fallback to compat list: %s", exc)
                 last_heartbeat, hb = _build_heartbeat_event(
                     started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_memory_ready"
                 )
@@ -553,7 +577,13 @@ def send_message_stream(
                     recent_messages=ctx.recent_messages,
                     mood_today=ctx.mood_today,
                     distress_score=distress,
-                    long_term_memories=long_term_memories,
+                    long_term_memories=(memory_ctx.recent_summaries if memory_ctx else compat_longterm),
+                    mem0_facts=(memory_ctx.mem0_facts if memory_ctx else []),
+                    user_traits=(memory_ctx.traits if memory_ctx else {}),
+                    top_triggers=(memory_ctx.top_triggers if memory_ctx else []),
+                    active_goals=(memory_ctx.active_goals if memory_ctx else []),
+                    effective_coping=(memory_ctx.effective_coping if memory_ctx else []),
+                    clinical_trajectory=(memory_ctx.clinical_trajectory if memory_ctx else ""),
                 ):
                     if ev.get("type") == "token":
                         yield "event: delta\ndata: " + json.dumps({"text": str(ev.get("text") or "")}, ensure_ascii=False) + "\n\n"
