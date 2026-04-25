@@ -37,7 +37,7 @@
 - `CheckinFlow.tsx`: complete redesign — white frosted-glass shell, colour-coded emotion chips, journal step, summary step.
 - `Chat.tsx`: renders `the_dinh_kem` attachments as clickable resource/exercise/clinic cards; normalises object-shaped quick replies; adds session history side-panel.
 - `Reflect.tsx`: milestone chips row after Peace Score grid; journal prompts section (`GET /reflect/journal-prompts`).
-- `Home.tsx`: removes safety gate from CTAs; connects POST /mood/checkin + GET /home/feed.
+- `Home.tsx`: removes safety gate from CTAs; replaces the 4-card mood row + CTA row with one equal-width 3-mode row (`Check-in nhanh`, `Làm bài sàng lọc`, `Trò chuyện ngay`).
 - `Sidebar.tsx` + `HeaderMain.tsx`: settings shortcut → profile shortcut; gear → down-chevron account menu.
 - `Setting.tsx`: theme preview applies realtime via `APP_SETTINGS_UPDATED_EVENT`.
 - `auth.py`: signup redirect goes to `/onboarding/policy` (PolicyWizard); handles `verification_required` 202.
