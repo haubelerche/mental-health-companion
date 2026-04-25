@@ -10,6 +10,7 @@ import { HomeToday } from '../components/pages/HomeToday'
 import Landing from '../components/pages/Landing.tsx'
 import Reflect from '../components/pages/Reflect.tsx'
 import Resources from '../components/pages/Resources.tsx'
+import { CheckinFlow } from '../components/pages/CheckinFlow'
 import { SafetyCheck } from '../components/pages/SafetyCheck'
 import { useAuth } from '../hooks/useAuth'
 import { ROUTE_PATHS } from './paths'
@@ -84,6 +85,14 @@ export default function AppRoutes() {
                     element={
                         <RequireAuth>
                             <SafetyCheck />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.checkin}
+                    element={
+                        <RequireAuth>
+                            <CheckinFlow />
                         </RequireAuth>
                     }
                 />
