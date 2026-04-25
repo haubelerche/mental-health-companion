@@ -40,7 +40,7 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
     ],
     actions: [
       { label: 'Trò chuyện với Mây', path: ROUTE_PATHS.chat, primary: true },
-      { label: 'Xem Gương', path: ROUTE_PATHS.reflect },
+      { label: 'Mở Nhìn Lại', path: ROUTE_PATHS.reflect },
     ],
   },
   moderate: {
@@ -65,11 +65,11 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
     bgColor: 'var(--color-la-ban-bg)',
     insights: [
       'Kết quả cho thấy cần hỗ trợ chuyên nghiệp',
-      'La Bàn có thể chỉ bạn tới nguồn phù hợp',
+      'Kết Nối có thể chỉ bạn tới nguồn phù hợp',
       'Bạn không cần đi qua điều này một mình',
     ],
     actions: [
-      { label: 'Gặp La Bàn', path: ROUTE_PATHS.connect, primary: true },
+      { label: 'Mở Kết Nối', path: ROUTE_PATHS.connect, primary: true },
       { label: 'Trò chuyện với Mây', path: ROUTE_PATHS.chat },
     ],
   },
@@ -80,11 +80,11 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
     bgColor: 'var(--color-la-ban-bg)',
     insights: [
       'Kết quả quan trọng — cần được hỗ trợ sớm',
-      'Vui lòng liên hệ La Bàn hoặc gọi hotline',
+      'Vui lòng liên hệ Kết Nối hoặc gọi hotline',
       'Bạn đã rất dũng cảm khi làm bài này',
     ],
     actions: [
-      { label: 'Gặp La Bàn ngay', path: ROUTE_PATHS.connect, primary: true },
+      { label: 'Mở Kết Nối ngay', path: ROUTE_PATHS.connect, primary: true },
       { label: 'Hotline 1800-599-920', path: 'tel' },
     ],
   },

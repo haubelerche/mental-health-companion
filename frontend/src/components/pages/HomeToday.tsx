@@ -8,8 +8,8 @@ import { homeService, type HomeFeed } from '../../services/homeService'
 import { ROUTE_PATHS } from '../../routes/paths'
 
 const MOODS = [
-  { icon: Leaf,     title: 'Bình yên',  desc: 'Nhẹ như mặt nước phẳng lặng.', apiMood: 'calm',       emoji: '🍃' },
-  { icon: Cloud,    title: 'Lắng lại',  desc: 'Một cơn mưa nhỏ trong lòng.',  apiMood: 'melancholic', emoji: '☁️' },
+  { icon: Leaf,     title: 'Check-in Cảm xúc', desc: 'Ghi nhận nhanh trạng thái hiện tại.', apiMood: 'neutral',     emoji: '🍃' },
+  { icon: Cloud,    title: 'Ủ rũ',  desc: 'Để mọi thứ trở nên dễ chịu hơn.',  apiMood: 'melancholic', emoji: '☁️' },
   { icon: Sparkles, title: 'Rạng rỡ',  desc: 'Năng lượng đang mở ra.',        apiMood: 'bright',     emoji: '✨' },
   { icon: AirVent,  title: 'Bồn chồn', desc: 'Cần một nhịp thở sâu.',         apiMood: 'restless',   emoji: '🌬️' },
 ] as const

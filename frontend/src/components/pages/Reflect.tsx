@@ -122,16 +122,17 @@ export default function Reflect() {
                 setMoodTrend(moodTrendData)
                 setRecentJournal(journalsData.journals[0] || null)
                 httpClient.get<{ prompts: Array<{ id: string; text: string }> }>('/reflect/journal-prompts')
-                    .then(d => setPrompts(d.prompts))
+                    .then(d => {
+                        if (mounted) setPrompts(d.prompts)
+                    })
                     .catch(() => {
                         if (import.meta.env.DEV) console.warn('[Reflect] journal prompts fetch failed')
                     })
             } catch {
                 if (!mounted) return
-                setError('Không tải được dữ liệu Nhìn lại. Vui lòng thử lại sau.')
+                setError('Không tải được dữ liệu Nhìn Lại. Vui lòng thử lại sau.')
             } finally {
-                if (!mounted) return
-                setLoading(false)
+                if (mounted) setLoading(false)
             }
         }
         loadReflectData()
@@ -174,6 +175,9 @@ export default function Reflect() {
                 <div className="mx-auto flex w-full max-w-5xl flex-col items-center">
                     <section className="border border-white/35 bg-white/40 backdrop-blur-xl w-full rounded-4xl  p-5 shadow-md md:p-10 lg:p-12">
                         <div className="text-center">
+                            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.28em] text-serene-primary/70">
+                                Nhìn Lại
+                            </p>
                             <h1 className="font-display text-5xl font-light leading-tight text-[#2F342E] md:text-6xl lg:text-7xl">
                                 Chào <span className="italic text-primary font-medium">{displayName}</span>
                             </h1>
@@ -257,49 +261,55 @@ export default function Reflect() {
                                     </div>
                                 </div>
 
-                                <div className="h-72 w-full md:h-80">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                                            <defs>
-                                                <linearGradient id="moodGradient" x1="0" x2="0" y1="0" y2="1">
-                                                    <stop offset="5%" stopColor="#4d6359" stopOpacity={0.38} />
-                                                    <stop offset="95%" stopColor="#4d6359" stopOpacity={0.04} />
-                                                </linearGradient>
-                                            </defs>
-                                            <CartesianGrid stroke="rgba(47, 52, 46, 0.08)" strokeDasharray="4 10" vertical={false} />
-                                            <XAxis
-                                                dataKey="day"
-                                                axisLine={false}
-                                                tickLine={false}
-                                                tick={{ fill: '#5c605a', fontSize: 11 }}
-                                            />
-                                            <YAxis hide domain={[0, 100]} />
-                                            <Tooltip
-                                                cursor={{ stroke: '#4d6359', strokeOpacity: 0.12, strokeWidth: 1 }}
-                                                contentStyle={{
-                                                    borderRadius: '1rem',
-                                                    border: '1px solid rgba(255,255,255,0.5)',
-                                                    background: 'rgba(255,255,255,0.85)',
-                                                    boxShadow: '0 18px 40px rgba(47,52,46,0.14)',
-                                                }}
-                                                labelStyle={{ color: '#2f342e', fontWeight: 700 }}
-                                                formatter={(value, name) => [
-                                                    `${value ?? 0}%`,
-                                                    name === 'mood' ? 'Mức ổn định cảm xúc' : String(name ?? ''),
-                                                ]}
-                                                labelFormatter={(label) => `Ngày ${label}`}
-                                            />
-                                            <Area
-                                                type="monotone"
-                                                dataKey="mood"
-                                                stroke="#4d6359"
-                                                strokeWidth={3}
-                                                fill="url(#moodGradient)"
-                                                dot={{ r: 4, stroke: '#faf9f5', strokeWidth: 2, fill: '#4d6359' }}
-                                                activeDot={{ r: 6, stroke: '#faf9f5', strokeWidth: 2, fill: '#4d6359' }}
-                                            />
-                                        </AreaChart>
-                                    </ResponsiveContainer>
+                                <div className="min-h-72 min-w-0 md:min-h-80">
+                                    {chartData.length > 0 ? (
+                                        <ResponsiveContainer width="100%" height={288} minWidth={1} minHeight={1}>
+                                            <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                                                <defs>
+                                                    <linearGradient id="moodGradient" x1="0" x2="0" y1="0" y2="1">
+                                                        <stop offset="5%" stopColor="#4d6359" stopOpacity={0.38} />
+                                                        <stop offset="95%" stopColor="#4d6359" stopOpacity={0.04} />
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid stroke="rgba(47, 52, 46, 0.08)" strokeDasharray="4 10" vertical={false} />
+                                                <XAxis
+                                                    dataKey="day"
+                                                    axisLine={false}
+                                                    tickLine={false}
+                                                    tick={{ fill: '#5c605a', fontSize: 11 }}
+                                                />
+                                                <YAxis hide domain={[0, 100]} />
+                                                <Tooltip
+                                                    cursor={{ stroke: '#4d6359', strokeOpacity: 0.12, strokeWidth: 1 }}
+                                                    contentStyle={{
+                                                        borderRadius: '1rem',
+                                                        border: '1px solid rgba(255,255,255,0.5)',
+                                                        background: 'rgba(255,255,255,0.85)',
+                                                        boxShadow: '0 18px 40px rgba(47,52,46,0.14)',
+                                                    }}
+                                                    labelStyle={{ color: '#2f342e', fontWeight: 700 }}
+                                                    formatter={(value, name) => [
+                                                        `${value ?? 0}%`,
+                                                        name === 'mood' ? 'Mức ổn định cảm xúc' : String(name ?? ''),
+                                                    ]}
+                                                    labelFormatter={(label) => `Ngày ${label}`}
+                                                />
+                                                <Area
+                                                    type="monotone"
+                                                    dataKey="mood"
+                                                    stroke="#4d6359"
+                                                    strokeWidth={3}
+                                                    fill="url(#moodGradient)"
+                                                    dot={{ r: 4, stroke: '#faf9f5', strokeWidth: 2, fill: '#4d6359' }}
+                                                    activeDot={{ r: 6, stroke: '#faf9f5', strokeWidth: 2, fill: '#4d6359' }}
+                                                />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    ) : (
+                                        <div className="flex min-h-72 items-center justify-center rounded-3xl border border-white/30 bg-white/20 px-6 text-center text-sm text-serene-muted md:min-h-80">
+                                            Chưa có đủ mood check-in để vẽ biểu đồ. Hãy check-in thêm để Serene cập nhật xu hướng.
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="mt-5 flex justify-between px-1 text-[10px] uppercase tracking-widest text-serene-primary/70">
