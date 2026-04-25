@@ -45,6 +45,7 @@
 - `main.py`: starts outbox worker thread alongside idle-session worker on startup.
 
 ### Fixed
+- `chat.py` + `langgraph_chat.py`: load memory context once per turn, include memory for recall questions even at low distress, and skip cold-start profiling on short low-risk turns to reduce latency.
 - `counseling_retriever.py`: indentation error in `try` block — `rows = db.execute(...)` was unindented.
 - `outbox_worker.py`: marks dispatched events as `done` (was using invalid `processed` status).
 - `Reflect.tsx`: no-data placeholder instead of empty Recharts container; removed unsafe `return` from `finally`.

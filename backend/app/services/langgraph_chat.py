@@ -140,6 +140,25 @@ def _rule_based_reply(user_text: str) -> str | None:
     return None
 
 
+def _is_recall_query(user_text: str) -> bool:
+    normalized = _normalize_guard_text(user_text)
+    recall_keywords = (
+        "nho",
+        "lan truoc",
+        "hom qua",
+        "hoi thoai truoc",
+        "truoc do",
+        "toi la ai",
+        "minh la ai",
+        "ban con nho",
+        "nhac lai",
+        "tiep tuc",
+        "tung noi",
+        "da ke",
+    )
+    return any(keyword in normalized for keyword in recall_keywords)
+
+
 def _attachment_key(item: dict[str, Any]) -> tuple[str, str]:
     return (str(item.get("type") or ""), str(item.get("id") or ""))
 
@@ -324,6 +343,7 @@ def _build_friend_context(state: ChatGraphState, distress_score: float | None = 
 
     Tier 1 — low  (distress < 0.42, short msg): handled by caller via _build_personality_hint.
     Tier 2 — mid  (0.42 ≤ distress < 0.65): transcript (3 turns) + mood + traits + analyst note.
+    Recall turns are memory-sensitive even when distress is low, so they include a small memory slice.
     Tier 3 — high (distress ≥ 0.65): full context (6 turns + mem0 + long-term + profile).
     """
     d = distress_score if distress_score is not None else float(state.get("distress_score") or 0.0)
@@ -334,6 +354,11 @@ def _build_friend_context(state: ChatGraphState, distress_score: float | None = 
         mood_line = f"Mood: {mood.get('mood', '')} {mood.get('emoji', '')}."
 
     analyst_hint = state.get("analyst_instruction") or ""
+    is_recall_turn = _is_recall_query(str(state.get("user_message") or ""))
+    memory_lines = [str(item or "").strip() for item in (state.get("long_term_memories") or []) if str(item or "").strip()]
+    memory_blob = "\n".join(f"- {item}" for item in memory_lines[:3]) if memory_lines else ""
+    mem0_facts = [str(item or "").strip() for item in (state.get("mem0_facts") or []) if str(item or "").strip()]
+    mem0_blob = "\n".join(f"- {item}" for item in mem0_facts[:5]) if mem0_facts else ""
 
     # ── Tier 2: medium distress ──────────────────────────────────────────────
     if d < 0.65:
@@ -351,6 +376,10 @@ def _build_friend_context(state: ChatGraphState, distress_score: float | None = 
         if mood_line:
             parts.append(mood_line)
         parts.append(f"Tone: {tone_hint}")
+        if is_recall_turn and mem0_blob:
+            parts.append(f"Ký ức liên quan:\n{mem0_blob}")
+        if is_recall_turn and memory_blob:
+            parts.append(f"Tóm tắt session gần:\n{memory_blob}")
         parts.append(f"Lịch sử (3 lượt):\n{transcript}")
         if analyst_hint:
             parts.append(f"Analyst: {analyst_hint[:400]}")
@@ -365,10 +394,6 @@ def _build_friend_context(state: ChatGraphState, distress_score: float | None = 
             transcript_lines_full.append(f"{role}: {content}")
     transcript_full = "\n".join(transcript_lines_full) if transcript_lines_full else "(chưa có lịch sử)"
 
-    memory_lines = [str(item or "").strip() for item in (state.get("long_term_memories") or []) if str(item or "").strip()]
-    memory_blob = "\n".join(f"- {item}" for item in memory_lines[:3]) if memory_lines else ""
-    mem0_facts = [str(item or "").strip() for item in (state.get("mem0_facts") or []) if str(item or "").strip()]
-    mem0_blob = "\n".join(f"- {item}" for item in mem0_facts[:5]) if mem0_facts else ""
     top_triggers = [str(item or "").strip() for item in (state.get("top_triggers") or []) if str(item or "").strip()]
     coping = [str(item or "").strip() for item in (state.get("effective_coping") or []) if str(item or "").strip()]
     goals = [str(item or "").strip() for item in (state.get("active_goals") or []) if str(item or "").strip()]
@@ -609,6 +634,15 @@ def _apply_cold_start_profile(
     mem0_facts: list[str] | None,
     long_term_memories: list[str] | None,
 ) -> tuple[float, dict[str, Any], str]:
+    if _should_skip_cold_start_profile(
+        user_message=user_message,
+        distress_score=distress_score,
+        user_traits=user_traits,
+        mem0_facts=mem0_facts,
+        long_term_memories=long_term_memories,
+    ):
+        return distress_score, dict(user_traits or {}), ""
+
     is_cold_start = (
         not dict(user_traits or {})
         and not list(mem0_facts or [])
@@ -630,6 +664,27 @@ def _apply_cold_start_profile(
     except Exception as exc:
         logger.debug("cold-start profile skipped: %s", exc)
         return distress_score, dict(user_traits or {}), ""
+
+
+def _should_skip_cold_start_profile(
+    *,
+    user_message: str,
+    distress_score: float,
+    user_traits: dict[str, Any] | None,
+    mem0_facts: list[str] | None,
+    long_term_memories: list[str] | None,
+) -> bool:
+    if dict(user_traits or {}) or list(mem0_facts or []) or list(long_term_memories or []):
+        return True
+    if _is_recall_query(user_message):
+        return True
+    normalized = _normalize_guard_text(user_message)
+    if distress_score >= 0.35:
+        return False
+    meaningful_signals = _detect_hardship_signals(user_message)
+    if meaningful_signals:
+        return False
+    return len(normalized) < 40
 
 
 def supervisor_node(state: ChatGraphState) -> dict[str, Any]:
@@ -823,6 +878,7 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         "Ưu tiên ngôn ngữ đời thường, chân thành, có chút chiêm nghiệm nhưng không bi lụy, không giáo điều. "
         "Không lặp công thức 'Bạn có thể chia sẻ thêm...?' ở mọi lượt. "
         "Không hứa hẹn phi thực tế, không phán xét, không biến câu trả lời thành checklist khô cứng. "
+        "Nếu người dùng hỏi bạn có nhớ họ hay không, chỉ trả lời dựa trên Lịch sử/Ký ức trong context; nếu không có dữ liệu thì nói thật là mình chưa có đủ ký ức. "
         "Trả lời JSON với các khóa: reply, tone_cam_xuc (ho_tro|xac_nhan|vui_tuoi|lam_diu), "
         "goi_y_nhanh (3 chuỗi), the_dinh_kem (mảng object {type, id, title, description, duration_sec, action, route, thumbnail}). "
         "Khi người dùng nhắc mất ngủ/thiền/video thư giãn, có thể gợi ý resource; khi nhắc phòng khám, chuyên gia, bác sĩ, trị liệu hoặc cần hỗ trợ ngoài app, có thể gợi ý clinic_map. "
@@ -831,7 +887,7 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         + "Gợi ý analyst: "
         + (state.get("analyst_instruction") or "")
     )
-    if distress_now < 0.42 and len(user_text) <= 140:
+    if distress_now < 0.42 and len(user_text) <= 140 and not _is_recall_query(user_text):
         short_history = _recent_transcript_hint(state, max_turns=3, max_chars_per_turn=180)
         if short_history:
             user_payload = (
@@ -1197,10 +1253,11 @@ def stream_non_sos_turn_events(
                 "Luôn xưng mình/bạn, tuyệt đối không dùng mày/tao. "
                 "Viết 3-5 câu tiếng Việt, phản chiếu nỗi đau cụ thể, xác nhận cảm xúc là hợp lý, "
                 "và đưa một bước nhỏ thực tế có thể làm ngay. "
-                "Tránh sáo rỗng, không trả lời kiểu mẫu, không hỏi dồn dập."
+                "Tránh sáo rỗng, không trả lời kiểu mẫu, không hỏi dồn dập. "
+                "Nếu người dùng hỏi bạn có nhớ họ hay không, chỉ trả lời dựa trên Lịch sử/Ký ức trong context; nếu không có dữ liệu thì nói thật là mình chưa có đủ ký ức."
                 + (f"\n{mentalchat_block}" if mentalchat_block else "")
             )
-            if distress_now < 0.42 and len(user_text) <= 140:
+            if distress_now < 0.42 and len(user_text) <= 140 and not _is_recall_query(user_text):
                 short_history = _recent_transcript_hint(state, max_turns=3, max_chars_per_turn=180)
                 if short_history:
                     user_payload = (
