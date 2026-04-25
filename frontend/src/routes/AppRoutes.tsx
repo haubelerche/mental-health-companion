@@ -12,6 +12,7 @@ import Reflect from '../components/pages/Reflect.tsx'
 import Resources from '../components/pages/Resources.tsx'
 import { CheckinFlow } from '../components/pages/CheckinFlow'
 import { SafetyCheck } from '../components/pages/SafetyCheck'
+import { ScreeningFlow } from '../components/pages/ScreeningFlow'
 import { useAuth } from '../hooks/useAuth'
 import { ROUTE_PATHS } from './paths'
 import Setting from '../components/pages/Setting.tsx'
@@ -93,6 +94,14 @@ export default function AppRoutes() {
                     element={
                         <RequireAuth>
                             <CheckinFlow />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.screening}
+                    element={
+                        <RequireAuth>
+                            <ScreeningFlow />
                         </RequireAuth>
                     }
                 />
