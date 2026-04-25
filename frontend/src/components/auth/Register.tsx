@@ -73,7 +73,7 @@ export default function Register() {
         <div className="auth-page">
             <div className="fixed inset-0">
                 <img
-                    alt="Dawn sk over oceany"
+                    alt="Dawn sky over ocean"
                     src={bg2}
                     className="auth-bg-image"
                 />

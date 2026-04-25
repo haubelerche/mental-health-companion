@@ -110,6 +110,7 @@ export function PolicyWizard() {
         {step > 0 && (
           <button
             onClick={() => setStep(s => s - 1)}
+            disabled={loading}
             className="mt-3 w-full text-sm text-[var(--color-serene-muted)] hover:text-[var(--color-serene-ink)] transition"
           >
             ← Quay lại
