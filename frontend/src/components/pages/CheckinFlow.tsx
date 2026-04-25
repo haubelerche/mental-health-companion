@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { checkinService } from '../../services/checkinService'
@@ -31,6 +31,12 @@ export function CheckinFlow() {
     setMood(m)
     setStep('sliders')
   }
+
+  const sliders = useMemo(() => [
+    { label: 'Mức căng thẳng', value: stress, setter: setStress, min: 0, max: 10, step: 1, unit: '/ 10' },
+    { label: 'Giờ ngủ tối qua', value: sleep, setter: setSleep, min: 0, max: 12, step: 0.5, unit: 'giờ' },
+    { label: 'Giờ học / làm', value: study, setter: setStudy, min: 0, max: 16, step: 0.5, unit: 'giờ' },
+  ], [stress, sleep, study])
 
   const submit = async () => {
     if (!mood) return
@@ -89,11 +95,7 @@ export function CheckinFlow() {
               Vài con số hôm nay
             </h1>
 
-            {[
-              { label: 'Mức căng thẳng', value: stress, setter: setStress, min: 0, max: 10, step: 1, unit: '/ 10' },
-              { label: 'Giờ ngủ tối qua', value: sleep, setter: setSleep, min: 0, max: 12, step: 0.5, unit: 'giờ' },
-              { label: 'Giờ học / làm', value: study, setter: setStudy, min: 0, max: 16, step: 0.5, unit: 'giờ' },
-            ].map(s => (
+            {sliders.map(s => (
               <div key={s.label} className="mb-7">
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-[var(--color-serene-ink)] font-medium">{s.label}</span>
