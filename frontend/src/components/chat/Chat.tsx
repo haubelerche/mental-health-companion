@@ -23,7 +23,16 @@ type AssistantStrategy = {
     encourage_external_help: boolean
     avoid_hard_stop: boolean
 }
-type TheDinhKem = { type: string; id: string; title: string }
+type TheDinhKem = {
+    type: string
+    id: string
+    title: string
+    description?: string | null
+    duration_sec?: number
+    action?: string
+    route?: string
+    thumbnail?: string | null
+}
 type ProactiveVoiceIntervention = {
     type: string
     trigger_reason?: string
@@ -47,7 +56,7 @@ type ChatApiData = {
     reply?: string | null
     assistant_text?: string | null
     tone_cam_xuc?: string | null
-    goi_y_nhanh?: string[]
+    goi_y_nhanh?: QuickReply[]
     the_dinh_kem?: TheDinhKem[]
     sos_triggered?: boolean
     risk_level?: number
@@ -61,6 +70,8 @@ type ChatApiData = {
     routing_history?: string[]
     intervention?: ProactiveVoiceIntervention | null
 }
+
+type QuickReply = string | { label?: string; message?: string; reason?: string; type?: string }
 
 type UiMessage = {
     id: string
@@ -127,11 +138,17 @@ function DistressBar({ score }: { score?: number }) {
     )
 }
 
-function QuickReplies({ replies, onSelect }: { replies?: string[]; onSelect: (text: string) => void }) {
-    if (!replies?.length) return null
+function quickReplyText(reply: QuickReply): string {
+    if (typeof reply === 'string') return reply.trim()
+    return String(reply.message || reply.label || reply.reason || reply.type || '').trim()
+}
+
+function QuickReplies({ replies, onSelect }: { replies?: QuickReply[]; onSelect: (text: string) => void }) {
+    const normalizedReplies = (replies ?? []).map(quickReplyText).filter(Boolean)
+    if (!normalizedReplies.length) return null
     return (
         <div className="mt-2 flex flex-wrap gap-1.5">
-            {replies.map((q, i) => (
+            {normalizedReplies.map((q, i) => (
                 <button
                     key={i}
                     type="button"
@@ -145,20 +162,36 @@ function QuickReplies({ replies, onSelect }: { replies?: string[]; onSelect: (te
     )
 }
 
-function AttachmentCard({ item }: { item: TheDinhKem }) {
+function AttachmentCard({ item, onOpen }: { item: TheDinhKem; onOpen: (item: TheDinhKem) => void }) {
     const icons: Record<string, string> = {
         breathing_exercise: '🌬️',
+        grounding_exercise: '🌱',
+        body_scan: '🧘',
         meditation: '🧘',
         music: '🎵',
+        resource: '▶️',
+        clinic_map: '📍',
     }
+    const duration = item.duration_sec ? `${Math.max(1, Math.round(item.duration_sec / 60))} phút` : item.type.replace(/_/g, ' ')
     return (
-        <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-serene-primary/20 bg-serene-primary/5 px-3 py-2">
-            <span className="text-base">{icons[item.type] ?? '📎'}</span>
+        <button
+            type="button"
+            onClick={() => onOpen(item)}
+            className="mt-2 grid max-w-sm grid-cols-[44px_1fr_auto] items-center gap-3 rounded-2xl border border-serene-primary/15 bg-[#f5f1e8]/90 px-3 py-3 text-left shadow-[0_14px_34px_rgba(47,52,46,0.09)] transition hover:-translate-y-0.5 hover:bg-white"
+        >
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-serene-accent text-lg">
+                {icons[item.type] ?? '📎'}
+            </span>
             <div>
-                <p className="text-xs font-medium text-serene-ink">{item.title}</p>
-                <p className="text-[10px] text-serene-muted">{item.type.replace(/_/g, ' ')}</p>
+                <p className="text-xs font-semibold text-serene-ink">{item.title}</p>
+                <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-serene-muted">
+                    {item.description || duration}
+                </p>
             </div>
-        </div>
+            <span className="rounded-full bg-serene-primary px-3 py-1 text-[10px] font-semibold text-white">
+                Mở
+            </span>
+        </button>
     )
 }
 
@@ -710,6 +743,26 @@ export default function Chat() {
         }
     }
 
+    const openAttachment = (item: TheDinhKem) => {
+        if (item.route) {
+            navigate(item.route)
+            return
+        }
+        if (item.action === 'open_connect_map' || item.type === 'clinic_map') {
+            navigate(ROUTE_PATHS.connect)
+            return
+        }
+        if (item.action === 'open_resource' || item.type === 'resource') {
+            navigate(ROUTE_PATHS.resources)
+            return
+        }
+        if (item.type.includes('exercise') || item.type === 'body_scan') {
+            navigate(`${ROUTE_PATHS.exercises}?exercise=${encodeURIComponent(item.id)}`)
+            return
+        }
+        navigate(ROUTE_PATHS.resources)
+    }
+
     // Latest assistant message data for header stats
     const lastData = [...messages].reverse().find((m) => m.role === 'assistant' && m.apiData)?.apiData
 
@@ -890,7 +943,7 @@ export default function Chat() {
 
                                     {/* Attachments */}
                                     {m.apiData?.the_dinh_kem?.map((item, i) => (
-                                        <AttachmentCard key={i} item={item} />
+                                        <AttachmentCard key={`${item.type}-${item.id}-${i}`} item={item} onOpen={openAttachment} />
                                     ))}
 
                                     {/* Quick replies (non-SOS only) */}
