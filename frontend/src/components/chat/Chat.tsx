@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentProps } from 'react'
 import { History, Leaf, MoreVertical } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { resolveMediaUrl } from '../../api/httpClient'
 import { ApiRequestError } from '../../api/types'
@@ -10,6 +10,7 @@ import { ROUTE_PATHS } from '../../routes/paths'
 import { chatService } from '../../services/chatService'
 import { policyService } from '../../services/policyService'
 import { Switch } from '../ui/switch'
+import { HotlineBar } from '../crisis/HotlineBar'
 
 // ─── API response types ────────────────────────────────────────────────────────
 
@@ -275,6 +276,8 @@ export default function Chat() {
     const [lastFailedText, setLastFailedText] = useState<string | null>(null)
     const [showDebug, setShowDebug] = useState(true)
     const [showOptions, setShowOptions] = useState(false)
+    const [showHistory, setShowHistory] = useState(false)
+    const [sessions, setSessions] = useState<Array<{ session_id: string; preview: string | null; last_message_at: string }>>([])
     const [guestSecondsLeft, setGuestSecondsLeft] = useState<number>(FALLBACK_GUEST_CHAT_DURATION_SECONDS)
     const [guestSessionLoading, setGuestSessionLoading] = useState(false)
     const pollRef = useRef<number | null>(null)
@@ -282,8 +285,10 @@ export default function Chat() {
     const optionsRef = useRef<HTMLDivElement | null>(null)
     const guestDeadlineRef = useRef<number | null>(null)
     const guestExpiredNotifiedRef = useRef(false)
+    const [sosActive, setSosActive] = useState(false)
     const { user } = useAuth()
     const navigate = useNavigate()
+    const location = useLocation()
     const isGuestMode = !user
 
     useEffect(() => {
@@ -296,6 +301,11 @@ export default function Chat() {
             .then((res) => setVoiceConsent(Boolean(res.voice_consent)))
             .catch(() => undefined)
     }, [user])
+
+    useEffect(() => {
+        const state = location.state as { crisisMode?: boolean } | null
+        if (state?.crisisMode) setSosActive(true)
+    }, [location.state])
 
     useEffect(() => {
         let cancelled = false
@@ -530,6 +540,7 @@ export default function Chat() {
                     : m,
             ),
         )
+        if (finalData.sos_triggered) setSosActive(true)
         applyIntervention(finalData)
     }
 
@@ -552,8 +563,40 @@ export default function Chat() {
 
         try {
             if (!isGuestMode) {
-                const streamResponse = await chatService.sendMessageStream({ message: text, session_id: sessionId })
-                await consumeChatSse(streamResponse, pendingId)
+                try {
+                    const streamResponse = await chatService.sendMessageStream({ message: text, session_id: sessionId })
+                    await consumeChatSse(streamResponse, pendingId)
+                } catch (err) {
+                    const status = err instanceof ApiRequestError ? (err.status ?? 0) : 0
+                    if (!(err instanceof ApiRequestError) || status < 500) {
+                        throw err
+                    }
+                    const rawData = await chatService.sendMessage({ message: text, session_id: sessionId })
+                    const data = rawData as ChatApiData
+                    const sid = typeof data.session_id === 'string' ? data.session_id : null
+                    if (sid) setSessionId(sid)
+                    const assistantText =
+                        typeof data.reply === 'string' && data.reply
+                            ? data.reply
+                            : typeof data.assistant_text === 'string' && data.assistant_text
+                                ? data.assistant_text
+                                : 'Mình vẫn đang ở đây cùng bạn.'
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.id === pendingId
+                                ? {
+                                    id: `a_${Date.now()}`,
+                                    role: 'assistant',
+                                    content: assistantText,
+                                    apiData: data,
+                                }
+                                : m,
+                        ),
+                    )
+                    if (data.sos_triggered) setSosActive(true)
+                    applyIntervention(data)
+                    toast.info('Đường truyền stream đang lỗi, mình đã chuyển sang chế độ chat thường.')
+                }
             } else {
                 const rawData = await chatService.sendGuestMessage({ message: text, guest_session_id: sessionId })
                 const data = rawData as ChatApiData
@@ -580,6 +623,7 @@ export default function Chat() {
                             : m,
                     ),
                 )
+                if (data.sos_triggered) setSosActive(true)
                 applyIntervention(data)
             }
         } catch (err) {
@@ -606,6 +650,39 @@ export default function Chat() {
             )
         } finally {
             setSending(false)
+        }
+    }
+
+    const loadHistory = async () => {
+        try {
+            const data = await chatService.getSessions()
+            setSessions(data.sessions)
+        } catch {
+            setSessions([])
+        }
+    }
+
+    const openHistory = async () => {
+        setShowHistory((prev) => !prev)
+        if (!showHistory) {
+            await loadHistory()
+        }
+    }
+
+    const loadSessionMessages = async (targetSessionId: string) => {
+        try {
+            const data = await chatService.getSessionMessages(targetSessionId, 100, 0)
+            setSessionId(targetSessionId)
+            setMessages(
+                data.messages.map((msg) => ({
+                    id: msg.message_id,
+                    role: msg.role,
+                    content: msg.content,
+                })),
+            )
+            setShowHistory(false)
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Không tải được lịch sử hội thoại')
         }
     }
 
@@ -671,7 +748,7 @@ export default function Chat() {
                         )}
                         <button
                             type="button"
-                            onClick={() => toast.info('Lịch sử chat sẽ sớm có mặt.')}
+                            onClick={() => void openHistory()}
                             className="rounded-full p-2 text-serene-ink/70 transition hover:bg-serene-ink/10"
                             aria-label="Lịch sử chat"
                         >
@@ -751,6 +828,36 @@ export default function Chat() {
                     </div>
                 )}
             </div>
+
+            {showHistory && (
+                <div className="rounded-2xl border border-white/35 bg-white/70 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                        <p className="text-sm font-semibold text-serene-ink">Lịch sử hội thoại</p>
+                        <button type="button" onClick={() => setShowHistory(false)} className="text-xs text-serene-muted">
+                            Đóng
+                        </button>
+                    </div>
+                    <div className="max-h-64 space-y-2 overflow-y-auto">
+                        {sessions.length === 0 ? (
+                            <p className="text-xs text-serene-muted">Chưa có phiên nào.</p>
+                        ) : (
+                            sessions.map((sess) => (
+                                <button
+                                    key={sess.session_id}
+                                    type="button"
+                                    onClick={() => void loadSessionMessages(sess.session_id)}
+                                    className="w-full rounded-lg border border-white/40 bg-white/80 px-3 py-2 text-left"
+                                >
+                                    <p className="text-xs font-semibold text-serene-ink">{sess.preview || 'Phiên trò chuyện'}</p>
+                                    <p className="text-[10px] text-serene-muted">
+                                        {new Date(sess.last_message_at).toLocaleString('vi-VN')}
+                                    </p>
+                                </button>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* ── Message feed ──────────────────────────────────────────── */}
             <div className="min-h-[70dvh]  overflow-y-auto rounded-3xl border border-white/35 bg-white/75 p-4">
@@ -840,6 +947,8 @@ export default function Chat() {
                     </button>
                 </div>
             ) : null}
+
+            <HotlineBar visible={sosActive} />
         </section>
     )
 }
