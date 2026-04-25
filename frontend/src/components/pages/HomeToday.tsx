@@ -1,9 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { AirVent, Cloud, Leaf, Sparkles } from 'lucide-react'
+import { toast } from 'react-toastify'
 import { useAuth } from '../../hooks/useAuth'
 import { homeService, type HomeFeed } from '../../services/homeService'
 import { ROUTE_PATHS } from '../../routes/paths'
+
+const MOODS = [
+  { icon: Leaf,     title: 'Bình yên',  desc: 'Nhẹ như mặt nước phẳng lặng.', apiMood: 'calm',       emoji: '🍃' },
+  { icon: Cloud,    title: 'Lắng lại',  desc: 'Một cơn mưa nhỏ trong lòng.',  apiMood: 'melancholic', emoji: '☁️' },
+  { icon: Sparkles, title: 'Rạng rỡ',  desc: 'Năng lượng đang mở ra.',        apiMood: 'bright',     emoji: '✨' },
+  { icon: AirVent,  title: 'Bồn chồn', desc: 'Cần một nhịp thở sâu.',         apiMood: 'restless',   emoji: '🌬️' },
+] as const
 
 const PERSONAS = [
   {
@@ -39,14 +48,38 @@ export function HomeToday() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [feed, setFeed] = useState<HomeFeed | null>(null)
+  const [checkedInMood, setCheckedInMood] = useState<string | null>(null)
+  const [submittingMood, setSubmittingMood] = useState<string | null>(null)
 
   useEffect(() => {
     homeService.feed()
-      .then(setFeed)
+      .then((data) => {
+        setFeed(data)
+        setCheckedInMood(data.mood_today.mood)
+      })
       .catch((err) => {
         if (import.meta.env.DEV) console.warn('[HomeToday] feed fetch failed', err)
       })
   }, [])
+
+  const moodCards = useMemo(
+    () => MOODS.map((m) => ({ ...m, active: checkedInMood === m.apiMood })),
+    [checkedInMood],
+  )
+
+  const onCheckinMood = async (apiMood: string, emoji: string) => {
+    if (submittingMood) return
+    try {
+      setSubmittingMood(apiMood)
+      await homeService.checkin({ mood: apiMood, emoji })
+      setCheckedInMood(apiMood)
+      toast.success('Đã lưu mood check-in hôm nay.')
+    } catch (err) {
+      toast.info(err instanceof Error ? err.message : 'Không thể lưu check-in')
+    } finally {
+      setSubmittingMood(null)
+    }
+  }
 
   // All 3 CTAs route through safety check first, carrying next destination
   const handleChoice = (next: string) => {
@@ -90,21 +123,40 @@ export function HomeToday() {
         </motion.p>
       )}
 
-      {/* Today's mood badge */}
-      {feed?.mood_today && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-          className="mb-6 inline-flex items-center gap-2 bg-[var(--color-serene-surface)] rounded-full px-4 py-1.5 text-sm text-[var(--color-serene-muted)]"
-        >
-          <span>{feed.mood_today.emoji ?? '😌'}</span>
-          <span>
-            Hôm nay cảm thấy{' '}
-            <strong className="text-[var(--color-serene-ink)]">{feed.mood_today.mood}</strong>
-          </span>
-        </motion.div>
-      )}
+      {/* Mood picker */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="grid grid-cols-2 gap-3 mb-6"
+      >
+        {moodCards.map((mood) => {
+          const Icon = mood.icon
+          return (
+            <button
+              key={mood.apiMood}
+              type="button"
+              aria-busy={submittingMood === mood.apiMood}
+              disabled={submittingMood !== null}
+              onClick={() => void onCheckinMood(mood.apiMood, mood.emoji)}
+              className={[
+                'rounded-[22px] border px-4 py-5 text-left transition-all active:scale-[0.97] disabled:opacity-60',
+                mood.active
+                  ? 'border-[var(--color-serene-primary)]/20 bg-[var(--color-serene-primary)] text-[var(--color-serene-on-primary)] shadow-md'
+                  : 'border-white/45 bg-white/70 hover:bg-white/90',
+              ].join(' ')}
+            >
+              <Icon className={['h-6 w-6', mood.active ? 'text-[var(--color-serene-accent)]' : 'text-[var(--color-serene-primary)]'].join(' ')} aria-hidden="true" />
+              <p className={['mt-4 font-semibold text-base', mood.active ? 'text-[var(--color-serene-on-primary)]' : 'text-[var(--color-serene-ink)]'].join(' ')}>
+                {mood.title}
+              </p>
+              <p className={['mt-1 text-xs leading-snug', mood.active ? 'text-[var(--color-serene-on-primary)]/75' : 'text-[var(--color-serene-muted)]'].join(' ')}>
+                {mood.desc}
+              </p>
+            </button>
+          )
+        })}
+      </motion.div>
 
       {/* 3 Persona CTAs */}
       <div className="flex flex-col gap-4">
