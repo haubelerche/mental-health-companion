@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Phone, X } from 'lucide-react'
 
@@ -19,11 +19,13 @@ const DEFAULT_HOTLINES: Hotline[] = [
 
 export function HotlineBar({ visible, hotlines = DEFAULT_HOTLINES }: HotlineBarProps) {
   const [dismissed, setDismissed] = useState(false)
+  // Track previous visible value to detect false → true transition (new SOS trigger)
+  const [prevVisible, setPrevVisible] = useState(visible)
 
-  // Reset dismissed when visible changes from false to true (new SOS trigger)
-  useEffect(() => {
+  if (visible !== prevVisible) {
+    setPrevVisible(visible)
     if (visible) setDismissed(false)
-  }, [visible])
+  }
 
   return (
     <AnimatePresence>

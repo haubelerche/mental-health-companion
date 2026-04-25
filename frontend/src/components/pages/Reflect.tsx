@@ -37,7 +37,7 @@ type MentalHealthSummary = {
     mood_trend: MoodTrendPayload
     dominant_emotions: Array<{ emotion: string; count: number }>
     top_triggers: Array<{ tag: string; count: number; last_seen: string | null }>
-    coping_stats: { total_attempts: number; effective_rate: number | null; top_coping: TopCoping[] }
+    coping_stats: { total_attempts: number; effective_rate: number | null; top_coping: TopCoping[]; breathing_sessions?: number }
     session_stats: { total_sessions: number; streak_days: number; days_active_last_30: number }
     clinical_snapshot: { phq9_score: number | null; gad7_score: number | null; crisis_level: number; last_scored_at: string | null }
     goals: Array<{ goal_id: string; text: string; status: string }>
@@ -155,7 +155,7 @@ export default function Reflect() {
         const chips: Array<{ emoji: string; label: string }> = []
         const streak = summary.session_stats?.streak_days ?? 0
         if (streak >= 3) chips.push({ emoji: '🔥', label: `${streak} ngày liên tiếp` })
-        const breathSessions = (summary.coping_stats as any)?.breathing_sessions ?? 0
+        const breathSessions = summary.coping_stats?.breathing_sessions ?? 0
         if (breathSessions > 0) chips.push({ emoji: '🌬️', label: `${breathSessions} lần thở` })
         if ((summary.wellness_score ?? 0) > 60) chips.push({ emoji: '🌱', label: 'Ổn hơn tuần trước' })
         if ((summary.session_stats?.total_sessions ?? 0) >= 10) chips.push({ emoji: '⭐', label: '10 lần trò chuyện' })
