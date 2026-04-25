@@ -98,10 +98,15 @@ export function SafetyCheck() {
                       : 'bg-[var(--color-serene-primary)] text-[var(--color-serene-on-primary)] hover:bg-[var(--color-serene-primary-dim)]'
                   }`}
                 >
-                  {loading && opt === 'Có' ? 'Đang xử lý…' : opt}
+                  {opt}
                 </button>
               ))}
             </div>
+            {loading && (
+              <p className="text-center text-xs text-[var(--color-serene-muted)] mt-4 animate-pulse">
+                Đang xử lý…
+              </p>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
