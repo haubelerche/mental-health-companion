@@ -1,5 +1,6 @@
 import { httpClient } from '../api/httpClient'
 
+// Fields hold the user's free-text answer (e.g. "Có" / "Không"). Backend accepts any string.
 export type SafetyCheckPayload = {
   overwhelmed: string
   unsafe: string
@@ -20,6 +21,10 @@ export type Hotline = {
   note: string | null
 }
 
+export type ReferralOption = {
+  type: 'counselor' | 'trusted_contact' | 'clinic'
+}
+
 export const safetyService = {
   check: (payload: SafetyCheckPayload) =>
     httpClient.postWithCsrf<SafetyCheckResult>('/intake/safety-check', payload),
@@ -28,5 +33,5 @@ export const safetyService = {
     httpClient.get<{ hotlines: Hotline[] }>('/safety/hotlines'),
 
   getReferralOptions: () =>
-    httpClient.get<{ options: Array<{ type: string }> }>('/safety/referrals/options'),
+    httpClient.get<{ options: ReferralOption[] }>('/safety/referrals/options'),
 }

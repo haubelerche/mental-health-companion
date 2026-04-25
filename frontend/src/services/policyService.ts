@@ -6,5 +6,5 @@ export const policyService = {
     setVoiceConsent: (consent: boolean) =>
         httpClient.postWithCsrf<{ voice_consent: boolean }>('/policies/voice-consent', { consent }),
     acknowledge: () =>
-        httpClient.postWithCsrf<{ policy_version: string; acknowledged_at: string }>('/policies/acknowledge', {}),
+        httpClient.postWithCsrf<{ policy_version: string; acknowledged_at: string }>('/policies/acknowledge'),
 }
