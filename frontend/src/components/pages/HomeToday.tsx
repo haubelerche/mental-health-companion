@@ -145,7 +145,7 @@ export function HomeToday() {
           transition={{ delay: 0.4 }}
           className="mt-6 p-4 bg-[var(--color-serene-surface)] rounded-2xl text-sm text-[var(--color-serene-muted)] leading-relaxed"
         >
-          💡 {feed.dynamic_suggestion}
+          💡 {feed.dynamic_suggestion.message}
         </motion.div>
       )}
     </div>

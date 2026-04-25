@@ -9,7 +9,7 @@ export type MoodCheckinPayload = {
 export type HomeFeed = {
     quote_of_day: { text: string; author?: string | null }
     mood_today: { checked_in: boolean; mood: string | null; emoji: string | null }
-    dynamic_suggestion?: string | null
+    dynamic_suggestion?: { type: string; reason: string; message: string } | null
 }
 
 export const homeService = {
