@@ -5,14 +5,18 @@ import { useAuth } from '../../hooks/useAuth'
 export function GuestBanner() {
   const { guestSession } = useAuth()
   const navigate = useNavigate()
-  const [secondsLeft, setSecondsLeft] = useState(0)
+  const [secondsLeft, setSecondsLeft] = useState(() =>
+    guestSession ? Math.max(0, Math.floor((guestSession.expiresAt - Date.now()) / 1000)) : 0
+  )
+
+  const REGISTER_PATH = '/register'
 
   useEffect(() => {
     if (!guestSession) return
     const tick = () => {
       const diff = Math.max(0, Math.floor((guestSession.expiresAt - Date.now()) / 1000))
       setSecondsLeft(diff)
-      if (diff === 0) navigate('/register')
+      if (diff === 0) navigate(REGISTER_PATH)
     }
     tick()
     const id = setInterval(tick, 1000)
@@ -33,7 +37,7 @@ export function GuestBanner() {
         </span>
       </span>
       <button
-        onClick={() => navigate('/register')}
+        onClick={() => navigate(REGISTER_PATH)}
         className="rounded-full bg-white/20 hover:bg-white/30 px-3 py-0.5 text-xs transition-all"
       >
         Lưu hành trình →

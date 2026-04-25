@@ -1,4 +1,4 @@
-import { createContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { authService } from '../services/authService'
 import type {
@@ -40,15 +40,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
         expiresAt: number
     } | null>(null)
 
-    const startGuestSession = async () => {
-        const data = await chatService.startGuestSession()
-        setGuestSession({
-            guest_session_id: data.guest_session_id,
-            expiresAt: Date.now() + data.max_duration_sec * 1000,
-        })
-    }
+    const startGuestSession = useCallback(async () => {
+        try {
+            const data = await chatService.startGuestSession()
+            setGuestSession({
+                guest_session_id: data.guest_session_id,
+                expiresAt: Date.now() + data.max_duration_sec * 1000,
+            })
+        } catch (error) {
+            console.error('Failed to start guest session:', error)
+            throw error
+        }
+    }, [])
 
-    const clearGuestSession = () => setGuestSession(null)
+    const clearGuestSession = useCallback(() => setGuestSession(null), [])
 
     useEffect(() => {
         let mounted = true
@@ -122,7 +127,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const value = useMemo(
         () => ({ user, isLoading, signup, login, logout, guestSession, startGuestSession, clearGuestSession }),
-        [user, isLoading, guestSession],
+        [user, isLoading, guestSession, startGuestSession, clearGuestSession],
     )
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
