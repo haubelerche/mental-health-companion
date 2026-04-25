@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentProps } from 'react'
 import { History, Leaf, MoreVertical } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { resolveMediaUrl } from '../../api/httpClient'
 import { ApiRequestError } from '../../api/types'
@@ -10,6 +10,7 @@ import { ROUTE_PATHS } from '../../routes/paths'
 import { chatService } from '../../services/chatService'
 import { policyService } from '../../services/policyService'
 import { Switch } from '../ui/switch'
+import { HotlineBar } from '../crisis/HotlineBar'
 
 // ─── API response types ────────────────────────────────────────────────────────
 
@@ -22,7 +23,16 @@ type AssistantStrategy = {
     encourage_external_help: boolean
     avoid_hard_stop: boolean
 }
-type TheDinhKem = { type: string; id: string; title: string }
+type TheDinhKem = {
+    type: string
+    id: string
+    title: string
+    description?: string | null
+    duration_sec?: number
+    action?: string
+    route?: string
+    thumbnail?: string | null
+}
 type ProactiveVoiceIntervention = {
     type: string
     trigger_reason?: string
@@ -46,7 +56,7 @@ type ChatApiData = {
     reply?: string | null
     assistant_text?: string | null
     tone_cam_xuc?: string | null
-    goi_y_nhanh?: string[]
+    goi_y_nhanh?: QuickReply[]
     the_dinh_kem?: TheDinhKem[]
     sos_triggered?: boolean
     risk_level?: number
@@ -60,6 +70,8 @@ type ChatApiData = {
     routing_history?: string[]
     intervention?: ProactiveVoiceIntervention | null
 }
+
+type QuickReply = string | { label?: string; message?: string; reason?: string; type?: string }
 
 type UiMessage = {
     id: string
@@ -126,11 +138,17 @@ function DistressBar({ score }: { score?: number }) {
     )
 }
 
-function QuickReplies({ replies, onSelect }: { replies?: string[]; onSelect: (text: string) => void }) {
-    if (!replies?.length) return null
+function quickReplyText(reply: QuickReply): string {
+    if (typeof reply === 'string') return reply.trim()
+    return String(reply.message || reply.label || reply.reason || reply.type || '').trim()
+}
+
+function QuickReplies({ replies, onSelect }: { replies?: QuickReply[]; onSelect: (text: string) => void }) {
+    const normalizedReplies = (replies ?? []).map(quickReplyText).filter(Boolean)
+    if (!normalizedReplies.length) return null
     return (
         <div className="mt-2 flex flex-wrap gap-1.5">
-            {replies.map((q, i) => (
+            {normalizedReplies.map((q, i) => (
                 <button
                     key={i}
                     type="button"
@@ -144,20 +162,36 @@ function QuickReplies({ replies, onSelect }: { replies?: string[]; onSelect: (te
     )
 }
 
-function AttachmentCard({ item }: { item: TheDinhKem }) {
+function AttachmentCard({ item, onOpen }: { item: TheDinhKem; onOpen: (item: TheDinhKem) => void }) {
     const icons: Record<string, string> = {
         breathing_exercise: '🌬️',
+        grounding_exercise: '🌱',
+        body_scan: '🧘',
         meditation: '🧘',
         music: '🎵',
+        resource: '▶️',
+        clinic_map: '📍',
     }
+    const duration = item.duration_sec ? `${Math.max(1, Math.round(item.duration_sec / 60))} phút` : item.type.replace(/_/g, ' ')
     return (
-        <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-serene-primary/20 bg-serene-primary/5 px-3 py-2">
-            <span className="text-base">{icons[item.type] ?? '📎'}</span>
+        <button
+            type="button"
+            onClick={() => onOpen(item)}
+            className="mt-2 grid max-w-sm grid-cols-[44px_1fr_auto] items-center gap-3 rounded-2xl border border-serene-primary/15 bg-[#f5f1e8]/90 px-3 py-3 text-left shadow-[0_14px_34px_rgba(47,52,46,0.09)] transition hover:-translate-y-0.5 hover:bg-white"
+        >
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-serene-accent text-lg">
+                {icons[item.type] ?? '📎'}
+            </span>
             <div>
-                <p className="text-xs font-medium text-serene-ink">{item.title}</p>
-                <p className="text-[10px] text-serene-muted">{item.type.replace(/_/g, ' ')}</p>
+                <p className="text-xs font-semibold text-serene-ink">{item.title}</p>
+                <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-serene-muted">
+                    {item.description || duration}
+                </p>
             </div>
-        </div>
+            <span className="rounded-full bg-serene-primary px-3 py-1 text-[10px] font-semibold text-white">
+                Mở
+            </span>
+        </button>
     )
 }
 
@@ -275,6 +309,8 @@ export default function Chat() {
     const [lastFailedText, setLastFailedText] = useState<string | null>(null)
     const [showDebug, setShowDebug] = useState(true)
     const [showOptions, setShowOptions] = useState(false)
+    const [showHistory, setShowHistory] = useState(false)
+    const [sessions, setSessions] = useState<Array<{ session_id: string; preview: string | null; last_message_at: string }>>([])
     const [guestSecondsLeft, setGuestSecondsLeft] = useState<number>(FALLBACK_GUEST_CHAT_DURATION_SECONDS)
     const [guestSessionLoading, setGuestSessionLoading] = useState(false)
     const pollRef = useRef<number | null>(null)
@@ -282,8 +318,10 @@ export default function Chat() {
     const optionsRef = useRef<HTMLDivElement | null>(null)
     const guestDeadlineRef = useRef<number | null>(null)
     const guestExpiredNotifiedRef = useRef(false)
+    const [sosActive, setSosActive] = useState(false)
     const { user } = useAuth()
     const navigate = useNavigate()
+    const location = useLocation()
     const isGuestMode = !user
 
     useEffect(() => {
@@ -296,6 +334,11 @@ export default function Chat() {
             .then((res) => setVoiceConsent(Boolean(res.voice_consent)))
             .catch(() => undefined)
     }, [user])
+
+    useEffect(() => {
+        const state = location.state as { crisisMode?: boolean } | null
+        if (state?.crisisMode) setSosActive(true)
+    }, [location.state])
 
     useEffect(() => {
         let cancelled = false
@@ -530,6 +573,7 @@ export default function Chat() {
                     : m,
             ),
         )
+        if (finalData.sos_triggered) setSosActive(true)
         applyIntervention(finalData)
     }
 
@@ -546,14 +590,46 @@ export default function Chat() {
         setMessages((prev) => [
             ...prev,
             { id: `u_${now}`, role: 'user', content: text },
-            { id: pendingId, role: 'assistant', content: 'Mây đang phản hồi nhanh cho bạn...' },
+            { id: pendingId, role: 'assistant', content: 'Mây đang lắng nghe và viết lại thật cẩn thận cho bạn...' },
         ])
         setSending(true)
 
         try {
             if (!isGuestMode) {
-                const streamResponse = await chatService.sendMessageStream({ message: text, session_id: sessionId })
-                await consumeChatSse(streamResponse, pendingId)
+                try {
+                    const streamResponse = await chatService.sendMessageStream({ message: text, session_id: sessionId })
+                    await consumeChatSse(streamResponse, pendingId)
+                } catch (err) {
+                    const status = err instanceof ApiRequestError ? (err.status ?? 0) : 0
+                    if (!(err instanceof ApiRequestError) || status < 500) {
+                        throw err
+                    }
+                    const rawData = await chatService.sendMessage({ message: text, session_id: sessionId })
+                    const data = rawData as ChatApiData
+                    const sid = typeof data.session_id === 'string' ? data.session_id : null
+                    if (sid) setSessionId(sid)
+                    const assistantText =
+                        typeof data.reply === 'string' && data.reply
+                            ? data.reply
+                            : typeof data.assistant_text === 'string' && data.assistant_text
+                                ? data.assistant_text
+                                : 'Mình vẫn đang ở đây cùng bạn.'
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.id === pendingId
+                                ? {
+                                    id: `a_${Date.now()}`,
+                                    role: 'assistant',
+                                    content: assistantText,
+                                    apiData: data,
+                                }
+                                : m,
+                        ),
+                    )
+                    if (data.sos_triggered) setSosActive(true)
+                    applyIntervention(data)
+                    toast.info('Đường truyền stream đang lỗi, mình đã chuyển sang chế độ chat thường.')
+                }
             } else {
                 const rawData = await chatService.sendGuestMessage({ message: text, guest_session_id: sessionId })
                 const data = rawData as ChatApiData
@@ -580,6 +656,7 @@ export default function Chat() {
                             : m,
                     ),
                 )
+                if (data.sos_triggered) setSosActive(true)
                 applyIntervention(data)
             }
         } catch (err) {
@@ -609,6 +686,40 @@ export default function Chat() {
         }
     }
 
+    const loadHistory = async () => {
+        try {
+            const data = await chatService.getSessions()
+            setSessions(data.sessions)
+        } catch {
+            setSessions([])
+        }
+    }
+
+    const openHistory = async () => {
+        setShowHistory((prev) => !prev)
+        if (!showHistory) {
+            await loadHistory()
+        }
+    }
+
+    const loadSessionMessages = async (targetSessionId: string) => {
+        setSosActive(false)
+        try {
+            const data = await chatService.getSessionMessages(targetSessionId, 100, 0)
+            setSessionId(targetSessionId)
+            setMessages(
+                data.messages.map((msg) => ({
+                    id: msg.message_id,
+                    role: msg.role,
+                    content: msg.content,
+                })),
+            )
+            setShowHistory(false)
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Không tải được lịch sử hội thoại')
+        }
+    }
+
     const handleSend: FormSubmitHandler = async (event) => {
         event.preventDefault()
         if (!canSend) return
@@ -630,6 +741,26 @@ export default function Chat() {
         } catch (err) {
             toast.error(err instanceof Error ? err.message : 'Không cập nhật được cài đặt voice')
         }
+    }
+
+    const openAttachment = (item: TheDinhKem) => {
+        if (item.route) {
+            navigate(item.route)
+            return
+        }
+        if (item.action === 'open_connect_map' || item.type === 'clinic_map') {
+            navigate(ROUTE_PATHS.connect)
+            return
+        }
+        if (item.action === 'open_resource' || item.type === 'resource') {
+            navigate(ROUTE_PATHS.resources)
+            return
+        }
+        if (item.type.includes('exercise') || item.type === 'body_scan') {
+            navigate(`${ROUTE_PATHS.exercises}?exercise=${encodeURIComponent(item.id)}`)
+            return
+        }
+        navigate(ROUTE_PATHS.resources)
     }
 
     // Latest assistant message data for header stats
@@ -671,7 +802,7 @@ export default function Chat() {
                         )}
                         <button
                             type="button"
-                            onClick={() => toast.info('Lịch sử chat sẽ sớm có mặt.')}
+                            onClick={() => void openHistory()}
                             className="rounded-full p-2 text-serene-ink/70 transition hover:bg-serene-ink/10"
                             aria-label="Lịch sử chat"
                         >
@@ -752,6 +883,36 @@ export default function Chat() {
                 )}
             </div>
 
+            {showHistory && (
+                <div className="rounded-2xl border border-white/35 bg-white/70 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                        <p className="text-sm font-semibold text-serene-ink">Lịch sử hội thoại</p>
+                        <button type="button" onClick={() => setShowHistory(false)} className="text-xs text-serene-muted">
+                            Đóng
+                        </button>
+                    </div>
+                    <div className="max-h-64 space-y-2 overflow-y-auto">
+                        {sessions.length === 0 ? (
+                            <p className="text-xs text-serene-muted">Chưa có phiên nào.</p>
+                        ) : (
+                            sessions.map((sess) => (
+                                <button
+                                    key={sess.session_id}
+                                    type="button"
+                                    onClick={() => void loadSessionMessages(sess.session_id)}
+                                    className="w-full rounded-lg border border-white/40 bg-white/80 px-3 py-2 text-left"
+                                >
+                                    <p className="text-xs font-semibold text-serene-ink">{sess.preview || 'Phiên trò chuyện'}</p>
+                                    <p className="text-[10px] text-serene-muted">
+                                        {new Date(sess.last_message_at).toLocaleString('vi-VN')}
+                                    </p>
+                                </button>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* ── Message feed ──────────────────────────────────────────── */}
             <div className="min-h-[70dvh]  overflow-y-auto rounded-3xl border border-white/35 bg-white/75 p-4">
                 {messages.length === 0 ? (
@@ -782,7 +943,7 @@ export default function Chat() {
 
                                     {/* Attachments */}
                                     {m.apiData?.the_dinh_kem?.map((item, i) => (
-                                        <AttachmentCard key={i} item={item} />
+                                        <AttachmentCard key={`${item.type}-${item.id}-${i}`} item={item} onOpen={openAttachment} />
                                     ))}
 
                                     {/* Quick replies (non-SOS only) */}
@@ -840,6 +1001,8 @@ export default function Chat() {
                     </button>
                 </div>
             ) : null}
+
+            <HotlineBar visible={sosActive} />
         </section>
     )
 }

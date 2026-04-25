@@ -7,7 +7,7 @@ export default function BreathSection() {
             <div className="max-w-4xl mx-auto text-center space-y-15 px-6">
                 <div className="space-y-4">
                     <h2 className="text-4xl lg:text-6xl font-display text-white italic">Hãy để tâm trí được nghỉ ngơi</h2>
-                    <p className=" text-white/70 text-sm lg:text-lg">Hít thở sâu theo nhịp điệu của đại dương</p>
+                    <p className=" text-white/70 text-sm lg:text-lg">Hít thở sâu theo nhịp điệu</p>
                 </div>
                 <div className="flex justify-center">
                     <div className="relative flex items-center justify-center">

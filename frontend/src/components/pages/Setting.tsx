@@ -13,7 +13,13 @@ import bg3 from '../../assets/bg3.png'
 import bg4 from '../../assets/bg-reflect.png'
 import avatar from '../../assets/avatar.png'
 import { useAuth } from '../../hooks/useAuth'
-import { readAppSettings, saveAppSettings, type ThemeOption } from '../../utils/appSettings'
+import {
+  APP_SETTINGS_UPDATED_EVENT,
+  readAppSettings,
+  saveAppSettings,
+  type AppSettings,
+  type ThemeOption,
+} from '../../utils/appSettings'
 import { Switch } from '../ui/switch'
 import { toast } from 'react-toastify'
 
@@ -85,6 +91,22 @@ export default function Setting() {
   const displayName = user?.displayName || 'Lê Minh Anh'
   const email = user?.email || 'minhanh.le@serenemail.com'
 
+  const previewTheme = (theme: ThemeOption) => {
+    const previewSettings: AppSettings = {
+      theme,
+      maskIdentity,
+      shareData,
+      reminder,
+      weeklySummary,
+      sosAccess,
+    }
+    window.dispatchEvent(
+      new CustomEvent<AppSettings>(APP_SETTINGS_UPDATED_EVENT, {
+        detail: previewSettings,
+      }),
+    )
+  }
+
   const handleSaveChanges = () => {
     const settings = {
       theme: selectedTheme,
@@ -97,19 +119,18 @@ export default function Setting() {
 
     saveAppSettings(settings)
     toast.success('Cài đặt đã được lưu thành công!')
-    scrollTo({ top: 0, behavior: 'smooth' }) // cuộn lên đầu trang để người dùng thấy thông báo
-    console.log('Saved setting states:', settings)
     setSavedSettings(settings)
   }
 
   const handleCancel = () => {
-    const settings = readAppSettings()
+    const settings = savedSettings
     setSelectedTheme(settings.theme)
     setMaskIdentity(settings.maskIdentity)
     setShareData(settings.shareData)
     setReminder(settings.reminder)
     setWeeklySummary(settings.weeklySummary)
     setSosAccess(settings.sosAccess)
+    previewTheme(settings.theme)
   }
 
   return (
@@ -190,25 +211,37 @@ export default function Setting() {
                 label="Sunset Ocean"
                 image={bg}
                 selected={selectedTheme === 'sunset'}
-                onSelect={() => setSelectedTheme('sunset')}
+                onSelect={() => {
+                  setSelectedTheme('sunset')
+                  previewTheme('sunset')
+                }}
               />
               <ThemeCard
                 label="Blue Ocean"
                 image={bg4}
                 selected={selectedTheme === 'ocean'}
-                onSelect={() => setSelectedTheme('ocean')}
+                onSelect={() => {
+                  setSelectedTheme('ocean')
+                  previewTheme('ocean')
+                }}
               />
               <ThemeCard
                 label="Dawn Sky"
                 image={bg2}
                 selected={selectedTheme === 'dawn'}
-                onSelect={() => setSelectedTheme('dawn')}
+                onSelect={() => {
+                  setSelectedTheme('dawn')
+                  previewTheme('dawn')
+                }}
               />
               <ThemeCard
                 label="Night Sky"
                 image={bg3}
                 selected={selectedTheme === 'night'}
-                onSelect={() => setSelectedTheme('night')}
+                onSelect={() => {
+                  setSelectedTheme('night')
+                  previewTheme('night')
+                }}
               />
             </div>
           </section>

@@ -20,10 +20,11 @@ from app.db.session import get_db
 from app.schemas.payloads import ChatEndRequest, ChatMessageRequest, GuestChatMessageRequest
 from app.services.chat_context import load_chat_context_sync
 from app.services.chat_response_cache import get_cached_turn, hash_message, set_cached_turn
+from app.services.confidence_router import route_for_human_review
 from app.services.guest_service import heartbeat as guest_heartbeat
 from app.services.guest_service import start_session as guest_start_session
 from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn, stream_non_sos_turn_events
-from app.services.longterm_memory import get_user_longterm_memories
+from app.services.longterm_memory import build_user_memory_context, get_user_longterm_memories
 from app.services.pii_mask import mask_pii
 from app.services.rate_limit import get_rate_limiter
 from app.services.session_summary import close_session_summary
@@ -97,6 +98,35 @@ def _record_sos_side_effects(
     clin.last_scored_at = utc_now().replace(tzinfo=None)
 
 
+def _queue_human_review(
+    db: Session,
+    *,
+    user_id: str,
+    session_id: str,
+    distress_score: float,
+    message: str,
+    host: str | None,
+) -> None:
+    row = CrisisLog(
+        log_id=make_id("cl"),
+        session_id=session_id,
+        user_id=user_id,
+        muc_do="cao",
+        context_summary=f"[pending_review distress={distress_score:.2f}] {mask_pii(message)[:1800]}",
+        reviewed=False,
+    )
+    db.add(row)
+    db.add(
+        AdminAuditLog(
+            admin_id=SYSTEM_AUDIT_ADMIN,
+            action="HIGH_RISK_REVIEW_QUEUED",
+            resource_accessed=f"/v1/chat/session/{session_id}",
+            ip_address=host or "0.0.0.0",
+            metadata_json={"user_id": user_id, "distress_score": round(float(distress_score), 3)},
+        )
+    )
+
+
 def _recent_distress_history(recent_messages: list[dict], *, max_turns: int) -> list[float]:
     user_msgs = [m for m in recent_messages if m.get("role") == "user"]
     history: list[float] = []
@@ -104,6 +134,37 @@ def _recent_distress_history(recent_messages: list[dict], *, max_turns: int) -> 
         content = str(row.get("content") or "")
         history.append(heuristic_distress(content))
     return history
+
+
+def _should_load_memory_context(raw_text: str, recent_messages: list[dict]) -> bool:
+    """Load memory context even on short/low-distress turns when user asks recall-style questions."""
+    text = str(raw_text or "").lower()
+    recall_keywords = (
+        "nhớ",
+        "nho",
+        "lần trước",
+        "lan truoc",
+        "hôm qua",
+        "hom qua",
+        "hội thoại trước",
+        "hoi thoai truoc",
+        "trước đó",
+        "truoc do",
+        "tôi là ai",
+        "toi la ai",
+        "mình là ai",
+        "minh la ai",
+        "bạn còn nhớ",
+        "ban con nho",
+        "nhắc lại",
+        "nhac lai",
+        "tiếp tục",
+        "tiep tuc",
+    )
+    if any(k in text for k in recall_keywords):
+        return True
+    # Session already has enough turns, keep continuity context warm.
+    return len(recent_messages) >= 4
 
 
 def _build_voice_intervention(
@@ -219,12 +280,15 @@ def send_message(
     )
     db.add(user_msg)
     db.flush()
+    session.message_count += 1
+    session.last_message_at = now
 
     ctx = load_chat_context_sync(
         db,
         session_id=session.session_id,
         user_id=current_user.user_id,
-        message_limit=10,
+        message_limit=16,
+        message_token_budget=1400,
     )
     previous_user_messages = [str(m.get("content") or "") for m in ctx.recent_messages if m.get("role") == "user"]
     if previous_user_messages and previous_user_messages[-1] == stored_user_content:
@@ -252,7 +316,7 @@ def send_message(
             created_at=now,
         )
         db.add(assistant_msg)
-        session.message_count += 2
+        session.message_count += 1
         session.last_message_at = now
         _record_sos_side_effects(
             db,
@@ -278,6 +342,9 @@ def send_message(
             )
         return ok(data)
 
+    # Persist user turn before calling LLM to release DB connection back to pool.
+    db.commit()
+
     distress = distress0
     if ctx.mood_today and ctx.mood_today.get("mood") in ("stressed", "restless", "melancholic"):
         distress = min(1.0, distress + 0.08)
@@ -289,19 +356,34 @@ def send_message(
 
     if turn is None:
         try:
-            long_term_memories: list[str] = []
-            if distress >= 0.35 or len(raw_text) >= 40:
-                long_term_memories = get_user_longterm_memories(
-                    db,
-                    user_id=current_user.user_id,
-                    limit=3,
-                )
+            memory_ctx = None
+            compat_longterm: list[str] = []
+            if distress >= 0.35 or len(raw_text) >= 40 or _should_load_memory_context(raw_text, ctx.recent_messages):
+                compat_longterm = get_user_longterm_memories(db, user_id=current_user.user_id, limit=3)
+                try:
+                    memory_ctx = build_user_memory_context(
+                        db,
+                        user_id=current_user.user_id,
+                        current_query=raw_text,
+                    )
+                    if not memory_ctx.recent_summaries and compat_longterm:
+                        memory_ctx.recent_summaries = compat_longterm
+                except Exception as exc:
+                    logger.warning("build_user_memory_context failed, fallback to compat list: %s", exc)
             turn = run_non_sos_turn(
                 user_message=raw_text,
                 recent_messages=ctx.recent_messages,
                 mood_today=ctx.mood_today,
                 distress_score=distress,
-                long_term_memories=long_term_memories,
+                long_term_memories=(memory_ctx.recent_summaries if memory_ctx else compat_longterm),
+                mem0_facts=(memory_ctx.mem0_facts if memory_ctx else []),
+                user_traits=(memory_ctx.traits if memory_ctx else {}),
+                top_triggers=(memory_ctx.top_triggers if memory_ctx else []),
+                active_goals=(memory_ctx.active_goals if memory_ctx else []),
+                effective_coping=(memory_ctx.effective_coping if memory_ctx else []),
+                clinical_trajectory=(memory_ctx.clinical_trajectory if memory_ctx else ""),
+                user_id=current_user.user_id,
+                session_id=session.session_id,
             )
             set_cached_turn(
                 session.session_id,
@@ -331,8 +413,22 @@ def send_message(
         created_at=now,
     )
     db.add(assistant_msg)
-    session.message_count += 2
+    session.message_count += 1
     session.last_message_at = now
+    review_decision = route_for_human_review(
+        distress_score=snap.distress_score,
+        sos_triggered=False,
+        threshold=0.85,
+    )
+    if review_decision.requires_human_review:
+        _queue_human_review(
+            db,
+            user_id=current_user.user_id,
+            session_id=session.session_id,
+            distress_score=snap.distress_score,
+            message=raw_text,
+            host=host,
+        )
     db.commit()
 
     vhint = None
@@ -352,18 +448,22 @@ def send_message(
         routing_history=routing_hist,
     )
     data["intervention"] = None
+    if review_decision.requires_human_review:
+        data["pending_human_review"] = True
+        data["review_reason"] = review_decision.reason
+    final_distress = float(snap.distress_score)
     history = _recent_distress_history(
         ctx.recent_messages,
         max_turns=settings.proactive_voice_window_turns,
     )
     signal = compute_escalation_signal(
-        current_distress=distress,
+        current_distress=final_distress,
         previous_distress=history,
         threshold=settings.proactive_voice_threshold,
         delta_threshold=settings.proactive_voice_delta_threshold,
         window_turns=settings.proactive_voice_window_turns,
     )
-    force_voice_by_tier = snap.safety_tier in {"critical", "voice_recommended"} and distress >= 0.8
+    force_voice_by_tier = snap.safety_tier in {"critical", "voice_recommended"} and final_distress >= 0.8
     if (signal.escalate or force_voice_by_tier) and voice_consent and not cooldown_is_active:
         trigger_reason = signal.trigger_reason if signal.escalate else "safety_tier_forced"
         data["intervention"] = _build_voice_intervention(
@@ -454,6 +554,8 @@ def send_message_stream(
             )
             db.add(user_msg)
             db.flush()
+            session.message_count += 1
+            session.last_message_at = now
             last_heartbeat, hb = _build_heartbeat_event(
                 started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_user_saved"
             )
@@ -464,7 +566,8 @@ def send_message_stream(
                 db,
                 session_id=session.session_id,
                 user_id=current_user.user_id,
-                message_limit=10,
+                message_limit=16,
+                message_token_budget=1400,
             )
             last_heartbeat, hb = _build_heartbeat_event(
                 started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_context_loaded"
@@ -503,7 +606,7 @@ def send_message_stream(
                     created_at=now,
                 )
                 db.add(assistant_msg)
-                session.message_count += 2
+                session.message_count += 1
                 session.last_message_at = now
                 _record_sos_side_effects(
                     db,
@@ -532,6 +635,9 @@ def send_message_stream(
                 yield "event: final\ndata: " + json.dumps(data, ensure_ascii=False) + "\n\n"
                 return
 
+            # Persist user turn before any potentially long-running LLM call.
+            db.commit()
+
             distress = distress0
             if ctx.mood_today and ctx.mood_today.get("mood") in ("stressed", "restless", "melancholic"):
                 distress = min(1.0, distress + 0.08)
@@ -539,9 +645,20 @@ def send_message_stream(
             message_hash = hash_message(raw_text)
             turn = get_cached_turn(session.session_id, message_hash) if settings.chat_response_cache_ttl_seconds > 0 else None
             if turn is None:
-                long_term_memories: list[str] = []
-                if distress >= 0.35 or len(raw_text) >= 40:
-                    long_term_memories = get_user_longterm_memories(db, user_id=current_user.user_id, limit=3)
+                memory_ctx = None
+                compat_longterm: list[str] = []
+                if distress >= 0.35 or len(raw_text) >= 40 or _should_load_memory_context(raw_text, ctx.recent_messages):
+                    compat_longterm = get_user_longterm_memories(db, user_id=current_user.user_id, limit=3)
+                    try:
+                        memory_ctx = build_user_memory_context(
+                            db,
+                            user_id=current_user.user_id,
+                            current_query=raw_text,
+                        )
+                        if not memory_ctx.recent_summaries and compat_longterm:
+                            memory_ctx.recent_summaries = compat_longterm
+                    except Exception as exc:
+                        logger.warning("build_user_memory_context failed, fallback to compat list: %s", exc)
                 last_heartbeat, hb = _build_heartbeat_event(
                     started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_memory_ready"
                 )
@@ -553,7 +670,15 @@ def send_message_stream(
                     recent_messages=ctx.recent_messages,
                     mood_today=ctx.mood_today,
                     distress_score=distress,
-                    long_term_memories=long_term_memories,
+                    long_term_memories=(memory_ctx.recent_summaries if memory_ctx else compat_longterm),
+                    mem0_facts=(memory_ctx.mem0_facts if memory_ctx else []),
+                    user_traits=(memory_ctx.traits if memory_ctx else {}),
+                    top_triggers=(memory_ctx.top_triggers if memory_ctx else []),
+                    active_goals=(memory_ctx.active_goals if memory_ctx else []),
+                    effective_coping=(memory_ctx.effective_coping if memory_ctx else []),
+                    clinical_trajectory=(memory_ctx.clinical_trajectory if memory_ctx else ""),
+                    user_id=current_user.user_id,
+                    session_id=session.session_id,
                 ):
                     if ev.get("type") == "token":
                         yield "event: delta\ndata: " + json.dumps({"text": str(ev.get("text") or "")}, ensure_ascii=False) + "\n\n"
@@ -586,8 +711,22 @@ def send_message_stream(
                 created_at=now,
             )
             db.add(assistant_msg)
-            session.message_count += 2
+            session.message_count += 1
             session.last_message_at = now
+            review_decision = route_for_human_review(
+                distress_score=snap.distress_score,
+                sos_triggered=False,
+                threshold=0.85,
+            )
+            if review_decision.requires_human_review:
+                _queue_human_review(
+                    db,
+                    user_id=current_user.user_id,
+                    session_id=session.session_id,
+                    distress_score=snap.distress_score,
+                    message=raw_text,
+                    host=host,
+                )
             db.commit()
 
             vhint = None
@@ -605,15 +744,19 @@ def send_message_stream(
                 routing_history=routing_hist,
             )
             data["intervention"] = None
+            if review_decision.requires_human_review:
+                data["pending_human_review"] = True
+                data["review_reason"] = review_decision.reason
+            final_distress = float(snap.distress_score)
             history = _recent_distress_history(ctx.recent_messages, max_turns=settings.proactive_voice_window_turns)
             signal = compute_escalation_signal(
-                current_distress=distress,
+                current_distress=final_distress,
                 previous_distress=history,
                 threshold=settings.proactive_voice_threshold,
                 delta_threshold=settings.proactive_voice_delta_threshold,
                 window_turns=settings.proactive_voice_window_turns,
             )
-            force_voice_by_tier = snap.safety_tier in {"critical", "voice_recommended"} and distress >= 0.8
+            force_voice_by_tier = snap.safety_tier in {"critical", "voice_recommended"} and final_distress >= 0.8
             if (signal.escalate or force_voice_by_tier) and voice_consent and not cooldown_is_active:
                 trigger_reason = signal.trigger_reason if signal.escalate else "safety_tier_forced"
                 data["intervention"] = _build_voice_intervention(
@@ -688,13 +831,7 @@ def send_guest_message(payload: GuestChatMessageRequest, _: None = Depends(requi
                 recent_messages=[],
                 mood_today=None,
                 distress_score=distress,
-    settings = get_settings()
-    if payload.guest_session_id:
-        if not guest_heartbeat(payload.guest_session_id):
-            raise AppError(
-                "GUEST_TRIAL_EXPIRED",
-                "Phiên chat thử đã hết 2 phút. Vui lòng đăng ký để tiếp tục trò chuyện.",
-                403,
+                session_id=session_id,
             )
         except Exception as exc:
             logger.exception("guest chat generation failed")
@@ -744,41 +881,6 @@ def send_guest_message(payload: GuestChatMessageRequest, _: None = Depends(requi
     except Exception as exc:
         logger.exception("guest message failed unexpectedly")
         raise AppError("SCHEMA_VALIDATION_FAILED", "Đã xảy ra lỗi nội bộ", 500) from exc
-
-    message_hash = hash_message(raw_text)
-    turn = get_cached_turn(session_id, message_hash) if settings.chat_response_cache_ttl_seconds > 0 else None
-    if turn is None:
-        turn = run_non_sos_turn(
-            user_message=raw_text,
-            recent_messages=[],
-            mood_today=None,
-            distress_score=distress,
-        )
-        set_cached_turn(
-            session_id,
-            message_hash,
-            turn,
-            ttl_seconds=settings.chat_response_cache_ttl_seconds,
-        )
-    snap = turn["session_fields"]
-    assistant_content = turn["reply"]
-    tone = turn["tone_cam_xuc"]
-    goi_y = turn["goi_y_nhanh"]
-    the_dinh = turn["the_dinh_kem"]
-    routing_hist: list[str] = turn.get("routing_history") or []
-
-    data = build_normal_envelope(
-        session_id,
-        snap=snap,
-        reply=assistant_content,
-        tone_cam_xuc=tone,
-        goi_y_nhanh=goi_y,
-        the_dinh_kem=the_dinh,
-        voice_hint=None,
-        routing_history=routing_hist,
-    )
-    data["intervention"] = None
-    return ok(data)
 
 
 @router.get("/voice-jobs/{tts_job_id}")

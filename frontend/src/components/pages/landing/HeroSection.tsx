@@ -12,8 +12,7 @@ export default function HeroSection() {
                     trong tâm hồn
                 </h2>
                 <p className="mx-auto mt-8 max-w-3xl text-base font-light text-white/90 sm:text-xl drop-shadow-md">
-                    Serene đồng hành cùng bạn trên hành trình thấu hiểu bản thân thông qua
-                    sự tĩnh lặng của đại dương.
+                    Serene đồng hành cùng bạn trên hành trình thấu hiểu bản thân.
                 </p>
                 <div className="mt-10 flex items-center justify-center gap-4">
                     <Link

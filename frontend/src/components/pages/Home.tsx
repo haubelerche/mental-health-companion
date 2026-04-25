@@ -8,17 +8,24 @@ import {
     Sparkles,
     Volume2,
 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import type { ReactNode } from 'react'
 import exercise from '../../assets/exercise.png'
 import journal from '../../assets/journal.png'
 import ethereal from '../../assets/ethereal.png'
 import forest from '../../assets/forest.png'
+import { homeService } from '../../services/homeService'
+import { ROUTE_PATHS } from '../../routes/paths'
 
 type MoodCard = {
     icon: ReactNode
     title: string
     desc: string
     active?: boolean
+    apiMood: string
+    emoji?: string
 }
 
 type QuickItem = {
@@ -26,6 +33,7 @@ type QuickItem = {
     title: string
     desc: string
     icon: ReactNode
+    route: string
 }
 
 const moods: MoodCard[] = [
@@ -33,22 +41,29 @@ const moods: MoodCard[] = [
         icon: <Leaf className="h-7 w-7" />,
         title: 'Bình yên',
         desc: 'Nhẹ như mặt nước phẳng lặng.',
+        apiMood: 'calm',
+        emoji: '🍃',
     },
     {
         icon: <Cloud className="h-7 w-7" />,
         title: 'Lắng lại',
         desc: 'Một cơn mưa nhỏ trong lòng.',
-        active: true,
+        apiMood: 'melancholic',
+        emoji: '☁️',
     },
     {
         icon: <Sparkles className="h-7 w-7" />,
         title: 'Rạng rỡ',
         desc: 'Năng lượng đang mở ra.',
+        apiMood: 'bright',
+        emoji: '✨',
     },
     {
         icon: <AirVent className="h-7 w-7" />,
         title: 'Bồn chồn',
         desc: 'Cần một nhịp thở sâu.',
+        apiMood: 'restless',
+        emoji: '🌬️',
     },
 ]
 
@@ -59,22 +74,79 @@ const quickItems: QuickItem[] = [
         title: 'Gentle Flow',
         desc: 'Đánh thức cơ thể với chuyển động có chủ đích.',
         icon: <ArrowRight className="h-5 w-5" />,
+        route: ROUTE_PATHS.exercises,
     },
     {
         image: journal,
         title: 'Journal Prompt',
         desc: 'Điều gì hôm nay nhẹ hơn ngày hôm qua?',
         icon: <BookOpen className="h-5 w-5" />,
+        route: ROUTE_PATHS.checkin,
     },
     {
         image: ethereal,
         title: 'Ethereal Tides',
         desc: 'Âm thanh đại dương để tập trung và hồi phục.',
         icon: <Volume2 className="h-5 w-5" />,
+        route: ROUTE_PATHS.resources,
     },
 ]
 
+const PERSONA_TABS = [
+    { id: 'checkin',   label: 'Check-in nhanh',     sub: 'An · 2 phút',    emoji: '☀️', next: ROUTE_PATHS.checkin },
+    { id: 'screening', label: 'Làm bài sàng lọc',   sub: 'Lửa · ~5 phút', emoji: '📋', next: ROUTE_PATHS.screening },
+    { id: 'chat',      label: 'Trò chuyện ngay',     sub: 'Mây · luôn sẵn', emoji: '💬', next: ROUTE_PATHS.chat },
+]
+
 export default function Home() {
+    const navigate = useNavigate()
+    const [checkedInMood, setCheckedInMood] = useState<string | null>(null)
+    const [quote, setQuote] = useState<{ text: string; author?: string | null } | null>(null)
+    const [submittingMood, setSubmittingMood] = useState<string | null>(null)
+
+    const handlePersonaTab = (next: string) => {
+        navigate(next)
+    }
+
+    useEffect(() => {
+        let mounted = true
+        homeService
+            .feed()
+            .then((data) => {
+                if (!mounted) return
+                setCheckedInMood(data.mood_today.mood)
+                setQuote(data.quote_of_day)
+            })
+            .catch(() => undefined)
+        return () => {
+            mounted = false
+        }
+    }, [])
+
+    const moodCards = useMemo(
+        () =>
+            moods.map((mood) => ({
+                ...mood,
+                active: checkedInMood ? checkedInMood === mood.apiMood : Boolean(mood.active),
+            })),
+        [checkedInMood],
+    )
+
+    const onCheckinMood = async (mood: MoodCard) => {
+        if (submittingMood) return
+        try {
+            setSubmittingMood(mood.apiMood)
+            await homeService.checkin({ mood: mood.apiMood, emoji: mood.emoji })
+            setCheckedInMood(mood.apiMood)
+            toast.success('Đã lưu mood check-in hôm nay.')
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Không thể lưu check-in'
+            toast.info(message)
+        } finally {
+            setSubmittingMood(null)
+        }
+    }
+
     return (
         <div className="space-y-12 lg:space-y-16">
 
@@ -85,15 +157,17 @@ export default function Home() {
             </h2>
 
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
-                {moods.map((mood) => (
+                {moodCards.map((mood) => (
                     <article
                         key={mood.title}
+                        onClick={() => void onCheckinMood(mood)}
                         className={[
-                            'rounded-[26px] border px-6 py-7 backdrop-blur-xl transition',
+                            'rounded-[26px] border px-6 py-7 backdrop-blur-xl transition cursor-pointer',
                             mood.active
                                 ? 'border-serene-primary/20 bg-serene-primary/90 text-serene-on-primary shadow-lg'
                                 : 'border-white/45 bg-white/55 hover:bg-white/70',
                         ].join(' ')}
+                        aria-busy={submittingMood === mood.apiMood}
                     >
                         <div className={mood.active ? 'text-serene-accent' : 'text-serene-primary'}>
                             {mood.icon}
@@ -118,6 +192,24 @@ export default function Home() {
                 ))}
             </section>
 
+            <section className="grid gap-3 sm:grid-cols-3">
+                {PERSONA_TABS.map((tab) => (
+                    <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => handlePersonaTab(tab.next)}
+                        className="flex items-center gap-4 rounded-[26px] border border-white/45 bg-white/55 px-5 py-4 backdrop-blur-xl transition hover:bg-white/70 active:scale-[0.98] text-left"
+                    >
+                        <span className="text-2xl" aria-hidden="true">{tab.emoji}</span>
+                        <div className="min-w-0">
+                            <p className="font-semibold text-serene-ink text-base leading-tight">{tab.label}</p>
+                            <p className="text-sm text-serene-muted mt-0.5">{tab.sub}</p>
+                        </div>
+                        <span className="ml-auto text-serene-muted text-lg" aria-hidden="true">›</span>
+                    </button>
+                ))}
+            </section>
+
             <section className="grid gap-8 lg:grid-cols-2 lg:gap-10">
                 <article className="group relative overflow-hidden rounded-[34px] shadow-[0_30px_70px_rgba(47,52,46,0.26)] ">
                     <img
@@ -138,6 +230,7 @@ export default function Home() {
                         <div className="mt-7 flex flex-wrap items-center gap-4">
                             <button
                                 type="button"
+                                onClick={() => navigate(ROUTE_PATHS.exercises)}
                                 className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 font-display text-xl italic text-serene-primary transition hover:bg-serene-bg"
                             >
                                 Bắt đầu
@@ -152,8 +245,10 @@ export default function Home() {
 
                 <div className="space-y-5 lg:space-y-7">
                     {quickItems.map((item) => (
-                        <article
+                        <button
                             key={item.title}
+                            type="button"
+                            onClick={() => navigate(item.route)}
                             className="group flex items-center gap-4 rounded-3xl border border-white/30 bg-white/50 p-4 backdrop-blur-xl transition-colors hover:bg-white/70"
                         >
                             <img
@@ -168,7 +263,7 @@ export default function Home() {
                             <span className="text-serene-muted transition group-hover:text-serene-primary">
                                 {item.icon}
                             </span>
-                        </article>
+                        </button>
                     ))}
                 </div>
             </section>
@@ -176,10 +271,10 @@ export default function Home() {
             <section className="rounded-4xl border border-white/30 bg-serene-primary/80 px-7 py-14 text-center backdrop-blur-xl sm:px-12 lg:px-20 lg:py-20">
                 <Leaf className="mx-auto h-12 w-12 text-serene-accent/80" />
                 <blockquote className="mx-auto mt-6 max-w-4xl font-display text-3xl italic leading-snug text-serene-on-primary sm:text-5xl">
-                    “Giây phút hiện tại là nơi duy nhất sự sống thực sự tồn tại.”
+                    {quote?.text ? `“${quote.text}”` : '“Giây phút hiện tại là nơi duy nhất sự sống thực sự tồn tại.”'}
                 </blockquote>
                 <p className="mt-5 text-xs uppercase tracking-[0.25em] text-serene-on-primary/65">
-                    Thích Nhất Hạnh
+                    {quote?.author || 'Thích Nhất Hạnh'}
                 </p>
             </section>
         </div>

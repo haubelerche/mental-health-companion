@@ -142,6 +142,8 @@ class Meta(BaseModel):
     last_rollup_at: datetime | None = None
     next_rollup_at: datetime | None = None
     pii_masked: bool = True
+    weekly_note_content: str | None = None
+    weekly_note_generated_at: datetime | None = None
 
 
 class UserProfile(BaseModel):
@@ -177,7 +179,7 @@ def _load_json_schema() -> dict:
     global _PROFILE_JSON_SCHEMA
     if _PROFILE_JSON_SCHEMA is None:
         import pathlib
-        schema_path = pathlib.Path(__file__).parent.parent / "schema" / "user_profile_schema.json"
+        schema_path = pathlib.Path(__file__).parent.parent / "data" / "user_profile_schema.json"
         with open(schema_path) as f:
             _PROFILE_JSON_SCHEMA = json.load(f)
     return _PROFILE_JSON_SCHEMA

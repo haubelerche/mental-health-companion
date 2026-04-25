@@ -9,7 +9,8 @@ from app.core.errors import AppError
 from app.core.responses import ok
 from app.db.models import AdminAuditLog, Conversation, CrisisLog
 from app.db.session import get_db
-from app.schemas.payloads import AdminLoginRequest
+from app.schemas.payloads import AdminLoginRequest, CrisisReviewRequest
+from app.services.chat_cost_metrics import get_chat_cost_snapshot
 from app.services.cookies import set_auth_cookies
 from app.services.auth_latency_metrics import get_auth_latency_snapshot
 from app.services.security import issue_admin_token, verify_password, verify_totp
@@ -131,6 +132,56 @@ def admin_auth_latency_sla(
                 "target_p95_ms": signup.target_p95_ms,
                 "within_sla": signup.within_sla,
             },
+        }
+    )
+
+
+@router.patch("/crisis-logs/{log_id}/review")
+def review_crisis_log(
+    log_id: str,
+    payload: CrisisReviewRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(get_admin_claims),
+):
+    enforce_admin_ip(request)
+    row = db.get(CrisisLog, log_id)
+    if not row:
+        raise AppError("CRISIS_LOG_NOT_FOUND", "Crisis log không tồn tại", 404)
+    row.reviewed = bool(payload.reviewed)
+    row.reviewed_at = utc_now().replace(tzinfo=None)
+    row.reviewed_by = claims.get("sub")
+    db.commit()
+    _audit(db, claims["sub"], "PATCH_CRISIS_REVIEW", request)
+    return ok(
+        {
+            "log_id": row.log_id,
+            "reviewed": row.reviewed,
+            "reviewed_at": row.reviewed_at.isoformat() + "Z" if row.reviewed_at else None,
+            "reviewed_by": row.reviewed_by,
+            "note": payload.note,
+        }
+    )
+
+
+@router.get("/cost-dashboard")
+def admin_cost_dashboard(
+    request: Request,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(get_admin_claims),
+):
+    enforce_admin_ip(request)
+    snapshot = get_chat_cost_snapshot()
+    _audit(db, claims["sub"], "GET_COST_DASHBOARD", request)
+    return ok(
+        {
+            "chat_cost": {
+                "total_turns": snapshot.total_turns,
+                "total_input_tokens": snapshot.total_input_tokens,
+                "total_output_tokens": snapshot.total_output_tokens,
+                "total_tokens": snapshot.total_tokens,
+                "estimated_cost_usd": snapshot.estimated_cost_usd,
+            }
         }
     )
 

@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import Login from '../components/auth/Login.tsx'
 import Register from '../components/auth/Register.tsx'
+import { PolicyWizard } from '../components/policy/PolicyWizard'
 import Chat from '../components/chat/Chat.tsx'
 import Main from '../components/layout/Main.tsx'
 import Connect from '../components/pages/Connect.tsx'
@@ -9,6 +10,11 @@ import Home from '../components/pages/Home.tsx'
 import Landing from '../components/pages/Landing.tsx'
 import Reflect from '../components/pages/Reflect.tsx'
 import Resources from '../components/pages/Resources.tsx'
+import { CheckinFlow } from '../components/pages/CheckinFlow'
+import { SafetyCheck } from '../components/pages/SafetyCheck'
+import { ScreeningFlow } from '../components/pages/ScreeningFlow'
+import { ResultsPage } from '../components/pages/ResultsPage'
+import { ExercisesPage } from '../components/pages/ExercisesPage'
 import { useAuth } from '../hooks/useAuth'
 import { ROUTE_PATHS } from './paths'
 import Setting from '../components/pages/Setting.tsx'
@@ -33,6 +39,7 @@ export default function AppRoutes() {
             <Route path={ROUTE_PATHS.register} element={<Register />} />
             <Route path={ROUTE_PATHS.forget} element={<Forget />} />
             <Route path={ROUTE_PATHS.landing} element={<Landing />} />
+            <Route path={ROUTE_PATHS.onboardingPolicy} element={<PolicyWizard />} />
 
             <Route path={ROUTE_PATHS.home} element={<Main />}>
                 <Route
@@ -73,6 +80,46 @@ export default function AppRoutes() {
                     element={
                         <RequireAuth>
                             <Setting />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.safetyCheck}
+                    element={
+                        <RequireAuth>
+                            <SafetyCheck />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.checkin}
+                    element={
+                        <RequireAuth>
+                            <CheckinFlow />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.screening}
+                    element={
+                        <RequireAuth>
+                            <ScreeningFlow />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.results}
+                    element={
+                        <RequireAuth>
+                            <ResultsPage />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.exercises}
+                    element={
+                        <RequireAuth>
+                            <ExercisesPage />
                         </RequireAuth>
                     }
                 />

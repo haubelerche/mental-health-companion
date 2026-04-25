@@ -59,6 +59,34 @@ def test_guest_chat_message_blocks_expired_trial(monkeypatch):
 
 def test_guest_chat_message_accepts_dict_session_fields(monkeypatch):
     monkeypatch.setattr(chat_router, "guest_start_session", lambda: ("gst_abc", 120))
+    monkeypatch.setattr(chat_router, "decide_sos", lambda *_args, **_kwargs: (False, 0.1))
+    monkeypatch.setattr(
+        chat_router,
+        "run_non_sos_turn",
+        lambda **_kwargs: {
+            "session_fields": {
+                "distress_score": 0.18,
+                "risk_level": 0,
+                "safety_tier": "normal",
+                "conversation_mode": "normal",
+            },
+            "reply": "Mình ở đây với bạn.",
+            "tone_cam_xuc": "xac_nhan",
+            "goi_y_nhanh": [],
+            "the_dinh_kem": [],
+            "routing_history": [],
+        },
+    )
+
+    with TestClient(app) as client:
+        resp = _post_guest_message(client, {"message": "hi"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["data"]["session_id"] == "gst_abc"
+
+
 def test_guest_chat_message_allows_loopback_origin_on_different_port(monkeypatch):
     monkeypatch.setattr(chat_router, "guest_start_session", lambda: ("gst_123", 120))
     monkeypatch.setattr(chat_router, "decide_sos", lambda *_args, **_kwargs: (False, 0.1))
@@ -108,7 +136,7 @@ def test_guest_chat_message_allows_loopback_origin_on_different_port(monkeypatch
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] is True
-    assert body["data"]["session_id"] == "gst_abc"
+    assert body["data"]["session_id"] == "gst_123"
 
 
 def test_guest_chat_message_expires_after_backend_trial_duration(monkeypatch):

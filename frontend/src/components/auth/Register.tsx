@@ -44,16 +44,19 @@ export default function Register() {
 
 
         try {
-            await signup({
+            const res = await signup({
                 display_name: fullName.trim(),
                 email: email.trim(),
                 password,
                 disclaimer_accepted: acknowledged,
                 voice_consent: voiceConsent,
             })
-
-            toast.success('Đăng ký thành công. Chào mừng bạn đến với Serene!')
-            navigate(ROUTE_PATHS.home)
+            if (res.verification_required) {
+                toast.success(res.message || 'Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản.')
+            } else {
+                toast.success('Đăng ký thành công. Chào mừng bạn đến với Serene!')
+            }
+            navigate(ROUTE_PATHS.onboardingPolicy)
             console.info('[auth-metrics] signup.click_to_navigate_ms', Math.round(performance.now() - clickStartedAt))
         } catch (error) {
             console.info('[auth-metrics] signup.failed_ms', Math.round(performance.now() - clickStartedAt))
@@ -70,7 +73,7 @@ export default function Register() {
         <div className="auth-page">
             <div className="fixed inset-0">
                 <img
-                    alt="Dawn sk over oceany"
+                    alt="Dawn sky over ocean"
                     src={bg2}
                     className="auth-bg-image"
                 />

@@ -1,15 +1,16 @@
-import { BookOpen, Group, HomeIcon, Leaf, MessageSquare } from 'lucide-react'
+import { BookOpen, Compass, HelpCircle, HomeIcon, MessageSquare, Sparkles, User } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
+import { ROUTE_PATHS } from '../../routes/paths'
 
 type SidebarProps = {
     isOpen: boolean
 }
 const navItems = [
-    { icon: <HomeIcon className="h-5 w-5" />, label: 'Trang chủ', route: '/serene' },
-    { icon: <MessageSquare className="h-5 w-5 fill-current" />, label: 'Trò chuyện', route: '/serene/chat' },
-    { icon: <Leaf className="h-5 w-5" />, label: 'Nhìn lại', route: '/serene/reflect' },
-    { icon: <BookOpen className="h-5 w-5" />, label: 'Tài nguyên', route: '/serene/resources' },
-    { icon: <Group className="h-5 w-5" />, label: 'Kết nối', route: '/serene/connect' },
+    { icon: <HomeIcon className="h-5 w-5" />, label: 'Home', route: ROUTE_PATHS.home },
+    { icon: <MessageSquare className="h-5 w-5 fill-current" />, label: 'Chat', route: ROUTE_PATHS.chat },
+    { icon: <Sparkles className="h-5 w-5" />, label: 'Reflect', route: ROUTE_PATHS.reflect },
+    { icon: <BookOpen className="h-5 w-5" />, label: 'Resources', route: ROUTE_PATHS.resources },
+    { icon: <Compass className="h-5 w-5" />, label: 'Connect', route: ROUTE_PATHS.connect },
 ]
 
 export default function Sidebar({ isOpen }: SidebarProps) {
@@ -47,12 +48,14 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                     ))}
                 </nav>
 
-                <button
-                    type="button"
-                    className="mt-8 rounded-2xl bg-serene-primary py-4 font-display text-xl italic text-serene-on-primary shadow-[0_14px_34px_rgba(47,52,46,0.24)] transition hover:brightness-105"
-                >
-                    Viết nhật ký
-                </button>
+                <div className="mt-7 space-y-2 text-sm text-serene-muted">
+                    <NavLink to={`${ROUTE_PATHS.setting}#user-profile`} className="flex items-center gap-3 rounded-xl px-2 py-2 transition hover:bg-white/50 hover:text-serene-ink">
+                        <User className="h-4 w-4" /> Profile
+                    </NavLink>
+                    <NavLink to={ROUTE_PATHS.connect} className="flex items-center gap-3 rounded-xl px-2 py-2 transition hover:bg-white/50 hover:text-serene-ink">
+                        <HelpCircle className="h-4 w-4" /> Support
+                    </NavLink>
+                </div>
             </aside>
 
             {/* for mobile view */}

@@ -16,6 +16,7 @@ import {
 } from '../../utils/appSettings'
 import HeaderMain from './HeaderMain'
 import Sidebar from './Sidebar'
+import { GuestBanner } from '../guest/GuestBanner'
 
 const themeBackgroundMap: Record<ThemeOption, string> = {
     sunset: sunset,
@@ -26,14 +27,12 @@ const themeBackgroundMap: Record<ThemeOption, string> = {
 
 export default function Main() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-    const [backgroundImage, setBackgroundImage] = useState(
-        themeBackgroundMap[DEFAULT_APP_SETTINGS.theme],
-    )
+    const [backgroundImage, setBackgroundImage] = useState(() => {
+        const currentSettings = readAppSettings()
+        return themeBackgroundMap[currentSettings.theme]
+    })
 
     useEffect(() => {
-        const currentSettings = readAppSettings()
-        setBackgroundImage(themeBackgroundMap[currentSettings.theme])
-
         const handleSettingsUpdated = (event: Event) => {
             const customEvent = event as CustomEvent<AppSettings>
             const theme = customEvent.detail?.theme ?? DEFAULT_APP_SETTINGS.theme
@@ -60,6 +59,7 @@ export default function Main() {
 
     return (
         <div className="relative min-h-screen">
+            <GuestBanner />
             <div className="fixed inset-0 -z-20">
                 <img
                     src={backgroundImage}

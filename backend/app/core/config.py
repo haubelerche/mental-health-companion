@@ -79,32 +79,34 @@ class Settings(BaseSettings):
 
     profile_cache_ttl_seconds: int = 30
 
-    elevenlabs_api_key: str = Field(default="", validation_alias=AliasChoices("ELEVENLABS_API_KEY"))
-    elevenlabs_voice_id: str = Field(
-        default="iSFxP4Z6YNcx9OXl62Ic",
-        validation_alias=AliasChoices("ELEVENLABS_VOICE_ID", "VOICE_ID"),
-    )
-    elevenlabs_model_id: str = Field(
-        default="eleven_multilingual_v2",
-        validation_alias=AliasChoices("ELEVENLABS_MODEL_ID", "VOICE_MODEL"),
-    )
-    elevenlabs_output_format: str = Field(
-        default="mp3_44100_128",
-        validation_alias=AliasChoices("ELEVENLABS_OUTPUT_FORMAT", "VOICE_OUTPUT_FORMAT"),
-    )
     tts_timeout_seconds: float = Field(default=4.0, validation_alias=AliasChoices("TTS_TIMEOUT_SECONDS"))
-    tts_provider: str = Field(default="elevenlabs", validation_alias=AliasChoices("TTS_PROVIDER"))
-    tts_fallback_provider: str = Field(default="none", validation_alias=AliasChoices("TTS_FALLBACK_PROVIDER"))
-    vieneu_mode: str = Field(default="local", validation_alias=AliasChoices("VIENEU_MODE"))
-    vieneu_api_base: str = Field(default="", validation_alias=AliasChoices("VIENEU_API_BASE"))
-    vieneu_model_name: str = Field(default="", validation_alias=AliasChoices("VIENEU_MODEL_NAME"))
-    vieneu_voice_id: str = Field(default="", validation_alias=AliasChoices("VIENEU_VOICE_ID"))
+    tts_provider: str = Field(default="blaze", validation_alias=AliasChoices("TTS_PROVIDER"))
+
+    # Blaze TTS (https://blaze.vn)
+    blaze_api_key: str = Field(default="", validation_alias=AliasChoices("BLAZE_API", "BLAZE_API_KEY"))
+    blaze_tts_url: str = Field(
+        default="https://api.blaze.vn/api/tts",
+        validation_alias=AliasChoices("BLAZE_TTS_URL"),
+    )
+    blaze_tts_model: str = Field(
+        default="blaze-tts-1",
+        validation_alias=AliasChoices("BLAZE_TTS_MODEL"),
+    )
+    blaze_tts_output_format: str = Field(
+        default="mp3",
+        validation_alias=AliasChoices("BLAZE_TTS_OUTPUT_FORMAT"),
+    )
     trusted_contact_outbound_enabled: bool = False
 
     neo4j_uri: str = ""
     neo4j_user: str = "neo4j"
     neo4j_password: str = ""
     neo4j_database: str = "neo4j"
+
+    # Langfuse LLM observability (optional — leave blank to disable)
+    langfuse_public_key: str = Field(default="", validation_alias=AliasChoices("LANGFUSE_PUBLIC_KEY"))
+    langfuse_secret_key: str = Field(default="", validation_alias=AliasChoices("LANGFUSE_SECRET_KEY"))
+    langfuse_host: str = Field(default="https://cloud.langfuse.com", validation_alias=AliasChoices("LANGFUSE_HOST"))
 
     @model_validator(mode="after")
     def _aura_neo4j_defaults(self) -> Self:
@@ -147,6 +149,9 @@ class Settings(BaseSettings):
     backend_public_base_url: str = "http://127.0.0.1:8000"
     frontend_home_url: str = "http://127.0.0.1:5173/home"
     frontend_reset_password_url: str = "http://127.0.0.1:5173/reset-password"
+
+    # Comma-separated extra CORS origins (e.g. Cloud Run frontend URL)
+    cors_extra_origins: str = Field(default="", validation_alias=AliasChoices("CORS_EXTRA_ORIGINS"))
 
     smtp_host: str = ""
     smtp_port: int = 587
