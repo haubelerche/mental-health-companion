@@ -1,16 +1,13 @@
 import {
-    AirVent,
     ArrowRight,
     BookOpen,
-    Cloud,
     Leaf,
     Play,
-    Sparkles,
     Volume2,
+    MessageSquareText,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { toast } from 'react-toastify'
 import type { ReactNode } from 'react'
 import exercise from '../../assets/exercise.png'
 import journal from '../../assets/journal.png'
@@ -19,13 +16,13 @@ import forest from '../../assets/forest.png'
 import { homeService } from '../../services/homeService'
 import { ROUTE_PATHS } from '../../routes/paths'
 
-type MoodCard = {
+type ModeCard = {
     icon: ReactNode
     title: string
     desc: string
-    active?: boolean
-    apiMood: string
-    emoji?: string
+    meta: string
+    route: string
+    featured?: boolean
 }
 
 type QuickItem = {
@@ -36,34 +33,28 @@ type QuickItem = {
     route: string
 }
 
-const moods: MoodCard[] = [
+const modeCards: ModeCard[] = [
     {
         icon: <Leaf className="h-7 w-7" />,
-        title: 'Bình yên',
-        desc: 'Nhẹ như mặt nước phẳng lặng.',
-        apiMood: 'calm',
-        emoji: '🍃',
+        title: 'Check-in nhanh',
+        desc: 'Ghi nhận cảm xúc hiện tại trong vài chạm.',
+        meta: 'An · 2 phút',
+        route: ROUTE_PATHS.checkin,
+        featured: true,
     },
     {
-        icon: <Cloud className="h-7 w-7" />,
-        title: 'Lắng lại',
-        desc: 'Một cơn mưa nhỏ trong lòng.',
-        apiMood: 'melancholic',
-        emoji: '☁️',
+        icon: <BookOpen className="h-7 w-7" />,
+        title: 'Làm bài sàng lọc',
+        desc: 'PHQ-9/GAD-7 ngắn để hiểu tín hiệu của bạn.',
+        meta: 'Lửa · ~5 phút',
+        route: ROUTE_PATHS.screening,
     },
     {
-        icon: <Sparkles className="h-7 w-7" />,
-        title: 'Rạng rỡ',
-        desc: 'Năng lượng đang mở ra.',
-        apiMood: 'bright',
-        emoji: '✨',
-    },
-    {
-        icon: <AirVent className="h-7 w-7" />,
-        title: 'Bồn chồn',
-        desc: 'Cần một nhịp thở sâu.',
-        apiMood: 'restless',
-        emoji: '🌬️',
+        icon: <MessageSquareText className="h-7 w-7" />,
+        title: 'Trò chuyện ngay',
+        desc: 'Mây luôn sẵn sàng lắng nghe và đồng hành.',
+        meta: 'Mây · luôn sẵn',
+        route: ROUTE_PATHS.chat,
     },
 ]
 
@@ -92,21 +83,9 @@ const quickItems: QuickItem[] = [
     },
 ]
 
-const PERSONA_TABS = [
-    { id: 'checkin',   label: 'Check-in nhanh',     sub: 'An · 2 phút',    emoji: '☀️', next: ROUTE_PATHS.checkin },
-    { id: 'screening', label: 'Làm bài sàng lọc',   sub: 'Lửa · ~5 phút', emoji: '📋', next: ROUTE_PATHS.screening },
-    { id: 'chat',      label: 'Trò chuyện ngay',     sub: 'Mây · luôn sẵn', emoji: '💬', next: ROUTE_PATHS.chat },
-]
-
 export default function Home() {
     const navigate = useNavigate()
-    const [checkedInMood, setCheckedInMood] = useState<string | null>(null)
     const [quote, setQuote] = useState<{ text: string; author?: string | null } | null>(null)
-    const [submittingMood, setSubmittingMood] = useState<string | null>(null)
-
-    const handlePersonaTab = (next: string) => {
-        navigate(next)
-    }
 
     useEffect(() => {
         let mounted = true
@@ -114,7 +93,6 @@ export default function Home() {
             .feed()
             .then((data) => {
                 if (!mounted) return
-                setCheckedInMood(data.mood_today.mood)
                 setQuote(data.quote_of_day)
             })
             .catch(() => undefined)
@@ -122,30 +100,6 @@ export default function Home() {
             mounted = false
         }
     }, [])
-
-    const moodCards = useMemo(
-        () =>
-            moods.map((mood) => ({
-                ...mood,
-                active: checkedInMood ? checkedInMood === mood.apiMood : Boolean(mood.active),
-            })),
-        [checkedInMood],
-    )
-
-    const onCheckinMood = async (mood: MoodCard) => {
-        if (submittingMood) return
-        try {
-            setSubmittingMood(mood.apiMood)
-            await homeService.checkin({ mood: mood.apiMood, emoji: mood.emoji })
-            setCheckedInMood(mood.apiMood)
-            toast.success('Đã lưu mood check-in hôm nay.')
-        } catch (err) {
-            const message = err instanceof Error ? err.message : 'Không thể lưu check-in'
-            toast.info(message)
-        } finally {
-            setSubmittingMood(null)
-        }
-    }
 
     return (
         <div className="space-y-12 lg:space-y-16">
@@ -156,56 +110,54 @@ export default function Home() {
                 của bạn đang như thế nào?
             </h2>
 
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
-                {moodCards.map((mood) => (
-                    <article
-                        key={mood.title}
-                        onClick={() => void onCheckinMood(mood)}
+            <section className="grid gap-4 md:grid-cols-3 xl:gap-6">
+                {modeCards.map((mode) => (
+                    <button
+                        key={mode.title}
+                        type="button"
+                        onClick={() => navigate(mode.route)}
                         className={[
-                            'rounded-[26px] border px-6 py-7 backdrop-blur-xl transition cursor-pointer',
-                            mood.active
+                            'group flex min-h-[150px] h-full flex-col justify-between rounded-[26px] border px-6 py-6 text-left backdrop-blur-xl transition active:scale-[0.98]',
+                            mode.featured
                                 ? 'border-serene-primary/20 bg-serene-primary/90 text-serene-on-primary shadow-lg'
-                                : 'border-white/45 bg-white/55 hover:bg-white/70',
+                                : 'border-white/45 bg-white/55 text-serene-ink hover:bg-white/70',
                         ].join(' ')}
-                        aria-busy={submittingMood === mood.apiMood}
                     >
-                        <div className={mood.active ? 'text-serene-accent' : 'text-serene-primary'}>
-                            {mood.icon}
+                        <div className="flex items-start justify-between gap-4">
+                            <div className={mode.featured ? 'text-serene-accent' : 'text-serene-primary'}>
+                                {mode.icon}
+                            </div>
+                            <ArrowRight
+                                className={[
+                                    'h-5 w-5 transition group-hover:translate-x-0.5',
+                                    mode.featured ? 'text-serene-on-primary/80' : 'text-serene-muted',
+                                ].join(' ')}
+                            />
                         </div>
                         <h3
                             className={[
-                                'mt-7 font-display text-3xl',
-                                mood.active ? 'text-serene-on-primary' : 'text-serene-ink',
+                                'mt-6 font-display text-3xl leading-none',
+                                mode.featured ? 'text-serene-on-primary' : 'text-serene-ink',
                             ].join(' ')}
                         >
-                            {mood.title}
+                            {mode.title}
                         </h3>
                         <p
                             className={[
-                                'mt-2 text-sm',
-                                mood.active ? 'text-serene-on-primary/75' : 'text-serene-muted/85',
+                                'mt-3 min-h-[2.5rem] text-sm leading-relaxed',
+                                mode.featured ? 'text-serene-on-primary/75' : 'text-serene-muted/85',
                             ].join(' ')}
                         >
-                            {mood.desc}
+                            {mode.desc}
                         </p>
-                    </article>
-                ))}
-            </section>
-
-            <section className="grid gap-3 sm:grid-cols-3">
-                {PERSONA_TABS.map((tab) => (
-                    <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => handlePersonaTab(tab.next)}
-                        className="flex items-center gap-4 rounded-[26px] border border-white/45 bg-white/55 px-5 py-4 backdrop-blur-xl transition hover:bg-white/70 active:scale-[0.98] text-left"
-                    >
-                        <span className="text-2xl" aria-hidden="true">{tab.emoji}</span>
-                        <div className="min-w-0">
-                            <p className="font-semibold text-serene-ink text-base leading-tight">{tab.label}</p>
-                            <p className="text-sm text-serene-muted mt-0.5">{tab.sub}</p>
-                        </div>
-                        <span className="ml-auto text-serene-muted text-lg" aria-hidden="true">›</span>
+                        <span
+                            className={[
+                                'mt-4 text-xs font-semibold uppercase tracking-[0.22em]',
+                                mode.featured ? 'text-serene-on-primary/60' : 'text-serene-primary/70',
+                            ].join(' ')}
+                        >
+                            {mode.meta}
+                        </span>
                     </button>
                 ))}
             </section>
