@@ -7,19 +7,37 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 import unicodedata
+import uuid
 from typing import Any, Iterator, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
 from app.core.config import get_settings
 from app.core.product_constants import CHAT_AGENT_DISPLAY_NAME
+from app.services.chat_cost_metrics import observe_chat_usage
+from app.services.langfuse_tracing import ChatTurnTracer, get_active_tracer, set_active_tracer
+from app.services.exercise_catalog import build_chat_attachment, build_clinic_attachment, build_resource_attachment
+from app.services.output_grounding import sanitize_grounded_reply
 from app.services.safety_scoring import build_snapshot
 
 logger = logging.getLogger(__name__)
 
+# ~2.5 chars per token for mixed Vietnamese/English content (conservative).
+def _estimate_tokens_fast(text: str) -> int:
+    return max(1, int(len(text) / 2.5))
+
+
+def _log_token_budget(stage: str, *texts: str) -> int:
+    """Log estimated token count for a pipeline stage and return the total."""
+    total = sum(_estimate_tokens_fast(t) for t in texts)
+    logger.debug("[TokenBudget] %-12s %5d est-tokens", stage, total)
+    return total
+
 
 class ChatGraphState(TypedDict, total=False):
+    correlation_id: str
     user_message: str
     recent_messages: list[dict[str, Any]]
     mood_today: dict[str, Any] | None
@@ -42,6 +60,18 @@ class ChatGraphState(TypedDict, total=False):
     tone_cam_xuc: str
     goi_y_nhanh: list[str]
     the_dinh_kem: list[dict[str, Any]]
+
+
+def _trace_span(correlation_id: str, span: str, *, duration_ms: float, token_count: int = 0, extra: dict[str, Any] | None = None) -> None:
+    payload = {
+        "correlation_id": correlation_id,
+        "span": span,
+        "duration_ms": round(duration_ms, 2),
+        "token_count": int(token_count),
+    }
+    if extra:
+        payload.update(extra)
+    logger.info("[Trace] %s", payload)
 
 
 _GREETING_RE = re.compile(r"\b(chao|hi|hello|helo|xin chao|yo|hey)\b", re.IGNORECASE)
@@ -110,6 +140,84 @@ def _rule_based_reply(user_text: str) -> str | None:
     return None
 
 
+def _attachment_key(item: dict[str, Any]) -> tuple[str, str]:
+    return (str(item.get("type") or ""), str(item.get("id") or ""))
+
+
+def _recommended_attachments(user_message: str, distress_score: float) -> list[dict[str, Any]]:
+    normalized = _normalize_guard_text(user_message)
+    attachments: list[dict[str, Any]] = []
+
+    wants_sleep_resource = any(
+        keyword in normalized
+        for keyword in (
+            "mat ngu",
+            "kho ngu",
+            "ngu khong duoc",
+            "thien ngu",
+            "video thien",
+            "sleep",
+            "sleep story",
+        )
+    )
+    wants_clinic = any(
+        keyword in normalized
+        for keyword in (
+            "phong kham",
+            "dia chi",
+            "gan toi",
+            "bac si",
+            "chuyen gia",
+            "tham van",
+            "tu van tam ly",
+            "tri lieu",
+        )
+    )
+
+    if wants_clinic or distress_score >= 0.72:
+        attachments.append(build_clinic_attachment())
+    if wants_sleep_resource:
+        attachments.append(build_resource_attachment("sleep_meditation"))
+    elif any(keyword in normalized for keyword in ("thien", "thu gian", "nghe gi", "resource", "tai nguyen")):
+        attachments.append(build_resource_attachment("calm_library"))
+
+    return attachments
+
+
+def _normalize_attachments(items: list[dict[str, Any]], user_message: str, distress_score: float) -> list[dict[str, Any]]:
+    allowed_actions = {"open_exercise", "open_resource", "open_connect_map"}
+    out: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+
+    for item in [*items, *_recommended_attachments(user_message, distress_score)]:
+        if not isinstance(item, dict):
+            continue
+        action = str(item.get("action") or "")
+        route = str(item.get("route") or "")
+        if action and action not in allowed_actions:
+            continue
+        if route and not route.startswith("/serene/"):
+            continue
+        normalized = {
+            "type": str(item.get("type") or "resource"),
+            "id": str(item.get("id") or "suggestion"),
+            "title": str(item.get("title") or "Gợi ý từ Serene")[:120],
+            "description": str(item.get("description") or "")[:240],
+            "duration_sec": item.get("duration_sec") if isinstance(item.get("duration_sec"), int) else None,
+            "action": action or "open_resource",
+            "route": route or "/serene/resources",
+            "thumbnail": item.get("thumbnail") if isinstance(item.get("thumbnail"), str) else None,
+        }
+        key = _attachment_key(normalized)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(normalized)
+        if len(out) >= 3:
+            break
+    return out
+
+
 def _default_user_quick_replies(user_message: str, distress_score: float) -> list[str]:
     lowered = user_message.lower()
     if distress_score >= 0.55:
@@ -167,48 +275,131 @@ def _normalize_user_quick_replies(
     return defaults
 
 
-def _build_friend_context(state: ChatGraphState) -> str:
-    mood = state.get("mood_today") or {}
-    mood_line = "Không có mood check-in hôm nay."
-    if mood:
-        mood_line = f"Mood hôm nay: {mood.get('mood', '')} {mood.get('emoji', '')}. Ghi chú: {mood.get('note', '')}"
+def _build_mentalchat_examples(
+    user_message: str, api_key: str, *, distress_score: float = 0.0
+) -> str:
+    """Retrieve semantically-similar counseling examples and format them for the prompt.
 
-    transcript_lines: list[str] = []
+    Primary source: counseling_knowledge (Supabase pgvector).
+    Fallback: MentalChatRetriever (local JSONL + numpy).
+    Only injected when distress_score >= 0.42 (below this threshold the quick path handles the turn).
+    """
+    if not user_message or not api_key:
+        return ""
+    if distress_score < 0.42:
+        return ""
+
+    top_k = 3 if distress_score >= 0.72 else 2
+
+    try:
+        from app.services.counseling_retriever import get_similar_counseling_examples
+
+        examples = get_similar_counseling_examples(
+            user_message, api_key=api_key, top_k=top_k, min_similarity=0.75
+        )
+        if not examples:
+            from app.services.mental_chat_retriever import MentalChatRetriever
+
+            retriever = MentalChatRetriever.instance()
+            if retriever.is_ready:
+                examples = retriever.search(user_message, top_k=top_k, api_key=api_key)
+
+        if not examples:
+            return ""
+        lines = ["--- Ví dụ tham khảo từ chuyên gia tâm lý ---"]
+        for i, ex in enumerate(examples, 1):
+            instr = str(ex.get("instruction") or "").strip()[:300]
+            resp = str(ex.get("response") or "").strip()[:400]
+            if instr and resp:
+                lines.append(f"[{i}] Tình huống: {instr}")
+                lines.append(f"    Cách tiếp cận: {resp}")
+        return "\n".join(lines) if len(lines) > 1 else ""
+    except Exception as exc:
+        logger.debug("mentalchat examples skipped: %s", exc)
+        return ""
+
+
+def _build_friend_context(state: ChatGraphState, distress_score: float | None = None) -> str:
+    """Build Friend context in 3 tiers based on distress to minimise token spend.
+
+    Tier 1 — low  (distress < 0.42, short msg): handled by caller via _build_personality_hint.
+    Tier 2 — mid  (0.42 ≤ distress < 0.65): transcript (3 turns) + mood + traits + analyst note.
+    Tier 3 — high (distress ≥ 0.65): full context (6 turns + mem0 + long-term + profile).
+    """
+    d = distress_score if distress_score is not None else float(state.get("distress_score") or 0.0)
+
+    mood = state.get("mood_today") or {}
+    mood_line = ""
+    if mood:
+        mood_line = f"Mood: {mood.get('mood', '')} {mood.get('emoji', '')}."
+
+    analyst_hint = state.get("analyst_instruction") or ""
+
+    # ── Tier 2: medium distress ──────────────────────────────────────────────
+    if d < 0.65:
+        transcript_lines: list[str] = []
+        for turn in (state.get("recent_messages") or [])[-3:]:
+            role = str(turn.get("role", "")).strip() or "unknown"
+            content = str(turn.get("content", "")).strip()
+            if content:
+                # Truncate long turns to keep context tight
+                transcript_lines.append(f"{role}: {content[:200]}")
+        transcript = "\n".join(transcript_lines) if transcript_lines else "(chưa có lịch sử)"
+        traits = dict(state.get("user_traits") or {})
+        tone_hint = str(traits.get("preferred_tone") or "").strip() or "dịu dàng"
+        parts = [f"Distress: {d:.2f}"]
+        if mood_line:
+            parts.append(mood_line)
+        parts.append(f"Tone: {tone_hint}")
+        parts.append(f"Lịch sử (3 lượt):\n{transcript}")
+        if analyst_hint:
+            parts.append(f"Analyst: {analyst_hint[:400]}")
+        return "\n".join(parts)
+
+    # ── Tier 3: high distress — full context ─────────────────────────────────
+    transcript_lines_full: list[str] = []
     for turn in (state.get("recent_messages") or [])[-6:]:
         role = str(turn.get("role", "")).strip() or "unknown"
         content = str(turn.get("content", "")).strip()
         if content:
-            transcript_lines.append(f"{role}: {content}")
-    transcript = "\n".join(transcript_lines) if transcript_lines else "(chưa có lịch sử)"
-    memory_lines = [str(item or "").strip() for item in (state.get("long_term_memories") or []) if str(item or "").strip()]
-    memory_blob = "\n".join(f"- {item}" for item in memory_lines[:3]) if memory_lines else "(chưa có memory dài hạn)"
-    mem0_facts = [str(item or "").strip() for item in (state.get("mem0_facts") or []) if str(item or "").strip()]
-    mem0_blob = "\n".join(f"- {item}" for item in mem0_facts[:5]) if mem0_facts else "(chưa có memory theo ngữ cảnh)"
-    top_triggers = [str(item or "").strip() for item in (state.get("top_triggers") or []) if str(item or "").strip()]
-    triggers_line = ", ".join(top_triggers[:3]) if top_triggers else "(chưa rõ)"
-    coping = [str(item or "").strip() for item in (state.get("effective_coping") or []) if str(item or "").strip()]
-    coping_line = ", ".join(coping[:3]) if coping else "(chưa rõ)"
-    goals = [str(item or "").strip() for item in (state.get("active_goals") or []) if str(item or "").strip()]
-    goals_line = "; ".join(goals[:2]) if goals else "(chưa có mục tiêu)"
-    traits = dict(state.get("user_traits") or {})
-    preferred_tone = str(traits.get("preferred_tone") or "").strip() or "(chưa rõ)"
-    communication_style = str(traits.get("communication_style") or "").strip() or "(chưa rõ)"
-    trajectory = str(state.get("clinical_trajectory") or "").strip() or "(chưa đủ dữ liệu)"
+            transcript_lines_full.append(f"{role}: {content}")
+    transcript_full = "\n".join(transcript_lines_full) if transcript_lines_full else "(chưa có lịch sử)"
 
-    return (
-        f"Distress score hiện tại: {float(state.get('distress_score') or 0.0):.2f}\n{mood_line}\n"
-        f"--- Hồ sơ người dùng ---\n"
-        f"Giao tiếp: {communication_style} | Tông ưa thích: {preferred_tone}\n"
-        f"Chủ đề hay gặp: {triggers_line}\n"
-        f"Đối phó hiệu quả: {coping_line}\n"
-        f"Mục tiêu hiện tại: {goals_line}\n"
-        f"Hành trình: {trajectory}\n"
-        f"--- Ký ức liên quan (Mem0) ---\n{mem0_blob}\n"
-        f"Long-term memory về người dùng:\n"
-        f"--- Tóm tắt session gần đây ---\n{memory_blob}\n"
-        f"Lịch sử gần đây:\n{transcript}\n"
-        f"Gợi ý analyst (nếu có): {state.get('analyst_instruction') or '(không có)'}"
-    )
+    memory_lines = [str(item or "").strip() for item in (state.get("long_term_memories") or []) if str(item or "").strip()]
+    memory_blob = "\n".join(f"- {item}" for item in memory_lines[:3]) if memory_lines else ""
+    mem0_facts = [str(item or "").strip() for item in (state.get("mem0_facts") or []) if str(item or "").strip()]
+    mem0_blob = "\n".join(f"- {item}" for item in mem0_facts[:5]) if mem0_facts else ""
+    top_triggers = [str(item or "").strip() for item in (state.get("top_triggers") or []) if str(item or "").strip()]
+    coping = [str(item or "").strip() for item in (state.get("effective_coping") or []) if str(item or "").strip()]
+    goals = [str(item or "").strip() for item in (state.get("active_goals") or []) if str(item or "").strip()]
+    traits_full = dict(state.get("user_traits") or {})
+    preferred_tone = str(traits_full.get("preferred_tone") or "").strip() or "(chưa rõ)"
+    communication_style = str(traits_full.get("communication_style") or "").strip() or ""
+    trajectory = str(state.get("clinical_trajectory") or "").strip()
+
+    sections: list[str] = [f"Distress: {d:.2f}"]
+    if mood_line:
+        sections.append(mood_line)
+    profile_parts = [f"Tone: {preferred_tone}"]
+    if communication_style:
+        profile_parts.append(f"Phong cách: {communication_style}")
+    if top_triggers:
+        profile_parts.append(f"Trigger: {', '.join(top_triggers[:3])}")
+    if coping:
+        profile_parts.append(f"Coping: {', '.join(coping[:3])}")
+    if goals:
+        profile_parts.append(f"Mục tiêu: {'; '.join(goals[:2])}")
+    if trajectory:
+        profile_parts.append(f"Hành trình: {trajectory}")
+    sections.append(" | ".join(profile_parts))
+    if mem0_blob:
+        sections.append(f"Ký ức liên quan:\n{mem0_blob}")
+    if memory_blob:
+        sections.append(f"Tóm tắt session gần:\n{memory_blob}")
+    sections.append(f"Lịch sử:\n{transcript_full}")
+    if analyst_hint:
+        sections.append(f"Analyst: {analyst_hint[:800]}")
+    return "\n".join(sections)
 
 
 def _build_personality_hint(state: ChatGraphState) -> str:
@@ -218,6 +409,17 @@ def _build_personality_hint(state: ChatGraphState) -> str:
     trigger_hint = ", ".join(top_triggers[:2]) if top_triggers else "chưa rõ trigger"
     tone_hint = preferred_tone or "dịu dàng"
     return f"[User profile: tone={tone_hint}; hay gặp={trigger_hint}]"
+
+
+def _recent_transcript_hint(state: ChatGraphState, *, max_turns: int = 3, max_chars_per_turn: int = 220) -> str:
+    lines: list[str] = []
+    for turn in (state.get("recent_messages") or [])[-max_turns:]:
+        role = str(turn.get("role") or "").strip()
+        content = str(turn.get("content") or "").strip()
+        if not role or not content:
+            continue
+        lines.append(f"{role}: {content[:max_chars_per_turn]}")
+    return "\n".join(lines)
 
 
 def _detect_hardship_signals(text: str) -> list[str]:
@@ -379,7 +581,44 @@ def _quick_non_sos_turn(
     return None
 
 
+def _apply_cold_start_profile(
+    *,
+    settings,
+    user_message: str,
+    distress_score: float,
+    user_traits: dict[str, Any] | None,
+    mem0_facts: list[str] | None,
+    long_term_memories: list[str] | None,
+) -> tuple[float, dict[str, Any], str]:
+    is_cold_start = (
+        not dict(user_traits or {})
+        and not list(mem0_facts or [])
+        and not list(long_term_memories or [])
+    )
+    if not is_cold_start or not settings.openai_api_key:
+        return distress_score, dict(user_traits or {}), ""
+    try:
+        from app.services.cold_start_screener import ColdStartScreener
+
+        profile = ColdStartScreener.instance().screen(
+            user_message,
+            api_key=settings.openai_api_key,
+        )
+        merged_traits = dict(user_traits or {})
+        merged_traits.update(profile.warm_traits or {})
+        updated_distress = min(1.0, max(0.0, distress_score + float(profile.distress_delta or 0.0)))
+        return updated_distress, merged_traits, str(profile.screening_note or "").strip()
+    except Exception as exc:
+        logger.debug("cold-start profile skipped: %s", exc)
+        return distress_score, dict(user_traits or {}), ""
+
+
 def supervisor_node(state: ChatGraphState) -> dict[str, Any]:
+    span_start = time.perf_counter()
+    correlation_id = str(state.get("correlation_id") or "")
+    _tracer = get_active_tracer()
+    if _tracer:
+        _tracer.span_start("supervisor", data={"distress_score": state.get("distress_score", 0.0)})
     hist = list(state.get("routing_history") or [])
     hist.append("supervisor")
 
@@ -414,6 +653,15 @@ def supervisor_node(state: ChatGraphState) -> dict[str, Any]:
         route = "friend"
         reason = "default_low_latency_friend"
 
+    _trace_span(
+        correlation_id,
+        "supervisor_decision",
+        duration_ms=(time.perf_counter() - span_start) * 1000,
+        token_count=_estimate_tokens_fast(msg),
+        extra={"route": route, "reason": reason, "distress_score": distress},
+    )
+    if _tracer:
+        _tracer.span_end("supervisor", data={"route": route, "reason": reason, "distress_score": distress})
     return {
         "routing_history": hist,
         "supervisor_route": route,
@@ -427,6 +675,8 @@ def route_after_supervisor(state: ChatGraphState) -> str:
 
 
 def analyst_node(state: ChatGraphState) -> dict[str, Any]:
+    span_start = time.perf_counter()
+    correlation_id = str(state.get("correlation_id") or "")
     settings = get_settings()
     calls = int(state.get("analyst_calls_this_turn") or 0) + 1
     hist = list(state.get("routing_history") or [])
@@ -468,6 +718,8 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
         f"Tin mới: {state.get('user_message', '')}"
     )
 
+    analyst_in_tokens = _log_token_budget("analyst_in", instruction, user_payload)
+
     text_out = ""
     if settings.openai_api_key:
         try:
@@ -483,12 +735,40 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
                 ],
             )
             text_out = (resp.choices[0].message.content or "").strip()
+            analyst_out_tokens = _log_token_budget("analyst_out", text_out)
+            usage = getattr(resp, "usage", None)
+            if usage is not None:
+                observe_chat_usage(
+                    input_tokens=int(getattr(usage, "prompt_tokens", analyst_in_tokens) or analyst_in_tokens),
+                    output_tokens=int(getattr(usage, "completion_tokens", analyst_out_tokens) or analyst_out_tokens),
+                )
+            _tracer = get_active_tracer()
+            if _tracer:
+                _in = int(getattr(usage, "prompt_tokens", analyst_in_tokens) or analyst_in_tokens) if usage else analyst_in_tokens
+                _out = int(getattr(usage, "completion_tokens", 0) or 0) if usage else 0
+                _tracer.generation(
+                    "analyst",
+                    model=settings.openai_model_analyst,
+                    input_messages=[
+                        {"role": "system", "content": instruction},
+                        {"role": "user", "content": user_payload},
+                    ],
+                    output=text_out,
+                    input_tokens=_in,
+                    output_tokens=_out,
+                )
         except Exception as exc:
             logger.warning("analyst llm failed: %s", exc)
             text_out = '{"clinical_note": "", "suggested_probe": ""}'
     else:
         text_out = '{"clinical_note": "Người dùng đang chia sẻ căng thẳng.", "suggested_probe": "Bạn muốn kể thêm về điều đó không?"}'
 
+    _trace_span(
+        correlation_id,
+        "analyst_generate",
+        duration_ms=(time.perf_counter() - span_start) * 1000,
+        token_count=analyst_in_tokens + _estimate_tokens_fast(text_out),
+    )
     return {
         "analyst_calls_this_turn": calls,
         "routing_history": hist,
@@ -497,10 +777,22 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
 
 
 def friend_node(state: ChatGraphState) -> dict[str, Any]:
+    span_start = time.perf_counter()
+    correlation_id = str(state.get("correlation_id") or "")
     settings = get_settings()
     hist = list(state.get("routing_history") or [])
     hist.append("friend")
 
+    user_text = state.get("user_message", "")
+    distress_now = float(state.get("distress_score") or 0.0)
+    use_fast_model = bool(state.get("use_fast_friend_model")) and distress_now < 0.55
+    preferred_friend_model = (
+        settings.openai_model_friend_fast if use_fast_model and settings.openai_model_friend_fast else settings.openai_model_friend
+    )
+
+    mentalchat_block = _build_mentalchat_examples(
+        user_text, settings.openai_api_key or "", distress_score=distress_now
+    )
     system = (
         "Bạn tên là Mây, đồng hành ấm áp và thực tế. "
         "Luôn xưng 'mình' và 'bạn', tuyệt đối không dùng 'mày/tao', không bắt chước chửi thề. "
@@ -513,27 +805,34 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         "Không lặp công thức 'Bạn có thể chia sẻ thêm...?' ở mọi lượt. "
         "Không hứa hẹn phi thực tế, không phán xét, không biến câu trả lời thành checklist khô cứng. "
         "Trả lời JSON với các khóa: reply, tone_cam_xuc (ho_tro|xac_nhan|vui_tuoi|lam_diu), "
-        "goi_y_nhanh (3 chuỗi), the_dinh_kem (mảng object {type, id, title}). "
-        "Gợi ý analyst: "
+        "goi_y_nhanh (3 chuỗi), the_dinh_kem (mảng object {type, id, title, description, duration_sec, action, route, thumbnail}). "
+        "Khi người dùng nhắc mất ngủ/thiền/video thư giãn, có thể gợi ý resource; khi nhắc phòng khám, chuyên gia, bác sĩ, trị liệu hoặc cần hỗ trợ ngoài app, có thể gợi ý clinic_map. "
+        "Chỉ dùng route bắt đầu bằng /serene/ và action trong open_exercise|open_resource|open_connect_map. "
+        + (f"\n{mentalchat_block}\n" if mentalchat_block else "")
+        + "Gợi ý analyst: "
         + (state.get("analyst_instruction") or "")
     )
-    user_text = state.get("user_message", "")
-    distress_now = float(state.get("distress_score") or 0.0)
-    use_fast_model = bool(state.get("use_fast_friend_model")) and distress_now < 0.55
-    preferred_friend_model = (
-        settings.openai_model_friend_fast if use_fast_model and settings.openai_model_friend_fast else settings.openai_model_friend
-    )
-    friend_context = _build_friend_context(state)
     if distress_now < 0.42 and len(user_text) <= 140:
-        user_payload = f"{_build_personality_hint(state)}\n{user_text}"
+        short_history = _recent_transcript_hint(state, max_turns=3, max_chars_per_turn=180)
+        if short_history:
+            user_payload = (
+                f"{_build_personality_hint(state)}\n"
+                f"Lịch sử gần:\n{short_history}\n"
+                f"Tin nhắn mới:\n{user_text}"
+            )
+        else:
+            user_payload = f"{_build_personality_hint(state)}\n{user_text}"
     else:
+        friend_context = _build_friend_context(state, distress_score=distress_now)
         user_payload = f"{friend_context}\n\nTin nhắn mới:\n{user_text}"
+
+    friend_in_tokens = _log_token_budget("friend_in", system, user_payload)
 
     payload: dict[str, Any] = {
         "reply": _enforce_reply_quality("", user_text, distress_now),
         "tone_cam_xuc": "xac_nhan",
         "goi_y_nhanh": ["Kể thêm đi cậu", "Mình nên làm gì bây giờ?", "Chỉ cần lắng nghe thôi"],
-        "the_dinh_kem": [{"type": "breathing_exercise", "id": "breath_478", "title": "Thở 4-7-8 — Giảm căng thẳng"}],
+        "the_dinh_kem": [build_chat_attachment("breath_478")],
     }
 
     rule_based = _rule_based_reply(user_text)
@@ -569,6 +868,29 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
                 else:
                     raise
             raw = (resp.choices[0].message.content or "").strip()
+            friend_out_tokens = _log_token_budget("friend_out", raw)
+            usage = getattr(resp, "usage", None)
+            if usage is not None:
+                observe_chat_usage(
+                    input_tokens=int(getattr(usage, "prompt_tokens", friend_in_tokens) or friend_in_tokens),
+                    output_tokens=int(getattr(usage, "completion_tokens", friend_out_tokens) or friend_out_tokens),
+                )
+            _tracer = get_active_tracer()
+            if _tracer:
+                _in = int(getattr(usage, "prompt_tokens", friend_in_tokens) or friend_in_tokens) if usage else friend_in_tokens
+                _out = int(getattr(usage, "completion_tokens", friend_out_tokens) or friend_out_tokens) if usage else 0
+                _tracer.generation(
+                    "friend",
+                    model=preferred_friend_model,
+                    input_messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user_payload},
+                    ],
+                    output=raw,
+                    input_tokens=_in,
+                    output_tokens=_out,
+                    metadata={"distress_score": distress_now, "use_fast_model": use_fast_model},
+                )
             m = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw)
             if m:
                 raw = m.group(1).strip()
@@ -579,8 +901,17 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
 
     improved_reply = _enforce_reply_quality(str(payload.get("reply") or ""), user_text, distress_now)
     safe_reply = _sanitize_assistant_reply(improved_reply)
+    grounded = sanitize_grounded_reply(safe_reply, mentalchat_block)
+    safe_reply = grounded.reply
     if distress_now >= 0.6 and "?" not in safe_reply:
         safe_reply = safe_reply.rstrip(".! ") + ". Bạn có thể nói thêm điều đang làm bạn thấy tệ nhất lúc này không?"
+    _trace_span(
+        correlation_id,
+        "friend_generate",
+        duration_ms=(time.perf_counter() - span_start) * 1000,
+        token_count=friend_in_tokens + _estimate_tokens_fast(safe_reply),
+        extra={"grounded": grounded.grounded, "grounding_reasons": grounded.reasons},
+    )
 
     return {
         "routing_history": hist,
@@ -591,7 +922,11 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
             user_message=user_text,
             distress_score=float(state.get("distress_score") or 0.0),
         ),
-        "the_dinh_kem": list(payload.get("the_dinh_kem") or []),
+        "the_dinh_kem": _normalize_attachments(
+            list(payload.get("the_dinh_kem") or []),
+            user_text,
+            float(state.get("distress_score") or 0.0),
+        ),
     }
 
 
@@ -634,9 +969,28 @@ def run_non_sos_turn(
     active_goals: list[str] | None = None,
     effective_coping: list[str] | None = None,
     clinical_trajectory: str | None = None,
+    user_id: str | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """Run Analyst→Friend. Caller builds API `data` envelope with safety ladder."""
+    started = time.perf_counter()
+    correlation_id = str(uuid.uuid4())
+    _tracer = ChatTurnTracer(
+        correlation_id=correlation_id,
+        user_id=user_id,
+        session_id=session_id,
+        input_meta={"distress_score": distress_score, "user_message_len": len(user_message)},
+    )
+    set_active_tracer(_tracer)
     settings = get_settings()
+    distress_score, warmed_traits, screening_note = _apply_cold_start_profile(
+        settings=settings,
+        user_message=user_message,
+        distress_score=distress_score,
+        user_traits=user_traits,
+        mem0_facts=mem0_facts,
+        long_term_memories=long_term_memories,
+    )
     snap = build_snapshot(
         distress_score,
         sos_triggered=False,
@@ -645,12 +999,22 @@ def run_non_sos_turn(
     )
     quick_turn = _quick_non_sos_turn(user_message=user_message, distress_score=distress_score, mood_today=mood_today)
     if quick_turn is not None:
+        _trace_span(
+            correlation_id,
+            "quick_turn",
+            duration_ms=(time.perf_counter() - started) * 1000,
+            token_count=_estimate_tokens_fast(str(quick_turn.get("reply") or "")),
+        )
         return {
             "session_fields": snap,
             "reply": quick_turn.get("reply", ""),
             "tone_cam_xuc": quick_turn.get("tone_cam_xuc", "xac_nhan"),
             "goi_y_nhanh": quick_turn.get("goi_y_nhanh", []),
-            "the_dinh_kem": quick_turn.get("the_dinh_kem", []),
+            "the_dinh_kem": _normalize_attachments(
+                list(quick_turn.get("the_dinh_kem") or []),
+                user_message,
+                distress_score,
+            ),
             "routing_history": quick_turn.get("routing_history", []),
         }
     graph = get_chat_graph()
@@ -661,11 +1025,13 @@ def run_non_sos_turn(
             "mood_today": mood_today,
             "long_term_memories": list(long_term_memories or []),
             "mem0_facts": list(mem0_facts or []),
-            "user_traits": dict(user_traits or {}),
+            "user_traits": dict(warmed_traits or {}),
             "top_triggers": list(top_triggers or []),
             "active_goals": list(active_goals or []),
             "effective_coping": list(effective_coping or []),
             "clinical_trajectory": clinical_trajectory or "",
+            "correlation_id": correlation_id,
+            "analyst_instruction": screening_note,
             "distress_score": distress_score,
             "crisis_route_finalized": False,
             "analyst_calls_this_turn": 0,
@@ -673,7 +1039,7 @@ def run_non_sos_turn(
             "routing_history": [],
         }
     )
-    return {
+    result = {
         "session_fields": snap,
         "reply": out.get("reply", ""),
         "tone_cam_xuc": out.get("tone_cam_xuc", "xac_nhan"),
@@ -681,6 +1047,20 @@ def run_non_sos_turn(
         "the_dinh_kem": out.get("the_dinh_kem", []),
         "routing_history": out.get("routing_history", []),
     }
+    _trace_span(
+        correlation_id,
+        "run_non_sos_turn_total",
+        duration_ms=(time.perf_counter() - started) * 1000,
+        token_count=_estimate_tokens_fast(str(result.get("reply") or "")),
+    )
+    _tracer.score("distress_score", distress_score)
+    _tracer.update_output(
+        result.get("reply", ""),
+        metadata={"routing_history": result.get("routing_history", [])},
+    )
+    _tracer.flush()
+    set_active_tracer(None)
+    return result
 
 
 def stream_non_sos_turn_events(
@@ -696,13 +1076,30 @@ def stream_non_sos_turn_events(
     active_goals: list[str] | None = None,
     effective_coping: list[str] | None = None,
     clinical_trajectory: str | None = None,
+    user_id: str | None = None,
+    session_id: str | None = None,
 ) -> Iterator[dict[str, Any]]:
-    """
-    Yield streaming events for non-SOS turn:
+    """Yield streaming events for non-SOS turn:
     - {"type":"token","text":"..."} while model is generating
     - {"type":"final","turn":{...}} when completed
     """
+    correlation_id = str(uuid.uuid4())
+    _stream_tracer = ChatTurnTracer(
+        correlation_id=correlation_id,
+        user_id=user_id,
+        session_id=session_id,
+        input_meta={"distress_score": distress_score, "user_message_len": len(user_message), "stream": True},
+    )
+    set_active_tracer(_stream_tracer)
     settings = get_settings()
+    distress_score, warmed_traits, screening_note = _apply_cold_start_profile(
+        settings=settings,
+        user_message=user_message,
+        distress_score=distress_score,
+        user_traits=user_traits,
+        mem0_facts=mem0_facts,
+        long_term_memories=long_term_memories,
+    )
     snap = build_snapshot(
         distress_score,
         sos_triggered=False,
@@ -719,23 +1116,29 @@ def stream_non_sos_turn_events(
                 "reply": quick_turn.get("reply", ""),
                 "tone_cam_xuc": quick_turn.get("tone_cam_xuc", "xac_nhan"),
                 "goi_y_nhanh": quick_turn.get("goi_y_nhanh", []),
-                "the_dinh_kem": quick_turn.get("the_dinh_kem", []),
+                "the_dinh_kem": _normalize_attachments(
+                    list(quick_turn.get("the_dinh_kem") or []),
+                    user_message,
+                    distress_score,
+                ),
                 "routing_history": quick_turn.get("routing_history", []),
             },
         }
         return
 
     state: ChatGraphState = {
+        "correlation_id": correlation_id,
         "user_message": user_message,
         "recent_messages": recent_messages,
         "mood_today": mood_today,
         "long_term_memories": list(long_term_memories or []),
         "mem0_facts": list(mem0_facts or []),
-        "user_traits": dict(user_traits or {}),
+        "user_traits": dict(warmed_traits or {}),
         "top_triggers": list(top_triggers or []),
         "active_goals": list(active_goals or []),
         "effective_coping": list(effective_coping or []),
         "clinical_trajectory": clinical_trajectory or "",
+        "analyst_instruction": screening_note,
         "distress_score": distress_score,
         "crisis_route_finalized": False,
         "analyst_calls_this_turn": 0,
@@ -751,9 +1154,12 @@ def stream_non_sos_turn_events(
     hist = list(state.get("routing_history") or [])
     hist.append("friend")
     tone = "xac_nhan"
-    attachments: list[dict[str, Any]] = [{"type": "breathing_exercise", "id": "breath_478", "title": "Thở 4-7-8 — Giảm căng thẳng"}]
+    attachments: list[dict[str, Any]] = [build_chat_attachment("breath_478")]
 
     reply_text = ""
+    _stream_model = ""
+    _stream_system = ""
+    _stream_user_payload = ""
     rule_based = _rule_based_reply(user_text)
     if rule_based:
         reply_text = rule_based
@@ -763,18 +1169,34 @@ def stream_non_sos_turn_events(
 
             use_fast_model = bool(state.get("use_fast_friend_model")) and distress_now < 0.55
             model = settings.openai_model_friend_fast if use_fast_model and settings.openai_model_friend_fast else settings.openai_model_friend
+            _stream_model = model
+            mentalchat_block = _build_mentalchat_examples(
+                user_text, settings.openai_api_key or "", distress_score=distress_now
+            )
             system = (
                 "Bạn tên là Mây, đồng hành ấm áp và thực tế. "
                 "Luôn xưng mình/bạn, tuyệt đối không dùng mày/tao. "
                 "Viết 3-5 câu tiếng Việt, phản chiếu nỗi đau cụ thể, xác nhận cảm xúc là hợp lý, "
                 "và đưa một bước nhỏ thực tế có thể làm ngay. "
                 "Tránh sáo rỗng, không trả lời kiểu mẫu, không hỏi dồn dập."
+                + (f"\n{mentalchat_block}" if mentalchat_block else "")
             )
-            friend_context = _build_friend_context(state)
             if distress_now < 0.42 and len(user_text) <= 140:
-                user_payload = f"{_build_personality_hint(state)}\n{user_text}"
+                short_history = _recent_transcript_hint(state, max_turns=3, max_chars_per_turn=180)
+                if short_history:
+                    user_payload = (
+                        f"{_build_personality_hint(state)}\n"
+                        f"Lịch sử gần:\n{short_history}\n"
+                        f"Tin nhắn mới:\n{user_text}"
+                    )
+                else:
+                    user_payload = f"{_build_personality_hint(state)}\n{user_text}"
             else:
+                friend_context = _build_friend_context(state, distress_score=distress_now)
                 user_payload = f"{friend_context}\n\nTin nhắn mới:\n{user_text}"
+            _stream_system = system
+            _stream_user_payload = user_payload
+            _log_token_budget("stream_friend_in", system, user_payload)
             client = OpenAI(api_key=settings.openai_api_key, timeout=min(settings.llm_timeout_seconds, 15.0))
             stream = client.chat.completions.create(
                 model=model,
@@ -793,6 +1215,8 @@ def stream_non_sos_turn_events(
                 yield {"type": "token", "text": delta}
         except Exception as exc:
             logger.warning("friend stream failed, fallback to sync: %s", exc)
+            _stream_tracer.flush()
+            set_active_tracer(None)
             fallback = run_non_sos_turn(
                 user_message=user_message,
                 recent_messages=recent_messages,
@@ -805,6 +1229,8 @@ def stream_non_sos_turn_events(
                 active_goals=active_goals,
                 effective_coping=effective_coping,
                 clinical_trajectory=clinical_trajectory,
+                user_id=user_id,
+                session_id=session_id,
             )
             yield {"type": "final", "turn": fallback}
             return
@@ -813,8 +1239,34 @@ def stream_non_sos_turn_events(
 
     improved_reply = _enforce_reply_quality(reply_text, user_text, distress_now)
     safe_reply = _sanitize_assistant_reply(improved_reply)
+    grounded = sanitize_grounded_reply(safe_reply, "")
+    safe_reply = grounded.reply
     if distress_now >= 0.6 and "?" not in safe_reply:
         safe_reply = safe_reply.rstrip(".! ") + ". Bạn có thể nói thêm điều đang làm bạn thấy tệ nhất lúc này không?"
+    _trace_span(
+        correlation_id,
+        "stream_friend_generate",
+        duration_ms=0.0,
+        token_count=_estimate_tokens_fast(safe_reply),
+        extra={"grounded": grounded.grounded, "grounding_reasons": grounded.reasons},
+    )
+    if _stream_model and reply_text:
+        _stream_tracer.generation(
+            "friend_stream",
+            model=_stream_model,
+            input_messages=[
+                {"role": "system", "content": _stream_system},
+                {"role": "user", "content": _stream_user_payload},
+            ],
+            output=reply_text,
+            input_tokens=_estimate_tokens_fast(_stream_system + _stream_user_payload),
+            output_tokens=_estimate_tokens_fast(reply_text),
+            metadata={"distress_score": distress_now, "grounded": grounded.grounded},
+        )
+    _stream_tracer.score("distress_score", distress_now)
+    _stream_tracer.update_output(safe_reply, metadata={"routing_history": hist})
+    _stream_tracer.flush()
+    set_active_tracer(None)
 
     yield {
         "type": "final",
@@ -823,7 +1275,7 @@ def stream_non_sos_turn_events(
             "reply": safe_reply,
             "tone_cam_xuc": tone,
             "goi_y_nhanh": _default_user_quick_replies(user_text, distress_now),
-            "the_dinh_kem": attachments,
+            "the_dinh_kem": _normalize_attachments(attachments, user_text, distress_now),
             "routing_history": hist,
         },
     }
