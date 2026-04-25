@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import Login from '../components/auth/Login.tsx'
 import Register from '../components/auth/Register.tsx'
+import { PolicyWizard } from '../components/policy/PolicyWizard'
 import Chat from '../components/chat/Chat.tsx'
 import Main from '../components/layout/Main.tsx'
 import Connect from '../components/pages/Connect.tsx'
@@ -33,6 +34,7 @@ export default function AppRoutes() {
             <Route path={ROUTE_PATHS.register} element={<Register />} />
             <Route path={ROUTE_PATHS.forget} element={<Forget />} />
             <Route path={ROUTE_PATHS.landing} element={<Landing />} />
+            <Route path={ROUTE_PATHS.onboardingPolicy} element={<PolicyWizard />} />
 
             <Route path={ROUTE_PATHS.home} element={<Main />}>
                 <Route
