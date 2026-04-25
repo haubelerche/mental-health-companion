@@ -312,9 +312,9 @@ export default function Reflect() {
 
                         {milestones.length > 0 && (
                             <div className="flex gap-2 overflow-x-auto pb-2 mt-4 scrollbar-hide">
-                                {milestones.map((m, i) => (
+                                {milestones.map((m) => (
                                     <div
-                                        key={i}
+                                        key={m.label}
                                         className="flex-shrink-0 flex items-center gap-1.5 bg-[var(--color-guong-bg)] rounded-full px-3 py-1.5 text-xs font-medium text-[var(--color-serene-ink)]"
                                     >
                                         <span aria-hidden="true">{m.emoji}</span>
