@@ -24,7 +24,7 @@ from app.services.confidence_router import route_for_human_review
 from app.services.guest_service import heartbeat as guest_heartbeat
 from app.services.guest_service import start_session as guest_start_session
 from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn, stream_non_sos_turn_events
-from app.services.longterm_memory import build_user_memory_context, get_user_longterm_memories
+from app.services.longterm_memory import UserMemoryContext, build_user_memory_context, get_user_longterm_memories
 from app.services.pii_mask import mask_pii
 from app.services.rate_limit import get_rate_limiter
 from app.services.session_summary import close_session_summary
@@ -165,6 +165,36 @@ def _should_load_memory_context(raw_text: str, recent_messages: list[dict]) -> b
         return True
     # Session already has enough turns, keep continuity context warm.
     return len(recent_messages) >= 4
+
+
+def _load_memory_context_for_turn(
+    db: Session,
+    *,
+    user_id: str,
+    raw_text: str,
+    recent_messages: list[dict],
+    distress_score: float,
+) -> tuple[UserMemoryContext | None, list[str]]:
+    """Load memory once per turn, only when the turn benefits from recall/personalization."""
+    should_load = (
+        distress_score >= 0.35
+        or len(raw_text) >= 40
+        or _should_load_memory_context(raw_text, recent_messages)
+    )
+    if not should_load:
+        return None, []
+
+    try:
+        memory_ctx = build_user_memory_context(
+            db,
+            user_id=user_id,
+            current_query=raw_text,
+        )
+        return memory_ctx, memory_ctx.recent_summaries
+    except Exception as exc:
+        logger.warning("build_user_memory_context failed, fallback to recent summaries: %s", exc)
+        compat_longterm = get_user_longterm_memories(db, user_id=user_id, limit=3)
+        return None, compat_longterm
 
 
 def _build_voice_intervention(
@@ -356,20 +386,13 @@ def send_message(
 
     if turn is None:
         try:
-            memory_ctx = None
-            compat_longterm: list[str] = []
-            if distress >= 0.35 or len(raw_text) >= 40 or _should_load_memory_context(raw_text, ctx.recent_messages):
-                compat_longterm = get_user_longterm_memories(db, user_id=current_user.user_id, limit=3)
-                try:
-                    memory_ctx = build_user_memory_context(
-                        db,
-                        user_id=current_user.user_id,
-                        current_query=raw_text,
-                    )
-                    if not memory_ctx.recent_summaries and compat_longterm:
-                        memory_ctx.recent_summaries = compat_longterm
-                except Exception as exc:
-                    logger.warning("build_user_memory_context failed, fallback to compat list: %s", exc)
+            memory_ctx, compat_longterm = _load_memory_context_for_turn(
+                db,
+                user_id=current_user.user_id,
+                raw_text=raw_text,
+                recent_messages=ctx.recent_messages,
+                distress_score=distress,
+            )
             turn = run_non_sos_turn(
                 user_message=raw_text,
                 recent_messages=ctx.recent_messages,
@@ -645,20 +668,13 @@ def send_message_stream(
             message_hash = hash_message(raw_text)
             turn = get_cached_turn(session.session_id, message_hash) if settings.chat_response_cache_ttl_seconds > 0 else None
             if turn is None:
-                memory_ctx = None
-                compat_longterm: list[str] = []
-                if distress >= 0.35 or len(raw_text) >= 40 or _should_load_memory_context(raw_text, ctx.recent_messages):
-                    compat_longterm = get_user_longterm_memories(db, user_id=current_user.user_id, limit=3)
-                    try:
-                        memory_ctx = build_user_memory_context(
-                            db,
-                            user_id=current_user.user_id,
-                            current_query=raw_text,
-                        )
-                        if not memory_ctx.recent_summaries and compat_longterm:
-                            memory_ctx.recent_summaries = compat_longterm
-                    except Exception as exc:
-                        logger.warning("build_user_memory_context failed, fallback to compat list: %s", exc)
+                memory_ctx, compat_longterm = _load_memory_context_for_turn(
+                    db,
+                    user_id=current_user.user_id,
+                    raw_text=raw_text,
+                    recent_messages=ctx.recent_messages,
+                    distress_score=distress,
+                )
                 last_heartbeat, hb = _build_heartbeat_event(
                     started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_memory_ready"
                 )
