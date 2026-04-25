@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../../hooks/useAuth'
-import { homeService } from '../../services/homeService'
+import { homeService, type HomeFeed } from '../../services/homeService'
+import { ROUTE_PATHS } from '../../routes/paths'
 
 const PERSONAS = [
   {
@@ -12,7 +13,7 @@ const PERSONAS = [
     emoji: '☀️',
     bg: 'var(--color-an-bg)',
     accent: 'var(--color-an)',
-    next: '/serene/checkin',
+    next: ROUTE_PATHS.checkin,
   },
   {
     id: 'screening',
@@ -21,7 +22,7 @@ const PERSONAS = [
     emoji: '📋',
     bg: 'var(--color-lua-bg)',
     accent: 'var(--color-lua)',
-    next: '/serene/screening',
+    next: ROUTE_PATHS.screening,
   },
   {
     id: 'chat',
@@ -30,17 +31,21 @@ const PERSONAS = [
     emoji: '💬',
     bg: 'var(--color-may-bg)',
     accent: 'var(--color-may)',
-    next: '/serene/chat',
+    next: ROUTE_PATHS.chat,
   },
 ]
 
 export function HomeToday() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [feed, setFeed] = useState<any>(null)
+  const [feed, setFeed] = useState<HomeFeed | null>(null)
 
   useEffect(() => {
-    homeService.feed().then(setFeed).catch(() => null)
+    homeService.feed()
+      .then(setFeed)
+      .catch((err) => {
+        if (import.meta.env.DEV) console.warn('[HomeToday] feed fetch failed', err)
+      })
   }, [])
 
   // All 3 CTAs route through safety check first, carrying next destination
@@ -106,6 +111,7 @@ export function HomeToday() {
         {PERSONAS.map((p, i) => (
           <motion.button
             key={p.id}
+            type="button"
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08 + i * 0.08 }}
@@ -114,6 +120,7 @@ export function HomeToday() {
             style={{ backgroundColor: p.bg }}
           >
             <div
+              aria-hidden="true"
               className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0"
               style={{ backgroundColor: p.accent + '44' }}
             >
@@ -125,7 +132,7 @@ export function HomeToday() {
               </div>
               <div className="text-sm text-[var(--color-serene-muted)] mt-0.5">{p.sub}</div>
             </div>
-            <span className="text-[var(--color-serene-muted)] text-xl flex-shrink-0">›</span>
+            <span aria-hidden="true" className="text-[var(--color-serene-muted)] text-xl flex-shrink-0">›</span>
           </motion.button>
         ))}
       </div>
