@@ -1,15 +1,16 @@
-import { BookOpen, Group, HomeIcon, Leaf, MessageSquare } from 'lucide-react'
+import { Compass, Flame, HomeIcon, MessageSquare, Sparkles } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
+import { ROUTE_PATHS } from '../../routes/paths'
 
 type SidebarProps = {
     isOpen: boolean
 }
 const navItems = [
-    { icon: <HomeIcon className="h-5 w-5" />, label: 'Trang chủ', route: '/serene' },
-    { icon: <MessageSquare className="h-5 w-5 fill-current" />, label: 'Trò chuyện', route: '/serene/chat' },
-    { icon: <Leaf className="h-5 w-5" />, label: 'Nhìn lại', route: '/serene/reflect' },
-    { icon: <BookOpen className="h-5 w-5" />, label: 'Tài nguyên', route: '/serene/resources' },
-    { icon: <Group className="h-5 w-5" />, label: 'Kết nối', route: '/serene/connect' },
+    { icon: <HomeIcon className="h-5 w-5" />, label: 'Hôm Nay', route: ROUTE_PATHS.home },
+    { icon: <MessageSquare className="h-5 w-5 fill-current" />, label: 'Mây', route: ROUTE_PATHS.chat },
+    { icon: <Flame className="h-5 w-5" />, label: 'Lửa', route: ROUTE_PATHS.exercises },
+    { icon: <Compass className="h-5 w-5" />, label: 'La Bàn', route: ROUTE_PATHS.connect },
+    { icon: <Sparkles className="h-5 w-5" />, label: 'Gương', route: ROUTE_PATHS.reflect },
 ]
 
 export default function Sidebar({ isOpen }: SidebarProps) {
