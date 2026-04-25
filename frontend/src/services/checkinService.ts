@@ -1,12 +1,14 @@
 import { httpClient } from '../api/httpClient'
 
-export type MoodValue = 'rat_te' | 'khong_on' | 'binh_thuong' | 'kha_on' | 'tuyet_voi'
+export type MoodValue = 'awesome' | 'good' | 'fine' | 'bad' | 'terrible'
 
 export type CheckinQuickPayload = {
   mood: MoodValue
   stress_level?: number | null
   sleep_hours?: number | null
   study_hours?: number | null
+  emotions?: string[]
+  triggers?: string[]
   note?: string | null
 }
 
