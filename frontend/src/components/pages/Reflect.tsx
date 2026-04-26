@@ -11,6 +11,10 @@ import {
 } from 'recharts'
 import { httpClient } from '../../api/httpClient'
 import { useAuth } from '../../hooks/useAuth'
+import { WellnessRadar, type WellnessScores } from '../wellness/WellnessRadar'
+import { MoodCalendar } from '../wellness/MoodCalendar'
+import { DayDetailSheet, type DayDetail } from '../wellness/DayDetailSheet'
+import { ProgressStats } from '../wellness/ProgressStats'
 
 type MoodPoint = {
     date: string
@@ -62,6 +66,24 @@ type JournalsPayload = {
     has_more: boolean
 }
 
+function deriveWellnessScores(summary: MentalHealthSummary): WellnessScores {
+    const wellness = summary.wellness_score ?? 50
+    const phq9 = summary.clinical_snapshot.phq9_score
+    const breathSessions = summary.coping_stats.breathing_sessions ?? 0
+    const daysActive = summary.session_stats.days_active_last_30 ?? 0
+    const effectiveRate = summary.coping_stats.effective_rate
+    const streak = summary.session_stats.streak_days ?? 0
+
+    return {
+        emotional: Math.round(wellness),
+        sleep: phq9 !== null ? Math.max(5, Math.round(100 - phq9 * 3.7)) : Math.round(wellness * 0.85),
+        mindfulness: Math.round(Math.min(100, 30 + breathSessions * 3.5)),
+        social: Math.round(Math.min(100, (daysActive / 30) * 100)),
+        physical: effectiveRate !== null ? Math.round(effectiveRate * 100) : Math.round(wellness * 0.9),
+        growth: Math.round(Math.min(100, 20 + streak * 2.67)),
+    }
+}
+
 const quickExercises = [
     {
         title: 'Thở 4-7-8',
@@ -103,6 +125,7 @@ export default function Reflect() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [prompts, setPrompts] = useState<Array<{ id: string; text: string }>>([])
+    const [selectedDay, setSelectedDay] = useState<DayDetail | null>(null)
 
     useEffect(() => {
         let mounted = true
@@ -113,7 +136,7 @@ export default function Reflect() {
                 const [summaryData, weeklyNoteData, moodTrendData, journalsData] = await Promise.all([
                     httpClient.get<MentalHealthSummary>('/reflect/mental-health-summary'),
                     httpClient.get<WeeklyNotePayload>('/reflect/weekly-note'),
-                    httpClient.get<MoodTrendPayload>('/reflect/mood-trend?days=7'),
+                    httpClient.get<MoodTrendPayload>('/reflect/mood-trend?days=28'),
                     httpClient.get<JournalsPayload>('/reflect/journals?limit=1&offset=0'),
                 ])
                 if (!mounted) return
@@ -163,12 +186,20 @@ export default function Reflect() {
         return chips
     }, [summary])
 
+    const wellnessScores = useMemo<WellnessScores | null>(
+        () => (summary ? deriveWellnessScores(summary) : null),
+        [summary],
+    )
+
     const ringCircumference = 2 * Math.PI * 82
     const ringOffset = ringCircumference - (Math.max(0, Math.min(100, peaceScore)) / 100) * ringCircumference
     const displayName = user?.displayName || 'bạn'
 
     return (
         <div className="relative min-h-screen overflow-hidden text-serene-ink ">
+
+            {/* DayDetailSheet rendered outside stacking context */}
+            <DayDetailSheet detail={selectedDay} onClose={() => setSelectedDay(null)} />
 
             <div className="flex-1">
 
@@ -203,6 +234,41 @@ export default function Reflect() {
                             <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                                 Chưa đủ dữ liệu để đánh giá sâu. Hãy tiếp tục trò chuyện thêm để nhận insight cá nhân hóa.
                             </div>
+                        )}
+
+                        {/* ── Wellness Radar — Hero Section ── */}
+                        {wellnessScores && (
+                            <section className="mt-8 rounded-[1.75rem] border border-white/25 bg-white/30 p-6 backdrop-blur-md md:p-8">
+                                <div className="mb-1 flex items-end justify-between gap-4">
+                                    <div>
+                                        <p className="text-[10px] uppercase tracking-[0.3em] text-serene-primary/70">Wellness Radar</p>
+                                        <h2 className="mt-1 font-display text-2xl text-serene-ink md:text-3xl">6 chiều sức khoẻ</h2>
+                                    </div>
+                                    <p className="text-right text-[10px] text-serene-muted/60 max-w-[120px] leading-relaxed">
+                                        Ước tính từ dữ liệu của bạn
+                                    </p>
+                                </div>
+
+                                <WellnessRadar scores={wellnessScores} className="mt-2" />
+
+                                <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+                                    {(
+                                        [
+                                            { label: 'Cảm xúc', value: wellnessScores.emotional },
+                                            { label: 'Giấc ngủ', value: wellnessScores.sleep },
+                                            { label: 'Tỉnh thức', value: wellnessScores.mindfulness },
+                                            { label: 'Kết nối', value: wellnessScores.social },
+                                            { label: 'Thể chất', value: wellnessScores.physical },
+                                            { label: 'Phát triển', value: wellnessScores.growth },
+                                        ] as const
+                                    ).map(({ label, value }) => (
+                                        <div key={label} className="rounded-2xl bg-white/50 px-3 py-2.5 text-center">
+                                            <p className="text-xs font-semibold text-serene-ink">{value}%</p>
+                                            <p className="mt-0.5 text-[10px] text-serene-muted/70">{label}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
                         )}
 
                         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
@@ -320,6 +386,30 @@ export default function Reflect() {
                             </div>
                         </div>
 
+                        {/* ── Mood Calendar — 28 ngày ── */}
+                        {moodTrend && moodTrend.points.length > 0 && (
+                            <section className="mt-8 rounded-[1.75rem] border border-white/25 bg-white/30 p-6 backdrop-blur-md md:p-8">
+                                <div className="mb-5 flex items-end justify-between gap-4">
+                                    <div>
+                                        <p className="text-[10px] uppercase tracking-[0.3em] text-serene-primary/70">Lịch tâm trạng</p>
+                                        <h2 className="mt-1 font-display text-2xl text-serene-ink md:text-3xl">28 ngày qua</h2>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-[10px] text-serene-muted/60">
+                                        <span>😊 Tốt</span>
+                                        <span>😌 Ổn</span>
+                                        <span>😐 Bình</span>
+                                        <span>😔 Thấp</span>
+                                    </div>
+                                </div>
+                                <MoodCalendar
+                                    points={moodTrend.points}
+                                    onDayClick={(date, score, label) =>
+                                        setSelectedDay({ date, score, label })
+                                    }
+                                />
+                            </section>
+                        )}
+
                         {milestones.length > 0 && (
                             <div className="flex gap-2 overflow-x-auto pb-2 mt-4 scrollbar-hide">
                                 {milestones.map((m) => (
@@ -332,6 +422,28 @@ export default function Reflect() {
                                     </div>
                                 ))}
                             </div>
+                        )}
+
+                        {/* ── Progress Stats ── */}
+                        {summary && (
+                            <section className="mt-8 rounded-[1.75rem] border border-white/25 bg-white/30 p-6 backdrop-blur-md md:p-8">
+                                <div className="mb-5">
+                                    <p className="text-[10px] uppercase tracking-[0.3em] text-serene-primary/70">Tiến trình</p>
+                                    <h2 className="mt-1 font-display text-2xl text-serene-ink md:text-3xl">Thống kê của bạn</h2>
+                                </div>
+                                <ProgressStats
+                                    data={{
+                                        streakDays: summary.session_stats.streak_days ?? 0,
+                                        bestStreak: Math.max(summary.session_stats.streak_days ?? 0, 7),
+                                        weeklyCheckins: Math.min(7, summary.session_stats.days_active_last_30
+                                            ? Math.round(summary.session_stats.days_active_last_30 / 4)
+                                            : 0),
+                                        totalSessions: summary.session_stats.total_sessions ?? 0,
+                                        breathingSessions: summary.coping_stats.breathing_sessions ?? 0,
+                                        heartsThisWeek: (summary.session_stats.days_active_last_30 ?? 0) * 5,
+                                    }}
+                                />
+                            </section>
                         )}
 
                         <section className="mt-8 rounded-3xl border-l-4 border-serene-primary bg-serene-primary/5 p-6 md:p-8">

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentProps } from 'react'
 import { History, Leaf, MoreVertical } from 'lucide-react'
+import { TypingIndicator } from './TypingIndicator'
+import { DateDivider } from './DateDivider'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { resolveMediaUrl } from '../../api/httpClient'
@@ -77,6 +79,7 @@ type UiMessage = {
     id: string
     role: 'user' | 'assistant'
     content: string
+    timestamp?: number
     apiData?: ChatApiData
 }
 
@@ -147,13 +150,13 @@ function QuickReplies({ replies, onSelect }: { replies?: QuickReply[]; onSelect:
     const normalizedReplies = (replies ?? []).map(quickReplyText).filter(Boolean)
     if (!normalizedReplies.length) return null
     return (
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-2.5 flex flex-wrap gap-2">
             {normalizedReplies.map((q, i) => (
                 <button
                     key={i}
                     type="button"
                     onClick={() => onSelect(q)}
-                    className="rounded-full border border-serene-primary/40 bg-white px-3 py-1 text-xs text-serene-primary transition-colors hover:bg-serene-primary hover:text-white"
+                    className="rounded-full border border-serene-primary/30 bg-serene-accent/40 px-4 py-1.5 text-xs font-medium text-serene-primary shadow-sm backdrop-blur-sm transition-all hover:bg-serene-primary hover:text-serene-on-primary active:scale-95"
                 >
                     {q}
                 </button>
@@ -589,8 +592,8 @@ export default function Chat() {
         setLastFailedText(null)
         setMessages((prev) => [
             ...prev,
-            { id: `u_${now}`, role: 'user', content: text },
-            { id: pendingId, role: 'assistant', content: 'Mây đang lắng nghe và viết lại thật cẩn thận cho bạn...' },
+            { id: `u_${now}`, role: 'user', content: text, timestamp: now },
+            { id: pendingId, role: 'assistant', content: 'Mây đang lắng nghe và viết lại thật cẩn thận cho bạn...', timestamp: now },
         ])
         setSending(true)
 
@@ -919,8 +922,19 @@ export default function Chat() {
                     <p className="text-serene-ink">Hãy bắt đầu cuộc trò chuyện. Mình đang lắng nghe bạn.</p>
                 ) : (
                     <div className="space-y-4">
-                        {messages.map((m) => (
-                            <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        {messages.map((m, idx) => {
+                            // Show date divider when day changes between messages
+                            const prev = messages[idx - 1]
+                            const showDivider =
+                                m.timestamp != null &&
+                                (prev == null ||
+                                    prev.timestamp == null ||
+                                    new Date(prev.timestamp).toDateString() !== new Date(m.timestamp).toDateString())
+
+                            return (
+                            <div key={m.id}>
+                                {showDivider && m.timestamp != null && <DateDivider timestamp={m.timestamp} />}
+                            <div className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`flex max-w-[85%] flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
                                     {/* Bubble */}
                                     <article
@@ -966,7 +980,10 @@ export default function Chat() {
                                     )}
                                 </div>
                             </div>
-                        ))}
+                            </div>
+                            )
+                        })}
+                        <TypingIndicator visible={sending} />
                         <div ref={bottomRef} />
                     </div>
                 )}
