@@ -1,10 +1,23 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
-import Login from '../components/auth/Login'
-import Register from '../components/auth/Register'
-import Chat from '../components/chat/Chat'
-import Main from '../components/layout/Main'
-import Home from '../components/pages/Home'
-import Landing from '../components/pages/Landing'
+import type { ReactElement } from 'react'
+import Login from '../components/auth/Login.tsx'
+import Register from '../components/auth/Register.tsx'
+import { PolicyWizard } from '../components/policy/PolicyWizard'
+import Chat from '../components/chat/Chat.tsx'
+import Main from '../components/layout/Main.tsx'
+import Connect from '../components/pages/Connect.tsx'
+import Home from '../components/pages/Home.tsx'
+import Landing from '../components/pages/Landing.tsx'
+import Reflect from '../components/pages/Reflect.tsx'
+import Resources from '../components/pages/Resources.tsx'
+import { CheckinFlow } from '../components/pages/CheckinFlow'
+import { SafetyCheck } from '../components/pages/SafetyCheck'
+import { ScreeningFlow } from '../components/pages/ScreeningFlow'
+import { ResultsPage } from '../components/pages/ResultsPage'
+import { ExercisesPage } from '../components/pages/ExercisesPage'
+import { OnboardingFlow } from '../components/pages/OnboardingFlow'
+import { BambooForestPage } from '../components/pages/BambooForest'
+import { useAuth } from '../hooks/useAuth'
 import { ROUTE_PATHS } from './paths'
 
 export default function AppRoutes() {
@@ -15,9 +28,98 @@ export default function AppRoutes() {
             <Route path={ROUTE_PATHS.register} element={<Register />} />
             <Route path={ROUTE_PATHS.landing} element={<Landing />} />
 
+            <Route path={ROUTE_PATHS.onboarding} element={<OnboardingFlow />} />
+
             <Route path={ROUTE_PATHS.home} element={<Main />}>
-                <Route index element={<Home />} />
-                <Route path="chat" element={<Chat />} />
+                <Route
+                    index
+                    element={
+                        <RequireAuth>
+                            <Home />
+                        </RequireAuth>
+                    }
+                />
+                <Route path={ROUTE_PATHS.chat} element={<Chat />} />
+                <Route
+                    path={ROUTE_PATHS.reflect}
+                    element={
+                        <RequireAuth>
+                            <Reflect />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.resources}
+                    element={
+                        <RequireAuth>
+                            <Resources />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.connect}
+                    element={
+                        <RequireAuth>
+                            <Connect />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.setting}
+                    element={
+                        <RequireAuth>
+                            <Setting />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.safetyCheck}
+                    element={
+                        <RequireAuth>
+                            <SafetyCheck />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.checkin}
+                    element={
+                        <RequireAuth>
+                            <CheckinFlow />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.screening}
+                    element={
+                        <RequireAuth>
+                            <ScreeningFlow />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.results}
+                    element={
+                        <RequireAuth>
+                            <ResultsPage />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.exercises}
+                    element={
+                        <RequireAuth>
+                            <ExercisesPage />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.bamboo}
+                    element={
+                        <RequireAuth>
+                            <BambooForestPage />
+                        </RequireAuth>
+                    }
+                />
             </Route>
 
             <Route path="*" element={<Navigate to={ROUTE_PATHS.landing} replace />} />
