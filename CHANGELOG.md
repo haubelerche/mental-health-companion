@@ -4,6 +4,46 @@
 
 ---
 
+## [Unreleased] — Sprint 5 · 2026-04-27
+
+### Changed
+- **`Sidebar.tsx`** — Removed "Bài tập" (Dumbbell) as a standalone nav item; renamed "Nguồn lực" → "Tài nguyên" with `Library` icon. Mobile bottom nav rebalanced to 5 remaining items.
+- **`Resources.tsx`** — Full rewrite: (1) Vietnamese labels for all category tabs (Thiền định, Ngủ & Thở, Âm nhạc, Trí tuệ, Vận động); (2) new **SleepTab** component for "Ngủ & Thở" category — shows 4 breathing/relaxation exercises (cards linking to `/serene/exercises?exercise=…`) + Sleep Stories section + Soundscapes section; (3) `AnimatePresence` fade-slide transitions between tabs; (4) extracted `ResourceGrid` component for generic categories; (5) loads exercises via `exerciseService.list()` with `FALLBACK_EXERCISES` fallback; default landing category changed to `sleep`.
+
+---
+
+## [Unreleased] — Sprint 4 · 2026-04-27
+
+### Added
+- **`anonymousShareService.ts`** — `POST /bamboo/send` + `GET /bamboo/inbox` with graceful localStorage fallback when backend endpoint is unavailable; 3 curated mock messages for offline inbox demo.
+- **`BambooForestPage.tsx`** (`/serene/bamboo`) — Full anonymous sharing feature: (1) **Composer** with category selector (Lời khích lệ / Chia sẻ / Hỏi đáp), styled textarea, character counter; (2) **Confirmation modal** with 3-item checklist the user must tick before sending (no harmful content / no PII / suitable for strangers) — "Gửi" disabled until all checked; (3) **Dual action** — "Gửi vào dòng suối 🌊" sends to random user, "Đốt an toàn 🔥" discards locally; (4) **Community Guidelines modal** (Info button); (5) **Done/Burn splash** screens; (6) **Inbox tab** with received anonymous messages styled per category. Bamboo forest dark-olive gradient background.
+- **`DayDetailSheet.tsx`** (`frontend/src/components/wellness/`) — Framer-motion bottom sheet; opens on MoodCalendar cell tap; shows date, mood emoji, score bar, word chips, journal note; spring entrance animation.
+- **`ProgressStats.tsx`** (`frontend/src/components/wellness/`) — 4-stat grid (streak days, weekly check-ins, total sessions, hearts/tim); weekly check-in dot bar with animated fill; integrated into `Reflect.tsx`.
+
+### Changed
+- **`MoodCalendar.tsx`** — Added optional `onDayClick(date, score, label)` prop; cells are now `<button>` elements when `onDayClick` provided; tap highlights with scale animation.
+- **`Reflect.tsx`** — Integrated `DayDetailSheet` (tapping calendar cells opens day detail); integrated `ProgressStats` section after milestones chips; added `selectedDay` state.
+- **`Sidebar.tsx`** — Added "Rừng Trúc" nav item (Leaf icon, `/serene/bamboo`).
+- **`paths.ts`** / **`AppRoutes.tsx`** — Registered `/serene/bamboo` route.
+
+---
+
+## [Unreleased] — Sprint 3 · 2026-04-27
+
+### Added
+- **`OnboardingFlow.tsx`** — 8-step new-user questionnaire (Splash → Nickname → Gender → Age group → Mental concerns checklist → Stress frequency slider → Sleep schedule time-pickers → Goals); data persisted to `localStorage`; route `/serene/onboarding` wired into `AppRoutes.tsx` + `paths.ts`.
+- **`ScreeningFlow.tsx`** — Likert pill UI replaces plain radio buttons; frequency dot indicators (0–3 filled dots per option); animated `AnalyzingLoader` with 3-step message sequence shown while submitting final answer; instrument selection cards with icon + description.
+- **`ResultsPage.tsx`** — Dual animated score bars (raw score % + severity %, `motion` fill); per-severity recommendation exercise cards (2 cols); Web Share API share button with clipboard fallback; "Chat with Serene" CTA card at bottom; action buttons upgraded with Lucide icons.
+- **`MoodGauge.tsx`** (`frontend/src/components/common/`) — SVG semicircle gauge 1–10; animated spring needle; gradient color track (red→yellow→green); click-to-set + stepper buttons; accessible `role="slider"` attributes.
+- **`StreakCelebration.tsx`** (`frontend/src/components/common/`) — Animated modal celebrating consecutive check-in days; S M T W T F S dot circles (amber = done); hearts reward badge; spring scale entrance animation; integrated into `CheckinFlow` summary step.
+- **`DateDivider.tsx`** (`frontend/src/components/chat/`) — Date separator between chat messages when day changes (shows "Hôm nay" / "Hôm qua" / formatted date); wired into Chat.tsx message feed via `timestamp` field on `UiMessage`.
+
+### Changed
+- **`CheckinFlow.tsx`** — Added `StreakCelebration` modal on submit completion; fixed English "Chat with Mây" button to Vietnamese.
+- **`Chat.tsx`** — Added `timestamp?: number` to `UiMessage` type; new user/assistant messages include `Date.now()` timestamp; `DateDivider` rendered between messages on day boundaries.
+
+---
+
 ## [Unreleased] — Sprint 2 · 2026-04-25
 
 ### Added
