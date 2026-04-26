@@ -14,6 +14,22 @@
     --color-serene-surface: #edeee8;
     --color-serene-accent: #d0e8db;
     --color-serene-on-primary: #e5fdf0;
+    --color-serene-surface-card: #ffffff;
+    --color-serene-border: #e4ece7;
+    --color-serene-warning: #f5a05a;
+    --color-serene-player-bg: #1a2420;
+    --color-serene-player-surface: #243028;
+
+    --color-an: #a8c5b5;
+    --color-may: #8fb0c8;
+    --color-lua: #e8b97a;
+    --color-la-ban: #b8a9d4;
+    --color-guong: #c5b89a;
+    --color-an-bg: #eef6f2;
+    --color-may-bg: #eaf2f8;
+    --color-lua-bg: #fdf3e3;
+    --color-la-ban-bg: #f2eff9;
+    --color-guong-bg: #f8f4ed;
 }
 
 @layer base {
