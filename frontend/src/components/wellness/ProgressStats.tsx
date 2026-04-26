@@ -25,16 +25,16 @@ function StatCard({ icon: Icon, value, label, sub, color, delay = 0 }: StatCardP
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.35, ease: 'easeOut' }}
-      className="flex flex-col gap-1.5 rounded-2xl border border-serene-border/60 bg-white/70 p-3.5 shadow-[0_2px_8px_rgba(47,52,46,0.06)]"
+      className="flex flex-col gap-2 rounded-2xl border border-serene-border/60 bg-white/70 p-4 shadow-[0_2px_8px_rgba(47,52,46,0.06)]"
     >
       <div
-        className="flex h-8 w-8 items-center justify-center rounded-xl"
+        className="flex h-9 w-9 items-center justify-center rounded-xl"
         style={{ backgroundColor: `${color}18` }}
       >
-        <Icon className="h-4 w-4" style={{ color }} />
+        <Icon className="h-4.5 w-4.5" style={{ color }} />
       </div>
       <div>
-        <p className="font-display text-xl font-semibold text-serene-ink">{value}</p>
+        <p className="font-display text-2xl font-semibold text-serene-ink">{value}</p>
         <p className="text-xs font-medium text-serene-muted">{label}</p>
         {sub && <p className="mt-0.5 text-[11px] text-serene-muted/70">{sub}</p>}
       </div>
@@ -50,7 +50,7 @@ export function ProgressStats({ data }: Props) {
   const weeklyFraction = Math.min(1, data.weeklyCheckins / 7)
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard
           icon={Flame}
@@ -87,9 +87,9 @@ export function ProgressStats({ data }: Props) {
       </div>
 
       {/* Weekly check-in bar */}
-      <div className="rounded-2xl border border-serene-border/50 bg-white/60 px-4 py-3">
+      <div className="rounded-2xl border border-serene-border/50 bg-white/60 px-5 py-4">
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-semibold text-serene-ink">Tuần này</p>
+          <p className="text-sm font-semibold text-serene-ink">Tuần này</p>
           <p className="text-xs text-serene-muted">
             {data.weeklyCheckins} / 7 ngày check-in
           </p>
