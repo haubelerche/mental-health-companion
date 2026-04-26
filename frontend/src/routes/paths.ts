@@ -15,6 +15,8 @@ export const ROUTE_PATHS = {
 
     // onboarding & flows
     onboardingPolicy: '/onboarding/policy',
+    onboarding: '/serene/onboarding',
+    bamboo: '/serene/bamboo',
     safetyCheck: '/serene/safety-check',
     checkin: '/serene/checkin',
     screening: '/serene/screening',
