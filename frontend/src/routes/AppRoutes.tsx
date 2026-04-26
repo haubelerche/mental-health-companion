@@ -15,6 +15,8 @@ import { SafetyCheck } from '../components/pages/SafetyCheck'
 import { ScreeningFlow } from '../components/pages/ScreeningFlow'
 import { ResultsPage } from '../components/pages/ResultsPage'
 import { ExercisesPage } from '../components/pages/ExercisesPage'
+import { OnboardingFlow } from '../components/pages/OnboardingFlow'
+import { BambooForestPage } from '../components/pages/BambooForest'
 import { useAuth } from '../hooks/useAuth'
 import { ROUTE_PATHS } from './paths'
 import Setting from '../components/pages/Setting.tsx'
@@ -40,6 +42,8 @@ export default function AppRoutes() {
             <Route path={ROUTE_PATHS.forget} element={<Forget />} />
             <Route path={ROUTE_PATHS.landing} element={<Landing />} />
             <Route path={ROUTE_PATHS.onboardingPolicy} element={<PolicyWizard />} />
+
+            <Route path={ROUTE_PATHS.onboarding} element={<OnboardingFlow />} />
 
             <Route path={ROUTE_PATHS.home} element={<Main />}>
                 <Route
@@ -120,6 +124,14 @@ export default function AppRoutes() {
                     element={
                         <RequireAuth>
                             <ExercisesPage />
+                        </RequireAuth>
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.bamboo}
+                    element={
+                        <RequireAuth>
+                            <BambooForestPage />
                         </RequireAuth>
                     }
                 />
