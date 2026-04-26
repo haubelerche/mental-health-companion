@@ -1,314 +1,1008 @@
-import { Heart, History, Image, Leaf, Mic, MoreVertical, Send, Smile, Wind } from 'lucide-react'
-import { useState, useRef, useEffect } from 'react'
-import bg from '../../assets/bg2.png'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ComponentProps } from 'react'
+import { History, Leaf, MoreVertical } from 'lucide-react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { toast } from 'react-toastify'
+import { resolveMediaUrl } from '../../api/httpClient'
+import { ApiRequestError } from '../../api/types'
+import { useAuth } from '../../hooks/useAuth'
+import { ROUTE_PATHS } from '../../routes/paths'
+import { chatService } from '../../services/chatService'
+import { policyService } from '../../services/policyService'
+import { Switch } from '../ui/switch'
+import { HotlineBar } from '../crisis/HotlineBar'
 
-const suggestedExercise = {
-  icon: <Wind className="h-8 w-8" />,
-  title: 'BÀI TẬP: Thở 4-7-8',
-  description: 'Bài tập đề xuất',
-  cta: 'Bắt đầu',
+// ─── API response types ────────────────────────────────────────────────────────
+
+type HotlineCard = { label: string; phone: string }
+type MicroAction = { type: string; label: string }
+type GroundingAction = { id: string }
+type ReferralOption = { type: string }
+type AssistantStrategy = {
+    keep_engaged: boolean
+    encourage_external_help: boolean
+    avoid_hard_stop: boolean
+}
+type TheDinhKem = {
+    type: string
+    id: string
+    title: string
+    description?: string | null
+    duration_sec?: number
+    action?: string
+    route?: string
+    thumbnail?: string | null
+}
+type ProactiveVoiceIntervention = {
+    type: string
+    trigger_reason?: string
+    cooldown?: { active: boolean; seconds_remaining: number }
+    voice?: { status?: string; tts_job_id?: string | null; audio_url?: string | null }
+    voice_script?: string
+    copy_ngan?: string
+    crisis_footer?: { show_once: boolean; text: string; hotline_cta: { label: string; action: string } }
+    next_actions?: Array<{ id: string; label: string; action?: string }>
 }
 
-type Message = {
-  id: string
-  type: 'user' | 'serene'
-  content?: string
-  icon?: React.ReactNode
-  timestamp: Date
+type ChatApiData = {
+    session_id: string
+    conversation_mode?: 'normal' | 'supportive' | 'de_escalation'
+    distress_score?: number
+    safety_tier?: 'normal' | 'elevated' | 'voice_recommended' | 'critical'
+    voice_session_offered?: boolean
+    suggest_voice?: boolean
+    voice_hint?: string | null
+    emergency_actions?: Record<string, boolean> | null
+    reply?: string | null
+    assistant_text?: string | null
+    tone_cam_xuc?: string | null
+    goi_y_nhanh?: QuickReply[]
+    the_dinh_kem?: TheDinhKem[]
+    sos_triggered?: boolean
+    risk_level?: number
+    agent_display_name?: string
+    assistant_strategy?: AssistantStrategy
+    micro_actions?: MicroAction[]
+    hotline_cards?: HotlineCard[]
+    grounding_actions?: GroundingAction[]
+    referral_options?: ReferralOption[]
+    followup_priority?: boolean
+    routing_history?: string[]
+    intervention?: ProactiveVoiceIntervention | null
 }
 
-const mockMessages: Message[] = [
-  {
-    id: '1',
-    type: 'serene',
-    content: 'Xin chào! Mình là Serene. Hôm nay bạn cảm thấy thế nào?',
-    timestamp: new Date(Date.now() - 5 * 60000),
-  },
-  {
-    id: '2',
-    type: 'user',
-    content: 'Cảm thấy hơi ngộp vì bài vở quá nhiều...',
-    timestamp: new Date(Date.now() - 4 * 60000),
-  },
-  {
-    id: '3',
-    type: 'serene',
-    content: 'Mình hiểu mà. Đôi khi mọi thứ dồn dập khiến ta thấy khó thở. Cậu thử dành 2 phút làm bài tập này cùng mình nhé?',
-    timestamp: new Date(Date.now() - 3 * 60000),
-  },
-]
+type QuickReply = string | { label?: string; message?: string; reason?: string; type?: string }
 
-const moodIcons = [
-  { id: 'happy', icon: <Smile className="h-6 w-6" />, label: 'Vui' },
-  { id: 'love', icon: <Heart className="h-6 w-6" />, label: 'Yêu thích' },
-  { id: 'wind', icon: <Wind className="h-6 w-6" />, label: 'Thư thái' },
-  { id: 'leaf', icon: <Leaf className="h-6 w-6" />, label: 'Bình yên' },
-]
+type UiMessage = {
+    id: string
+    role: 'user' | 'assistant'
+    content: string
+    apiData?: ChatApiData
+}
+
+// ─── Sub-components ────────────────────────────────────────────────────────────
+
+function SafetyBadge({ tier }: { tier?: string }) {
+    if (!tier || tier === 'normal') return null
+    const cfg: Record<string, { label: string; cls: string }> = {
+        elevated: { label: 'Dấu hiệu', cls: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
+        voice_recommended: { label: 'Gợi thoại', cls: 'bg-orange-100 text-orange-800 border-orange-300' },
+        critical: { label: 'Khủng hoảng', cls: 'bg-red-100 text-red-800 border-red-300' },
+    }
+    const c = cfg[tier]
+    if (!c) return null
+    return (
+        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${c.cls}`}>
+            {c.label}
+        </span>
+    )
+}
+
+function RoutingBadge({ history }: { history?: string[] }) {
+    if (!history?.length) return null
+    const nodeColors: Record<string, string> = {
+        supervisor: 'bg-violet-100 text-violet-700',
+        analyst: 'bg-blue-100 text-blue-700',
+        friend: 'bg-green-100 text-green-700',
+        sos_handler: 'bg-red-100 text-red-700',
+    }
+    return (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            <span className="text-[10px] font-medium text-serene-muted">Luồng:</span>
+            {history.map((node, i) => (
+                <span key={i} className="flex items-center gap-0.5">
+                    <span
+                        className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-medium capitalize ${nodeColors[node] ?? 'bg-gray-100 text-gray-600'}`}
+                    >
+                        {node}
+                    </span>
+                    {i < history.length - 1 && <span className="text-[10px] text-serene-muted/50">→</span>}
+                </span>
+            ))}
+        </div>
+    )
+}
+
+function DistressBar({ score }: { score?: number }) {
+    if (score === undefined || score === null) return null
+    const pct = Math.round(score * 100)
+    const color = pct < 35 ? 'bg-emerald-400' : pct < 55 ? 'bg-yellow-400' : pct < 80 ? 'bg-orange-400' : 'bg-red-500'
+    return (
+        <div className="mt-1 flex items-center gap-2">
+            <span className="text-[10px] text-serene-muted">Distress</span>
+            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-200">
+                <div className={`h-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+            </div>
+            <span className="font-mono text-[10px] text-serene-muted">{score.toFixed(2)}</span>
+        </div>
+    )
+}
+
+function quickReplyText(reply: QuickReply): string {
+    if (typeof reply === 'string') return reply.trim()
+    return String(reply.message || reply.label || reply.reason || reply.type || '').trim()
+}
+
+function QuickReplies({ replies, onSelect }: { replies?: QuickReply[]; onSelect: (text: string) => void }) {
+    const normalizedReplies = (replies ?? []).map(quickReplyText).filter(Boolean)
+    if (!normalizedReplies.length) return null
+    return (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+            {normalizedReplies.map((q, i) => (
+                <button
+                    key={i}
+                    type="button"
+                    onClick={() => onSelect(q)}
+                    className="rounded-full border border-serene-primary/40 bg-white px-3 py-1 text-xs text-serene-primary transition-colors hover:bg-serene-primary hover:text-white"
+                >
+                    {q}
+                </button>
+            ))}
+        </div>
+    )
+}
+
+function AttachmentCard({ item, onOpen }: { item: TheDinhKem; onOpen: (item: TheDinhKem) => void }) {
+    const icons: Record<string, string> = {
+        breathing_exercise: '🌬️',
+        grounding_exercise: '🌱',
+        body_scan: '🧘',
+        meditation: '🧘',
+        music: '🎵',
+        resource: '▶️',
+        clinic_map: '📍',
+    }
+    const duration = item.duration_sec ? `${Math.max(1, Math.round(item.duration_sec / 60))} phút` : item.type.replace(/_/g, ' ')
+    return (
+        <button
+            type="button"
+            onClick={() => onOpen(item)}
+            className="mt-2 grid max-w-sm grid-cols-[44px_1fr_auto] items-center gap-3 rounded-2xl border border-serene-primary/15 bg-[#f5f1e8]/90 px-3 py-3 text-left shadow-[0_14px_34px_rgba(47,52,46,0.09)] transition hover:-translate-y-0.5 hover:bg-white"
+        >
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-serene-accent text-lg">
+                {icons[item.type] ?? '📎'}
+            </span>
+            <div>
+                <p className="text-xs font-semibold text-serene-ink">{item.title}</p>
+                <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-serene-muted">
+                    {item.description || duration}
+                </p>
+            </div>
+            <span className="rounded-full bg-serene-primary px-3 py-1 text-[10px] font-semibold text-white">
+                Mở
+            </span>
+        </button>
+    )
+}
+
+function CrisisPanel({ data }: { data: ChatApiData }) {
+    if (!data.sos_triggered) return null
+    return (
+        <div className="mt-3 space-y-2.5 rounded-2xl border border-red-200 bg-red-50/90 p-4">
+            {/* Header */}
+            <div className="flex items-center gap-2">
+                <span className="text-xl">🆘</span>
+                <div>
+                    <p className="text-sm font-semibold text-red-800">Chế độ hỗ trợ khủng hoảng</p>
+                    <p className="text-[10px] text-red-500">
+                        risk_level: {data.risk_level ?? '—'} · tier: {data.safety_tier}
+                    </p>
+                </div>
+            </div>
+
+            {/* Assistant strategy flags */}
+            {data.assistant_strategy && (
+                <div className="flex flex-wrap gap-1.5">
+                    {data.assistant_strategy.keep_engaged && (
+                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-800">
+                            ✓ Giữ kết nối
+                        </span>
+                    )}
+                    {data.assistant_strategy.encourage_external_help && (
+                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-800">
+                            ✓ Gợi hỗ trợ ngoài
+                        </span>
+                    )}
+                    {data.assistant_strategy.avoid_hard_stop && (
+                        <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-800">
+                            ✓ Dual-focus UI
+                        </span>
+                    )}
+                </div>
+            )}
+
+            {/* Micro actions */}
+            {data.micro_actions?.length ? (
+                <div>
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-red-700">
+                        Hành động nhỏ ngay bây giờ
+                    </p>
+                    <div className="space-y-1.5">
+                        {data.micro_actions.map((a, i) => (
+                            <div key={i} className="flex items-start gap-2 rounded-lg bg-white/70 px-3 py-2">
+                                <span className="text-sm">{a.type === 'breathing' ? '🌬️' : '👁️'}</span>
+                                <span className="text-xs text-serene-ink">{a.label}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
+
+            {/* Hotline cards */}
+            {data.hotline_cards?.length ? (
+                <div>
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-red-700">
+                        Đường dây hỗ trợ
+                    </p>
+                    <div className="space-y-1.5">
+                        {data.hotline_cards.map((h, i) => (
+                            <a
+                                key={i}
+                                href={`tel:${h.phone.replace(/\s/g, '')}`}
+                                className="flex items-center justify-between rounded-lg bg-white/80 px-3 py-2 transition-colors hover:bg-red-50"
+                            >
+                                <span className="text-xs text-serene-ink">{h.label}</span>
+                                <span className="font-bold text-red-600">{h.phone}</span>
+                            </a>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
+
+            {/* Referral options */}
+            {data.referral_options?.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                    {data.referral_options.map((r, i) => (
+                        <span
+                            key={i}
+                            className="rounded-full border border-red-200 bg-white/80 px-2 py-0.5 text-[10px] text-red-700"
+                        >
+                            {r.type === 'counselor'
+                                ? '👨‍⚕️ Tư vấn viên'
+                                : r.type === 'trusted_contact'
+                                    ? '🤝 Người tin cậy'
+                                    : r.type}
+                        </span>
+                    ))}
+                </div>
+            ) : null}
+
+            {data.followup_priority && (
+                <p className="text-[10px] font-medium text-red-600">⚑ Cần theo dõi ưu tiên</p>
+            )}
+        </div>
+    )
+}
+
+// ─── Main component ────────────────────────────────────────────────────────────
 
 export default function Chat() {
-  const [messages, setMessages] = useState<Message[]>(mockMessages)
-  const [inputValue, setInputValue] = useState('')
-  const [showMoodEmojis, setShowMoodEmojis] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const messagesContainerRef = useRef<HTMLDivElement>(null)
+    type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
+    const FALLBACK_GUEST_CHAT_DURATION_SECONDS = 120
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+    const [sessionId, setSessionId] = useState<string | null>(null)
+    const [messages, setMessages] = useState<UiMessage[]>([])
+    const [input, setInput] = useState('')
+    const [sending, setSending] = useState(false)
+    const [voiceConsent, setVoiceConsent] = useState(false)
+    const [voiceStatus, setVoiceStatus] = useState('')
+    const [lastFailedText, setLastFailedText] = useState<string | null>(null)
+    const [showDebug, setShowDebug] = useState(true)
+    const [showOptions, setShowOptions] = useState(false)
+    const [showHistory, setShowHistory] = useState(false)
+    const [sessions, setSessions] = useState<Array<{ session_id: string; preview: string | null; last_message_at: string }>>([])
+    const [guestSecondsLeft, setGuestSecondsLeft] = useState<number>(FALLBACK_GUEST_CHAT_DURATION_SECONDS)
+    const [guestSessionLoading, setGuestSessionLoading] = useState(false)
+    const pollRef = useRef<number | null>(null)
+    const bottomRef = useRef<HTMLDivElement | null>(null)
+    const optionsRef = useRef<HTMLDivElement | null>(null)
+    const guestDeadlineRef = useRef<number | null>(null)
+    const guestExpiredNotifiedRef = useRef(false)
+    const [sosActive, setSosActive] = useState(false)
+    const { user } = useAuth()
+    const navigate = useNavigate()
+    const location = useLocation()
+    const isGuestMode = !user
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    useEffect(() => {
+        if (!user) {
+            setVoiceConsent(false)
+            return
+        }
+        policyService
+            .getVoiceConsent()
+            .then((res) => setVoiceConsent(Boolean(res.voice_consent)))
+            .catch(() => undefined)
+    }, [user])
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return
+    useEffect(() => {
+        const state = location.state as { crisisMode?: boolean } | null
+        if (state?.crisisMode) setSosActive(true)
+    }, [location.state])
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      type: 'user',
-      content: inputValue,
-      timestamp: new Date(),
+    useEffect(() => {
+        let cancelled = false
+        if (!isGuestMode) {
+            setGuestSecondsLeft(FALLBACK_GUEST_CHAT_DURATION_SECONDS)
+            guestDeadlineRef.current = null
+            guestExpiredNotifiedRef.current = false
+            setGuestSessionLoading(false)
+            return
+        }
+        if (sessionId && !sessionId.startsWith('gst_')) {
+            setSessionId(null)
+            guestDeadlineRef.current = null
+            setGuestSecondsLeft(FALLBACK_GUEST_CHAT_DURATION_SECONDS)
+            return
+        }
+        if (!sessionId) {
+            setGuestSessionLoading(true)
+            void chatService
+                .startGuestSession()
+                .then((data) => {
+                    if (cancelled) return
+                    const duration = Number(data.max_duration_sec) > 0 ? Number(data.max_duration_sec) : FALLBACK_GUEST_CHAT_DURATION_SECONDS
+                    setSessionId(data.guest_session_id)
+                    setGuestSecondsLeft(duration)
+                    guestDeadlineRef.current = Date.now() + duration * 1000
+                    guestExpiredNotifiedRef.current = false
+                })
+                .catch(() => {
+                    if (cancelled) return
+                    setGuestSecondsLeft(FALLBACK_GUEST_CHAT_DURATION_SECONDS)
+                    guestDeadlineRef.current = Date.now() + FALLBACK_GUEST_CHAT_DURATION_SECONDS * 1000
+                    guestExpiredNotifiedRef.current = false
+                })
+                .finally(() => {
+                    if (!cancelled) setGuestSessionLoading(false)
+                })
+            return () => {
+                cancelled = true
+            }
+        }
+
+        const tick = () => {
+            const deadline = guestDeadlineRef.current ?? Date.now()
+            const next = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
+            setGuestSecondsLeft(next)
+            if (next <= 0 && !guestExpiredNotifiedRef.current) {
+                guestExpiredNotifiedRef.current = true
+                toast.info('Bạn đã dùng hết 2 phút chat thử. Đăng ký để tiếp tục nhé.')
+                navigate(ROUTE_PATHS.register, { replace: true })
+            }
+        }
+        tick()
+        const timer = window.setInterval(tick, 1000)
+        return () => window.clearInterval(timer)
+    }, [FALLBACK_GUEST_CHAT_DURATION_SECONDS, isGuestMode, navigate, sessionId])
+
+    useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, [messages])
+
+    useEffect(() => {
+        return () => {
+            if (pollRef.current) window.clearTimeout(pollRef.current)
+        }
+    }, [])
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (optionsRef.current && !optionsRef.current.contains(event.target as Node)) {
+                setShowOptions(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [])
+
+    const canSend = useMemo(() => {
+        if (sending) return false
+        if (input.trim().length <= 0) return false
+        if (isGuestMode && (guestSessionLoading || guestSecondsLeft <= 0)) return false
+        return true
+    }, [sending, input, isGuestMode, guestSecondsLeft, guestSessionLoading])
+
+    const guestCountdownLabel = useMemo(() => {
+        const mins = Math.floor(guestSecondsLeft / 60)
+        const secs = guestSecondsLeft % 60
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+    }, [guestSecondsLeft])
+
+    const playAudioUrl = (audioUrl: string) => {
+        const audio = new Audio(resolveMediaUrl(audioUrl))
+        void audio.play().catch(() => {
+            toast.info('Trình duyệt chặn tự phát audio, hãy bấm play thủ công.')
+        })
     }
 
-    setMessages((prev) => [...prev, newMessage])
-    setInputValue('')
-
-    // Mock response sau 1 giây
-    setTimeout(() => {
-      const responses = [
-        'Cảm ơn bạn đã chia sẻ. Mình lắng nghe bạn đây.',
-        'Điều đó rất bình thường. Hãy thở sâu và từ từ.',
-        'Bạn làm rất tốt khi chia sẻ với mình.',
-        'Mình hiểu. Cùng nhau vượt qua nhé!',
-      ]
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)]
-      const sereneMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'serene',
-        content: randomResponse,
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, sereneMessage])
-    }, 1000)
-  }
-
-  const handleSendIcon = (icon: React.ReactNode, label: string) => {
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      type: 'user',
-      icon,
-      content: label,
-      timestamp: new Date(),
+    const pollVoiceJob = async (ttsJobId: string, fallbackScript?: string, attempts = 0) => {
+        if (attempts > 10) {
+            setVoiceStatus('Voice phản hồi chậm, đang dùng bản text trước.')
+            if (fallbackScript) {
+                setMessages((prev) => [...prev, { id: `vs_to_${Date.now()}`, role: 'assistant', content: fallbackScript }])
+            }
+            return
+        }
+        try {
+            const job = await chatService.getVoiceJob(ttsJobId)
+            setVoiceStatus(`Voice: ${job.status}`)
+            if (job.status === 'ready' && job.audio_url) {
+                playAudioUrl(job.audio_url)
+                setVoiceStatus('')
+                return
+            }
+            if (job.status === 'failed') {
+                setVoiceStatus(job.error_message ? `Voice lỗi: ${job.error_message}` : 'Voice lỗi, chuyển về text.')
+                if (fallbackScript) {
+                    setMessages((prev) => [
+                        ...prev,
+                        { id: `vs_fail_${Date.now()}`, role: 'assistant', content: fallbackScript },
+                    ])
+                }
+                return
+            }
+        } catch {
+            if (fallbackScript) {
+                setMessages((prev) => [...prev, { id: `vs_err_${Date.now()}`, role: 'assistant', content: fallbackScript }])
+            }
+            return
+        }
+        // Adaptive backoff: fast checks when job is fresh, slower as it ages.
+        const delay = attempts < 3 ? 400 : attempts < 6 ? 800 : 1500
+        pollRef.current = window.setTimeout(() => {
+            void pollVoiceJob(ttsJobId, fallbackScript, attempts + 1)
+        }, delay)
     }
 
-    setMessages((prev) => [...prev, newMessage])
-    setShowMoodEmojis(false)
+    const applyIntervention = (data: ChatApiData) => {
+        const intervention = data.intervention
+        if (intervention?.type !== 'proactive_voice') return
+        if (intervention.copy_ngan) {
+            setMessages((prev) => [...prev, { id: `i_${Date.now()}`, role: 'assistant', content: intervention.copy_ngan ?? '' }])
+        }
+        if (Array.isArray(intervention.next_actions) && intervention.next_actions.length > 0) {
+            const labels = intervention.next_actions.map((a) => `• ${a.label}`).join('\n')
+            setMessages((prev) => [...prev, { id: `na_${Date.now()}`, role: 'assistant', content: `Gợi ý tiếp theo:\n${labels}` }])
+        }
+        const ttsJobId = intervention.voice?.tts_job_id
+        const audioUrl = intervention.voice?.audio_url
+        if (audioUrl) {
+            playAudioUrl(audioUrl)
+        } else if (ttsJobId) {
+            setVoiceStatus('Đang tạo voice...')
+            void pollVoiceJob(ttsJobId, intervention.voice_script)
+        } else if (intervention.voice_script) {
+            setMessages((prev) => [...prev, { id: `vs_${Date.now()}`, role: 'assistant', content: intervention.voice_script ?? '' }])
+        }
+    }
 
-    // Mock response
-    setTimeout(() => {
-      const sereneMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'serene',
-        content: `Tuyệt vời! Tâm trạng "${label}" của bạn rất đẹp.`,
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, sereneMessage])
-    }, 800)
-  }
-  return (
-    <div className="relative min-h-screen text-serene-ink">
-      <div className="fixed inset-0 -z-20">
-        <img src={bg} alt="Biển hoàng hôn" className="h-full w-full object-cover " />
-        <div className="absolute inset-0 bg-white/20" />
-      </div>
+    const consumeChatSse = async (response: Response, pendingId: string) => {
+        if (!response.ok) {
+            throw new Error('Streaming chat thất bại')
+        }
+        const reader = response.body?.getReader()
+        if (!reader) {
+            throw new Error('Không đọc được stream phản hồi')
+        }
+        const decoder = new TextDecoder('utf-8')
+        let buffer = ''
+        let currentEvent = ''
+        let streamedText = ''
+        let finalData: ChatApiData | null = null
 
-      <main className="flex min-h-screen justify-center">
-        <section className="flex w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-white/40 bg-white/65 backdrop-blur-3xl ">
-          <header className="flex items-center justify-between px-5 py-5 sm:px-8 sm:py-7">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-serene-on-primary text-primary shadow-sm">
-                <Leaf />
-              </div>
-              <div>
-                <h2 className="font-display text-2xl font-semibold text-on-surface sm:text-3xl">
-                  Serene
-                </h2>
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  <span className="text-sm uppercase  text-on-surface-variant">
-                    Đang lắng nghe
-                  </span>
-                </div>
-              </div>
-            </div>
+        while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
 
-            <div className="flex gap-2 sm:gap-3">
-              <button
-                type="button"
-                className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition hover:bg-surface-variant/35 hover:text-primary"
-                aria-label="Lịch sử"
-              >
-                <History className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition hover:bg-surface-variant/35 hover:text-primary"
-                aria-label="Tùy chọn"
-              >
-                <MoreVertical className="h-5 w-5" />
-              </button>
-            </div>
-          </header>
+            for (const line of lines) {
+                if (line.startsWith('event:')) {
+                    currentEvent = line.slice(6).trim()
+                    continue
+                }
+                if (!line.startsWith('data:')) continue
+                const raw = line.slice(5).trim()
+                if (!raw) continue
+                try {
+                    const payload = JSON.parse(raw) as Record<string, unknown>
+                    if (currentEvent === 'delta') {
+                        streamedText += String(payload.text ?? '')
+                        setMessages((prev) =>
+                            prev.map((m) => (m.id === pendingId ? { ...m, content: streamedText || '...' } : m)),
+                        )
+                    } else if (currentEvent === 'heartbeat') {
+                        const stage = String(payload.stage ?? 'pre_llm')
+                        const elapsedMs = Number(payload.elapsed_ms ?? 0)
+                        setVoiceStatus(`Đang xử lý (${stage}) · ${elapsedMs}ms`)
+                    } else if (currentEvent === 'status') {
+                        if (payload.stage === 'ready' && typeof payload.latency_ms === 'number') {
+                            setVoiceStatus(`Latency backend: ${payload.latency_ms}ms`)
+                        }
+                    } else if (currentEvent === 'final') {
+                        finalData = payload as unknown as ChatApiData
+                    }
+                } catch {
+                    // ignore malformed line
+                }
+            }
+        }
 
-          <div className="flex flex-1 flex-col overflow-hidden px-4 pb-4 sm:px-8">
-            <div
-              ref={messagesContainerRef}
-              className="flex flex-1 flex-col gap-6 overflow-y-auto px-1 py-2 sm:px-2"
-            >
-              {messages.map((msg) => (
-                <div key={msg.id} className={`flex gap-3 sm:gap-4 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  {msg.type === 'serene' && (
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-serene-on-primary text-primary shadow-sm">
-                      <Leaf className="h-4 w-4" />
+        if (!finalData) {
+            throw new Error('Không nhận được dữ liệu cuối từ stream')
+        }
+        const sid = typeof finalData.session_id === 'string' ? finalData.session_id : null
+        if (sid) setSessionId(sid)
+        const assistantText =
+            typeof finalData.reply === 'string' && finalData.reply
+                ? finalData.reply
+                : typeof finalData.assistant_text === 'string' && finalData.assistant_text
+                    ? finalData.assistant_text
+                    : streamedText || 'Mình vẫn đang ở đây cùng bạn.'
+        setMessages((prev) =>
+            prev.map((m) =>
+                m.id === pendingId
+                    ? {
+                        id: `a_${Date.now()}`,
+                        role: 'assistant',
+                        content: assistantText,
+                        apiData: finalData ?? undefined,
+                    }
+                    : m,
+            ),
+        )
+        if (finalData.sos_triggered) setSosActive(true)
+        applyIntervention(finalData)
+    }
+
+    const doSend = async (text: string) => {
+        if (isGuestMode && guestSecondsLeft <= 0) {
+            toast.info('Phiên chat thử đã hết. Mời bạn đăng ký tài khoản để tiếp tục.')
+            navigate(ROUTE_PATHS.register)
+            return
+        }
+        const now = Date.now()
+        const pendingId = `p_${now}`
+        setInput('')
+        setLastFailedText(null)
+        setMessages((prev) => [
+            ...prev,
+            { id: `u_${now}`, role: 'user', content: text },
+            { id: pendingId, role: 'assistant', content: 'Mây đang lắng nghe và viết lại thật cẩn thận cho bạn...' },
+        ])
+        setSending(true)
+
+        try {
+            if (!isGuestMode) {
+                try {
+                    const streamResponse = await chatService.sendMessageStream({ message: text, session_id: sessionId })
+                    await consumeChatSse(streamResponse, pendingId)
+                } catch (err) {
+                    const status = err instanceof ApiRequestError ? (err.status ?? 0) : 0
+                    if (!(err instanceof ApiRequestError) || status < 500) {
+                        throw err
+                    }
+                    const rawData = await chatService.sendMessage({ message: text, session_id: sessionId })
+                    const data = rawData as ChatApiData
+                    const sid = typeof data.session_id === 'string' ? data.session_id : null
+                    if (sid) setSessionId(sid)
+                    const assistantText =
+                        typeof data.reply === 'string' && data.reply
+                            ? data.reply
+                            : typeof data.assistant_text === 'string' && data.assistant_text
+                                ? data.assistant_text
+                                : 'Mình vẫn đang ở đây cùng bạn.'
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.id === pendingId
+                                ? {
+                                    id: `a_${Date.now()}`,
+                                    role: 'assistant',
+                                    content: assistantText,
+                                    apiData: data,
+                                }
+                                : m,
+                        ),
+                    )
+                    if (data.sos_triggered) setSosActive(true)
+                    applyIntervention(data)
+                    toast.info('Đường truyền stream đang lỗi, mình đã chuyển sang chế độ chat thường.')
+                }
+            } else {
+                const rawData = await chatService.sendGuestMessage({ message: text, guest_session_id: sessionId })
+                const data = rawData as ChatApiData
+                const sid = typeof data.session_id === 'string' ? data.session_id : null
+                if (sid) setSessionId(sid)
+                if (sid && !guestDeadlineRef.current) {
+                    guestDeadlineRef.current = Date.now() + FALLBACK_GUEST_CHAT_DURATION_SECONDS * 1000
+                }
+                const assistantText =
+                    typeof data.reply === 'string' && data.reply
+                        ? data.reply
+                        : typeof data.assistant_text === 'string' && data.assistant_text
+                            ? data.assistant_text
+                            : 'Mình vẫn đang ở đây cùng bạn.'
+                setMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === pendingId
+                            ? {
+                                id: `a_${Date.now()}`,
+                                role: 'assistant',
+                                content: assistantText,
+                                apiData: data,
+                            }
+                            : m,
+                    ),
+                )
+                if (data.sos_triggered) setSosActive(true)
+                applyIntervention(data)
+            }
+        } catch (err) {
+            if (err instanceof ApiRequestError && err.code === 'GUEST_TRIAL_EXPIRED') {
+                setGuestSecondsLeft(0)
+                guestExpiredNotifiedRef.current = true
+                toast.info('Bạn đã dùng hết 2 phút chat thử. Mời bạn đăng ký để tiếp tục.')
+                navigate(ROUTE_PATHS.register)
+                return
+            }
+            const errorMessage = err instanceof Error ? err.message : 'Gửi tin nhắn thất bại'
+            toast.error(errorMessage)
+            setLastFailedText(text)
+            setMessages((prev) =>
+                prev.map((m) =>
+                    m.id === pendingId
+                        ? {
+                            id: `e_${Date.now()}`,
+                            role: 'assistant',
+                            content: 'Mình bị gián đoạn một chút, bạn thử lại giúp mình nhé.',
+                        }
+                        : m,
+                ),
+            )
+        } finally {
+            setSending(false)
+        }
+    }
+
+    const loadHistory = async () => {
+        try {
+            const data = await chatService.getSessions()
+            setSessions(data.sessions)
+        } catch {
+            setSessions([])
+        }
+    }
+
+    const openHistory = async () => {
+        setShowHistory((prev) => !prev)
+        if (!showHistory) {
+            await loadHistory()
+        }
+    }
+
+    const loadSessionMessages = async (targetSessionId: string) => {
+        setSosActive(false)
+        try {
+            const data = await chatService.getSessionMessages(targetSessionId, 100, 0)
+            setSessionId(targetSessionId)
+            setMessages(
+                data.messages.map((msg) => ({
+                    id: msg.message_id,
+                    role: msg.role,
+                    content: msg.content,
+                })),
+            )
+            setShowHistory(false)
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Không tải được lịch sử hội thoại')
+        }
+    }
+
+    const handleSend: FormSubmitHandler = async (event) => {
+        event.preventDefault()
+        if (!canSend) return
+        await doSend(input.trim())
+    }
+
+    const handleRetry = () => {
+        if (!lastFailedText || sending) return
+        setInput(lastFailedText)
+        setLastFailedText(null)
+    }
+
+    const handleToggleVoiceConsent = async () => {
+        const next = !voiceConsent
+        try {
+            const res = await policyService.setVoiceConsent(next)
+            setVoiceConsent(Boolean(res.voice_consent))
+            toast.success(next ? 'Đã bật hỗ trợ voice chủ động' : 'Đã tắt hỗ trợ voice chủ động')
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Không cập nhật được cài đặt voice')
+        }
+    }
+
+    const openAttachment = (item: TheDinhKem) => {
+        if (item.route) {
+            navigate(item.route)
+            return
+        }
+        if (item.action === 'open_connect_map' || item.type === 'clinic_map') {
+            navigate(ROUTE_PATHS.connect)
+            return
+        }
+        if (item.action === 'open_resource' || item.type === 'resource') {
+            navigate(ROUTE_PATHS.resources)
+            return
+        }
+        if (item.type.includes('exercise') || item.type === 'body_scan') {
+            navigate(`${ROUTE_PATHS.exercises}?exercise=${encodeURIComponent(item.id)}`)
+            return
+        }
+        navigate(ROUTE_PATHS.resources)
+    }
+
+    // Latest assistant message data for header stats
+    const lastData = [...messages].reverse().find((m) => m.role === 'assistant' && m.apiData)?.apiData
+
+    const modeLabel =
+        lastData?.conversation_mode === 'de_escalation'
+            ? { text: '🆘 Khủng hoảng', cls: 'bg-red-100 text-red-700' }
+            : lastData?.conversation_mode === 'supportive'
+                ? { text: '🤗 Hỗ trợ', cls: 'bg-amber-100 text-amber-700' }
+                : null
+
+    return (
+        <section className="space-y-4 max-w-4xl relative z-10 px-4 py-6 mx-auto">
+            {/* ── Header ─────────────────────────────────────────────────── */}
+            <div className="rounded-3xl border border-white/35 bg-white/60 p-5 backdrop-blur-xl">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-serene-accent/70 text-serene-primary">
+                            <Leaf className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h2 className="font-display text-3xl text-serene-ink">Serene</h2>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-600">
+                                ● Đang lắng nghe
+                            </p>
+                        </div>
+                        {modeLabel && (
+                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${modeLabel.cls}`}>
+                                {modeLabel.text}
+                            </span>
+                        )}
                     </div>
-                  )}
-
-                  <div className={`flex max-w-[82%] flex-col gap-2 ${msg.type === 'user' ? 'items-end' : 'items-start'} sm:max-w-[70%]`}>
-
-
-                    {msg.icon ? (
-                      <div className={`flex h-12 w-12 items-center justify-center rounded-3xl ${msg.type === 'user' ? 'bg-serene-primary text-serene-on-primary' : 'bg-white/45 text-serene-primary'} shadow-md sm:h-14 sm:w-14`}>
-                        {msg.icon}
-                      </div>
-                    ) : (
-                      <div
-                        className={`rounded-3xl ${msg.type === 'user'
-                          ? 'rounded-tr-none border border-white/20 bg-white/45 text-on-surface'
-                          : 'rounded-tl-none border border-serene-ink/10 bg-serene-primary/5 text-on-surface'
-                          } px-5 py-3 shadow-sm sm:px-6 sm:py-4`}
-                      >
-                        <p className="text-sm leading-relaxed sm:text-base">
-                          {msg.content}
-                        </p>
-                      </div>
-                    )}
-                    {msg.type === 'serene' && msg.id === messages[messages.length - 1]?.id && (
-                      <div className="group mb-2 flex w-full items-center gap-3 rounded-2xl border border-white/40 bg-white/65 p-4 shadow-sm backdrop-blur-xl transition hover:shadow-md sm:gap-4 sm:p-5">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-serene-primary shadow-sm sm:h-14 sm:w-14">
-                          {suggestedExercise.icon}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[9px] uppercase tracking-wide text-on-surface-variant/75 sm:text-[10px]">
-                            {suggestedExercise.description}
-                          </p>
-                          <h3 className="font-display text-sm font-semibold text-on-surface sm:text-base">
-                            {suggestedExercise.title}
-                          </h3>
-                        </div>
+                    <div className="flex items-center gap-2" ref={optionsRef}>
+                        {isGuestMode && (
+                            <span className="rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                                Chat thử còn {guestCountdownLabel}
+                            </span>
+                        )}
                         <button
-                          type="button"
-                          className="whitespace-nowrap rounded-full bg-serene-primary px-3 py-2 text-xs font-semibold text-serene-on-primary shadow-md transition hover:brightness-105 active:scale-95 sm:px-4 sm:py-2.5 sm:text-sm"
+                            type="button"
+                            onClick={() => void openHistory()}
+                            className="rounded-full p-2 text-serene-ink/70 transition hover:bg-serene-ink/10"
+                            aria-label="Lịch sử chat"
                         >
-                          {suggestedExercise.cta}
+                            <History className="h-5 w-5" />
                         </button>
-                      </div>
-                    )}
-                  </div>
+
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setShowOptions((prev) => !prev)}
+                                className="rounded-full p-2 text-serene-ink/70 transition hover:bg-serene-ink/10"
+                                aria-label="Tùy chọn"
+                                role='menu'
+                                aria-haspopup="true"
+                                aria-expanded={showOptions}
+                            >
+                                <MoreVertical className="h-5 w-5" />
+                            </button>
+
+                            {showOptions && (
+                                <div className="absolute right-0 top-11 z-20 w-72 rounded-2xl border border-white/40 bg-white/95 p-3 shadow-xl backdrop-blur-xl">
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between rounded-xl border border-serene-outline/25 bg-white px-3 py-2.5">
+                                            <div>
+                                                <p className="text-sm font-semibold text-serene-ink">Voice hỗ trợ</p>
+                                                <p className="text-[11px] text-serene-muted">
+                                                    Gợi ý giọng nói chủ động khi cần
+                                                </p>
+                                            </div>
+                                            <Switch
+                                                checked={voiceConsent}
+                                                onCheckedChange={() => void handleToggleVoiceConsent()}
+                                                disabled={isGuestMode}
+                                                aria-label="Voice hỗ trợ"
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center justify-between rounded-xl border border-serene-outline/25 bg-white px-3 py-2.5">
+                                            <div>
+                                                <p className="text-sm font-semibold text-serene-ink">Hiển thị debug</p>
+                                                <p className="text-[11px] text-serene-muted">
+                                                    Distress, routing, safety badge
+                                                </p>
+                                            </div>
+                                            <Switch
+                                                checked={showDebug}
+                                                onCheckedChange={setShowDebug}
+                                                aria-label="Hiển thị debug"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
-              ))}
-              <div ref={messagesEndRef} />
+                {voiceStatus ? <p className="mt-2 text-xs text-serene-muted">{voiceStatus}</p> : null}
+
+                {/* Session-level debug stats */}
+                {showDebug && lastData && (
+                    <div className="mt-3 rounded-xl bg-serene-ink/5 px-3 py-2">
+                        <DistressBar score={lastData.distress_score} />
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                            <SafetyBadge tier={lastData.safety_tier} />
+                            {lastData.tone_cam_xuc && (
+                                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                                    tone: {lastData.tone_cam_xuc}
+                                </span>
+                            )}
+                            {lastData.agent_display_name && (
+                                <span className="rounded-full bg-serene-primary/10 px-2 py-0.5 text-[10px] font-medium text-serene-primary">
+                                    {lastData.agent_display_name}
+                                </span>
+                            )}
+                        </div>
+                        <RoutingBadge history={lastData.routing_history} />
+                    </div>
+                )}
             </div>
 
-            <footer className="mt-4 border-t border-white/25 pt-4 sm:mt-6 sm:pt-6">
-              <div className="flex items-end gap-3 sm:gap-4">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    placeholder="Chia sẻ cùng Serene..."
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault()
-                        handleSendMessage()
-                      }
-                    }}
-                    className="w-full rounded-full border-none bg-white/70 px-5 py-4 pr-24 text-sm shadow-sm outline-none ring-0 placeholder:text-on-surface-variant/50 focus:bg-surface-container-low/85 focus:ring-0 sm:px-8 sm:py-5 sm:text-lg"
-                  />
-
-                  <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1 sm:gap-2">
-                    <button
-                      type="button"
-                      className="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant transition hover:text-primary"
-                      aria-label="Ghi âm"
-                    >
-                      <Mic className="h-5 w-5" />
-                    </button>
-                    <button
-                      type="button"
-
-                      className="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant transition hover:text-primary"
-                      aria-label="Biểu cảm"
-                    >
-                      <Smile className="h-5 w-5" />
-                    </button>
-                  </div>
+            {showHistory && (
+                <div className="rounded-2xl border border-white/35 bg-white/70 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                        <p className="text-sm font-semibold text-serene-ink">Lịch sử hội thoại</p>
+                        <button type="button" onClick={() => setShowHistory(false)} className="text-xs text-serene-muted">
+                            Đóng
+                        </button>
+                    </div>
+                    <div className="max-h-64 space-y-2 overflow-y-auto">
+                        {sessions.length === 0 ? (
+                            <p className="text-xs text-serene-muted">Chưa có phiên nào.</p>
+                        ) : (
+                            sessions.map((sess) => (
+                                <button
+                                    key={sess.session_id}
+                                    type="button"
+                                    onClick={() => void loadSessionMessages(sess.session_id)}
+                                    className="w-full rounded-lg border border-white/40 bg-white/80 px-3 py-2 text-left"
+                                >
+                                    <p className="text-xs font-semibold text-serene-ink">{sess.preview || 'Phiên trò chuyện'}</p>
+                                    <p className="text-[10px] text-serene-muted">
+                                        {new Date(sess.last_message_at).toLocaleString('vi-VN')}
+                                    </p>
+                                </button>
+                            ))
+                        )}
+                    </div>
                 </div>
+            )}
 
+            {/* ── Message feed ──────────────────────────────────────────── */}
+            <div className="min-h-[70dvh]  overflow-y-auto rounded-3xl border border-white/35 bg-white/75 p-4">
+                {messages.length === 0 ? (
+                    <p className="text-serene-ink">Hãy bắt đầu cuộc trò chuyện. Mình đang lắng nghe bạn.</p>
+                ) : (
+                    <div className="space-y-4">
+                        {messages.map((m) => (
+                            <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`flex max-w-[85%] flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
+                                    {/* Bubble */}
+                                    <article
+                                        className={[
+                                            'rounded-2xl px-4 py-3 text-sm whitespace-pre-line',
+                                            m.role === 'user'
+                                                ? 'bg-serene-primary text-white'
+                                                : m.apiData?.sos_triggered
+                                                    ? 'border border-red-200 bg-red-50 text-serene-ink'
+                                                    : m.apiData?.conversation_mode === 'supportive'
+                                                        ? 'border border-amber-100 bg-amber-50 text-serene-ink'
+                                                        : 'bg-white text-serene-ink',
+                                        ].join(' ')}
+                                    >
+                                        {m.content}
+                                    </article>
+
+                                    {/* Crisis panel (SOS only) */}
+                                    {m.apiData && <CrisisPanel data={m.apiData} />}
+
+                                    {/* Attachments */}
+                                    {m.apiData?.the_dinh_kem?.map((item, i) => (
+                                        <AttachmentCard key={`${item.type}-${item.id}-${i}`} item={item} onOpen={openAttachment} />
+                                    ))}
+
+                                    {/* Quick replies (non-SOS only) */}
+                                    {m.apiData && !m.apiData.sos_triggered && (
+                                        <QuickReplies
+                                            replies={m.apiData.goi_y_nhanh}
+                                            onSelect={(text) => void doSend(text)}
+                                        />
+                                    )}
+
+                                    {/* Per-message debug info */}
+                                    {showDebug && m.apiData && (
+                                        <div className="mt-1 space-y-0.5">
+                                            <RoutingBadge history={m.apiData.routing_history} />
+                                            <DistressBar score={m.apiData.distress_score} />
+                                            {m.apiData.safety_tier && m.apiData.safety_tier !== 'normal' && (
+                                                <SafetyBadge tier={m.apiData.safety_tier} />
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                        <div ref={bottomRef} />
+                    </div>
+                )}
+            </div>
+
+            {/* ── Input ──────────────────────────────────────────────────── */}
+            <form
+                onSubmit={handleSend}
+                className="flex gap-3 rounded-3xl border border-white/35 bg-white/70 p-3 backdrop-blur-xl"
+            >
+                <input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    disabled={isGuestMode && guestSecondsLeft <= 0}
+                    placeholder="Chia sẻ điều bạn đang cảm thấy..."
+                    className="flex-1 rounded-2xl bg-white px-4 py-3 outline-none"
+                />
                 <button
-                  type="button"
-                  onClick={handleSendMessage}
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary bg-serene-primary text-serene-bg shadow-md transition hover:scale-105 active:scale-95 sm:h-16 sm:w-16"
-                  aria-label="Gửi"
+                    type="submit"
+                    disabled={!canSend}
+                    className="rounded-2xl bg-serene-primary px-5 py-3 text-white disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  <Send className="h-6 w-6 fill-current sm:h-7 sm:w-7" />
+                    {sending ? 'Đang gửi...' : 'Gửi'}
                 </button>
-              </div>
+            </form>
 
-              {showMoodEmojis && (
-                <div className="mt-3 flex flex-wrap justify-center gap-2 sm:gap-3">
-                  {moodIcons.map((mood) => (
-                    <button
-                      key={mood.id}
-                      type="button"
-                      onClick={() => handleSendIcon(mood.icon, mood.label)}
-                      className="flex flex-col items-center gap-1 rounded-lg bg-white/50 p-2 text-center transition hover:bg-white/70 active:scale-95 sm:p-3"
-                      title={mood.label}
-                    >
-                      <span className="text-serene-primary">
-                        {mood.icon}
-                      </span>
-                      <span className="text-[8px] uppercase tracking-wide text-on-surface-variant/70 sm:text-[9px]">
-                        {mood.label}
-                      </span>
+            {lastFailedText ? (
+                <div className="rounded-2xl border border-white/35 bg-white/60 p-3 text-sm text-serene-muted">
+                    <span>Tin nhắn trước gửi lỗi.</span>{' '}
+                    <button type="button" onClick={handleRetry} className="font-semibold text-serene-primary">
+                        Thử lại
                     </button>
-                  ))}
                 </div>
-              )}
+            ) : null}
 
-              <div className="mt-3 flex flex-wrap justify-center gap-4 sm:mt-4 sm:gap-8">
-                <button
-                  type="button"
-                  onClick={() => setShowMoodEmojis(!showMoodEmojis)}
-                  className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-serene-muted transition hover:text-primary sm:gap-2 sm:text-xs"
-                >
-                  <Smile className="h-4 w-4" />
-                  Tâm trạng hiện tại
-                </button>
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-serene-muted transition hover:text-primary sm:gap-2 sm:text-xs"
-                >
-                  <Image className="h-4 w-4" />
-                  Gửi ảnh bình yên
-                </button>
-              </div>
-            </footer>
-          </div>
+            <HotlineBar visible={sosActive} />
         </section>
-      </main>
-
-
-    </div>
-  )
+    )
 }

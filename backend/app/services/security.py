@@ -13,25 +13,40 @@ from app.core.config import get_settings
 
 
 @lru_cache(maxsize=1)
-def _resolved_keys() -> tuple[str, str]:
+def _jwt_material() -> tuple[str, str, str]:
+    """(signing_key, verifying_key, algorithm). RS256: priv/pub. HS256: same secret twice."""
     settings = get_settings()
-    if not settings.jwt_private_key or not settings.jwt_public_key:
-        raise RuntimeError("JWT keys are missing. Set JWT_PRIVATE_KEY and JWT_PUBLIC_KEY.")
-    return settings.jwt_private_key, settings.jwt_public_key
+    priv = (settings.jwt_private_key or "").strip()
+    pub = (settings.jwt_public_key or "").strip()
+    if priv and pub:
+        alg = (settings.jwt_algorithm or "RS256").strip().upper()
+        return priv, pub, alg
+    secret = (settings.jwt_dev_secret or "").strip()
+    if len(secret) >= 16:
+        return secret, secret, "HS256"
+    raise RuntimeError(
+        "Thiếu cấu hình JWT: đặt JWT_PRIVATE_KEY và JWT_PUBLIC_KEY (RS256), "
+        "hoặc JWT_DEV_SECRET (chuỗi >= 16 ký tự) để ký bằng HS256 trên máy local."
+    )
 
 
-def hash_password(password: str) -> str:
+def _password_bytes(password: str) -> bytes:
     raw = password.encode("utf-8")
     # bcrypt works on max 72 bytes; pre-hash long inputs to keep deterministic behavior.
     if len(raw) > 72:
         raw = hashlib.sha256(raw).hexdigest().encode("utf-8")
-    return bcrypt.hashpw(raw, bcrypt.gensalt()).decode("utf-8")
+    return raw
+
+
+def hash_password(password: str) -> str:
+    settings = get_settings()
+    rounds = max(10, min(int(settings.bcrypt_rounds), 14))
+    raw = _password_bytes(password)
+    return bcrypt.hashpw(raw, bcrypt.gensalt(rounds=rounds)).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    raw = plain.encode("utf-8")
-    if len(raw) > 72:
-        raw = hashlib.sha256(raw).hexdigest().encode("utf-8")
+    raw = _password_bytes(plain)
     if hashed and not hashed.startswith("$") and hashed.startswith(("2a$", "2b$", "2y$")):
         hashed = f"${hashed}"
     return bcrypt.checkpw(raw, hashed.encode("utf-8"))
@@ -49,7 +64,7 @@ def verify_totp(code: str, secret: str) -> bool:
 
 def issue_access_token(subject: str, role: str = "user", scope: str = "user") -> str:
     settings = get_settings()
-    private_key, _ = _resolved_keys()
+    sign_key, _, algorithm = _jwt_material()
     now = datetime.now(UTC)
     payload = {
         "sub": subject,
@@ -58,12 +73,12 @@ def issue_access_token(subject: str, role: str = "user", scope: str = "user") ->
         "iat": int(now.timestamp()),
         "exp": int(now.timestamp()) + settings.access_token_ttl_seconds,
     }
-    return jose_jwt.encode(payload, private_key, algorithm=settings.jwt_algorithm)
+    return jose_jwt.encode(payload, sign_key, algorithm=algorithm)
 
 
 def issue_admin_token(subject: str) -> str:
     settings = get_settings()
-    private_key, _ = _resolved_keys()
+    sign_key, _, algorithm = _jwt_material()
     now = datetime.now(UTC)
     payload = {
         "sub": subject,
@@ -72,13 +87,12 @@ def issue_admin_token(subject: str) -> str:
         "iat": int(now.timestamp()),
         "exp": int(now.timestamp()) + settings.admin_token_ttl_seconds,
     }
-    return jose_jwt.encode(payload, private_key, algorithm=settings.jwt_algorithm)
+    return jose_jwt.encode(payload, sign_key, algorithm=algorithm)
 
 
 def decode_token(token: str) -> dict:
-    settings = get_settings()
-    _, public_key = _resolved_keys()
-    return jose_jwt.decode(token, public_key, algorithms=[settings.jwt_algorithm])
+    _, verify_key, algorithm = _jwt_material()
+    return jose_jwt.decode(token, verify_key, algorithms=[algorithm])
 
 
 def generate_refresh_token() -> str:
@@ -86,6 +100,14 @@ def generate_refresh_token() -> str:
 
 
 def hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def generate_one_time_token() -> str:
+    return secrets.token_urlsafe(48)
+
+
+def hash_one_time_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 

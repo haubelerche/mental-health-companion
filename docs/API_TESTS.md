@@ -1,12 +1,12 @@
 # API Test Guide (Current Backend Implementation)
 
-Ngay tai lieu nay mo ta toan bo API hien co trong code, kem cach test bang Postman va ky vong ket qua.
+Tài liệu này mô tả toàn bộ API hiện có trong code, kèm cách test bằng Postman và kỳ vọng kết quả.
 
 ## 1. Test Scope
 
-Backend hien co cac nhom endpoint:
+Backend hiện có các nhóm endpoint:
 - Health: 1 endpoint
-- Auth: 5 endpoints
+- Auth: 9 endpoints
 - Chat: 4 endpoints
 - Home/Mood: 3 endpoints
 - Reflect: 5 endpoints
@@ -14,14 +14,14 @@ Backend hien co cac nhom endpoint:
 - Connect: 2 endpoints
 - Admin: 3 endpoints
 
-Tong cong: 29 endpoints.
+Tổng cộng: 33 endpoints.
 
-## 2. Base URL va Response Format
+## 2. Base URL và Response Format
 
 - Base URL API: `http://127.0.0.1:8000/v1`
 - Health endpoint: `http://127.0.0.1:8000/health`
 
-Tat ca API business tra theo envelope:
+Tất cả API business trả theo envelope:
 
 ```json
 {
@@ -31,7 +31,7 @@ Tat ca API business tra theo envelope:
 }
 ```
 
-Khi loi:
+Khi lỗi:
 
 ```json
 {
@@ -46,71 +46,78 @@ Khi loi:
 
 ## 3. Postman Environment
 
-Tao 1 environment voi cac bien:
+Tạo 1 environment với các biến:
 
 - `baseUrl` = `http://127.0.0.1:8000`
-- `csrfToken` = (rong)
+- `csrfToken` = (rỗng)
 - `userEmail` = `tester@example.com`
 - `userPassword` = `Password123!`
-- `sessionId` = (rong)
-- `checkinId` = (rong)
-- `resourceId` = `res_001` (hoac id that trong DB)
+- `verifyToken` = (copy token từ email verify)
+- `resetToken` = (copy token từ email reset password)
+- `sessionId` = (rỗng)
+- `checkinId` = (rỗng)
+- `resourceId` = `res_001` (hoặc id thật trong DB)
 
-Luu y:
-- Postman phai bat cookie jar mac dinh.
-- Cac request POST/PATCH/DELETE phia user can header `X-CSRF-Token: {{csrfToken}}`.
+Lưu ý:
+- Postman phải bật cookie jar mặc định.
+- Các request POST/PATCH/DELETE phía user cần header `X-CSRF-Token: {{csrfToken}}`.
 
-## 4. Thu Tu Chay De Tranh Loi Bien
+## 4. Thứ Tự Chạy Để Tránh Lỗi Biến
 
 1. Health
 2. Auth -> csrf-token
 3. Auth -> signup
-4. Auth -> login
-5. Chat -> message (lay `sessionId`)
-6. Chat -> sessions
-7. Chat -> session messages
-8. Home -> mood checkin (lay `checkinId`)
-9. Home -> patch checkin
-10. Home -> feed
-11. Reflect -> mood-trend
-12. Reflect -> weekly-note
-13. Reflect -> journal
-14. Reflect -> journals
-15. Reflect -> journal-prompts
-16. Resources -> categories
-17. Resources -> list by category
-18. Resources -> detail
-19. Resources -> play-event
-20. Resources -> bookmark create
-21. Resources -> bookmark delete
-22. Connect -> hotlines
-23. Connect -> clinics
-24. Admin -> auth login
-25. Admin -> crisis-logs
-26. Admin -> dashboard
-27. Auth -> refresh
-28. Auth -> logout
+4. Auth -> login trước verify (expect AUTH_EMAIL_NOT_VERIFIED)
+5. Auth -> verify-email (từ link trong email)
+6. Auth -> login sau verify
+7. Auth -> resend-verification (test cooldown)
+8. Auth -> forgot-password
+9. Auth -> reset-password (từ link trong email)
+10. Chat -> message (lấy `sessionId`)
+11. Chat -> sessions
+12. Chat -> session messages
+13. Home -> mood checkin (lấy `checkinId`)
+14. Home -> patch checkin
+15. Home -> feed
+16. Reflect -> mood-trend
+17. Reflect -> weekly-note
+18. Reflect -> journal
+19. Reflect -> journals
+20. Reflect -> journal-prompts
+21. Resources -> categories
+22. Resources -> list by category
+23. Resources -> detail
+24. Resources -> play-event
+25. Resources -> bookmark create
+26. Resources -> bookmark delete
+27. Connect -> hotlines
+28. Connect -> clinics
+29. Admin -> auth login
+30. Admin -> crisis-logs
+31. Admin -> dashboard
+32. Auth -> refresh
+33. Auth -> logout
 
-## 5. Test Cases Chi Tiet Theo Endpoint
+## 5. Test Cases Chi Tiết Theo Endpoint
 
 ## 5.1 Health
 
 ### GET /health
 - URL: `{{baseUrl}}/health`
-- Auth: Khong
-- Ky vong:
+- Auth: Không
+- Kỳ vọng:
   - HTTP 200
-  - Body co `status = "ok"`
+  - Body có `status = "ok"`
 
 ## 5.2 Auth
 
 ### GET /v1/auth/csrf-token
 - URL: `{{baseUrl}}/v1/auth/csrf-token`
-- Auth: Khong
-- Ky vong:
+- Auth: Không
+- Kỳ vọng:
   - HTTP 200
   - `success = true`
-  - `data.csrf_token` co gia tri
+  - `data.csrf_token` có giá trị
 - Postman Tests:
 
 ```javascript
@@ -133,15 +140,16 @@ pm.environment.set("csrfToken", body.data.csrf_token);
 }
 ```
 
-- Ky vong pass:
-  - HTTP 201
+- Kỳ vọng pass:
+  - HTTP 202
   - `success = true`
-  - `data.user_id` co gia tri
-  - Cookie `access_token`, `refresh_token`, `csrf_token` duoc set
-- Ky vong fail:
+  - `data.user_id` có giá trị
+  - `data.verification_required = true`
+  - Không set cookie `access_token`/`refresh_token` (chưa login)
+- Kỳ vọng fail:
   - disclaimer false -> 400 `DISCLAIMER_NOT_ACCEPTED`
-  - email ton tai -> 400 `INVALID_PARAMETER`
-  - vuot gioi han -> 429 `RATE_LIMIT_AUTH`
+  - email tồn tại -> 400 `INVALID_PARAMETER`
+  - vượt giới hạn -> 429 `RATE_LIMIT_AUTH`
 
 ### POST /v1/auth/login
 - URL: `{{baseUrl}}/v1/auth/login`
@@ -156,25 +164,95 @@ pm.environment.set("csrfToken", body.data.csrf_token);
 }
 ```
 
-- Ky vong pass:
+- Kỳ vọng pass:
   - HTTP 200
   - `success = true`
   - `data.user_id`, `data.expires_in`
-- Ky vong fail:
-  - sai thong tin -> 401 `AUTH_INVALID_TOKEN`
-  - sai nhieu lan -> 429 `AUTH_TOO_MANY_ATTEMPTS`
-  - vuot gioi han theo IP -> 429 `RATE_LIMIT_AUTH`
+- Kỳ vọng fail:
+  - sai thông tin -> 401 `AUTH_INVALID_TOKEN`
+  - đúng mật khẩu nhưng chưa verify -> 403 `AUTH_EMAIL_NOT_VERIFIED`
+  - sai nhiều lần -> 429 `AUTH_TOO_MANY_ATTEMPTS`
+  - vượt giới hạn theo IP -> 429 `RATE_LIMIT_AUTH`
+
+### GET /v1/auth/verify-email
+- URL: `{{baseUrl}}/v1/auth/verify-email?token={{verifyToken}}`
+- Auth: Không
+- Kỳ vọng pass:
+  - HTTP 302 redirect về `FRONTEND_HOME_URL`
+  - Cookie `access_token`, `refresh_token`, `csrf_token` được set
+- Kỳ vọng fail:
+  - token sai -> 400 `AUTH_VERIFY_TOKEN_INVALID`
+  - token hết hạn -> 400 `AUTH_VERIFY_TOKEN_EXPIRED`
+
+### POST /v1/auth/resend-verification
+- URL: `{{baseUrl}}/v1/auth/resend-verification`
+- Header:
+  - `Content-Type: application/json`
+- Body:
+
+```json
+{
+  "email": "{{userEmail}}"
+}
+```
+
+- Kỳ vọng:
+  - HTTP 200
+  - response trung tính (không lộ account enumeration)
+  - `data.resent = true`
+  - `data.message` kiểu: "Nếu email tồn tại, chúng tôi đã gửi lại email xác nhận"
+- Lưu ý:
+  - Có resend cooldown theo `AUTH_EMAIL_RESEND_COOLDOWN_SECONDS`
+
+### POST /v1/auth/forgot-password
+- URL: `{{baseUrl}}/v1/auth/forgot-password`
+- Header:
+  - `Content-Type: application/json`
+- Body:
+
+```json
+{
+  "email": "{{userEmail}}"
+}
+```
+
+- Kỳ vọng:
+  - HTTP 200
+  - response trung tính (không lộ account enumeration)
+  - `data.sent = true`
+
+### POST /v1/auth/reset-password
+- URL: `{{baseUrl}}/v1/auth/reset-password`
+- Header:
+  - `Content-Type: application/json`
+- Body:
+
+```json
+{
+  "token": "{{resetToken}}",
+  "new_password": "NewPassword123!"
+}
+```
+
+- Kỳ vọng pass:
+  - HTTP 200
+  - `data.reset = true`
+  - refresh token cũ bị revoke
+- Kỳ vọng fail:
+  - token sai -> 400 `AUTH_RESET_TOKEN_INVALID`
+  - token đã dùng -> 400 `AUTH_RESET_TOKEN_USED`
+  - token hết hạn -> 400 `AUTH_RESET_TOKEN_EXPIRED`
 
 ### POST /v1/auth/refresh
 - URL: `{{baseUrl}}/v1/auth/refresh`
 - Header:
   - `X-CSRF-Token: {{csrfToken}}`
-- Cookie: refresh token da co tu login/signup
-- Ky vong pass:
+- Cookie: refresh token đã có từ login/verify-email
+- Kỳ vọng pass:
   - HTTP 200
   - `data.expires_in`
-- Ky vong fail:
-  - thieu cookie refresh -> 401 `AUTH_REFRESH_MALFORMED`
+- Kỳ vọng fail:
+  - thiếu cookie refresh -> 401 `AUTH_REFRESH_MALFORMED`
   - token revoked -> 401 `AUTH_REFRESH_REVOKED`
   - token expired -> 401 `AUTH_REFRESH_EXPIRED`
 
@@ -182,10 +260,10 @@ pm.environment.set("csrfToken", body.data.csrf_token);
 - URL: `{{baseUrl}}/v1/auth/logout`
 - Header:
   - `X-CSRF-Token: {{csrfToken}}`
-- Ky vong pass:
+- Kỳ vọng pass:
   - HTTP 200
   - `data.logged_out_at`
-  - cookie auth bi clear
+  - cookie auth bị clear
 
 ## 5.3 Chat
 
@@ -193,7 +271,7 @@ pm.environment.set("csrfToken", body.data.csrf_token);
 - URL: `{{baseUrl}}/v1/chat/message`
 - Header:
   - `X-CSRF-Token: {{csrfToken}}`
-- Body (tao session moi):
+- Body (tạo session mới):
 
 ```json
 {
@@ -202,10 +280,10 @@ pm.environment.set("csrfToken", body.data.csrf_token);
 }
 ```
 
-- Ky vong pass:
+- Kỳ vọng pass:
   - HTTP 200
-  - `data.session_id` co gia tri
-  - `sos_triggered` la true/false
+  - `data.session_id` có giá trị
+  - `sos_triggered` là true/false
 - Postman Tests:
 
 ```javascript
@@ -213,20 +291,20 @@ const body = pm.response.json();
 pm.environment.set("sessionId", body.data.session_id);
 ```
 
-- Ky vong fail:
+- Kỳ vọng fail:
   - session_id sai owner -> 404 `SESSION_NOT_FOUND`
-  - vuot gioi han -> 429 `RATE_LIMIT_EXCEEDED`
+  - vượt giới hạn -> 429 `RATE_LIMIT_EXCEEDED`
 
 ### GET /v1/chat/sessions
 - URL: `{{baseUrl}}/v1/chat/sessions`
 - Auth: Cookie user
-- Ky vong:
+- Kỳ vọng:
   - HTTP 200
-  - `data.sessions` la array
+  - `data.sessions` là array
 
 ### GET /v1/chat/sessions/{session_id}/messages
 - URL: `{{baseUrl}}/v1/chat/sessions/{{sessionId}}/messages?limit=20&offset=0`
-- Ky vong:
+- Kỳ vọng:
   - HTTP 200
   - `data.messages`, `data.total`, `data.has_more`
 
@@ -236,7 +314,7 @@ pm.environment.set("sessionId", body.data.session_id);
   - `X-CSRF-Token: {{csrfToken}}`
 - Optional hard delete:
   - `{{baseUrl}}/v1/chat/sessions/{{sessionId}}?hard=true`
-- Ky vong:
+- Kỳ vọng:
   - HTTP 200
   - `data.deleted_at`, `data.hard_delete_at`
 
@@ -256,11 +334,11 @@ pm.environment.set("sessionId", body.data.session_id);
 }
 ```
 
-- Ky vong pass:
+- Kỳ vọng pass:
   - HTTP 201
   - `data.checkin_id`, `data.logged_at`
-- Ky vong fail:
-  - da checkin hom nay -> 409 `MOOD_ALREADY_LOGGED`
+- Kỳ vọng fail:
+  - đã checkin hôm nay -> 409 `MOOD_ALREADY_LOGGED`
 - Postman Tests:
 
 ```javascript
@@ -282,34 +360,34 @@ pm.environment.set("checkinId", body.data.checkin_id);
 }
 ```
 
-- Ky vong pass:
+- Kỳ vọng pass:
   - HTTP 200
   - `data.updated_at`
-- Ky vong fail:
-  - checkin khong ton tai/sai owner -> 404 `CHECKIN_NOT_FOUND`
-  - khong phai checkin hom nay -> 409 `CHECKIN_NOT_EDITABLE`
+- Kỳ vọng fail:
+  - checkin không tồn tại/sai owner -> 404 `CHECKIN_NOT_FOUND`
+  - không phải checkin hôm nay -> 409 `CHECKIN_NOT_EDITABLE`
 
 ### GET /v1/home/feed
 - URL: `{{baseUrl}}/v1/home/feed`
-- Ky vong:
+- Kỳ vọng:
   - HTTP 200
-  - Co du cac block: quote_of_day, suggested_meditation, mood_today
+  - Có đủ các block: quote_of_day, suggested_meditation, mood_today
 
 ## 5.5 Reflect
 
 ### GET /v1/reflect/mood-trend?days=7
 - URL: `{{baseUrl}}/v1/reflect/mood-trend?days=7`
-- Ky vong pass:
+- Kỳ vọng pass:
   - HTTP 200
-  - Co `period`, `points`, `days_missing`
-- Ky vong fail:
-  - days ngoai [1..90] -> 400 `INVALID_PARAMETER`
+  - Có `period`, `points`, `days_missing`
+- Kỳ vọng fail:
+  - days ngoài [1..90] -> 400 `INVALID_PARAMETER`
 
 ### GET /v1/reflect/weekly-note
 - URL: `{{baseUrl}}/v1/reflect/weekly-note`
-- Ky vong:
+- Kỳ vọng:
   - HTTP 200
-  - Co `week_of`, `content`, `generated_at`
+  - Có `week_of`, `content`, `generated_at`
 
 ### POST /v1/reflect/journal
 - URL: `{{baseUrl}}/v1/reflect/journal`
@@ -324,47 +402,47 @@ pm.environment.set("checkinId", body.data.checkin_id);
 }
 ```
 
-- Ky vong pass:
+- Kỳ vọng pass:
   - HTTP 201
-  - Co `journal_id`
-- Ky vong fail:
-  - prompt_id khong hop le -> 400 `INVALID_PARAMETER`
+  - Có `journal_id`
+- Kỳ vọng fail:
+  - prompt_id không hợp lệ -> 400 `INVALID_PARAMETER`
 
 ### GET /v1/reflect/journals?limit=20&offset=0
 - URL: `{{baseUrl}}/v1/reflect/journals?limit=20&offset=0`
-- Ky vong:
+- Kỳ vọng:
   - HTTP 200
-  - Co `journals`, `total`, `has_more`
+  - Có `journals`, `total`, `has_more`
 
 ### GET /v1/reflect/journal-prompts
 - URL: `{{baseUrl}}/v1/reflect/journal-prompts`
-- Ky vong:
+- Kỳ vọng:
   - HTTP 200
-  - Co `prompts` array
+  - Có `prompts` array
 
 ## 5.6 Resources
 
 ### GET /v1/resources/categories
 - URL: `{{baseUrl}}/v1/resources/categories`
-- Ky vong:
+- Kỳ vọng:
   - HTTP 200
-  - Co 6 category
+  - Có 6 category
 
 ### GET /v1/resources?category=meditate&limit=20&offset=0
 - URL: `{{baseUrl}}/v1/resources?category=meditate&limit=20&offset=0`
-- Ky vong pass:
+- Kỳ vọng pass:
   - HTTP 200
-  - Co `items`, `total`, `has_more`
-- Ky vong fail:
+  - Có `items`, `total`, `has_more`
+- Kỳ vọng fail:
   - category sai -> 400 `INVALID_PARAMETER`
 
 ### GET /v1/resources/{resource_id}
 - URL: `{{baseUrl}}/v1/resources/{{resourceId}}`
-- Ky vong pass:
+- Kỳ vọng pass:
   - HTTP 200
-  - Co `url`, `url_expires_at`
-- Ky vong fail:
-  - id khong ton tai -> 404 `RESOURCE_NOT_FOUND`
+  - Có `url`, `url_expires_at`
+- Kỳ vọng fail:
+  - id không tồn tại -> 404 `RESOURCE_NOT_FOUND`
 
 ### POST /v1/resources/{resource_id}/play-event
 - URL: `{{baseUrl}}/v1/resources/{{resourceId}}/play-event`
@@ -380,37 +458,37 @@ pm.environment.set("checkinId", body.data.checkin_id);
 }
 ```
 
-- Ky vong pass:
+- Kỳ vọng pass:
   - HTTP 200
-  - Co `tracked_at`
-- Ky vong fail:
+  - Có `tracked_at`
+- Kỳ vọng fail:
   - event sai -> 400 `INVALID_PARAMETER`
-  - duration qua lon -> 400 `INVALID_PARAMETER`
-  - resource khong ton tai -> 404 `RESOURCE_NOT_FOUND`
+  - duration quá lớn -> 400 `INVALID_PARAMETER`
+  - resource không tồn tại -> 404 `RESOURCE_NOT_FOUND`
 
 ### POST /v1/resources/{resource_id}/bookmark
 - URL: `{{baseUrl}}/v1/resources/{{resourceId}}/bookmark`
 - Header:
   - `X-CSRF-Token: {{csrfToken}}`
-- Ky vong:
+- Kỳ vọng:
   - HTTP 201
-  - Co `bookmarked_at`
+  - Có `bookmarked_at`
 
 ### DELETE /v1/resources/{resource_id}/bookmark
 - URL: `{{baseUrl}}/v1/resources/{{resourceId}}/bookmark`
 - Header:
   - `X-CSRF-Token: {{csrfToken}}`
-- Ky vong:
+- Kỳ vọng:
   - HTTP 200
-  - Co `removed_at`
+  - Có `removed_at`
 
 ## 5.7 Connect
 
 ### GET /v1/connect/hotlines
 - URL: `{{baseUrl}}/v1/connect/hotlines`
-- Ky vong:
+- Kỳ vọng:
   - HTTP 200
-  - Co danh sach hotlines
+  - Có danh sách hotlines
 
 ### POST /v1/connect/clinics
 - URL: `{{baseUrl}}/v1/connect/clinics`
@@ -424,15 +502,15 @@ pm.environment.set("checkinId", body.data.checkin_id);
 }
 ```
 
-- Ky vong:
+- Kỳ vọng:
   - HTTP 200
-  - Header response co `Cache-Control: no-store`
-  - Co `clinics` array
+  - Header response có `Cache-Control: no-store`
+  - Có `clinics` array
 
 ## 5.8 Admin
 
-Dieu kien:
-- `ADMIN_ALLOWED_IPS` phai cho phep IP local (vi du 127.0.0.1/32)
+Điều kiện:
+- `ADMIN_ALLOWED_IPS` phải cho phép IP local (ví dụ 127.0.0.1/32)
 
 ### POST /v1/admin/auth/login
 - URL: `{{baseUrl}}/v1/admin/auth/login`
@@ -446,38 +524,38 @@ Dieu kien:
 }
 ```
 
-- Ky vong:
+- Kỳ vọng:
   - HTTP 200
-  - Co `admin_id`, `expires_in`
+  - Có `admin_id`, `expires_in`
 
 ### GET /v1/admin/crisis-logs
 - URL: `{{baseUrl}}/v1/admin/crisis-logs`
-- Ky vong pass:
+- Kỳ vọng pass:
   - HTTP 200
-  - Co `logs`, `total`, `has_more`
-- Ky vong fail:
+  - Có `logs`, `total`, `has_more`
+- Kỳ vọng fail:
   - sai role/IP -> 403 `ADMIN_FORBIDDEN`
 
 ### GET /v1/admin/dashboard/aggregate
 - URL: `{{baseUrl}}/v1/admin/dashboard/aggregate`
-- Ky vong:
+- Kỳ vọng:
   - HTTP 200
-  - Co cac truong aggregate
+  - Có các trường aggregate
 
-## 6. Negative Test Nen Chay Them
+## 6. Negative Test Nên Chạy Thêm
 
 - Signup disclaimer false -> 400 `DISCLAIMER_NOT_ACCEPTED`
-- Login sai mat khau lien tiep de kich lockout -> 429 `AUTH_TOO_MANY_ATTEMPTS`
+- Login sai mật khẩu liên tiếp để kích lockout -> 429 `AUTH_TOO_MANY_ATTEMPTS`
 - Spam /chat/message -> 429 `RATE_LIMIT_EXCEEDED`
-- Tao mood checkin lan 2 trong ngay -> 409 `MOOD_ALREADY_LOGGED`
-- PATCH checkin cua ngay cu -> 409 `CHECKIN_NOT_EDITABLE`
-- Reflect mood-trend voi `days=0` hoac `days=91` -> 400 `INVALID_PARAMETER`
+- Tạo mood checkin lần 2 trong ngày -> 409 `MOOD_ALREADY_LOGGED`
+- PATCH checkin của ngày cũ -> 409 `CHECKIN_NOT_EDITABLE`
+- Reflect mood-trend với `days=0` hoặc `days=91` -> 400 `INVALID_PARAMETER`
 - Resources category sai -> 400 `INVALID_PARAMETER`
 - Resources detail id sai -> 404 `RESOURCE_NOT_FOUND`
 
 ## 7. Quick Postman Test Scripts (Optional)
 
-Script check envelope chung cho moi request trong tab Tests:
+Script check envelope chung cho mỗi request trong tab Tests:
 
 ```javascript
 const body = pm.response.json();
@@ -492,7 +570,7 @@ pm.test("has error field", function () {
 });
 ```
 
-Script cho request can status code cu the:
+Script cho request cần status code cụ thể:
 
 ```javascript
 pm.test("status is expected", function () {
@@ -500,11 +578,11 @@ pm.test("status is expected", function () {
 });
 ```
 
-## 8. Notes Ve Du Lieu
+## 8. Notes Về Dữ Liệu
 
-- Cac endpoint can auth phu thuoc cookie access token.
-- Neu test bang user moi, can chay lai csrf -> signup/login -> endpoint business.
-- Neu signup tung fail o version cu, email co the da ton tai trong DB. Kiem tra bang SQL:
+- Các endpoint cần auth phụ thuộc cookie access token.
+- Nếu test bằng user mới, cần chạy lại csrf -> signup/login -> endpoint business.
+- Nếu signup từng fail ở version cũ, email có thể đã tồn tại trong DB. Kiểm tra bằng SQL:
 
 ```sql
 select email, created_at from users order by created_at desc;

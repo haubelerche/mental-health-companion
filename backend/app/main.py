@@ -48,12 +48,19 @@ def _idle_loop() -> None:
             pass
 
 
+def _outbox_loop() -> None:
+    from app.services.outbox_worker import run_outbox_worker_loop
+
+    run_outbox_worker_loop(poll_seconds=10)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     if settings.auto_create_schema:
         init_db()
     _backfill_policy_versions()
     threading.Thread(target=_idle_loop, daemon=True).start()
+    threading.Thread(target=_outbox_loop, daemon=True).start()
     yield
 
 
@@ -62,11 +69,18 @@ app = FastAPI(
     version=settings.app_version,
     lifespan=lifespan,
 )
-origins = [
-    "http://localhost:3000",  # frontend React
-    "http://127.0.0.1:5500", # live server
-    "*"  # ⚠️ dev only
+_default_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:4173",
+    "http://127.0.0.1:5500",
 ]
+_extra = [o.strip() for o in settings.cors_extra_origins.split(",") if o.strip()]
+origins = list(dict.fromkeys(_default_origins + _extra))
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,

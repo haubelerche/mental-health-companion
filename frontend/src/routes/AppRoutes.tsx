@@ -19,6 +19,19 @@ import { OnboardingFlow } from '../components/pages/OnboardingFlow'
 import { BambooForestPage } from '../components/pages/BambooForest'
 import { useAuth } from '../hooks/useAuth'
 import { ROUTE_PATHS } from './paths'
+import Setting from '../components/pages/Setting.tsx'
+import Forget from '../components/auth/Forget.tsx'
+
+function RequireAuth({ children }: { children: ReactElement }) {
+    const { user, isLoading } = useAuth()
+    if (isLoading) {
+        return null
+    }
+    if (!user) {
+        return <Navigate to={ROUTE_PATHS.login} replace />
+    }
+    return children
+}
 
 export default function AppRoutes() {
     return (
@@ -26,7 +39,9 @@ export default function AppRoutes() {
             <Route path={ROUTE_PATHS.root} element={<Navigate to={ROUTE_PATHS.landing} replace />} />
             <Route path={ROUTE_PATHS.login} element={<Login />} />
             <Route path={ROUTE_PATHS.register} element={<Register />} />
+            <Route path={ROUTE_PATHS.forget} element={<Forget />} />
             <Route path={ROUTE_PATHS.landing} element={<Landing />} />
+            <Route path={ROUTE_PATHS.onboardingPolicy} element={<PolicyWizard />} />
 
             <Route path={ROUTE_PATHS.onboarding} element={<OnboardingFlow />} />
 

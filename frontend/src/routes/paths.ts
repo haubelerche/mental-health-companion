@@ -3,7 +3,8 @@ export const ROUTE_PATHS = {
     landing: '/landing',
     login: '/login',
     register: '/register',
-    
+    forget: '/forget-password',
+
     // serene
     home: '/serene',
     chat: '/serene/chat',

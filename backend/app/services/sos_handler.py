@@ -4,6 +4,8 @@ Rule-based SOS handler (no LLM for crisis decision). BACKEND_PLAN §6.3, §7.2.
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from typing import Any
 
 from app.core.product_constants import CHAT_AGENT_DISPLAY_NAME, DISTRESS_CRITICAL, DISTRESS_VOICE_HINT
@@ -25,6 +27,22 @@ EXPLICIT_HIGH_RISK = [
     "toi dang nghi den viec chet",
     "toi muon bien mat",
     "toi muon ket thuc moi thu",
+]
+
+VIOLENCE_HIGH_RISK = [
+    "muon giet no",
+    "muon giet nguoi",
+    "toi muon giet",
+    "tao muon giet",
+    "toi se giet",
+    "tao se giet",
+    "dam chet",
+    "ban chet",
+    "tra thu no",
+    "xu no",
+    "kill him",
+    "kill her",
+    "kill them",
 ]
 
 IMPLICIT_MEDIUM_RISK = [
@@ -109,6 +127,7 @@ GENZ_VARIANTS = [
 SOS_KEYWORDS = list(
     set(
         EXPLICIT_HIGH_RISK
+        + VIOLENCE_HIGH_RISK
         + IMPLICIT_MEDIUM_RISK
         + HOPELESSNESS
         + GENZ_VARIANTS
@@ -119,39 +138,124 @@ SOS_KEYWORDS = list(
 )
 
 
+def _normalize_text(message: str) -> str:
+    lowered = (message or "").lower().strip()
+    decomposed = unicodedata.normalize("NFKD", lowered)
+    no_accent = "".join(ch for ch in decomposed if not unicodedata.combining(ch)).replace("đ", "d")
+    compact = re.sub(r"[^a-z0-9\s]", " ", no_accent)
+    compact = re.sub(r"\s+", " ", compact).strip()
+    slang_map = {
+        "ko": "khong",
+        "k ": "khong ",
+        "khum": "khong",
+        "dc": "duoc",
+        "chetme": "chet me",
+        "vl": "rat",
+    }
+    for src, dst in slang_map.items():
+        compact = compact.replace(src, dst)
+    return re.sub(r"\s+", " ", compact).strip()
+
+
+_SOS_KEYWORDS_NORMALIZED = {_normalize_text(key) for key in SOS_KEYWORDS if _normalize_text(key)}
+_HIGH_RISK_PATTERNS = [
+    re.compile(r"\b(tao|toi|minh|t)\s*(dang|se|di|muon)?\s*(di\s*)?chet\b"),
+    re.compile(r"\b(tao|toi|minh|t)\s*(se|dang)?\s*(di|roi)\s*day\b"),
+    re.compile(r"\b(di|dinh)\s*chet\s*(day|thoi|cho\s*xong)?\b"),
+    re.compile(r"\b(di|de)\s*chet\b"),
+    re.compile(r"\b(tu\s*tu|tu\stu)\b"),
+    re.compile(r"\b(kill\s*myself|end\s*my\s*life|want\s*to\s*die)\b"),
+    re.compile(r"\b(muon|se|dinh)\s*giet\s*(no|nguoi|thang|con)\b"),
+    re.compile(r"\b(tao|toi|minh)\s*(muon|se|dinh)\s*giet\b"),
+    re.compile(r"\b(kill\s*(him|her|them|someone)|hurt\s*someone)\b"),
+]
+
+
 def keyword_hit(message: str) -> bool:
-    lowered = message.lower()
-    return any(key in lowered for key in SOS_KEYWORDS)
+    normalized = _normalize_text(message)
+    if any(key in normalized for key in _SOS_KEYWORDS_NORMALIZED):
+        return True
+    return any(p.search(normalized) is not None for p in _HIGH_RISK_PATTERNS)
+
+
+def violence_keyword_hit(message: str) -> bool:
+    normalized = _normalize_text(message)
+    violence_terms = ("muon giet", "se giet", "dinh giet", "kill him", "kill her", "kill them", "hurt someone")
+    return any(term in normalized for term in violence_terms) or any(
+        p.search(normalized) is not None for p in _HIGH_RISK_PATTERNS[-3:]
+    )
 
 
 def heuristic_distress(message: str) -> float:
     """Cheap lexical score 0–1 for routing (auditable keywords)."""
-    if keyword_hit(message):
-        return 0.94
-    lowered = message.lower()
+    normalized = _normalize_text(message)
+    if violence_keyword_hit(normalized):
+        return 0.97
+    if keyword_hit(normalized):
+        return 0.96
     score = 0.12
-    if any(w in lowered for w in ("buon", "met", "stress", "lo lang", "suy nghi tieu cuc")):
+    if any(w in normalized for w in ("buon", "met", "stress", "lo lang", "suy nghi tieu cuc", "tuyet vong")):
         score += 0.15
-    if any(w in lowered for w in ("chet", "tu tu", "khong song")):
-        score = max(score, 0.85)
+    if any(w in normalized for w in ("chet", "tu tu", "khong song", "khong muon song", "giet")):
+        score = max(score, 0.88)
+    if any(w in normalized for w in ("tao", "may", "choi voi", "dieu nay ket thuc")):
+        score += 0.04
     return clamp01(score)
 
 
-def decide_sos(message: str) -> tuple[bool, float]:
+def contextual_distress(message: str, recent_user_messages: list[str] | None = None, *, max_turns: int = 4) -> float:
+    current = heuristic_distress(message)
+    history = [heuristic_distress(m) for m in (recent_user_messages or []) if str(m or "").strip()]
+    if not history:
+        return current
+    window = history[-max_turns:] + [current]
+    # Exponential weighting to emphasize latest turns in a short crisis window.
+    weighted_total = 0.0
+    weighted_sum = 0.0
+    for idx, score in enumerate(window, start=1):
+        weight = 1.45**idx
+        weighted_total += score * weight
+        weighted_sum += weight
+    rolling = weighted_total / weighted_sum if weighted_sum else current
+    trend_boost = 0.0
+    if len(window) >= 3 and window[-1] >= window[-2] >= window[-3]:
+        trend_boost += 0.08
+    if len(window) >= 3 and all(v >= 0.72 for v in window[-3:]):
+        trend_boost += 0.12
+    if window[:-1]:
+        spike = max(0.0, current - min(window[:-1]))
+        if spike >= 0.25:
+            trend_boost += 0.07
+    severe_history_count = sum(1 for v in history[-max_turns:] if v >= 0.9)
+    if severe_history_count >= 2 and current >= 0.1:
+        return 0.94
+    return clamp01(max(current, rolling + trend_boost))
+
+
+def decide_sos(message: str, recent_user_messages: list[str] | None = None) -> tuple[bool, float]:
     """
     Returns (sos_triggered, distress_score).
     SOS = explicit keyword path OR distress at/above critical heuristic.
+    recent_user_messages: optional context for future pattern analysis (reserved).
     """
-    raw = heuristic_distress(message)
+    current = heuristic_distress(message)
+    combined = contextual_distress(message, recent_user_messages)
+    if violence_keyword_hit(message):
+        return True, max(combined, 0.97)
     if keyword_hit(message):
-        return True, max(raw, 0.94)
+        return True, max(combined, 0.96)
+    if combined >= 0.9:
+        return True, combined
+    if current >= 0.86 and combined >= 0.84:
+        return True, combined
     # Elevated text without explicit SOS keywords stays in LLM path
-    return False, raw
+    return False, combined
 
 
 _ASSISTANT_TEXT_SOS_VI = (
-    "Mình đang ở đây với cậu. Mình muốn giúp cậu an toàn ngay lúc này"
-    "nếu được, mình muốn cậu thử một việc nhỏ cùng mình trong lúc cậu cân nhắc thêm bước tiếp theo."
+    "Mình nhận thấy tình huống này có mức nguy hiểm cao và mình cần ưu tiên an toàn ngay lúc này. "
+    "Hãy tạm rời các vật có thể gây hại, tránh ở một mình, và gọi ngay hotline khẩn cấp ở bên dưới. "
+    "Bạn có thể nói cho mình biết hiện tại bạn đang ở đâu và có ai ở gần bạn không?"
 )
 
 
@@ -203,6 +307,7 @@ def build_sos_chat_response_data(
         "grounding_actions": [{"id": "grounding_54321"}, {"id": "breath_478"}],
         "referral_options": [{"type": "counselor"}, {"type": "trusted_contact"}],
         "followup_priority": True,
+        "routing_history": ["sos_handler"],
     }
 
 

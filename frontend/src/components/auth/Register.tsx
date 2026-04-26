@@ -1,25 +1,30 @@
 import { useState } from 'react'
+import type { ComponentProps } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import bg2 from '../../assets/bg2.png'
 import { ApiRequestError } from '../../api/types'
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
+import { ArrowLeft } from 'lucide-react'
 
 export default function Register() {
+    type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
     const [fullName, setFullName] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
     const [acknowledged, setAcknowledged] = useState(false)
+    const [voiceConsent, setVoiceConsent] = useState(true)
     const navigate = useNavigate()
     const { signup, isLoading } = useAuth()
 
 
     const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
 
-    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit: FormSubmitHandler = async (event) => {
         event.preventDefault()
+        const clickStartedAt = performance.now()
 
         if (!strongPasswordRegex.test(password)) {
             toast.error('Mật khẩu phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.')
@@ -39,16 +44,22 @@ export default function Register() {
 
 
         try {
-            await signup({
+            const res = await signup({
                 display_name: fullName.trim(),
                 email: email.trim(),
                 password,
                 disclaimer_accepted: acknowledged,
+                voice_consent: voiceConsent,
             })
-
-            toast.success('Đăng ký thành công. Chào mừng bạn đến với Serene!')
-            navigate(ROUTE_PATHS.home)
+            if (res.verification_required) {
+                toast.success(res.message || 'Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản.')
+            } else {
+                toast.success('Đăng ký thành công. Chào mừng bạn đến với Serene!')
+            }
+            navigate(ROUTE_PATHS.onboardingPolicy)
+            console.info('[auth-metrics] signup.click_to_navigate_ms', Math.round(performance.now() - clickStartedAt))
         } catch (error) {
+            console.info('[auth-metrics] signup.failed_ms', Math.round(performance.now() - clickStartedAt))
             if (error instanceof ApiRequestError) {
                 toast.error(error.message)
                 return
@@ -62,7 +73,7 @@ export default function Register() {
         <div className="auth-page">
             <div className="fixed inset-0">
                 <img
-                    alt="Dawn sk over oceany"
+                    alt="Dawn sky over ocean"
                     src={bg2}
                     className="auth-bg-image"
                 />
@@ -70,13 +81,18 @@ export default function Register() {
             </div>
 
             <nav className="fixed top-0 z-20 w-full px-8 py-6">
-                <div className="font-display text-3xl italic text-serene-ink">Serene</div>
+                <Link to={ROUTE_PATHS.landing} className="font-display text-3xl italic text-serene-ink">Serene</Link>
             </nav>
 
             <main className="auth-main">
                 <section className="auth-card max-w-xl p-8 sm:p-12">
                     <header className="mb-10 text-center">
-                        <h1 className="font-display text-4xl text-serene-ink sm:text-5xl">Bắt đầu hành trình</h1>
+                        <div className="flex items-center justify-center gap-3">
+                            <Link to={ROUTE_PATHS.login} >
+                                <ArrowLeft className="h-6 w-6" />
+                            </Link>
+                            <h1 className="font-display text-4xl text-serene-ink sm:text-5xl">Bắt đầu hành trình</h1>
+                        </div>
                         <p className="mt-3 text-xs uppercase tracking-[0.22em] text-serene-muted/80">
                             Tạo tài khoản cá nhân của bạn
                         </p>
@@ -110,7 +126,7 @@ export default function Register() {
                                 type="email"
                                 value={email}
                                 onChange={(event) => setEmail(event.target.value)}
-                                placeholder="email@hust.edu.vn"
+                                placeholder="email của bạn..."
                                 className="auth-input-soft"
                                 required
                             />
@@ -159,6 +175,21 @@ export default function Register() {
                                 />
                                 <span>
                                     Mình hiểu <span className="font-semibold text-serene-primary">Serene</span> là AI đồng hành, không phải bác sĩ. Trong trường hợp khẩn cấp, mình sẽ gọi <span className="font-bold text-serene-ink">1800-599-920</span> hoặc <span className="font-bold text-serene-ink">115</span>.
+                                </span>
+                            </label>
+                        </div>
+
+                        <div className="auth-disclaimer">
+                            <label className="flex items-start gap-3 text-xs leading-relaxed text-serene-muted sm:text-sm" htmlFor="voiceConsent">
+                                <input
+                                    id="voiceConsent"
+                                    type="checkbox"
+                                    checked={voiceConsent}
+                                    onChange={(event) => setVoiceConsent(event.target.checked)}
+                                    className="mt-0.5 h-5 w-5 rounded border-serene-outline bg-serene-bg/50 text-serene-primary focus:ring-serene-primary"
+                                />
+                                <span>
+                                    Cho phép hỗ trợ bằng voice khi mức căng thẳng tăng cao.
                                 </span>
                             </label>
                         </div>
