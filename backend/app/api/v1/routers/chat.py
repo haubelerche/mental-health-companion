@@ -1,6 +1,8 @@
 import logging
 import asyncio
 import json
+import mimetypes
+import time
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -9,15 +11,20 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import ensure_policy_acknowledged, get_current_user
+from app.api.deps import ensure_policy_acknowledged, get_current_user, require_csrf
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.responses import ok
 from app.db.models import AdminAuditLog, Conversation, CrisisLog, Message, User
 from app.db.session import get_db
-from app.schemas.payloads import ChatEndRequest, ChatMessageRequest
+from app.schemas.payloads import ChatEndRequest, ChatMessageRequest, GuestChatMessageRequest
 from app.services.chat_context import load_chat_context_sync
-from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn
+from app.services.chat_response_cache import get_cached_turn, hash_message, set_cached_turn
+from app.services.confidence_router import route_for_human_review
+from app.services.guest_service import heartbeat as guest_heartbeat
+from app.services.guest_service import start_session as guest_start_session
+from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn, stream_non_sos_turn_events
+from app.services.longterm_memory import UserMemoryContext, build_user_memory_context, get_user_longterm_memories
 from app.services.pii_mask import mask_pii
 from app.services.rate_limit import get_rate_limiter
 from app.services.session_summary import close_session_summary
@@ -29,7 +36,7 @@ from app.services.sos_handler import (
     snapshot_for_sos,
 )
 from app.services.clinical_profile import get_or_create_clinical_profile
-from app.services.safety_scoring import compute_escalation_signal
+from app.services.safety_scoring import SafetySnapshot, compute_escalation_signal
 from app.services.voice_consent import get_voice_consent
 from app.services.proactive_voice import (
     build_voice_script,
@@ -46,6 +53,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 SYSTEM_AUDIT_ADMIN = "sys_auto"
+
+
+def _build_heartbeat_event(*, started_at: float, last_heartbeat_at: float, stage: str, interval_seconds: float = 0.4):
+    now = time.perf_counter()
+    if now - last_heartbeat_at < interval_seconds:
+        return last_heartbeat_at, None
+    payload = {
+        "stage": stage,
+        "elapsed_ms": int((now - started_at) * 1000),
+    }
+    return now, "event: heartbeat\ndata: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
 
 
 def _record_sos_side_effects(
@@ -80,6 +98,35 @@ def _record_sos_side_effects(
     clin.last_scored_at = utc_now().replace(tzinfo=None)
 
 
+def _queue_human_review(
+    db: Session,
+    *,
+    user_id: str,
+    session_id: str,
+    distress_score: float,
+    message: str,
+    host: str | None,
+) -> None:
+    row = CrisisLog(
+        log_id=make_id("cl"),
+        session_id=session_id,
+        user_id=user_id,
+        muc_do="cao",
+        context_summary=f"[pending_review distress={distress_score:.2f}] {mask_pii(message)[:1800]}",
+        reviewed=False,
+    )
+    db.add(row)
+    db.add(
+        AdminAuditLog(
+            admin_id=SYSTEM_AUDIT_ADMIN,
+            action="HIGH_RISK_REVIEW_QUEUED",
+            resource_accessed=f"/v1/chat/session/{session_id}",
+            ip_address=host or "0.0.0.0",
+            metadata_json={"user_id": user_id, "distress_score": round(float(distress_score), 3)},
+        )
+    )
+
+
 def _recent_distress_history(recent_messages: list[dict], *, max_turns: int) -> list[float]:
     user_msgs = [m for m in recent_messages if m.get("role") == "user"]
     history: list[float] = []
@@ -87,6 +134,67 @@ def _recent_distress_history(recent_messages: list[dict], *, max_turns: int) -> 
         content = str(row.get("content") or "")
         history.append(heuristic_distress(content))
     return history
+
+
+def _should_load_memory_context(raw_text: str, recent_messages: list[dict]) -> bool:
+    """Load memory context even on short/low-distress turns when user asks recall-style questions."""
+    text = str(raw_text or "").lower()
+    recall_keywords = (
+        "nhớ",
+        "nho",
+        "lần trước",
+        "lan truoc",
+        "hôm qua",
+        "hom qua",
+        "hội thoại trước",
+        "hoi thoai truoc",
+        "trước đó",
+        "truoc do",
+        "tôi là ai",
+        "toi la ai",
+        "mình là ai",
+        "minh la ai",
+        "bạn còn nhớ",
+        "ban con nho",
+        "nhắc lại",
+        "nhac lai",
+        "tiếp tục",
+        "tiep tuc",
+    )
+    if any(k in text for k in recall_keywords):
+        return True
+    # Session already has enough turns, keep continuity context warm.
+    return len(recent_messages) >= 4
+
+
+def _load_memory_context_for_turn(
+    db: Session,
+    *,
+    user_id: str,
+    raw_text: str,
+    recent_messages: list[dict],
+    distress_score: float,
+) -> tuple[UserMemoryContext | None, list[str]]:
+    """Load memory once per turn, only when the turn benefits from recall/personalization."""
+    should_load = (
+        distress_score >= 0.35
+        or len(raw_text) >= 40
+        or _should_load_memory_context(raw_text, recent_messages)
+    )
+    if not should_load:
+        return None, []
+
+    try:
+        memory_ctx = build_user_memory_context(
+            db,
+            user_id=user_id,
+            current_query=raw_text,
+        )
+        return memory_ctx, memory_ctx.recent_summaries
+    except Exception as exc:
+        logger.warning("build_user_memory_context failed, fallback to recent summaries: %s", exc)
+        compat_longterm = get_user_longterm_memories(db, user_id=user_id, limit=3)
+        return None, compat_longterm
 
 
 def _build_voice_intervention(
@@ -190,7 +298,6 @@ def send_message(
         db.flush()
 
     raw_text = payload.message
-    sos, distress0 = decide_sos(raw_text)
     stored_user_content = mask_pii(raw_text)
 
     user_msg = Message(
@@ -203,13 +310,20 @@ def send_message(
     )
     db.add(user_msg)
     db.flush()
+    session.message_count += 1
+    session.last_message_at = now
 
     ctx = load_chat_context_sync(
         db,
         session_id=session.session_id,
         user_id=current_user.user_id,
-        message_limit=8,
+        message_limit=16,
+        message_token_budget=1400,
     )
+    previous_user_messages = [str(m.get("content") or "") for m in ctx.recent_messages if m.get("role") == "user"]
+    if previous_user_messages and previous_user_messages[-1] == stored_user_content:
+        previous_user_messages = previous_user_messages[:-1]
+    sos, distress0 = decide_sos(raw_text, recent_user_messages=previous_user_messages)
     voice_consent = get_voice_consent(db, current_user.user_id)
     cooldown_is_active, cooldown_seconds = cooldown_active(
         user_id=current_user.user_id,
@@ -232,7 +346,7 @@ def send_message(
             created_at=now,
         )
         db.add(assistant_msg)
-        session.message_count += 2
+        session.message_count += 1
         session.last_message_at = now
         _record_sos_side_effects(
             db,
@@ -244,7 +358,7 @@ def send_message(
         db.commit()
         data = build_sos_chat_response_data(session.session_id, snap)
         data["intervention"] = None
-        if voice_consent and not cooldown_is_active:
+        if voice_consent:
             data["intervention"] = _build_voice_intervention(
                 db=db,
                 user_id=current_user.user_id,
@@ -252,32 +366,64 @@ def send_message(
                 raw_text=raw_text,
                 recent_messages=ctx.recent_messages,
                 snapshot=snap,
-                trigger_reason="sos_gate",
+                trigger_reason="sos_gate_forced",
                 rolling_window_turns=1,
                 delta_score=0.0,
             )
         return ok(data)
 
+    # Persist user turn before calling LLM to release DB connection back to pool.
+    db.commit()
+
     distress = distress0
     if ctx.mood_today and ctx.mood_today.get("mood") in ("stressed", "restless", "melancholic"):
         distress = min(1.0, distress + 0.08)
 
-    try:
-        turn = run_non_sos_turn(
-            user_message=raw_text,
-            recent_messages=ctx.recent_messages,
-            mood_today=ctx.mood_today,
-            distress_score=distress,
-        )
-    except Exception as exc:
-        logger.exception("langgraph chat failed")
-        raise AppError("LLM_TIMEOUT", "Phản hồi quá lâu, vui lòng thử lại", 504) from exc
+    turn = None
+    message_hash = hash_message(raw_text)
+    if settings.chat_response_cache_ttl_seconds > 0:
+        turn = get_cached_turn(session.session_id, message_hash)
+
+    if turn is None:
+        try:
+            memory_ctx, compat_longterm = _load_memory_context_for_turn(
+                db,
+                user_id=current_user.user_id,
+                raw_text=raw_text,
+                recent_messages=ctx.recent_messages,
+                distress_score=distress,
+            )
+            turn = run_non_sos_turn(
+                user_message=raw_text,
+                recent_messages=ctx.recent_messages,
+                mood_today=ctx.mood_today,
+                distress_score=distress,
+                long_term_memories=(memory_ctx.recent_summaries if memory_ctx else compat_longterm),
+                mem0_facts=(memory_ctx.mem0_facts if memory_ctx else []),
+                user_traits=(memory_ctx.traits if memory_ctx else {}),
+                top_triggers=(memory_ctx.top_triggers if memory_ctx else []),
+                active_goals=(memory_ctx.active_goals if memory_ctx else []),
+                effective_coping=(memory_ctx.effective_coping if memory_ctx else []),
+                clinical_trajectory=(memory_ctx.clinical_trajectory if memory_ctx else ""),
+                user_id=current_user.user_id,
+                session_id=session.session_id,
+            )
+            set_cached_turn(
+                session.session_id,
+                message_hash,
+                turn,
+                ttl_seconds=settings.chat_response_cache_ttl_seconds,
+            )
+        except Exception as exc:
+            logger.exception("langgraph chat failed")
+            raise AppError("LLM_TIMEOUT", "Phản hồi quá lâu, vui lòng thử lại", 504) from exc
 
     snap = turn["session_fields"]
     assistant_content = turn["reply"]
     tone = turn["tone_cam_xuc"]
     goi_y = turn["goi_y_nhanh"]
     the_dinh = turn["the_dinh_kem"]
+    routing_hist: list[str] = turn.get("routing_history") or []
 
     assistant_msg = Message(
         message_id=make_id("msg"),
@@ -290,8 +436,22 @@ def send_message(
         created_at=now,
     )
     db.add(assistant_msg)
-    session.message_count += 2
+    session.message_count += 1
     session.last_message_at = now
+    review_decision = route_for_human_review(
+        distress_score=snap.distress_score,
+        sos_triggered=False,
+        threshold=0.85,
+    )
+    if review_decision.requires_human_review:
+        _queue_human_review(
+            db,
+            user_id=current_user.user_id,
+            session_id=session.session_id,
+            distress_score=snap.distress_score,
+            message=raw_text,
+            host=host,
+        )
     db.commit()
 
     vhint = None
@@ -308,20 +468,27 @@ def send_message(
         goi_y_nhanh=goi_y,
         the_dinh_kem=the_dinh,
         voice_hint=vhint,
+        routing_history=routing_hist,
     )
     data["intervention"] = None
+    if review_decision.requires_human_review:
+        data["pending_human_review"] = True
+        data["review_reason"] = review_decision.reason
+    final_distress = float(snap.distress_score)
     history = _recent_distress_history(
         ctx.recent_messages,
         max_turns=settings.proactive_voice_window_turns,
     )
     signal = compute_escalation_signal(
-        current_distress=distress,
+        current_distress=final_distress,
         previous_distress=history,
         threshold=settings.proactive_voice_threshold,
         delta_threshold=settings.proactive_voice_delta_threshold,
         window_turns=settings.proactive_voice_window_turns,
     )
-    if signal.escalate and voice_consent and not cooldown_is_active:
+    force_voice_by_tier = snap.safety_tier in {"critical", "voice_recommended"} and final_distress >= 0.8
+    if (signal.escalate or force_voice_by_tier) and voice_consent and not cooldown_is_active:
+        trigger_reason = signal.trigger_reason if signal.escalate else "safety_tier_forced"
         data["intervention"] = _build_voice_intervention(
             db=db,
             user_id=current_user.user_id,
@@ -329,11 +496,11 @@ def send_message(
             raw_text=raw_text,
             recent_messages=ctx.recent_messages,
             snapshot=snap,
-            trigger_reason=signal.trigger_reason,
+            trigger_reason=trigger_reason,
             rolling_window_turns=signal.rolling_window_turns,
             delta_score=signal.delta_score,
         )
-    elif signal.escalate and voice_consent and cooldown_is_active:
+    elif (signal.escalate or force_voice_by_tier) and voice_consent and cooldown_is_active:
         data["intervention"] = {
             "type": "proactive_voice",
             "trigger_reason": "cooldown_active",
@@ -343,17 +510,405 @@ def send_message(
     return ok(data)
 
 
+@router.post("/message/stream")
+def send_message_stream(
+    payload: ChatMessageRequest,
+    request: Request,
+    current_user: User = Depends(ensure_policy_acknowledged),
+    db: Session = Depends(get_db),
+):
+    def event_stream():
+        try:
+            yield "event: status\ndata: " + json.dumps({"stage": "queued"}, ensure_ascii=False) + "\n\n"
+            started_at = time.perf_counter()
+            last_heartbeat = started_at
+            settings = get_settings()
+            limiter = get_rate_limiter()
+            limiter.enforce_per_minute(
+                key=f"chat:{current_user.user_id}",
+                limit=settings.chat_rate_limit_per_minute,
+                code="RATE_LIMIT_EXCEEDED",
+                message="Cậu ơi, cậu dùng hết gói chat trial rùi nè, hãy đăng ký tài khoản để mình nói chuyện được lâu hơn nhé!",
+            )
+            last_heartbeat, hb = _build_heartbeat_event(
+                started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_rate_limit"
+            )
+            if hb:
+                yield hb
+
+            now = utc_now().replace(tzinfo=None)
+            session = None
+            if payload.session_id:
+                session = db.scalar(
+                    select(Conversation).where(
+                        Conversation.session_id == payload.session_id,
+                        Conversation.user_id == current_user.user_id,
+                        Conversation.deleted_at.is_(None),
+                    )
+                )
+                if not session:
+                    raise AppError("SESSION_NOT_FOUND", "Session không tồn tại", 404)
+            else:
+                session = Conversation(
+                    session_id=make_id("sess"),
+                    user_id=current_user.user_id,
+                    message_count=0,
+                    started_at=now,
+                    last_message_at=now,
+                )
+                db.add(session)
+                db.flush()
+            last_heartbeat, hb = _build_heartbeat_event(
+                started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_session_ready"
+            )
+            if hb:
+                yield hb
+
+            raw_text = payload.message
+            stored_user_content = mask_pii(raw_text)
+
+            user_msg = Message(
+                message_id=make_id("msg"),
+                session_id=session.session_id,
+                user_id=current_user.user_id,
+                role="user",
+                content=stored_user_content,
+                created_at=now,
+            )
+            db.add(user_msg)
+            db.flush()
+            session.message_count += 1
+            session.last_message_at = now
+            last_heartbeat, hb = _build_heartbeat_event(
+                started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_user_saved"
+            )
+            if hb:
+                yield hb
+
+            ctx = load_chat_context_sync(
+                db,
+                session_id=session.session_id,
+                user_id=current_user.user_id,
+                message_limit=16,
+                message_token_budget=1400,
+            )
+            last_heartbeat, hb = _build_heartbeat_event(
+                started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_context_loaded"
+            )
+            if hb:
+                yield hb
+            previous_user_messages = [str(m.get("content") or "") for m in ctx.recent_messages if m.get("role") == "user"]
+            if previous_user_messages and previous_user_messages[-1] == stored_user_content:
+                previous_user_messages = previous_user_messages[:-1]
+
+            sos, distress0 = decide_sos(raw_text, recent_user_messages=previous_user_messages)
+            last_heartbeat, hb = _build_heartbeat_event(
+                started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_safety_scored"
+            )
+            if hb:
+                yield hb
+
+            voice_consent = get_voice_consent(db, current_user.user_id)
+            cooldown_is_active, cooldown_seconds = cooldown_active(
+                user_id=current_user.user_id,
+                session_id=session.session_id,
+            )
+            host = request.client.host if request.client else None
+
+            if sos:
+                snap = snapshot_for_sos(distress0)
+                assistant_content = assistant_text_for_stored_message_sos()
+                assistant_msg = Message(
+                    message_id=make_id("msg"),
+                    session_id=session.session_id,
+                    user_id=current_user.user_id,
+                    role="assistant",
+                    content=assistant_content,
+                    tone_cam_xuc=None,
+                    sos_triggered=True,
+                    created_at=now,
+                )
+                db.add(assistant_msg)
+                session.message_count += 1
+                session.last_message_at = now
+                _record_sos_side_effects(
+                    db,
+                    user_id=current_user.user_id,
+                    session_id=session.session_id,
+                    context_summary=mask_pii(raw_text)[:500],
+                    request_host=host,
+                )
+                db.commit()
+                data = build_sos_chat_response_data(session.session_id, snap)
+                data["intervention"] = None
+                if voice_consent:
+                    data["intervention"] = _build_voice_intervention(
+                        db=db,
+                        user_id=current_user.user_id,
+                        session_id=session.session_id,
+                        raw_text=raw_text,
+                        recent_messages=ctx.recent_messages,
+                        snapshot=snap,
+                        trigger_reason="sos_gate_forced",
+                        rolling_window_turns=1,
+                        delta_score=0.0,
+                    )
+                elapsed_ms = int((time.perf_counter() - started_at) * 1000)
+                yield "event: status\ndata: " + json.dumps({"stage": "ready", "latency_ms": elapsed_ms}, ensure_ascii=False) + "\n\n"
+                yield "event: final\ndata: " + json.dumps(data, ensure_ascii=False) + "\n\n"
+                return
+
+            # Persist user turn before any potentially long-running LLM call.
+            db.commit()
+
+            distress = distress0
+            if ctx.mood_today and ctx.mood_today.get("mood") in ("stressed", "restless", "melancholic"):
+                distress = min(1.0, distress + 0.08)
+
+            message_hash = hash_message(raw_text)
+            turn = get_cached_turn(session.session_id, message_hash) if settings.chat_response_cache_ttl_seconds > 0 else None
+            if turn is None:
+                memory_ctx, compat_longterm = _load_memory_context_for_turn(
+                    db,
+                    user_id=current_user.user_id,
+                    raw_text=raw_text,
+                    recent_messages=ctx.recent_messages,
+                    distress_score=distress,
+                )
+                last_heartbeat, hb = _build_heartbeat_event(
+                    started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_memory_ready"
+                )
+                if hb:
+                    yield hb
+                yield "event: status\ndata: " + json.dumps({"stage": "model_stream_start"}, ensure_ascii=False) + "\n\n"
+                for ev in stream_non_sos_turn_events(
+                    user_message=raw_text,
+                    recent_messages=ctx.recent_messages,
+                    mood_today=ctx.mood_today,
+                    distress_score=distress,
+                    long_term_memories=(memory_ctx.recent_summaries if memory_ctx else compat_longterm),
+                    mem0_facts=(memory_ctx.mem0_facts if memory_ctx else []),
+                    user_traits=(memory_ctx.traits if memory_ctx else {}),
+                    top_triggers=(memory_ctx.top_triggers if memory_ctx else []),
+                    active_goals=(memory_ctx.active_goals if memory_ctx else []),
+                    effective_coping=(memory_ctx.effective_coping if memory_ctx else []),
+                    clinical_trajectory=(memory_ctx.clinical_trajectory if memory_ctx else ""),
+                    user_id=current_user.user_id,
+                    session_id=session.session_id,
+                ):
+                    if ev.get("type") == "token":
+                        yield "event: delta\ndata: " + json.dumps({"text": str(ev.get("text") or "")}, ensure_ascii=False) + "\n\n"
+                    elif ev.get("type") == "final":
+                        turn = ev.get("turn")
+                if not turn:
+                    raise AppError("LLM_TIMEOUT", "Phản hồi quá lâu, vui lòng thử lại", 504)
+                set_cached_turn(
+                    session.session_id,
+                    message_hash,
+                    turn,
+                    ttl_seconds=settings.chat_response_cache_ttl_seconds,
+                )
+
+            snap = turn["session_fields"]
+            assistant_content = turn["reply"]
+            tone = turn["tone_cam_xuc"]
+            goi_y = turn["goi_y_nhanh"]
+            the_dinh = turn["the_dinh_kem"]
+            routing_hist: list[str] = turn.get("routing_history") or []
+
+            assistant_msg = Message(
+                message_id=make_id("msg"),
+                session_id=session.session_id,
+                user_id=current_user.user_id,
+                role="assistant",
+                content=mask_pii(assistant_content),
+                tone_cam_xuc=tone if tone in ("ho_tro", "xac_nhan", "vui_tuoi", "lam_diu") else "xac_nhan",
+                sos_triggered=False,
+                created_at=now,
+            )
+            db.add(assistant_msg)
+            session.message_count += 1
+            session.last_message_at = now
+            review_decision = route_for_human_review(
+                distress_score=snap.distress_score,
+                sos_triggered=False,
+                threshold=0.85,
+            )
+            if review_decision.requires_human_review:
+                _queue_human_review(
+                    db,
+                    user_id=current_user.user_id,
+                    session_id=session.session_id,
+                    distress_score=snap.distress_score,
+                    message=raw_text,
+                    host=host,
+                )
+            db.commit()
+
+            vhint = None
+            if snap.safety_tier == "voice_recommended":
+                vhint = "Bạn có thể bấm gọi để nói chuyện trực tiếp với Mây / tổng đài — mình vẫn ở đây trong lúc bạn cân nhắc."
+
+            data = build_normal_envelope(
+                session.session_id,
+                snap=snap,
+                reply=assistant_content,
+                tone_cam_xuc=tone,
+                goi_y_nhanh=goi_y,
+                the_dinh_kem=the_dinh,
+                voice_hint=vhint,
+                routing_history=routing_hist,
+            )
+            data["intervention"] = None
+            if review_decision.requires_human_review:
+                data["pending_human_review"] = True
+                data["review_reason"] = review_decision.reason
+            final_distress = float(snap.distress_score)
+            history = _recent_distress_history(ctx.recent_messages, max_turns=settings.proactive_voice_window_turns)
+            signal = compute_escalation_signal(
+                current_distress=final_distress,
+                previous_distress=history,
+                threshold=settings.proactive_voice_threshold,
+                delta_threshold=settings.proactive_voice_delta_threshold,
+                window_turns=settings.proactive_voice_window_turns,
+            )
+            force_voice_by_tier = snap.safety_tier in {"critical", "voice_recommended"} and final_distress >= 0.8
+            if (signal.escalate or force_voice_by_tier) and voice_consent and not cooldown_is_active:
+                trigger_reason = signal.trigger_reason if signal.escalate else "safety_tier_forced"
+                data["intervention"] = _build_voice_intervention(
+                    db=db,
+                    user_id=current_user.user_id,
+                    session_id=session.session_id,
+                    raw_text=raw_text,
+                    recent_messages=ctx.recent_messages,
+                    snapshot=snap,
+                    trigger_reason=trigger_reason,
+                    rolling_window_turns=signal.rolling_window_turns,
+                    delta_score=signal.delta_score,
+                )
+            elif (signal.escalate or force_voice_by_tier) and voice_consent and cooldown_is_active:
+                data["intervention"] = {
+                    "type": "proactive_voice",
+                    "trigger_reason": "cooldown_active",
+                    "cooldown": {"active": True, "seconds_remaining": cooldown_seconds},
+                    "voice": {"status": "cooldown", "tts_job_id": None, "audio_url": None},
+                }
+
+            elapsed_ms = int((time.perf_counter() - started_at) * 1000)
+            yield "event: status\ndata: " + json.dumps({"stage": "ready", "latency_ms": elapsed_ms}, ensure_ascii=False) + "\n\n"
+            yield "event: final\ndata: " + json.dumps(data, ensure_ascii=False) + "\n\n"
+        except AppError as exc:
+            yield "event: error\ndata: " + json.dumps({"code": exc.code, "message": exc.message}, ensure_ascii=False) + "\n\n"
+        except Exception as exc:
+            logger.exception("chat stream failed: %s", exc)
+            yield "event: error\ndata: " + json.dumps({"code": "STREAM_INTERNAL_ERROR", "message": "Lỗi stream phản hồi"}, ensure_ascii=False) + "\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@router.post("/guest-message")
+def send_guest_message(payload: GuestChatMessageRequest, _: None = Depends(require_csrf)):
+    try:
+        if payload.guest_session_id:
+            try:
+                alive = guest_heartbeat(payload.guest_session_id)
+            except Exception as exc:
+                logger.exception("guest heartbeat failed")
+                raise AppError("GUEST_SESSION_ERROR", "Không thể kiểm tra phiên guest", 500) from exc
+            if not alive:
+                raise AppError(
+                    "GUEST_TRIAL_EXPIRED",
+                    "Phiên chat thử đã hết 2 phút. Vui lòng đăng ký để tiếp tục trò chuyện.",
+                    403,
+                )
+            session_id = payload.guest_session_id
+        else:
+            try:
+                session_id, _ = guest_start_session()
+            except Exception as exc:
+                logger.exception("guest session start failed")
+                raise AppError("GUEST_SESSION_ERROR", "Không thể tạo phiên guest", 500) from exc
+
+        raw_text = payload.message
+        try:
+            sos, distress = decide_sos(raw_text, recent_user_messages=[])
+        except TypeError:
+            # Backward-compatible path for tests/monkeypatches still using decide_sos(message).
+            sos, distress = decide_sos(raw_text)
+        if sos:
+            snap = snapshot_for_sos(distress)
+            data = build_sos_chat_response_data(session_id, snap)
+            data["intervention"] = None
+            return ok(data)
+
+        try:
+            turn = run_non_sos_turn(
+                user_message=raw_text,
+                recent_messages=[],
+                mood_today=None,
+                distress_score=distress,
+                session_id=session_id,
+            )
+        except Exception as exc:
+            logger.exception("guest chat generation failed")
+            raise AppError("LLM_TIMEOUT", "Phản hồi quá lâu, vui lòng thử lại", 504) from exc
+
+        if not isinstance(turn, dict):
+            raise AppError("SCHEMA_VALIDATION_FAILED", "Phản hồi guest không hợp lệ", 500)
+
+        raw_snap = turn.get("session_fields")
+        if isinstance(raw_snap, SafetySnapshot):
+            snap = raw_snap
+        elif isinstance(raw_snap, dict):
+            snap = SafetySnapshot(
+                distress_score=float(raw_snap.get("distress_score", distress)),
+                risk_level=int(raw_snap.get("risk_level", 0)),
+                safety_tier=str(raw_snap.get("safety_tier", "normal")),
+                conversation_mode=str(raw_snap.get("conversation_mode", "normal")),
+            )
+        else:
+            snap = SafetySnapshot(
+                distress_score=float(distress),
+                risk_level=0,
+                safety_tier="normal",
+                conversation_mode="normal",
+            )
+
+        assistant_content = str(turn.get("reply") or "")
+        tone = str(turn.get("tone_cam_xuc") or "xac_nhan")
+        goi_y = turn.get("goi_y_nhanh") if isinstance(turn.get("goi_y_nhanh"), list) else []
+        the_dinh = turn.get("the_dinh_kem") if isinstance(turn.get("the_dinh_kem"), list) else []
+        routing_hist: list[str] = turn.get("routing_history") if isinstance(turn.get("routing_history"), list) else []
+
+        data = build_normal_envelope(
+            session_id,
+            snap=snap,
+            reply=assistant_content,
+            tone_cam_xuc=tone,
+            goi_y_nhanh=goi_y,
+            the_dinh_kem=the_dinh,
+            voice_hint=None,
+            routing_history=routing_hist,
+        )
+        data["intervention"] = None
+        return ok(data)
+    except AppError:
+        raise
+    except Exception as exc:
+        logger.exception("guest message failed unexpectedly")
+        raise AppError("SCHEMA_VALIDATION_FAILED", "Đã xảy ra lỗi nội bộ", 500) from exc
+
+
 @router.get("/voice-jobs/{tts_job_id}")
 def get_voice_job_status(
     tts_job_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _ = current_user
     job = get_voice_job(db, tts_job_id)
-    if not job:
+    if not job or job.get("user_id") != current_user.user_id:
         raise AppError("VOICE_JOB_NOT_FOUND", "Voice job không tồn tại", 404)
-    return ok(job)
+    return ok({k: v for k, v in job.items() if k != "user_id"})
 
 
 @router.get("/voice-jobs/{tts_job_id}/events")
@@ -362,7 +917,9 @@ async def stream_voice_job_events(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _ = current_user
+    job_check = get_voice_job(db, tts_job_id)
+    if not job_check or job_check.get("user_id") != current_user.user_id:
+        raise AppError("VOICE_JOB_NOT_FOUND", "Voice job không tồn tại", 404)
 
     async def event_stream():
         previous_status = None
@@ -373,10 +930,11 @@ async def stream_voice_job_events(
                 return
             status = job.get("status")
             if status != previous_status:
-                payload = json.dumps(job, ensure_ascii=False)
+                safe_job = {k: v for k, v in job.items() if k != "user_id"}
+                payload = json.dumps(safe_job, ensure_ascii=False)
                 yield f"event: status\ndata: {payload}\n\n"
                 previous_status = status
-            if status in {"ready", "failed", "synced"}:
+            if status in {"ready", "failed", "done", "synced"}:
                 return
             await asyncio.sleep(1)
 
@@ -389,11 +947,14 @@ def get_voice_job_audio(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _ = current_user
+    job = get_voice_job(db, tts_job_id)
+    if not job or job.get("user_id") != current_user.user_id:
+        raise AppError("VOICE_AUDIO_NOT_READY", "Audio chưa sẵn sàng", 404)
     audio_path = get_voice_audio_path(db, tts_job_id)
     if not audio_path:
         raise AppError("VOICE_AUDIO_NOT_READY", "Audio chưa sẵn sàng", 404)
-    return FileResponse(path=audio_path, media_type="audio/mpeg", filename=audio_path.name)
+    media_type = mimetypes.guess_type(str(audio_path))[0] or "application/octet-stream"
+    return FileResponse(path=audio_path, media_type=media_type, filename=audio_path.name)
 
 
 @router.post("/end")

@@ -8,11 +8,25 @@ from app.core.responses import ok
 from app.db.models import Bookmark, PlayEvent, Resource, User
 from app.db.session import get_db
 from app.schemas.payloads import PlayEventRequest
+from app.services.exercise_catalog import get_exercise, list_exercises
 from app.services.utils import make_id, now_plus, utc_now
 
 router = APIRouter(prefix="/resources", tags=["resources"])
 
 CATEGORIES = ["meditate", "sleep", "music", "work_study", "wisdom", "movement"]
+
+
+@router.get("/exercises")
+def exercises(current_user: User = Depends(ensure_policy_acknowledged)):
+    return ok({"items": list_exercises()})
+
+
+@router.get("/exercises/{exercise_id}")
+def exercise_detail(exercise_id: str, current_user: User = Depends(ensure_policy_acknowledged)):
+    exercise = get_exercise(exercise_id)
+    if not exercise:
+        raise AppError("EXERCISE_NOT_FOUND", "Bài tập không tồn tại", 404)
+    return ok(exercise)
 
 
 @router.get("/categories")

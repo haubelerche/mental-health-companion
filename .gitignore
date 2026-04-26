@@ -11,7 +11,7 @@ build/
 *.egg-info/
 .pytest_cache/
 .mypy_cache/
-
+/refs/*
 # Node
 node_modules/
 package.json
@@ -40,6 +40,18 @@ docker-compose.yml
 
 
 .vscode/
+.idea/
+
+# Local SQLite (dev / pytest)
+backend/serene_local.db
+backend/test_serene.db
 # Raw text corpus (không version trong repo)
 
 backend/.env
+
+# MentalChat16K: pre-computed embeddings (large binary, regenerate locally)
+backend/data/mental_chat_embeddings.pkl
+backend/data/counseling_corpus_embeddings.pkl
+backend/data/emotion_centroids.pkl
+# Keep the curated examples JSONL in git (small text file)
+

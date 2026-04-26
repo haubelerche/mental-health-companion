@@ -31,10 +31,14 @@ def checkin_quick(
         "stress_level": payload.stress_level,
         "sleep_hours": payload.sleep_hours,
         "study_hours": payload.study_hours,
+        "emotions": payload.emotions,
+        "triggers": payload.triggers,
     }
     note_blob = json.dumps({"extra": extra, "note": payload.note}, ensure_ascii=False)
     if existing:
         existing.mood = payload.mood
+        existing.emotions = payload.emotions
+        existing.triggers = payload.triggers
         existing.note = note_blob[:10000]
         existing.updated_at = utc_now().replace(tzinfo=None)
         db.commit()
@@ -45,6 +49,8 @@ def checkin_quick(
         user_id=current_user.user_id,
         mood=payload.mood,
         emoji=None,
+        emotions=payload.emotions,
+        triggers=payload.triggers,
         note=note_blob[:10000],
         logged_date=logged_date,
         logged_at=utc_now().replace(tzinfo=None),

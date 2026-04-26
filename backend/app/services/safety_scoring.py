@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-EscalationReason = Literal["none", "threshold_crossed", "rapid_escalation"]
+EscalationReason = Literal["none", "threshold_crossed", "rapid_escalation", "rolling_window_high"]
 
 
 
@@ -88,32 +88,6 @@ def tier_to_conversation_mode(tier: SafetyTier, *, sos: bool) -> ConversationMod
     return "normal"
 
 
-def compute_escalation_signal(
-    *,
-    current_distress: float,
-    previous_distress: list[float],
-    threshold: float,
-    delta_threshold: float,
-    window_turns: int,
-) -> EscalationSignal:
-    """Detect abrupt distress jumps vs absolute crisis threshold (auditable rules)."""
-    cur = clamp01(current_distress)
-    thr = clamp01(threshold)
-    dthr = max(0.0, delta_threshold)
-    window = max(1, window_turns)
-    hist = [clamp01(x) for x in previous_distress[-window:]]
-
-    if cur >= thr:
-        return EscalationSignal(escalate=True, trigger_reason="threshold_crossed")
-
-    if hist:
-        baseline = min(hist)
-        if cur - baseline >= dthr:
-            return EscalationSignal(escalate=True, trigger_reason="rapid_escalation")
-
-    return EscalationSignal(escalate=False, trigger_reason="none")
-
-
 def build_snapshot(
     distress_score: float,
     *,
@@ -162,6 +136,16 @@ def compute_escalation_signal(
             escalate=True,
             trigger_reason="threshold_crossed",
         )
+    # Escalate when sustained high distress across recent turns even if no single turn crosses hard threshold.
+    high_turns = sum(1 for v in window[-3:] if v >= max(0.72, threshold - 0.18))
+    if rolling_score >= max(0.72, threshold - 0.08) and high_turns >= 2:
+        return EscalationSignal(
+            rolling_window_turns=len(window),
+            rolling_score=rolling_score,
+            delta_score=delta,
+            escalate=True,
+            trigger_reason="rolling_window_high",
+        )
     if window[-1] >= 0.7 and delta >= delta_threshold:
         return EscalationSignal(
             rolling_window_turns=len(window),
@@ -177,7 +161,3 @@ def compute_escalation_signal(
         escalate=False,
         trigger_reason="none",
     )
-"""nhận vào điểm bất ổn, các ngưỡng, và biến cảnh báo (cờ sos_triggered). Hàm này chạy qua tất cả các hàm trên để tính toán một lượt và trả về SafetySnapshot.
-Điểm đáng chú ý về cơ chế "ghi đè" (Override) an toàn:
-Nếu hệ thống phát hiện có từ khóa cứu nạn khẩn cấp (sos_triggered = True), nó sẽ không quan tâm distress_score là bao nhiêu nữa mà sẽ ép trạng thái an toàn thành critical (Nguy kịch).
-Giữ mức rủi ro tối thiểu là 4 (rl = max(rl, 4))"""

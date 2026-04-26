@@ -15,9 +15,27 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
 
 
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=16, max_length=500)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 class ChatMessageRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
     session_id: str | None = Field(default=None, max_length=50)
+
+
+class GuestChatMessageRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+    guest_session_id: str | None = Field(default=None, max_length=80)
 
 
 class ChatEndRequest(BaseModel):
@@ -69,6 +87,8 @@ class CheckinQuickRequest(BaseModel):
     stress_level: int | None = Field(default=None, ge=0, le=10)
     sleep_hours: float | None = Field(default=None, ge=0, le=24)
     study_hours: float | None = Field(default=None, ge=0, le=24)
+    emotions: list[str] = Field(default_factory=list)
+    triggers: list[str] = Field(default_factory=list)
     note: str | None = None
 
 
@@ -111,3 +131,8 @@ class AdminLoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     totp_code: str = Field(min_length=6, max_length=10)
+
+
+class CrisisReviewRequest(BaseModel):
+    reviewed: bool = True
+    note: str | None = Field(default=None, max_length=500)
