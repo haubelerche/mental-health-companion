@@ -136,3 +136,18 @@ class AdminLoginRequest(BaseModel):
 class CrisisReviewRequest(BaseModel):
     reviewed: bool = True
     note: str | None = Field(default=None, max_length=500)
+
+
+class OnboardingCompleteRequest(BaseModel):
+    disclaimer_accepted: bool
+    nickname: str = Field(min_length=1, max_length=64)
+    age_group: str = Field(min_length=1, max_length=32)
+    emotional_state: str = Field(
+        pattern="^(difficult_recently|ongoing_challenges|doing_okay)$"
+    )
+    primary_concern: str | None = Field(default=None, max_length=64)
+    support_level: str | None = Field(default=None, pattern="^(excellent|good|limited|poor)$")
+    stress_level: int = Field(ge=0, le=4)
+    wake_time: str = Field(pattern="^([01]\\d|2[0-3]):[0-5]\\d$")
+    bed_time: str = Field(pattern="^([01]\\d|2[0-3]):[0-5]\\d$")
+    practice_ids: list[str] = Field(default_factory=list, max_length=8)
