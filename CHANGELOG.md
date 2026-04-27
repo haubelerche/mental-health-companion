@@ -50,6 +50,10 @@
 - **`frontend/src/components/auth/Register.tsx` + `frontend/src/components/pages/OnboardingFlow.tsx` + `backend/app/api/v1/routers/onboarding.py` + `backend/app/schemas/payloads.py`** — Gộp luồng disclaimer vào onboarding (bỏ bước policy rời trong flow signup), cho phép user đi thẳng `/serene/onboarding` sau đăng ký; onboarding hoàn tất sẽ ghi nhận `disclaimer_accepted` và cập nhật policy ack trên backend.
 - **`frontend/src/components/layout/HeaderMain.tsx`** — Menu tài khoản giờ hiển thị theo trạng thái auth: đã đăng nhập chỉ hiện `Tài khoản` / `Đổi mật khẩu` / `Đăng xuất`, không còn hiển thị nút `Đăng nhập` gây hiểu nhầm.
 
+### Fixed
+- **`deps.py`** — Restored loopback CSRF compatibility for local dev: `localhost/127.0.0.1/::1` can use different ports with the same scheme, while non-loopback origins still require trusted-origin validation.
+- **`longterm_memory.py`** — `persist_turn_memory()` now safely skips persistence when test DB adapters do not implement `scalar()`, preventing chat endpoint and SSE stream failures in integration tests.
+
 ---
 
 ## [Unreleased] — Sprint 4 · 2026-04-27
