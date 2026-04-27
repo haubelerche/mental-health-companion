@@ -1,0 +1,710 @@
+{
+  "metadata": {
+    "title": "100 Famous Quotes for Serene App",
+    "version": "1.0",
+    "total_records": 100,
+    "categories": ["Life & Self-Worth", "Resilience", "Love & Relationships", "Family", "Philosophy"]
+  },
+  "quotes": [
+    {
+      "id": 1,
+      "content_en": "The only way to do great work is to love what you do.",
+      "content_vi": "Cách duy nhất để làm nên những điều vĩ đại là yêu những gì bạn làm.",
+      "author": "Steve Jobs",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 2,
+      "content_en": "Believe you can and you're halfway there.",
+      "content_vi": "Tin rằng bạn có thể làm được và bạn đã đi được nửa chặng đường.",
+      "author": "Theodore Roosevelt",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 3,
+      "content_en": "Be yourself; everyone else is already taken.",
+      "content_vi": "Hãy là chính mình, bởi những người khác đã là chính họ rồi.",
+      "author": "Oscar Wilde",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 4,
+      "content_en": "Your time is limited, so don't waste it living someone else's life.",
+      "content_vi": "Thời gian của bạn có hạn, đừng lãng phí nó để sống cuộc đời của người khác.",
+      "author": "Steve Jobs",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 5,
+      "content_en": "Life is what happens when you're busy making other plans.",
+      "content_vi": "Cuộc sống là những gì xảy đến khi bạn đang bận rộn lập những kế hoạch khác.",
+      "author": "John Lennon",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 6,
+      "content_en": "The purpose of our lives is to be happy.",
+      "content_vi": "Mục đích của cuộc sống là hạnh phúc.",
+      "author": "Dalai Lama",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 7,
+      "content_en": "Do not go where the path may lead, go instead where there is no path and leave a trail.",
+      "content_vi": "Đừng đi theo những nơi có dấu chân, hãy đi vào nơi chưa có lối và để lại dấu vết.",
+      "author": "Ralph Waldo Emerson",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 8,
+      "content_en": "Everything you’ve ever wanted is on the other side of fear.",
+      "content_vi": "Mọi thứ bạn từng mong muốn đều nằm ở phía bên kia của sự sợ hãi.",
+      "author": "George Addair",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 9,
+      "content_en": "Life is 10% what happens to us and 90% how we react to it.",
+      "content_vi": "Cuộc sống bao gồm 10% những gì xảy ra với bạn và 90% cách bạn phản ứng với nó.",
+      "author": "Charles R. Swindoll",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 10,
+      "content_en": "Happiness depends upon ourselves.",
+      "content_vi": "Hạnh phúc phụ thuộc vào chính bản thân chúng ta.",
+      "author": "Aristotle",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 11,
+      "content_en": "In the end, it's not the years in your life that count. It's the life in your years.",
+      "content_vi": "Cuối cùng, điều quan trọng không phải là số năm trong cuộc đời, mà là cuộc sống trong những năm đó.",
+      "author": "Abraham Lincoln",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 12,
+      "content_en": "The only impossible journey is the one you never begin.",
+      "content_vi": "Hành trình duy nhất không thể hoàn thành là hành trình bạn chưa bao giờ bắt đầu.",
+      "author": "Tony Robbins",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 13,
+      "content_en": "Good friends, good books, and a sleepy conscience: this is the ideal life.",
+      "content_vi": "Bạn tốt, sách hay và một lương tâm thanh thản: đó chính là cuộc sống lý tưởng.",
+      "author": "Mark Twain",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 14,
+      "content_en": "Keep smiling, because life is a beautiful thing and there’s so much to smile about.",
+      "content_vi": "Hãy luôn mỉm cười, vì cuộc sống là một điều tươi đẹp và có rất nhiều thứ để mỉm cười.",
+      "author": "Marilyn Monroe",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 15,
+      "content_en": "To live is the rarest thing in the world. Most people exist, that is all.",
+      "content_vi": "Sống là điều hiếm hoi nhất trên thế giới. Hầu hết mọi người chỉ tồn tại, vậy thôi.",
+      "author": "Oscar Wilde",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 16,
+      "content_en": "Life is really simple, but we insist on making it complicated.",
+      "content_vi": "Cuộc sống thực sự đơn giản, nhưng chúng ta luôn khăng khăng làm nó phức tạp lên.",
+      "author": "Confucius",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 17,
+      "content_en": "Live as if you were to die tomorrow. Learn as if you were to live forever.",
+      "content_vi": "Hãy sống như thể bạn sẽ chết vào ngày mai. Hãy học như thể bạn sẽ sống mãi mãi.",
+      "author": "Mahatma Gandhi",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 18,
+      "content_en": "A man who dares to waste one hour of time has not discovered the value of life.",
+      "content_vi": "Người dám lãng phí một giờ đồng hồ vẫn chưa khám phá ra giá trị của cuộc sống.",
+      "author": "Charles Darwin",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 19,
+      "content_en": "The greatest glory in living lies not in never falling, but in rising every time we fall.",
+      "content_vi": "Vinh quang lớn nhất của cuộc đời không nằm ở việc không bao giờ vấp ngã, mà ở việc đứng dậy mỗi khi vấp ngã.",
+      "author": "Nelson Mandela",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 20,
+      "content_en": "Life would be tragic if it weren't funny.",
+      "content_vi": "Cuộc sống sẽ thật bi thảm nếu nó không có những điều hài hước.",
+      "author": "Stephen Hawking",
+      "category": "Life & Self-Worth"
+    },
+    {
+      "id": 21,
+      "content_en": "It does not matter how slowly you go as long as you do not stop.",
+      "content_vi": "Không quan trọng bạn đi chậm thế nào, miễn là bạn không dừng lại.",
+      "author": "Confucius",
+      "category": "Resilience"
+    },
+    {
+      "id": 22,
+      "content_en": "Our greatest weakness lies in giving up.",
+      "content_vi": "Điểm yếu lớn nhất của chúng ta nằm ở việc bỏ cuộc.",
+      "author": "Thomas Edison",
+      "category": "Resilience"
+    },
+    {
+      "id": 23,
+      "content_en": "Difficulties in life are intended to make us better, not bitter.",
+      "content_vi": "Những khó khăn trong cuộc sống là để làm chúng ta tốt hơn, chứ không phải để làm chúng ta trở nên cay nghiệt.",
+      "author": "Dan Meyer",
+      "category": "Resilience"
+    },
+    {
+      "id": 24,
+      "content_en": "In the middle of every difficulty lies opportunity.",
+      "content_vi": "Trong trung tâm của mỗi khó khăn luôn ẩn chứa cơ hội.",
+      "author": "Albert Einstein",
+      "category": "Resilience"
+    },
+    {
+      "id": 25,
+      "content_en": "Courage is not the absence of fear, but rather the assessment that something else is more important than fear.",
+      "content_vi": "Can đảm không phải là không sợ hãi, mà là nhận ra rằng có thứ gì đó quan trọng hơn nỗi sợ.",
+      "author": "Franklin D. Roosevelt",
+      "category": "Resilience"
+    },
+    {
+      "id": 26,
+      "content_en": "Fall seven times, stand up eight.",
+      "content_vi": "Ngã bảy lần, đứng dậy tám lần.",
+      "author": "Japanese Proverb",
+      "category": "Resilience"
+    },
+    {
+      "id": 27,
+      "content_en": "The wound is the place where the Light enters you.",
+      "content_vi": "Vết thương là nơi ánh sáng đi vào tâm hồn bạn.",
+      "author": "Rumi",
+      "category": "Resilience"
+    },
+    {
+      "id": 28,
+      "content_en": "Hard times create strong men.",
+      "content_vi": "Thời kỳ khó khăn tạo nên những con người mạnh mẽ.",
+      "author": "Michael Hopf",
+      "category": "Resilience"
+    },
+    {
+      "id": 29,
+      "content_en": "Hardships often prepare ordinary people for an extraordinary destiny.",
+      "content_vi": "Gian nan thường chuẩn bị cho những người bình thường một số phận phi thường.",
+      "author": "C.S. Lewis",
+      "category": "Resilience"
+    },
+    {
+      "id": 30,
+      "content_en": "You never know how strong you are until being strong is the only choice you have.",
+      "content_vi": "Bạn sẽ không bao giờ biết mình mạnh mẽ thế nào cho đến khi mạnh mẽ là lựa chọn duy nhất của bạn.",
+      "author": "Bob Marley",
+      "category": "Resilience"
+    },
+    {
+      "id": 31,
+      "content_en": "Success is not final, failure is not fatal: it is the courage to continue that counts.",
+      "content_vi": "Thành công không phải là điểm dừng, thất bại không phải là hồi kết: lòng can đảm để tiếp tục mới là điều quan trọng.",
+      "author": "Winston Churchill",
+      "category": "Resilience"
+    },
+    {
+      "id": 32,
+      "content_en": "Don't let yesterday take up too much of today.",
+      "content_vi": "Đừng để ngày hôm qua chiếm quá nhiều thời gian của ngày hôm nay.",
+      "author": "Will Rogers",
+      "category": "Resilience"
+    },
+    {
+      "id": 33,
+      "content_en": "If you're going through hell, keep going.",
+      "content_vi": "Nếu bạn đang đi qua địa ngục, hãy tiếp tục đi.",
+      "author": "Winston Churchill",
+      "category": "Resilience"
+    },
+    {
+      "id": 34,
+      "content_en": "A problem is a chance for you to do your best.",
+      "content_vi": "Một vấn đề là cơ hội để bạn nỗ lực hết mình.",
+      "author": "Duke Ellington",
+      "category": "Resilience"
+    },
+    {
+      "id": 35,
+      "content_en": "Out of difficulties grow miracles.",
+      "content_vi": "Từ những khó khăn, những điều kỳ diệu sẽ nảy nở.",
+      "author": "Jean de la Bruyère",
+      "category": "Resilience"
+    },
+    {
+      "id": 36,
+      "content_en": "The human capacity for burden is like bamboo - far more flexible than you'd ever believe at first glance.",
+      "content_vi": "Khả năng chịu đựng của con người giống như cây tre – dẻo dai hơn nhiều so với những gì bạn thấy ở cái nhìn đầu tiên.",
+      "author": "Jodi Picoult",
+      "category": "Resilience"
+    },
+    {
+      "id": 37,
+      "content_en": "It always seems impossible until it's done.",
+      "content_vi": "Mọi thứ luôn có vẻ bất khả thi cho đến khi nó được hoàn thành.",
+      "author": "Nelson Mandela",
+      "category": "Resilience"
+    },
+    {
+      "id": 38,
+      "content_en": "Turn your wounds into wisdom.",
+      "content_vi": "Hãy biến những vết thương của bạn thành trí tuệ.",
+      "author": "Oprah Winfrey",
+      "category": "Resilience"
+    },
+    {
+      "id": 39,
+      "content_en": "He who has a why to live can bear almost any how.",
+      "content_vi": "Người nào có lý do để sống thì có thể chịu đựng được bất cứ cách sống nào.",
+      "author": "Friedrich Nietzsche",
+      "category": "Resilience"
+    },
+    {
+      "id": 40,
+      "content_en": "I can be changed by what happens to me. But I refuse to be reduced by it.",
+      "content_vi": "Tôi có thể bị thay đổi bởi những gì xảy ra với mình, nhưng tôi từ chối để nó làm mình yếu hèn đi.",
+      "author": "Maya Angelou",
+      "category": "Resilience"
+    },
+    {
+      "id": 41,
+      "content_en": "The best thing to hold onto in life is each other.",
+      "content_vi": "Điều tốt đẹp nhất để bám trụ trong cuộc đời là có nhau.",
+      "author": "Audrey Hepburn",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 42,
+      "content_en": "Where there is love there is life.",
+      "content_vi": "Nơi nào có tình yêu, nơi đó có sự sống.",
+      "author": "Mahatma Gandhi",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 43,
+      "content_en": "Love all, trust a few, do wrong to none.",
+      "content_vi": "Yêu mọi người, tin vài người và đừng làm hại bất kỳ ai.",
+      "author": "William Shakespeare",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 44,
+      "content_en": "The greatest healing therapy is friendship and love.",
+      "content_vi": "Liệu pháp chữa lành vĩ đại nhất là tình bạn và tình yêu.",
+      "author": "Hubert H. Humphrey",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 45,
+      "content_en": "Being deeply loved by someone gives you strength, while loving someone deeply gives you courage.",
+      "content_vi": "Được ai đó yêu sâu sắc mang lại cho bạn sức mạnh, yêu ai đó sâu sắc mang lại cho bạn sự can đảm.",
+      "author": "Lao Tzu",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 46,
+      "content_en": "A friend is someone who knows all about you and still loves you.",
+      "content_vi": "Bạn bè là người biết mọi thứ về bạn và vẫn yêu thương bạn.",
+      "author": "Elbert Hubbard",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 47,
+      "content_en": "To love and be loved is to feel the sun from both sides.",
+      "content_vi": "Yêu và được yêu là cảm nhận được ánh mặt trời từ cả hai phía.",
+      "author": "David Viscott",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 48,
+      "content_en": "Love is composed of a single soul inhabiting two bodies.",
+      "content_vi": "Tình yêu được tạo nên từ một linh hồn duy nhất cư ngụ trong hai cơ thể.",
+      "author": "Aristotle",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 49,
+      "content_en": "Kindness is the language which the deaf can hear and the blind can see.",
+      "content_vi": "Sự tử tế là ngôn ngữ mà người điếc có thể nghe và người mù có thể thấy.",
+      "author": "Mark Twain",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 50,
+      "content_en": "There is only one happiness in this life, to love and be loved.",
+      "content_vi": "Chỉ có một hạnh phúc trên đời, đó là yêu và được yêu.",
+      "author": "George Sand",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 51,
+      "content_en": "You don't love someone because they're perfect, you love them in spite of the fact that they're not.",
+      "content_vi": "Bạn không yêu ai đó vì họ hoàn hảo, bạn yêu họ bất chấp việc họ không như vậy.",
+      "author": "Jodi Picoult",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 52,
+      "content_en": "Let us always meet each other with smile, for the smile is the beginning of love.",
+      "content_vi": "Hãy luôn gặp nhau với nụ cười, vì nụ cười là sự bắt đầu của tình yêu.",
+      "author": "Mother Teresa",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 53,
+      "content_en": "The most important thing in the world is family and love.",
+      "content_vi": "Điều quan trọng nhất trên thế giới là gia đình và tình yêu.",
+      "author": "John Wooden",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 54,
+      "content_en": "A successful marriage requires falling in love many times, always with the same person.",
+      "content_vi": "Một cuộc hôn nhân thành công đòi hỏi phải yêu nhiều lần, và luôn là với cùng một người.",
+      "author": "Mignon McLaughlin",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 55,
+      "content_en": "Distance means so little when someone means so much.",
+      "content_vi": "Khoảng cách không là gì khi ai đó có ý nghĩa rất lớn đối với bạn.",
+      "author": "Unknown",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 56,
+      "content_en": "Love is not about how many days, months, or years you have been together. Love is about how much you love each other every single day.",
+      "content_vi": "Tình yêu không tính bằng ngày, tháng hay năm, mà tính bằng việc bạn yêu nhau nhiều thế nào mỗi ngày.",
+      "author": "Unknown",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 57,
+      "content_en": "We are most alive when we're in love.",
+      "content_vi": "Chúng ta sống rực rỡ nhất là khi đang yêu.",
+      "author": "John Updike",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 58,
+      "content_en": "The giving of love is an education in itself.",
+      "content_vi": "Việc trao đi tình yêu tự thân nó đã là một sự giáo dục.",
+      "author": "Eleanor Roosevelt",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 59,
+      "content_en": "Friends are the siblings God never gave us.",
+      "content_vi": "Bạn bè là những anh chị em mà Thượng đế chưa từng ban tặng cho ta.",
+      "author": "Mencius",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 60,
+      "content_en": "Love is the only force capable of transforming an enemy into a friend.",
+      "content_vi": "Tình yêu là sức mạnh duy nhất có khả năng biến kẻ thù thành bạn.",
+      "author": "Martin Luther King Jr.",
+      "category": "Love & Relationships"
+    },
+    {
+      "id": 61,
+      "content_en": "Family is not an important thing. It's everything.",
+      "content_vi": "Gia đình không phải là một điều quan trọng. Nó là tất cả mọi thứ.",
+      "author": "Michael J. Fox",
+      "category": "Family"
+    },
+    {
+      "id": 62,
+      "content_en": "The bond that links your true family is not one of blood, but of respect and joy in each other's life.",
+      "content_vi": "Mối liên kết thực sự trong gia đình không phải là máu mủ, mà là sự tôn trọng và niềm vui trong cuộc sống của nhau.",
+      "author": "Richard Bach",
+      "category": "Family"
+    },
+    {
+      "id": 63,
+      "content_en": "In family life, love is the oil that eases friction, the cement that binds closer together, and the music that brings harmony.",
+      "content_vi": "Trong đời sống gia đình, tình yêu là dầu bôi trơn ma sát, là xi măng gắn kết mọi người và là âm nhạc tạo nên sự hòa hợp.",
+      "author": "Friedrich Nietzsche",
+      "category": "Family"
+    },
+    {
+      "id": 64,
+      "content_en": "A happy family is but an earlier heaven.",
+      "content_vi": "Một gia đình hạnh phúc chẳng khác nào một thiên đường đến sớm.",
+      "author": "George Bernard Shaw",
+      "category": "Family"
+    },
+    {
+      "id": 65,
+      "content_en": "The strength of a nation derives from the integrity of the home.",
+      "content_vi": "Sức mạnh của một quốc gia bắt nguồn từ sự chính trực của mỗi mái ấm.",
+      "author": "Confucius",
+      "category": "Family"
+    },
+    {
+      "id": 66,
+      "content_en": "Family is the test of freedom; because the family is the only thing that the free man makes for himself and by himself.",
+      "content_vi": "Gia đình là bài kiểm tra của tự do; vì gia đình là thứ duy nhất mà một người tự do tạo ra cho chính mình và bởi chính mình.",
+      "author": "Gilbert K. Chesterton",
+      "category": "Family"
+    },
+    {
+      "id": 67,
+      "content_en": "Home is where you are loved the most and act the worst.",
+      "content_vi": "Nhà là nơi bạn được yêu thương nhất nhưng lại hành xử tệ nhất.",
+      "author": "Marjorie Pay Hinckley",
+      "category": "Family"
+    },
+    {
+      "id": 68,
+      "content_en": "Children are the keys of paradise.",
+      "content_vi": "Trẻ em là những chiếc chìa khóa của thiên đường.",
+      "author": "Eric Hoffer",
+      "category": "Family"
+    },
+    {
+      "id": 69,
+      "content_en": "What can you do to promote world peace? Go home and love your family.",
+      "content_vi": "Bạn có thể làm gì để thúc đẩy hòa bình thế giới? Hãy về nhà và yêu thương gia đình mình.",
+      "author": "Mother Teresa",
+      "category": "Family"
+    },
+    {
+      "id": 70,
+      "content_en": "A house is made of bricks and beams. A home is made of hopes and dreams.",
+      "content_vi": "Một ngôi nhà được xây bằng gạch và xà gỗ. Một mái ấm được xây bằng hy vọng và những giấc mơ.",
+      "author": "Unknown",
+      "category": "Family"
+    },
+    {
+      "id": 71,
+      "content_en": "Other things may change us, but we start and end with the family.",
+      "content_vi": "Những thứ khác có thể thay đổi chúng ta, nhưng chúng ta bắt đầu và kết thúc với gia đình.",
+      "author": "Anthony Brandt",
+      "category": "Family"
+    },
+    {
+      "id": 72,
+      "content_en": "The informality of family life is a blessed condition that allows us all to become our best while looking our worst.",
+      "content_vi": "Sự gần gũi trong gia đình là một điều phước lành cho phép chúng ta trở nên tốt nhất trong khi trông có vẻ tệ nhất.",
+      "author": "Marge Kennedy",
+      "category": "Family"
+    },
+    {
+      "id": 73,
+      "content_en": "A man travels the world over in search of what he needs and returns home to find it.",
+      "content_vi": "Một người đi khắp thế gian để tìm thứ họ cần và trở về nhà để tìm thấy nó.",
+      "author": "George Moore",
+      "category": "Family"
+    },
+    {
+      "id": 74,
+      "content_en": "Family means no one gets left behind or forgotten.",
+      "content_vi": "Gia đình có nghĩa là không ai bị bỏ lại phía sau hay bị lãng quên.",
+      "author": "David Ogden Stiers",
+      "category": "Family"
+    },
+    {
+      "id": 75,
+      "content_en": "Rejoice with your family in the beautiful land of life.",
+      "content_vi": "Hãy vui vầy cùng gia đình trong vùng đất tươi đẹp của cuộc sống.",
+      "author": "Albert Einstein",
+      "category": "Family"
+    },
+    {
+      "id": 76,
+      "content_en": "There is no doubt that it is around the family and the home that all the greatest virtues... are created, strengthened and maintained.",
+      "content_vi": "Không nghi ngờ gì khi gia đình và mái ấm là nơi những đức hạnh vĩ đại nhất được tạo ra, củng cố và duy trì.",
+      "author": "Winston Churchill",
+      "category": "Family"
+    },
+    {
+      "id": 77,
+      "content_en": "Home is people. Not a place.",
+      "content_vi": "Nhà là con người. Không phải là một địa điểm.",
+      "author": "Robin Hobb",
+      "category": "Family"
+    },
+    {
+      "id": 78,
+      "content_en": "The memories we make with our family is everything.",
+      "content_vi": "Những ký ức chúng ta tạo ra cùng gia đình là tất cả mọi thứ.",
+      "author": "Candace Cameron Bure",
+      "category": "Family"
+    },
+    {
+      "id": 79,
+      "content_en": "Being a family means you are a part of something very wonderful. It means you will love and be loved for the rest of your life.",
+      "content_vi": "Là một gia đình nghĩa là bạn là một phần của điều gì đó rất tuyệt vời. Nó nghĩa là bạn sẽ yêu và được yêu cho đến cuối đời.",
+      "author": "Lisa Weed",
+      "category": "Family"
+    },
+    {
+      "id": 80,
+      "content_en": "Parents are like God because you wanna know they're out there, and you want them to think well of you, but you really only call when you need something.",
+      "content_vi": "Cha mẹ giống như Thượng đế bởi bạn muốn biết họ luôn ở đó, bạn muốn họ nghĩ tốt về bạn, nhưng bạn thực sự chỉ gọi khi cần điều gì đó.",
+      "author": "Chuck Palahniuk",
+      "category": "Family"
+    },
+    {
+      "id": 81,
+      "content_en": "The only true wisdom is in knowing you know nothing.",
+      "content_vi": "Trí tuệ thực sự duy nhất là biết rằng bạn không biết gì cả.",
+      "author": "Socrates",
+      "category": "Philosophy"
+    },
+    {
+      "id": 82,
+      "content_en": "To be, or not to be, that is the question.",
+      "content_vi": "Tồn tại hay không tồn tại, đó là vấn đề.",
+      "author": "William Shakespeare",
+      "category": "Philosophy"
+    },
+    {
+      "id": 83,
+      "content_en": "He who has a thousand friends has not a friend to spare, And he who has one enemy will meet him everywhere.",
+      "content_vi": "Người có ngàn bạn cũng không thấy thừa, người có một kẻ thù sẽ gặp hắn ở mọi nơi.",
+      "author": "Ali ibn Abi Talib",
+      "category": "Philosophy"
+    },
+    {
+      "id": 84,
+      "content_en": "We are what we repeatedly do. Excellence, then, is not an act, but a habit.",
+      "content_vi": "Chúng ta là những gì chúng ta lặp lại. Sự xuất sắc, vì thế, không phải là một hành động mà là một thói quen.",
+      "author": "Aristotle",
+      "category": "Philosophy"
+    },
+    {
+      "id": 85,
+      "content_en": "Man is condemned to be free; because once thrown into the world, he is responsible for everything he does.",
+      "content_vi": "Con người bị kết án phải tự do; vì một khi bị ném vào thế giới, anh ta phải chịu trách nhiệm cho mọi việc mình làm.",
+      "author": "Jean-Paul Sartre",
+      "category": "Philosophy"
+    },
+    {
+      "id": 86,
+      "content_en": "Life is a tragedy when seen in close-up, but a comedy in long-shot.",
+      "content_vi": "Cuộc đời là một bi kịch khi nhìn gần, nhưng là một hài kịch khi nhìn xa.",
+      "author": "Charlie Chaplin",
+      "category": "Philosophy"
+    },
+    {
+      "id": 87,
+      "content_en": "An unexamined life is not worth living.",
+      "content_vi": "Một cuộc đời không được xem xét thì không đáng sống.",
+      "author": "Socrates",
+      "category": "Philosophy"
+    },
+    {
+      "id": 88,
+      "content_en": "Change is the only constant in life.",
+      "content_vi": "Sự thay đổi là điều duy nhất không đổi trong cuộc sống.",
+      "author": "Heraclitus",
+      "category": "Philosophy"
+    },
+    {
+      "id": 89,
+      "content_en": "I think, therefore I am.",
+      "content_vi": "Tôi tư duy, nên tôi tồn tại.",
+      "author": "René Descartes",
+      "category": "Philosophy"
+    },
+    {
+      "id": 90,
+      "content_en": "Peace comes from within. Do not seek it without.",
+      "content_vi": "Bình yên đến từ bên trong. Đừng tìm nó bên ngoài.",
+      "author": "Buddha",
+      "category": "Philosophy"
+    },
+    {
+      "id": 91,
+      "content_en": "The mind is everything. What you think you become.",
+      "content_vi": "Tâm trí là tất cả. Bạn nghĩ gì, bạn trở thành cái đó.",
+      "author": "Buddha",
+      "category": "Philosophy"
+    },
+    {
+      "id": 92,
+      "content_en": "Thousands of candles can be lighted from a single candle, and the life of the candle will not be shortened.",
+      "content_vi": "Hàng ngàn ngọn nến có thể được thắp sáng từ một ngọn nến duy nhất, và tuổi thọ của ngọn nến đó sẽ không bị rút ngắn lại.",
+      "author": "Buddha",
+      "category": "Philosophy"
+    },
+    {
+      "id": 93,
+      "content_en": "You only live once, but if you do it right, once is enough.",
+      "content_vi": "Bạn chỉ sống một lần, nhưng nếu sống đúng, một lần là đủ.",
+      "author": "Mae West",
+      "category": "Philosophy"
+    },
+    {
+      "id": 94,
+      "content_en": "In three words I can sum up everything I've learned about life: it goes on.",
+      "content_vi": "Trong ba chữ, tôi có thể tóm tắt mọi thứ tôi học được về cuộc đời: nó vẫn tiếp diễn.",
+      "author": "Robert Frost",
+      "category": "Philosophy"
+    },
+    {
+      "id": 95,
+      "content_en": "If you want to live a happy life, tie it to a goal, not to people or things.",
+      "content_vi": "Nếu bạn muốn sống một cuộc đời hạnh phúc, hãy gắn nó với một mục tiêu, chứ không phải với con người hay sự vật.",
+      "author": "Albert Einstein",
+      "category": "Philosophy"
+    },
+    {
+      "id": 96,
+      "content_en": "The mystery of life is not a problem to be solved, but a reality to be experienced.",
+      "content_vi": "Bí ẩn của cuộc đời không phải là một vấn đề để giải quyết, mà là một thực tại để trải nghiệm.",
+      "author": "Soren Kierkegaard",
+      "category": "Philosophy"
+    },
+    {
+      "id": 97,
+      "content_en": "What we think, we become.",
+      "content_vi": "Chúng ta nghĩ gì, chúng ta trở thành thế ấy.",
+      "author": "Margaret Thatcher",
+      "category": "Philosophy"
+    },
+    {
+      "id": 98,
+      "content_en": "A man is but the product of his thoughts what he thinks, he becomes.",
+      "content_vi": "Con người chỉ là sản phẩm của tư duy, anh ta nghĩ gì, anh ta trở thành thế đó.",
+      "author": "Mahatma Gandhi",
+      "category": "Philosophy"
+    },
+    {
+      "id": 99,
+      "content_en": "Without music, life would be a mistake.",
+      "content_vi": "Nếu không có âm nhạc, cuộc đời sẽ là một sai lầm.",
+      "author": "Friedrich Nietzsche",
+      "category": "Philosophy"
+    },
+    {
+      "id": 100,
+      "content_en": "The best way to predict the future is to create it.",
+      "content_vi": "Cách tốt nhất để dự đoán tương lai là tạo ra nó.",
+      "author": "Abraham Lincoln",
+      "category": "Philosophy"
+    }
+  ]
+}
