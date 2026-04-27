@@ -30,27 +30,24 @@ def _trusted_origins(raw: str) -> set[str]:
     return {item.strip().rstrip("/").lower() for item in raw.split(",") if item.strip()}
 
 
-def _is_loopback_origin(origin: str | None) -> bool:
-    if not origin:
-        return False
-    parsed = urlparse(origin)
-    host = parsed.hostname
-    if not host:
-        return False
-    if host == "localhost":
-        return True
-    try:
-        return ipaddress.ip_address(host).is_loopback
-    except ValueError:
-        return False
-
-
 def _is_origin_allowed(request_origin: str, trusted_origins: set[str]) -> bool:
+    """Allow exact origin, or loopback host with any local dev port."""
     if request_origin in trusted_origins:
         return True
-    # Dev-friendly fallback: allow loopback origins across local ports
-    # (e.g. frontend auto-switches 5173 -> 5174 while backend keeps 5173 in env).
-    return _is_loopback_origin(request_origin) and any(_is_loopback_origin(item) for item in trusted_origins)
+
+    parsed_request = urlparse(request_origin)
+    request_host = (parsed_request.hostname or "").lower()
+    request_scheme = parsed_request.scheme.lower()
+    if request_host not in {"localhost", "127.0.0.1", "::1"}:
+        return False
+
+    for trusted in trusted_origins:
+        parsed_trusted = urlparse(trusted)
+        trusted_host = (parsed_trusted.hostname or "").lower()
+        trusted_scheme = parsed_trusted.scheme.lower()
+        if trusted_host in {"localhost", "127.0.0.1", "::1"} and trusted_scheme == request_scheme:
+            return True
+    return False
 
 
 def require_csrf(

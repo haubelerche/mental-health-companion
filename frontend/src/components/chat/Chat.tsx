@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentProps } from 'react'
-import { History, Leaf, MoreVertical } from 'lucide-react'
+import { History, MoreVertical } from 'lucide-react'
+import { TypingIndicator } from './TypingIndicator'
+import { DateDivider } from './DateDivider'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { resolveMediaUrl } from '../../api/httpClient'
@@ -77,6 +79,7 @@ type UiMessage = {
     id: string
     role: 'user' | 'assistant'
     content: string
+    timestamp?: number
     apiData?: ChatApiData
 }
 
@@ -108,15 +111,13 @@ function RoutingBadge({ history }: { history?: string[] }) {
     }
     return (
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
-            <span className="text-[10px] font-medium text-serene-muted">Luồng:</span>
+            <span className="text-[10px] font-medium text-serene-muted/60">Luồng:</span>
             {history.map((node, i) => (
                 <span key={i} className="flex items-center gap-0.5">
-                    <span
-                        className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-medium capitalize ${nodeColors[node] ?? 'bg-gray-100 text-gray-600'}`}
-                    >
+                    <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-medium capitalize ${nodeColors[node] ?? 'bg-gray-100 text-gray-600'}`}>
                         {node}
                     </span>
-                    {i < history.length - 1 && <span className="text-[10px] text-serene-muted/50">→</span>}
+                    {i < history.length - 1 && <span className="text-[10px] text-serene-muted/30">→</span>}
                 </span>
             ))}
         </div>
@@ -129,11 +130,11 @@ function DistressBar({ score }: { score?: number }) {
     const color = pct < 35 ? 'bg-emerald-400' : pct < 55 ? 'bg-yellow-400' : pct < 80 ? 'bg-orange-400' : 'bg-red-500'
     return (
         <div className="mt-1 flex items-center gap-2">
-            <span className="text-[10px] text-serene-muted">Distress</span>
-            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-200">
+            <span className="text-[10px] text-serene-muted/60">Distress</span>
+            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-serene-outline/30">
                 <div className={`h-full transition-all ${color}`} style={{ width: `${pct}%` }} />
             </div>
-            <span className="font-mono text-[10px] text-serene-muted">{score.toFixed(2)}</span>
+            <span className="font-mono text-[10px] text-serene-muted/60">{score.toFixed(2)}</span>
         </div>
     )
 }
@@ -147,13 +148,13 @@ function QuickReplies({ replies, onSelect }: { replies?: QuickReply[]; onSelect:
     const normalizedReplies = (replies ?? []).map(quickReplyText).filter(Boolean)
     if (!normalizedReplies.length) return null
     return (
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-2 flex flex-wrap gap-2">
             {normalizedReplies.map((q, i) => (
                 <button
                     key={i}
                     type="button"
                     onClick={() => onSelect(q)}
-                    className="rounded-full border border-serene-primary/40 bg-white px-3 py-1 text-xs text-serene-primary transition-colors hover:bg-serene-primary hover:text-white"
+                    className="rounded-full border border-serene-outline/40 bg-white/60 px-3 py-1.5 text-xs text-serene-ink transition hover:bg-serene-accent/40 active:scale-95"
                 >
                     {q}
                 </button>
@@ -177,18 +178,16 @@ function AttachmentCard({ item, onOpen }: { item: TheDinhKem; onOpen: (item: The
         <button
             type="button"
             onClick={() => onOpen(item)}
-            className="mt-2 grid max-w-sm grid-cols-[44px_1fr_auto] items-center gap-3 rounded-2xl border border-serene-primary/15 bg-[#f5f1e8]/90 px-3 py-3 text-left shadow-[0_14px_34px_rgba(47,52,46,0.09)] transition hover:-translate-y-0.5 hover:bg-white"
+            className="mt-2 grid max-w-sm grid-cols-[40px_1fr_auto] items-center gap-3 rounded-2xl border border-serene-outline/30 bg-white/60 px-3 py-2.5 text-left transition hover:bg-serene-accent/30"
         >
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-serene-accent text-lg">
-                {icons[item.type] ?? '📎'}
-            </span>
+            <span className="flex h-10 w-10 items-center justify-center text-lg">{icons[item.type] ?? '📎'}</span>
             <div>
                 <p className="text-xs font-semibold text-serene-ink">{item.title}</p>
-                <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-serene-muted">
+                <p className="mt-0.5 line-clamp-2 text-[10px] leading-relaxed text-serene-muted">
                     {item.description || duration}
                 </p>
             </div>
-            <span className="rounded-full bg-serene-primary px-3 py-1 text-[10px] font-semibold text-white">
+            <span className="rounded-full bg-serene-primary/10 px-2 py-1 text-[10px] font-medium text-serene-primary">
                 Mở
             </span>
         </button>
@@ -198,98 +197,54 @@ function AttachmentCard({ item, onOpen }: { item: TheDinhKem; onOpen: (item: The
 function CrisisPanel({ data }: { data: ChatApiData }) {
     if (!data.sos_triggered) return null
     return (
-        <div className="mt-3 space-y-2.5 rounded-2xl border border-red-200 bg-red-50/90 p-4">
-            {/* Header */}
+        <div className="mt-3 space-y-2.5 rounded-2xl border-2 border-red-300 bg-red-50/90 p-4">
             <div className="flex items-center gap-2">
                 <span className="text-xl">🆘</span>
                 <div>
-                    <p className="text-sm font-semibold text-red-800">Chế độ hỗ trợ khủng hoảng</p>
-                    <p className="text-[10px] text-red-500">
+                    <p className="text-xs font-semibold text-red-700">CHẾ ĐỘ HỖ TRỢ KHỦNG HOẢNG</p>
+                    <p className="text-[10px] text-red-500/70">
                         risk_level: {data.risk_level ?? '—'} · tier: {data.safety_tier}
                     </p>
                 </div>
             </div>
-
-            {/* Assistant strategy flags */}
             {data.assistant_strategy && (
                 <div className="flex flex-wrap gap-1.5">
                     {data.assistant_strategy.keep_engaged && (
-                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-800">
+                        <span className="rounded-full border border-green-300 bg-green-50 px-2 py-0.5 text-[10px] text-green-700">
                             ✓ Giữ kết nối
                         </span>
                     )}
                     {data.assistant_strategy.encourage_external_help && (
-                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-800">
+                        <span className="rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[10px] text-blue-700">
                             ✓ Gợi hỗ trợ ngoài
                         </span>
                     )}
-                    {data.assistant_strategy.avoid_hard_stop && (
-                        <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-800">
-                            ✓ Dual-focus UI
-                        </span>
-                    )}
                 </div>
             )}
-
-            {/* Micro actions */}
             {data.micro_actions?.length ? (
-                <div>
-                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-red-700">
-                        Hành động nhỏ ngay bây giờ
-                    </p>
-                    <div className="space-y-1.5">
-                        {data.micro_actions.map((a, i) => (
-                            <div key={i} className="flex items-start gap-2 rounded-lg bg-white/70 px-3 py-2">
-                                <span className="text-sm">{a.type === 'breathing' ? '🌬️' : '👁️'}</span>
-                                <span className="text-xs text-serene-ink">{a.label}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            ) : null}
-
-            {/* Hotline cards */}
-            {data.hotline_cards?.length ? (
-                <div>
-                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-red-700">
-                        Đường dây hỗ trợ
-                    </p>
-                    <div className="space-y-1.5">
-                        {data.hotline_cards.map((h, i) => (
-                            <a
-                                key={i}
-                                href={`tel:${h.phone.replace(/\s/g, '')}`}
-                                className="flex items-center justify-between rounded-lg bg-white/80 px-3 py-2 transition-colors hover:bg-red-50"
-                            >
-                                <span className="text-xs text-serene-ink">{h.label}</span>
-                                <span className="font-bold text-red-600">{h.phone}</span>
-                            </a>
-                        ))}
-                    </div>
-                </div>
-            ) : null}
-
-            {/* Referral options */}
-            {data.referral_options?.length ? (
-                <div className="flex flex-wrap gap-1.5">
-                    {data.referral_options.map((r, i) => (
-                        <span
-                            key={i}
-                            className="rounded-full border border-red-200 bg-white/80 px-2 py-0.5 text-[10px] text-red-700"
-                        >
-                            {r.type === 'counselor'
-                                ? '👨‍⚕️ Tư vấn viên'
-                                : r.type === 'trusted_contact'
-                                    ? '🤝 Người tin cậy'
-                                    : r.type}
-                        </span>
+                <div className="space-y-1.5">
+                    {data.micro_actions.map((a, i) => (
+                        <div key={i} className="flex items-start gap-2 rounded-xl border border-red-200 bg-white/60 px-3 py-2">
+                            <span className="text-sm">{a.type === 'breathing' ? '🌬️' : '👁️'}</span>
+                            <span className="text-xs text-red-700">{a.label}</span>
+                        </div>
                     ))}
                 </div>
             ) : null}
-
-            {data.followup_priority && (
-                <p className="text-[10px] font-medium text-red-600">⚑ Cần theo dõi ưu tiên</p>
-            )}
+            {data.hotline_cards?.length ? (
+                <div className="space-y-1.5">
+                    {data.hotline_cards.map((h, i) => (
+                        <a
+                            key={i}
+                            href={`tel:${h.phone.replace(/\s/g, '')}`}
+                            className="flex items-center justify-between rounded-xl border border-red-200 bg-white/70 px-3 py-2 transition hover:bg-red-50"
+                        >
+                            <span className="text-xs text-red-700">{h.label}</span>
+                            <span className="font-bold text-red-600">{h.phone}</span>
+                        </a>
+                    ))}
+                </div>
+            ) : null}
         </div>
     )
 }
@@ -468,7 +423,6 @@ export default function Chat() {
             }
             return
         }
-        // Adaptive backoff: fast checks when job is fresh, slower as it ages.
         const delay = attempts < 3 ? 400 : attempts < 6 ? 800 : 1500
         pollRef.current = window.setTimeout(() => {
             void pollVoiceJob(ttsJobId, fallbackScript, attempts + 1)
@@ -480,10 +434,6 @@ export default function Chat() {
         if (intervention?.type !== 'proactive_voice') return
         if (intervention.copy_ngan) {
             setMessages((prev) => [...prev, { id: `i_${Date.now()}`, role: 'assistant', content: intervention.copy_ngan ?? '' }])
-        }
-        if (Array.isArray(intervention.next_actions) && intervention.next_actions.length > 0) {
-            const labels = intervention.next_actions.map((a) => `• ${a.label}`).join('\n')
-            setMessages((prev) => [...prev, { id: `na_${Date.now()}`, role: 'assistant', content: `Gợi ý tiếp theo:\n${labels}` }])
         }
         const ttsJobId = intervention.voice?.tts_job_id
         const audioUrl = intervention.voice?.audio_url
@@ -564,12 +514,7 @@ export default function Chat() {
         setMessages((prev) =>
             prev.map((m) =>
                 m.id === pendingId
-                    ? {
-                        id: `a_${Date.now()}`,
-                        role: 'assistant',
-                        content: assistantText,
-                        apiData: finalData ?? undefined,
-                    }
+                    ? { id: `a_${Date.now()}`, role: 'assistant', content: assistantText, apiData: finalData ?? undefined }
                     : m,
             ),
         )
@@ -589,8 +534,8 @@ export default function Chat() {
         setLastFailedText(null)
         setMessages((prev) => [
             ...prev,
-            { id: `u_${now}`, role: 'user', content: text },
-            { id: pendingId, role: 'assistant', content: 'Mây đang lắng nghe và viết lại thật cẩn thận cho bạn...' },
+            { id: `u_${now}`, role: 'user', content: text, timestamp: now },
+            { id: pendingId, role: 'assistant', content: 'Mây đang lắng nghe và viết lại thật cẩn thận cho bạn...', timestamp: now },
         ])
         setSending(true)
 
@@ -601,9 +546,7 @@ export default function Chat() {
                     await consumeChatSse(streamResponse, pendingId)
                 } catch (err) {
                     const status = err instanceof ApiRequestError ? (err.status ?? 0) : 0
-                    if (!(err instanceof ApiRequestError) || status < 500) {
-                        throw err
-                    }
+                    if (!(err instanceof ApiRequestError) || status < 500) throw err
                     const rawData = await chatService.sendMessage({ message: text, session_id: sessionId })
                     const data = rawData as ChatApiData
                     const sid = typeof data.session_id === 'string' ? data.session_id : null
@@ -617,12 +560,7 @@ export default function Chat() {
                     setMessages((prev) =>
                         prev.map((m) =>
                             m.id === pendingId
-                                ? {
-                                    id: `a_${Date.now()}`,
-                                    role: 'assistant',
-                                    content: assistantText,
-                                    apiData: data,
-                                }
+                                ? { id: `a_${Date.now()}`, role: 'assistant', content: assistantText, apiData: data }
                                 : m,
                         ),
                     )
@@ -647,12 +585,7 @@ export default function Chat() {
                 setMessages((prev) =>
                     prev.map((m) =>
                         m.id === pendingId
-                            ? {
-                                id: `a_${Date.now()}`,
-                                role: 'assistant',
-                                content: assistantText,
-                                apiData: data,
-                            }
+                            ? { id: `a_${Date.now()}`, role: 'assistant', content: assistantText, apiData: data }
                             : m,
                     ),
                 )
@@ -673,11 +606,7 @@ export default function Chat() {
             setMessages((prev) =>
                 prev.map((m) =>
                     m.id === pendingId
-                        ? {
-                            id: `e_${Date.now()}`,
-                            role: 'assistant',
-                            content: 'Mình bị gián đoạn một chút, bạn thử lại giúp mình nhé.',
-                        }
+                        ? { id: `e_${Date.now()}`, role: 'assistant', content: 'Mình bị gián đoạn một chút, bạn thử lại giúp mình nhé.' }
                         : m,
                 ),
             )
@@ -697,9 +626,7 @@ export default function Chat() {
 
     const openHistory = async () => {
         setShowHistory((prev) => !prev)
-        if (!showHistory) {
-            await loadHistory()
-        }
+        if (!showHistory) await loadHistory()
     }
 
     const loadSessionMessages = async (targetSessionId: string) => {
@@ -707,13 +634,7 @@ export default function Chat() {
         try {
             const data = await chatService.getSessionMessages(targetSessionId, 100, 0)
             setSessionId(targetSessionId)
-            setMessages(
-                data.messages.map((msg) => ({
-                    id: msg.message_id,
-                    role: msg.role,
-                    content: msg.content,
-                })),
-            )
+            setMessages(data.messages.map((msg) => ({ id: msg.message_id, role: msg.role, content: msg.content })))
             setShowHistory(false)
         } catch (err) {
             toast.error(err instanceof Error ? err.message : 'Không tải được lịch sử hội thoại')
@@ -744,18 +665,9 @@ export default function Chat() {
     }
 
     const openAttachment = (item: TheDinhKem) => {
-        if (item.route) {
-            navigate(item.route)
-            return
-        }
-        if (item.action === 'open_connect_map' || item.type === 'clinic_map') {
-            navigate(ROUTE_PATHS.connect)
-            return
-        }
-        if (item.action === 'open_resource' || item.type === 'resource') {
-            navigate(ROUTE_PATHS.resources)
-            return
-        }
+        if (item.route) { navigate(item.route); return }
+        if (item.action === 'open_connect_map' || item.type === 'clinic_map') { navigate(ROUTE_PATHS.connect); return }
+        if (item.action === 'open_resource' || item.type === 'resource') { navigate(ROUTE_PATHS.resources); return }
         if (item.type.includes('exercise') || item.type === 'body_scan') {
             navigate(`${ROUTE_PATHS.exercises}?exercise=${encodeURIComponent(item.id)}`)
             return
@@ -763,74 +675,73 @@ export default function Chat() {
         navigate(ROUTE_PATHS.resources)
     }
 
-    // Latest assistant message data for header stats
+    // Derived display values
     const lastData = [...messages].reverse().find((m) => m.role === 'assistant' && m.apiData)?.apiData
-
     const modeLabel =
         lastData?.conversation_mode === 'de_escalation'
-            ? { text: '🆘 Khủng hoảng', cls: 'bg-red-100 text-red-700' }
+            ? { text: '🆘 Khủng hoảng', cls: 'text-red-700 border-red-300 bg-red-50' }
             : lastData?.conversation_mode === 'supportive'
-                ? { text: '🤗 Hỗ trợ', cls: 'bg-amber-100 text-amber-700' }
+                ? { text: '🤗 Hỗ trợ', cls: 'text-amber-700 border-amber-300 bg-amber-50' }
                 : null
 
+    // ─── Render ────────────────────────────────────────────────────────────────
     return (
-        <section className="space-y-4 max-w-4xl relative z-10 px-4 py-6 mx-auto">
-            {/* ── Header ─────────────────────────────────────────────────── */}
-            <div className="rounded-3xl border border-white/35 bg-white/60 p-5 backdrop-blur-xl">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+        <>
+            <div className="flex h-[calc(100svh-6rem)] flex-col overflow-hidden rounded-[28px] border border-white/35 bg-white/35 backdrop-blur-xl lg:h-[calc(100svh-4rem)]">
+
+                {/* ── Header ───────────────────────────────────────────── */}
+                <div className="flex shrink-0 items-center justify-between border-b border-serene-outline/20 px-5 py-3">
                     <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-serene-accent/70 text-serene-primary">
-                            <Leaf className="h-5 w-5" />
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-serene-primary/10 text-lg">
+                            🌿
                         </div>
                         <div>
-                            <h2 className="font-display text-3xl text-serene-ink">Serene</h2>
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-600">
-                                ● Đang lắng nghe
-                            </p>
+                            <p className="text-sm font-semibold text-serene-ink">Serene</p>
+                            <p className="text-[11px] text-serene-muted">Luôn ở đây cùng bạn</p>
                         </div>
-                        {modeLabel && (
-                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${modeLabel.cls}`}>
-                                {modeLabel.text}
+                    </div>
+
+                    <div className="flex items-center gap-2" ref={optionsRef}>
+                        {voiceStatus && (
+                            <span className="rounded-full bg-serene-surface px-2.5 py-1 text-[10px] text-serene-muted">
+                                {voiceStatus}
                             </span>
                         )}
-                    </div>
-                    <div className="flex items-center gap-2" ref={optionsRef}>
                         {isGuestMode && (
-                            <span className="rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-                                Chat thử còn {guestCountdownLabel}
+                            <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[10px] font-medium text-amber-700">
+                                {guestCountdownLabel}
+                            </span>
+                        )}
+                        {modeLabel && (
+                            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-medium ${modeLabel.cls}`}>
+                                {modeLabel.text}
                             </span>
                         )}
                         <button
                             type="button"
                             onClick={() => void openHistory()}
-                            className="rounded-full p-2 text-serene-ink/70 transition hover:bg-serene-ink/10"
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-serene-muted transition hover:bg-serene-surface hover:text-serene-ink"
                             aria-label="Lịch sử chat"
                         >
-                            <History className="h-5 w-5" />
+                            <History className="h-4 w-4" />
                         </button>
-
                         <div className="relative">
                             <button
                                 type="button"
                                 onClick={() => setShowOptions((prev) => !prev)}
-                                className="rounded-full p-2 text-serene-ink/70 transition hover:bg-serene-ink/10"
+                                className="flex h-8 w-8 items-center justify-center rounded-full text-serene-muted transition hover:bg-serene-surface hover:text-serene-ink"
                                 aria-label="Tùy chọn"
-                                role='menu'
-                                aria-haspopup="true"
-                                aria-expanded={showOptions}
                             >
-                                <MoreVertical className="h-5 w-5" />
+                                <MoreVertical className="h-4 w-4" />
                             </button>
-
                             {showOptions && (
-                                <div className="absolute right-0 top-11 z-20 w-72 rounded-2xl border border-white/40 bg-white/95 p-3 shadow-xl backdrop-blur-xl">
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between rounded-xl border border-serene-outline/25 bg-white px-3 py-2.5">
+                                <div className="absolute right-0 top-10 z-50 w-72 rounded-2xl border border-serene-outline/30 bg-white/95 p-3 shadow-xl backdrop-blur-xl">
+                                    <p className="mb-3 text-[10px] uppercase tracking-[0.22em] text-serene-muted">Tùy chọn</p>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between rounded-xl border border-serene-outline/20 bg-serene-surface/50 px-3 py-2.5">
                                             <div>
                                                 <p className="text-sm font-semibold text-serene-ink">Voice hỗ trợ</p>
-                                                <p className="text-[11px] text-serene-muted">
-                                                    Gợi ý giọng nói chủ động khi cần
-                                                </p>
+                                                <p className="mt-0.5 text-[11px] text-serene-muted">Gợi ý giọng nói chủ động khi cần</p>
                                             </div>
                                             <Switch
                                                 checked={voiceConsent}
@@ -839,19 +750,12 @@ export default function Chat() {
                                                 aria-label="Voice hỗ trợ"
                                             />
                                         </div>
-
-                                        <div className="flex items-center justify-between rounded-xl border border-serene-outline/25 bg-white px-3 py-2.5">
+                                        <div className="flex items-center justify-between rounded-xl border border-serene-outline/20 bg-serene-surface/50 px-3 py-2.5">
                                             <div>
-                                                <p className="text-sm font-semibold text-serene-ink">Hiển thị debug</p>
-                                                <p className="text-[11px] text-serene-muted">
-                                                    Distress, routing, safety badge
-                                                </p>
+                                                <p className="text-sm font-semibold text-serene-ink">Debug info</p>
+                                                <p className="mt-0.5 text-[11px] text-serene-muted">Distress · routing · safety</p>
                                             </div>
-                                            <Switch
-                                                checked={showDebug}
-                                                onCheckedChange={setShowDebug}
-                                                aria-label="Hiển thị debug"
-                                            />
+                                            <Switch checked={showDebug} onCheckedChange={setShowDebug} aria-label="Debug" />
                                         </div>
                                     </div>
                                 </div>
@@ -859,150 +763,150 @@ export default function Chat() {
                         </div>
                     </div>
                 </div>
-                {voiceStatus ? <p className="mt-2 text-xs text-serene-muted">{voiceStatus}</p> : null}
 
-                {/* Session-level debug stats */}
-                {showDebug && lastData && (
-                    <div className="mt-3 rounded-xl bg-serene-ink/5 px-3 py-2">
-                        <DistressBar score={lastData.distress_score} />
-                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                            <SafetyBadge tier={lastData.safety_tier} />
-                            {lastData.tone_cam_xuc && (
-                                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">
-                                    tone: {lastData.tone_cam_xuc}
-                                </span>
-                            )}
-                            {lastData.agent_display_name && (
-                                <span className="rounded-full bg-serene-primary/10 px-2 py-0.5 text-[10px] font-medium text-serene-primary">
-                                    {lastData.agent_display_name}
-                                </span>
+                {/* ── History panel ─────────────────────────────────────── */}
+                {showHistory && (
+                    <div className="shrink-0 border-b border-serene-outline/20 bg-serene-surface/60 px-4 py-3">
+                        <div className="mb-2 flex items-center justify-between">
+                            <p className="text-xs font-semibold text-serene-ink">Lịch sử hội thoại</p>
+                            <button
+                                type="button"
+                                onClick={() => setShowHistory(false)}
+                                className="text-xs text-serene-muted transition hover:text-serene-ink"
+                            >
+                                Đóng
+                            </button>
+                        </div>
+                        <div className="max-h-40 space-y-1.5 overflow-y-auto">
+                            {sessions.length === 0 ? (
+                                <p className="py-2 text-xs text-serene-muted/60">Chưa có phiên nào.</p>
+                            ) : (
+                                sessions.map((sess) => (
+                                    <button
+                                        key={sess.session_id}
+                                        type="button"
+                                        onClick={() => void loadSessionMessages(sess.session_id)}
+                                        className="w-full rounded-xl border border-serene-outline/20 bg-white/50 px-3 py-2 text-left transition hover:bg-serene-accent/30"
+                                    >
+                                        <p className="text-xs text-serene-ink">{sess.preview || 'Phiên trò chuyện'}</p>
+                                        <p className="mt-0.5 text-[10px] text-serene-muted">
+                                            {new Date(sess.last_message_at).toLocaleString('vi-VN')}
+                                        </p>
+                                    </button>
+                                ))
                             )}
                         </div>
-                        <RoutingBadge history={lastData.routing_history} />
                     </div>
                 )}
-            </div>
 
-            {showHistory && (
-                <div className="rounded-2xl border border-white/35 bg-white/70 p-3">
-                    <div className="mb-2 flex items-center justify-between">
-                        <p className="text-sm font-semibold text-serene-ink">Lịch sử hội thoại</p>
-                        <button type="button" onClick={() => setShowHistory(false)} className="text-xs text-serene-muted">
-                            Đóng
-                        </button>
-                    </div>
-                    <div className="max-h-64 space-y-2 overflow-y-auto">
-                        {sessions.length === 0 ? (
-                            <p className="text-xs text-serene-muted">Chưa có phiên nào.</p>
-                        ) : (
-                            sessions.map((sess) => (
-                                <button
-                                    key={sess.session_id}
-                                    type="button"
-                                    onClick={() => void loadSessionMessages(sess.session_id)}
-                                    className="w-full rounded-lg border border-white/40 bg-white/80 px-3 py-2 text-left"
-                                >
-                                    <p className="text-xs font-semibold text-serene-ink">{sess.preview || 'Phiên trò chuyện'}</p>
-                                    <p className="text-[10px] text-serene-muted">
-                                        {new Date(sess.last_message_at).toLocaleString('vi-VN')}
-                                    </p>
-                                </button>
-                            ))
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* ── Message feed ──────────────────────────────────────────── */}
-            <div className="min-h-[70dvh]  overflow-y-auto rounded-3xl border border-white/35 bg-white/75 p-4">
-                {messages.length === 0 ? (
-                    <p className="text-serene-ink">Hãy bắt đầu cuộc trò chuyện. Mình đang lắng nghe bạn.</p>
-                ) : (
-                    <div className="space-y-4">
-                        {messages.map((m) => (
-                            <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`flex max-w-[85%] flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
-                                    {/* Bubble */}
-                                    <article
-                                        className={[
-                                            'rounded-2xl px-4 py-3 text-sm whitespace-pre-line',
-                                            m.role === 'user'
-                                                ? 'bg-serene-primary text-white'
-                                                : m.apiData?.sos_triggered
-                                                    ? 'border border-red-200 bg-red-50 text-serene-ink'
-                                                    : m.apiData?.conversation_mode === 'supportive'
-                                                        ? 'border border-amber-100 bg-amber-50 text-serene-ink'
-                                                        : 'bg-white text-serene-ink',
-                                        ].join(' ')}
-                                    >
-                                        {m.content}
-                                    </article>
-
-                                    {/* Crisis panel (SOS only) */}
-                                    {m.apiData && <CrisisPanel data={m.apiData} />}
-
-                                    {/* Attachments */}
-                                    {m.apiData?.the_dinh_kem?.map((item, i) => (
-                                        <AttachmentCard key={`${item.type}-${item.id}-${i}`} item={item} onOpen={openAttachment} />
-                                    ))}
-
-                                    {/* Quick replies (non-SOS only) */}
-                                    {m.apiData && !m.apiData.sos_triggered && (
-                                        <QuickReplies
-                                            replies={m.apiData.goi_y_nhanh}
-                                            onSelect={(text) => void doSend(text)}
-                                        />
-                                    )}
-
-                                    {/* Per-message debug info */}
-                                    {showDebug && m.apiData && (
-                                        <div className="mt-1 space-y-0.5">
-                                            <RoutingBadge history={m.apiData.routing_history} />
-                                            <DistressBar score={m.apiData.distress_score} />
-                                            {m.apiData.safety_tier && m.apiData.safety_tier !== 'normal' && (
-                                                <SafetyBadge tier={m.apiData.safety_tier} />
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
+                {/* ── Message feed ──────────────────────────────────────── */}
+                <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                    <div className="flex min-h-full flex-col justify-end gap-3">
+                        {messages.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+                                <div className="text-4xl">🌿</div>
+                                <p className="text-sm text-serene-muted">Chia sẻ điều bạn đang cảm thấy, mình lắng nghe.</p>
                             </div>
-                        ))}
+                        ) : (
+                            messages.map((m, idx) => {
+                                const isAI = m.role === 'assistant'
+                                const prev = messages[idx - 1]
+                                const showDivider =
+                                    m.timestamp != null &&
+                                    (prev == null ||
+                                        prev.timestamp == null ||
+                                        new Date(prev.timestamp).toDateString() !== new Date(m.timestamp).toDateString())
+                                return (
+                                    <div key={m.id}>
+                                        {showDivider && m.timestamp != null && <DateDivider timestamp={m.timestamp} />}
+                                        <div className={`flex gap-3 ${isAI ? '' : 'flex-row-reverse'}`}>
+                                            <div className="mt-1 shrink-0 select-none text-xl leading-none" aria-hidden="true">
+                                                {isAI ? '🌿' : '🙂'}
+                                            </div>
+                                            <div className={`flex max-w-[80%] flex-col gap-2 ${isAI ? 'items-start' : 'items-end'}`}>
+                                                <article
+                                                    className={[
+                                                        'rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line',
+                                                        isAI
+                                                            ? m.apiData?.sos_triggered
+                                                                ? 'bg-red-50 text-red-800 border border-red-200'
+                                                                : 'bg-white/80 text-serene-ink shadow-sm'
+                                                            : 'bg-serene-primary text-serene-on-primary',
+                                                    ].join(' ')}
+                                                >
+                                                    {m.content}
+                                                </article>
+                                                {m.apiData && <CrisisPanel data={m.apiData} />}
+                                                {m.apiData?.the_dinh_kem?.map((item, i) => (
+                                                    <AttachmentCard key={`${item.type}-${item.id}-${i}`} item={item} onOpen={openAttachment} />
+                                                ))}
+                                                {m.apiData &&
+                                                    !m.apiData.sos_triggered &&
+                                                    m.apiData.conversation_mode !== 'normal' && (
+                                                        <QuickReplies
+                                                            replies={m.apiData.goi_y_nhanh}
+                                                            onSelect={(text) => void doSend(text)}
+                                                        />
+                                                    )}
+                                                {showDebug && m.apiData && (
+                                                    <div className="mt-1 space-y-0.5">
+                                                        <RoutingBadge history={m.apiData.routing_history} />
+                                                        <DistressBar score={m.apiData.distress_score} />
+                                                        {m.apiData.safety_tier && m.apiData.safety_tier !== 'normal' && (
+                                                            <SafetyBadge tier={m.apiData.safety_tier} />
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
+                            })
+                        )}
+                        <TypingIndicator visible={sending} />
                         <div ref={bottomRef} />
                     </div>
+                </div>
+
+                {/* ── Retry notice ──────────────────────────────────────── */}
+                {lastFailedText && (
+                    <div className="flex shrink-0 items-center gap-3 border-t border-red-200 bg-red-50/80 px-5 py-2 text-sm text-red-700">
+                        <span>Tin nhắn trước gửi lỗi.</span>
+                        <button
+                            type="button"
+                            onClick={handleRetry}
+                            className="font-medium underline underline-offset-4 transition hover:text-red-800"
+                        >
+                            Thử lại
+                        </button>
+                    </div>
                 )}
+
+                {/* ── Input bar ─────────────────────────────────────────── */}
+                <form
+                    onSubmit={handleSend}
+                    className="shrink-0 border-t border-serene-outline/20 bg-white/40 px-4 py-3 backdrop-blur-sm"
+                >
+                    <div className="flex items-center gap-3">
+                        <input
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            disabled={isGuestMode && guestSecondsLeft <= 0}
+                            placeholder="Chia sẻ điều bạn đang cảm thấy..."
+                            className="flex-1 rounded-full border border-serene-outline/30 bg-white/70 px-4 py-2.5 text-sm text-serene-ink placeholder-serene-muted/50 outline-none focus:border-serene-primary focus:ring-1 focus:ring-serene-primary/30"
+                        />
+                        <button
+                            type="submit"
+                            disabled={!canSend}
+                            className="shrink-0 rounded-full bg-serene-primary px-5 py-2.5 text-sm font-medium text-serene-on-primary transition hover:bg-serene-primary-dim disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                            {sending ? '···' : 'Gửi'}
+                        </button>
+                    </div>
+                </form>
             </div>
 
-            {/* ── Input ──────────────────────────────────────────────────── */}
-            <form
-                onSubmit={handleSend}
-                className="flex gap-3 rounded-3xl border border-white/35 bg-white/70 p-3 backdrop-blur-xl"
-            >
-                <input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    disabled={isGuestMode && guestSecondsLeft <= 0}
-                    placeholder="Chia sẻ điều bạn đang cảm thấy..."
-                    className="flex-1 rounded-2xl bg-white px-4 py-3 outline-none"
-                />
-                <button
-                    type="submit"
-                    disabled={!canSend}
-                    className="rounded-2xl bg-serene-primary px-5 py-3 text-white disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                    {sending ? 'Đang gửi...' : 'Gửi'}
-                </button>
-            </form>
-
-            {lastFailedText ? (
-                <div className="rounded-2xl border border-white/35 bg-white/60 p-3 text-sm text-serene-muted">
-                    <span>Tin nhắn trước gửi lỗi.</span>{' '}
-                    <button type="button" onClick={handleRetry} className="font-semibold text-serene-primary">
-                        Thử lại
-                    </button>
-                </div>
-            ) : null}
-
             <HotlineBar visible={sosActive} />
-        </section>
+        </>
     )
 }
