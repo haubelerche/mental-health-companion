@@ -50,6 +50,8 @@ export type MeResponse = {
     user_id: string
     email: string
     display_name: string
+    onboarding_completed?: boolean
+    onboarding_skipped?: boolean
 }
 export const authService = {
     signup: async (payload: SignupPayload) => {
