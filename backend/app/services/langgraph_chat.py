@@ -216,6 +216,18 @@ def _recommended_attachments(user_message: str, distress_score: float) -> list[d
             "tri lieu",
         )
     )
+    wants_nutrition = any(
+        keyword in normalized
+        for keyword in (
+            "an gi",
+            "dinh duong",
+            "an uong",
+            "diet",
+            "thuc don",
+            "healthy food",
+            "cai thien tam trang",
+        )
+    )
 
     if wants_clinic or distress_score >= 0.72:
         attachments.append(build_clinic_attachment())
@@ -223,6 +235,17 @@ def _recommended_attachments(user_message: str, distress_score: float) -> list[d
         attachments.append(build_resource_attachment("sleep_meditation"))
     elif any(keyword in normalized for keyword in ("thien", "thu gian", "nghe gi", "resource", "tai nguyen")):
         attachments.append(build_resource_attachment("calm_library"))
+    if wants_nutrition:
+        attachments.append(
+            {
+                "type": "nutrition_tip",
+                "id": "daily_nutrition",
+                "title": "Gợi ý dinh dưỡng cho tâm trạng",
+                "description": "Xem món ăn hôm nay và lý do giúp ổn định cảm xúc.",
+                "action": "open_resource",
+                "route": "/serene/nutrition",
+            }
+        )
 
     return attachments
 
@@ -280,6 +303,12 @@ def _default_user_quick_replies(user_message: str, distress_score: float) -> lis
         "Mình đang thấy khó chịu và cần cậu lắng nghe.",
         "Cậu gợi ý cho mình một bước nhỏ lúc này nhé.",
     ]
+
+
+def _should_show_quick_replies(*, distress_score: float, conversation_mode: str) -> bool:
+    if conversation_mode != "normal":
+        return True
+    return distress_score >= 0.55
 
 
 def _normalize_user_quick_replies(
@@ -601,11 +630,7 @@ def _quick_non_sos_turn(
         return {
             "reply": "Mình ở đây với bạn. Hôm nay bạn muốn tâm sự nhẹ nhàng hay cần mình giúp gỡ rối một chuyện cụ thể?",
             "tone_cam_xuc": "vui_tuoi",
-            "goi_y_nhanh": [
-                "Mình muốn kể một chuyện đang làm mình bận tâm.",
-                "Mình cần một bước nhỏ để đỡ căng thẳng.",
-                "Mình muốn bạn lắng nghe thôi.",
-            ],
+            "goi_y_nhanh": [],
             "the_dinh_kem": [],
             "routing_history": ["supervisor", "friend_fastpath"],
         }
@@ -614,7 +639,7 @@ def _quick_non_sos_turn(
         return {
             "reply": "Mình rất vui vì giúp được bạn. Nếu còn điều gì lăn tăn, mình vẫn ở đây để đi cùng bạn nhé?",
             "tone_cam_xuc": "xac_nhan",
-            "goi_y_nhanh": _default_user_quick_replies(user_message, distress_score),
+            "goi_y_nhanh": [],
             "the_dinh_kem": [],
             "routing_history": ["supervisor", "friend_fastpath"],
         }
@@ -623,7 +648,7 @@ def _quick_non_sos_turn(
         return {
             "reply": "Mừng vì nghe bạn nói vậy. Nếu muốn, mình có thể giúp bạn giữ nhịp ổn này bằng một thói quen nhỏ cho tối nay?",
             "tone_cam_xuc": "vui_tuoi",
-            "goi_y_nhanh": _default_user_quick_replies(user_message, distress_score),
+            "goi_y_nhanh": [],
             "the_dinh_kem": [],
             "routing_history": ["supervisor", "friend_fastpath"],
         }
@@ -1408,6 +1433,10 @@ def build_normal_envelope(
     voice_hint: str | None = None,
     routing_history: list[str] | None = None,
 ) -> dict[str, Any]:
+    show_quick_replies = _should_show_quick_replies(
+        distress_score=float(snap.distress_score),
+        conversation_mode=str(snap.conversation_mode),
+    )
     return {
         "session_id": session_id,
         "agent_display_name": CHAT_AGENT_DISPLAY_NAME,
@@ -1420,7 +1449,7 @@ def build_normal_envelope(
         "emergency_actions": None,
         "reply": reply,
         "tone_cam_xuc": tone_cam_xuc,
-        "goi_y_nhanh": goi_y_nhanh,
+        "goi_y_nhanh": goi_y_nhanh if show_quick_replies else [],
         "the_dinh_kem": the_dinh_kem,
         "sos_triggered": False,
         "routing_history": routing_history or [],

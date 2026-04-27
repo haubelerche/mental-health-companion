@@ -145,6 +145,7 @@ class Settings(BaseSettings):
     auth_email_verify_ttl_minutes: int = 30
     auth_password_reset_ttl_minutes: int = 30
     auth_email_resend_cooldown_seconds: int = 60
+    auth_allow_signup_without_smtp: bool = True
 
     backend_public_base_url: str = "http://127.0.0.1:8000"
     frontend_home_url: str = "http://127.0.0.1:5173/home"
