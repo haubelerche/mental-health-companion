@@ -92,12 +92,36 @@ _GENERIC_FOLLOWUP_RE = re.compile(
 )
 
 
+_LEET_MAP: dict[str, str] = {"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s"}
+_LEET_RE = re.compile(r"[013457@$]")
+
+_INJECTION_PATTERNS = re.compile(
+    r"\b(ignore|forget|disregard|override|bypass|pretend|act as|you are now|new instruction|"
+    r"system prompt|jailbreak|dan mode)\b",
+    re.IGNORECASE,
+)
+_MAX_PROMPT_BLOCK_LEN = 1200
+
+
 def _normalize_guard_text(text: str) -> str:
     lowered = (text or "").lower().strip()
     decomposed = unicodedata.normalize("NFKD", lowered)
     no_accent = "".join(ch for ch in decomposed if not unicodedata.combining(ch)).replace("đ", "d")
-    compact = re.sub(r"[^a-z0-9\s]", " ", no_accent)
-    return re.sub(r"\s+", " ", compact).strip()
+    compact = re.sub(r"[^a-z0-9\s@$]", " ", no_accent)
+    leet_normalized = _LEET_RE.sub(lambda m: _LEET_MAP.get(m.group(), m.group()), compact)
+    return re.sub(r"\s+", " ", leet_normalized).strip()
+
+
+def _sanitize_prompt_block(block: str) -> str:
+    """Strip injection-pattern lines and cap length before inserting into system prompt."""
+    if not block:
+        return ""
+    safe_lines: list[str] = []
+    for line in block.splitlines():
+        if not _INJECTION_PATTERNS.search(line):
+            safe_lines.append(line)
+    cleaned = "\n".join(safe_lines).strip()
+    return cleaned[:_MAX_PROMPT_BLOCK_LEN]
 
 
 def _sanitize_assistant_reply(reply: str) -> str:
@@ -867,6 +891,7 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
     mentalchat_block = _build_mentalchat_examples(
         user_text, settings.openai_api_key or "", distress_score=distress_now
     )
+    safe_mentalchat_block = _sanitize_prompt_block(mentalchat_block)
     system = (
         "Bạn tên là Mây, đồng hành ấm áp và thực tế. "
         "Luôn xưng 'mình' và 'bạn', tuyệt đối không dùng 'mày/tao', không bắt chước chửi thề. "
@@ -883,7 +908,7 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         "goi_y_nhanh (3 chuỗi), the_dinh_kem (mảng object {type, id, title, description, duration_sec, action, route, thumbnail}). "
         "Khi người dùng nhắc mất ngủ/thiền/video thư giãn, có thể gợi ý resource; khi nhắc phòng khám, chuyên gia, bác sĩ, trị liệu hoặc cần hỗ trợ ngoài app, có thể gợi ý clinic_map. "
         "Chỉ dùng route bắt đầu bằng /serene/ và action trong open_exercise|open_resource|open_connect_map. "
-        + (f"\n{mentalchat_block}\n" if mentalchat_block else "")
+        + (f"\n{safe_mentalchat_block}\n" if safe_mentalchat_block else "")
         + "Gợi ý analyst: "
         + (state.get("analyst_instruction") or "")
     )
@@ -966,17 +991,31 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
                     output_tokens=_out,
                     metadata={"distress_score": distress_now, "use_fast_model": use_fast_model},
                 )
+            if len(raw) > 8000:
+                raise ValueError("friend LLM response exceeds size limit")
             m = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw)
             if m:
                 raw = m.group(1).strip()
-            parsed = json.loads(raw)
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as json_exc:
+                logger.warning("friend llm returned invalid JSON: %s", json_exc)
+                parsed = {}
+            if not isinstance(parsed, dict):
+                logger.warning("friend llm returned non-dict JSON type: %s", type(parsed))
+                parsed = {}
+            # Validate critical fields before merging into payload
+            if "reply" in parsed and not isinstance(parsed["reply"], str):
+                parsed.pop("reply")
+            if "reply" in parsed and len(parsed["reply"]) > 2000:
+                parsed["reply"] = parsed["reply"][:2000]
             payload.update(parsed)
         except Exception as exc:
             logger.warning("friend llm failed: %s", exc)
 
     improved_reply = _enforce_reply_quality(str(payload.get("reply") or ""), user_text, distress_now)
     safe_reply = _sanitize_assistant_reply(improved_reply)
-    grounded = sanitize_grounded_reply(safe_reply, mentalchat_block)
+    grounded = sanitize_grounded_reply(safe_reply, safe_mentalchat_block)
     safe_reply = grounded.reply
     if distress_now >= 0.6 and "?" not in safe_reply:
         safe_reply = safe_reply.rstrip(".! ") + ". Bạn có thể nói thêm điều đang làm bạn thấy tệ nhất lúc này không?"
@@ -1248,6 +1287,7 @@ def stream_non_sos_turn_events(
             mentalchat_block = _build_mentalchat_examples(
                 user_text, settings.openai_api_key or "", distress_score=distress_now
             )
+            safe_mentalchat_block = _sanitize_prompt_block(mentalchat_block)
             system = (
                 "Bạn tên là Mây, đồng hành ấm áp và thực tế. "
                 "Luôn xưng mình/bạn, tuyệt đối không dùng mày/tao. "
@@ -1255,7 +1295,7 @@ def stream_non_sos_turn_events(
                 "và đưa một bước nhỏ thực tế có thể làm ngay. "
                 "Tránh sáo rỗng, không trả lời kiểu mẫu, không hỏi dồn dập. "
                 "Nếu người dùng hỏi bạn có nhớ họ hay không, chỉ trả lời dựa trên Lịch sử/Ký ức trong context; nếu không có dữ liệu thì nói thật là mình chưa có đủ ký ức."
-                + (f"\n{mentalchat_block}" if mentalchat_block else "")
+                + (f"\n{safe_mentalchat_block}" if safe_mentalchat_block else "")
             )
             if distress_now < 0.42 and len(user_text) <= 140 and not _is_recall_query(user_text):
                 short_history = _recent_transcript_hint(state, max_turns=3, max_chars_per_turn=180)
