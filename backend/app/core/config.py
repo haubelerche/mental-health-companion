@@ -115,13 +115,10 @@ class Settings(BaseSettings):
         inst = _aura_instance_from_uri(uri)
         if not inst:
             return self
-        updates: dict[str, str] = {}
         if self.neo4j_user == inst:
-            updates["neo4j_user"] = "neo4j"
+            self.neo4j_user = "neo4j"
         if self.neo4j_database == inst:
-            updates["neo4j_database"] = "neo4j"
-        if updates:
-            return self.model_copy(update=updates)
+            self.neo4j_database = "neo4j"
         return self
 
     @model_validator(mode="after")
@@ -129,12 +126,9 @@ class Settings(BaseSettings):
         """Không có DATABASE_URL → SQLite file trong cwd (thường là `backend/`) + tạo bảng tự động."""
         if (self.database_url or "").strip():
             return self
-        return self.model_copy(
-            update={
-                "database_url": "sqlite:///./serene_local.db",
-                "auto_create_schema": True,
-            }
-        )
+        self.database_url = "sqlite:///./serene_local.db"
+        self.auto_create_schema = True
+        return self
 
     auth_rate_limit_per_minute: int = 5
     chat_rate_limit_per_minute: int = 30
