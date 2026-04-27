@@ -45,6 +45,8 @@ export default function AppRoutes() {
 
             <Route path={ROUTE_PATHS.onboarding} element={<OnboardingFlow />} />
 
+            <Route path={ROUTE_PATHS.onboarding} element={<OnboardingFlow />} />
+
             <Route path={ROUTE_PATHS.home} element={<Main />}>
                 <Route
                     index
