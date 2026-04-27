@@ -802,6 +802,13 @@ def send_message_stream(
         except Exception as exc:
             logger.exception("chat stream failed: %s", exc)
             yield "event: error\ndata: " + json.dumps({"code": "STREAM_INTERNAL_ERROR", "message": "Lỗi stream phản hồi"}, ensure_ascii=False) + "\n\n"
+        finally:
+            # Ensure any uncommitted transaction is rolled back when the generator
+            # exits — including mid-stream client disconnects that abandon the generator.
+            try:
+                db.rollback()
+            except Exception:
+                pass
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
