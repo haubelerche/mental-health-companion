@@ -42,9 +42,6 @@
 - **`rewardProgress.ts` + `CheckinFlow.tsx` + `Home.tsx`** — Sau khi bấm “Nhận phần thưởng”, tim/streak được persist vào localStorage và phát event cập nhật UI; Home đọc dữ liệu thưởng thay cho số hardcode `0`, đồng thời đồng bộ streak với `/reflect/mental-health-summary` nếu server trả về lớn hơn.
 
 ### Fixed
-- **`backend/tests/test_neo4j_schema.py`** — Neo4j integration fixture giờ kiểm tra `verify_connectivity()` và tự `skip` khi service không khả dụng hoặc auth fail trong môi trường CI, tránh fail hàng loạt khi runner không có Neo4j tại `localhost:7687`.
-- **`backend/app/services/longterm_memory.py`** — Làm `persist_turn_memory()` tolerant với DB adapter/test double không có `scalar()` để không làm vỡ luồng chat non-SOS và SSE trong integration tests; khi thiếu API này hệ thống bỏ qua lưu memory turn-level thay vì ném exception.
-- **`backend/app/api/deps.py` + `backend/app/core/config.py`** — Ổn định CI backend bằng 2 chỉnh sửa cấu hình/phụ thuộc: CSRF giờ cho phép loopback origin khác port trong local dev (`localhost`/`127.0.0.1`/`::1`) thay vì strict exact-match, và `Settings` validators được sửa để mutate rồi trả đúng `self` theo chuẩn Pydantic (tránh warning validator, đồng thời đảm bảo fallback DB local hoạt động đúng khi thiếu `DATABASE_URL`).
 - **`test_onboarding_integration.py`** — Override `get_db` và `get_current_user` (đúng với router onboarding); thêm `disclaimer_accepted` trong payload `POST /onboarding/complete` để test khớp validation.
 - **`Reflect.tsx`** — Sửa lỗi vòng `Peace Score` bị vỡ/cắt khi thu nhỏ layout: chuẩn hoá SVG bằng `viewBox` để vòng tròn scale đúng theo khung card.
 - **`httpClient.ts` + `AuthContext.tsx` + `Home.tsx` + `Reflect.tsx`** — Giảm spam lỗi `401 Unauthorized`: thêm cơ chế broadcast unauthorized toàn cục để clear auth state sớm và dừng gọi API protected khi user không còn session.
@@ -52,6 +49,10 @@
 - **`backend/app/api/v1/routers/auth.py` + `frontend/src/components/policy/PolicyWizard.tsx` + `backend/tests/test_auth_integration.py`** — Sửa lỗi kẹt ở màn hình Policy sau khi bấm “Tôi đồng ý”: trong nhánh signup local fallback, backend nay phát hành luôn auth cookies (access/refresh + CSRF) để các call `/policies/current` và `/policies/acknowledge` không còn `401`.
 - **`frontend/src/components/auth/Register.tsx` + `frontend/src/components/pages/OnboardingFlow.tsx` + `backend/app/api/v1/routers/onboarding.py` + `backend/app/schemas/payloads.py`** — Gộp luồng disclaimer vào onboarding (bỏ bước policy rời trong flow signup), cho phép user đi thẳng `/serene/onboarding` sau đăng ký; onboarding hoàn tất sẽ ghi nhận `disclaimer_accepted` và cập nhật policy ack trên backend.
 - **`frontend/src/components/layout/HeaderMain.tsx`** — Menu tài khoản giờ hiển thị theo trạng thái auth: đã đăng nhập chỉ hiện `Tài khoản` / `Đổi mật khẩu` / `Đăng xuất`, không còn hiển thị nút `Đăng nhập` gây hiểu nhầm.
+
+### Fixed
+- **`deps.py`** — Restored loopback CSRF compatibility for local dev: `localhost/127.0.0.1/::1` can use different ports with the same scheme, while non-loopback origins still require trusted-origin validation.
+- **`longterm_memory.py`** — `persist_turn_memory()` now safely skips persistence when test DB adapters do not implement `scalar()`, preventing chat endpoint and SSE stream failures in integration tests.
 
 ---
 
