@@ -10,6 +10,7 @@ export const ROUTE_PATHS = {
     chat: '/serene/chat',
     reflect: '/serene/reflect',
     resources: '/serene/resources',
+    nutrition: '/serene/nutrition',
     connect: '/serene/connect',
     setting: '/serene/setting',
 
