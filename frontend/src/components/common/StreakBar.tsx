@@ -13,17 +13,11 @@ function getTodayDisplayIndex(): number {
 export function StreakBar({ streak, className }: Props) {
     const todayIdx = getTodayDisplayIndex()
     const filledCount = Math.min(streak, 7)
-    const completedIndices = new Set<number>()
-    for (let offset = 0; offset < filledCount; offset += 1) {
-        // Mark consecutive streak days backward from today (wrap across week boundary).
-        const idx = (todayIdx - offset + 7) % 7
-        completedIndices.add(idx)
-    }
 
     return (
         <div className={`flex items-center gap-1.5 ${className ?? ''}`}>
             {DAYS.map((day, idx) => {
-                const isCompleted = completedIndices.has(idx)
+                const isCompleted = idx < filledCount
                 const isToday = idx === todayIdx && !isCompleted
 
                 return (
