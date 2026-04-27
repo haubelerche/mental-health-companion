@@ -27,6 +27,7 @@ import uuid
 import pytest
 import pytest_asyncio
 from neo4j import AsyncGraphDatabase, AsyncDriver
+from neo4j.exceptions import AuthError, ServiceUnavailable
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -44,6 +45,12 @@ async def driver() -> AsyncDriver:
     if not NEO4J_URI or not NEO4J_PASSWORD:
         pytest.skip("NEO4J_URI / NEO4J_PASSWORD not set — skipping Neo4j integration tests")
     d = AsyncGraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    try:
+        # CI may not provision Neo4j; skip integration suite instead of failing all tests.
+        await d.verify_connectivity()
+    except (ServiceUnavailable, AuthError) as exc:
+        await d.close()
+        pytest.skip(f"Neo4j unavailable for integration tests: {exc}")
     yield d
     await d.close()
 

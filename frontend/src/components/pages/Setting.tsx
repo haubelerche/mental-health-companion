@@ -2,21 +2,24 @@ import {
   BellRing,
   Check,
   Palette,
-  Shield,
+  Repeat,
   TriangleAlert,
   User,
 } from 'lucide-react'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import bg from '../../assets/bg.png'
 import bg2 from '../../assets/bg2.png'
 import bg3 from '../../assets/bg3.png'
 import bg4 from '../../assets/bg-reflect.png'
 import avatar from '../../assets/avatar.png'
 import { useAuth } from '../../hooks/useAuth'
+import { ROUTE_PATHS } from '../../routes/paths'
 import {
   APP_SETTINGS_UPDATED_EVENT,
   readAppSettings,
   saveAppSettings,
+  type AppearanceMode,
   type AppSettings,
   type ThemeOption,
 } from '../../utils/appSettings'
@@ -79,12 +82,14 @@ function ThemeCard({ label, image, selected, onSelect }: ThemeCardProps) {
 
 export default function Setting() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const initialSettings = readAppSettings()
   const [maskIdentity, setMaskIdentity] = useState(initialSettings.maskIdentity)
   const [shareData, setShareData] = useState(initialSettings.shareData)
   const [reminder, setReminder] = useState(initialSettings.reminder)
   const [weeklySummary, setWeeklySummary] = useState(initialSettings.weeklySummary)
   const [sosAccess, setSosAccess] = useState(initialSettings.sosAccess)
+  const [selectedMode, setSelectedMode] = useState<AppearanceMode>(initialSettings.mode)
   const [selectedTheme, setSelectedTheme] = useState<ThemeOption>(initialSettings.theme)
   const [savedSettings, setSavedSettings] = useState(initialSettings)
 
@@ -94,6 +99,24 @@ export default function Setting() {
   const previewTheme = (theme: ThemeOption) => {
     const previewSettings: AppSettings = {
       theme,
+      mode: selectedMode,
+      maskIdentity,
+      shareData,
+      reminder,
+      weeklySummary,
+      sosAccess,
+    }
+    window.dispatchEvent(
+      new CustomEvent<AppSettings>(APP_SETTINGS_UPDATED_EVENT, {
+        detail: previewSettings,
+      }),
+    )
+  }
+
+  const previewMode = (mode: AppearanceMode) => {
+    const previewSettings: AppSettings = {
+      theme: selectedTheme,
+      mode,
       maskIdentity,
       shareData,
       reminder,
@@ -110,6 +133,7 @@ export default function Setting() {
   const handleSaveChanges = () => {
     const settings = {
       theme: selectedTheme,
+      mode: selectedMode,
       maskIdentity,
       shareData,
       reminder,
@@ -125,6 +149,7 @@ export default function Setting() {
   const handleCancel = () => {
     const settings = savedSettings
     setSelectedTheme(settings.theme)
+    setSelectedMode(settings.mode)
     setMaskIdentity(settings.maskIdentity)
     setShareData(settings.shareData)
     setReminder(settings.reminder)
@@ -180,30 +205,21 @@ export default function Setting() {
 
           <section className="mt-12 space-y-6">
             <div className="flex items-center gap-2 border-b border-serene-ink/5 pb-2">
-              <Shield className="h-5 w-5 text-serene-primary" />
-              <h2 className="font-display text-2xl text-serene-ink">Quyền riêng tư &amp; Bảo mật</h2>
+              <Palette className="h-5 w-5 text-serene-primary" />
+              <h2 className="font-display text-2xl text-serene-ink">Giao diện</h2>
             </div>
 
             <div className="grid gap-4">
               <ToggleRow
-                title="Ẩn danh tính (PII Masking)"
-                description="Tự động che thông tin cá nhân trong nhật ký tâm sự."
-                checked={maskIdentity}
-                onChange={setMaskIdentity}
+                title="Chế độ tối"
+                description="Bật để dùng tông màu tối cho giao diện chính."
+                checked={selectedMode === 'dark'}
+                onChange={(checked) => {
+                  const nextMode: AppearanceMode = checked ? 'dark' : 'light'
+                  setSelectedMode(nextMode)
+                  previewMode(nextMode)
+                }}
               />
-              <ToggleRow
-                title="Chia sẻ dữ liệu"
-                description="Giúp chúng tôi cải thiện trải nghiệm bằng dữ liệu ẩn danh."
-                checked={shareData}
-                onChange={setShareData}
-              />
-            </div>
-          </section>
-
-          <section className="mt-12 space-y-6">
-            <div className="flex items-center gap-2 border-b border-serene-ink/5 pb-2">
-              <Palette className="h-5 w-5 text-serene-primary" />
-              <h2 className="font-display text-2xl text-serene-ink">Giao diện</h2>
             </div>
 
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
@@ -284,6 +300,27 @@ export default function Setting() {
             />
           </section>
 
+          <section className="mt-12 space-y-6">
+            <div className="flex items-center gap-2 border-b border-serene-ink/5 pb-2">
+              <Repeat className="h-5 w-5 text-serene-primary" />
+              <h2 className="font-display text-2xl text-serene-ink">Cá nhân hóa Onboarding</h2>
+            </div>
+            <div className="rounded-3xl border border-white/35 bg-white/35 p-6">
+              <p className="text-sm text-serene-muted">
+                Bạn có thể chạy lại onboarding để cập nhật mục tiêu, khung giờ sinh hoạt và gợi ý trong phần
+                {' '}
+                “Hôm nay của bạn”.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate(ROUTE_PATHS.onboarding)}
+                className="mt-4 rounded-full bg-serene-primary px-6 py-3 text-xs font-bold uppercase tracking-[0.22em] text-serene-on-primary transition hover:brightness-105"
+              >
+                Mở lại onboarding
+              </button>
+            </div>
+          </section>
+
           {/*nếu có thay đổi thì mới hiện*/}
 
           {(maskIdentity !== savedSettings.maskIdentity ||
@@ -291,6 +328,7 @@ export default function Setting() {
             reminder !== savedSettings.reminder ||
             weeklySummary !== savedSettings.weeklySummary ||
             sosAccess !== savedSettings.sosAccess ||
+            selectedMode !== savedSettings.mode ||
             selectedTheme !== savedSettings.theme) && (
               <footer className="mt-12 flex flex-col-reverse gap-3 border-t border-serene-ink/5 pt-8 sm:flex-row sm:justify-end sm:gap-5">
                 <button

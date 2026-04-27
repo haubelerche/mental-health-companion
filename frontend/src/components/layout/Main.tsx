@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import sunset from '../../assets/bg.png'
 import dawn from '../../assets/bg2.png'
 import night from '../../assets/bg3.png'
@@ -14,9 +14,9 @@ import {
     type AppSettings,
     type ThemeOption,
 } from '../../utils/appSettings'
-import HeaderMain from './HeaderMain'
 import Sidebar from './Sidebar'
 import { GuestBanner } from '../guest/GuestBanner'
+import { ROUTE_PATHS } from '../../routes/paths'
 
 const themeBackgroundMap: Record<ThemeOption, string> = {
     sunset: sunset,
@@ -26,11 +26,13 @@ const themeBackgroundMap: Record<ThemeOption, string> = {
 }
 
 export default function Main() {
+    const location = useLocation()
     const [isSidebarOpen, setIsSidebarOpen] = useState(true)
     const [backgroundImage, setBackgroundImage] = useState(() => {
         const currentSettings = readAppSettings()
         return themeBackgroundMap[currentSettings.theme]
     })
+    const isFullBleedPage = location.pathname === ROUTE_PATHS.bamboo
 
     useEffect(() => {
         const handleSettingsUpdated = (event: Event) => {
@@ -69,21 +71,24 @@ export default function Main() {
                 <div className="absolute inset-0 bg-white/20" />
             </div>
 
-            <Sidebar isOpen={isSidebarOpen} />
+            <Sidebar
+                isOpen={isSidebarOpen}
+                onHide={() => setIsSidebarOpen(false)}
+                onReveal={() => setIsSidebarOpen(true)}
+            />
 
             <main
-                className={`min-h-screen transition-all duration-300 ${isSidebarOpen ? 'lg:ml-72' : 'lg:ml-0'}`}
+                className={`min-h-screen transition-all duration-300 ${isSidebarOpen ? 'lg:ml-60' : 'lg:ml-0'}`}
             >
-                <HeaderMain
-                    isSidebarOpen={isSidebarOpen}
-                    onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
-                />
-
-                <div className="mx-auto max-w-7xl px-5 pb-28 pt-8 sm:px-8 lg:px-12 lg:py-12">
+                <div
+                    className={
+                        isFullBleedPage
+                            ? 'min-h-screen'
+                            : 'mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6 lg:px-8 lg:py-8'
+                    }
+                >
                     <Outlet />
                 </div>
-
-                {/* <Footer /> */}
             </main>
         </div>
     )

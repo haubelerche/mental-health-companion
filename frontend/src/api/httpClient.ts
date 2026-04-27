@@ -13,6 +13,7 @@ function resolveApiBaseUrl(): string {
 }
 
 const API_BASE_URL = resolveApiBaseUrl()
+export const HTTP_UNAUTHORIZED_EVENT = 'serene:http-unauthorized'
 
 /** Dùng cho `<Audio src>` khi `audio_url` là path tương đối `/v1/...`. */
 export function resolveMediaUrl(path: string): string {
@@ -28,6 +29,7 @@ export function resolveMediaUrl(path: string): string {
 }
 
 let csrfToken: string | null = null
+let lastUnauthorizedAt = 0
 
 function readCookie(name: string): string | null {
     if (typeof document === 'undefined') return null
@@ -77,6 +79,19 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const payload = await parseJsonSafely(response)
 
     if (!response.ok) {
+        if (response.status === 401 && typeof window !== 'undefined') {
+            const now = Date.now()
+            // Debounce unauthorized broadcast to avoid event storms when many calls fail together.
+            if (now - lastUnauthorizedAt > 1200) {
+                lastUnauthorizedAt = now
+                window.dispatchEvent(
+                    new CustomEvent<{ path: string; status: number }>(HTTP_UNAUTHORIZED_EVENT, {
+                        detail: { path, status: response.status },
+                    }),
+                )
+            }
+        }
+
         if (isEnvelope<T>(payload) && payload.error) {
             throw new ApiRequestError(payload.error.message, {
                 code: payload.error.code,

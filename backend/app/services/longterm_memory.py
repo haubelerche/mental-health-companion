@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -12,7 +13,11 @@ from sqlalchemy.orm import Session
 
 from app.db.models import UserProfile
 from app.services.mem0_service import MemoryManager
+from app.services.memory_enrichment import _fallback_extract, apply_to_profile
+from app.services.pii_mask import mask_pii
 from app.services.redis_client import cache_get_json, cache_set_json, profile_cache_key
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -95,7 +100,7 @@ def build_user_memory_context(
     if profile_data is None:
         row = db.scalar(select(UserProfile).where(UserProfile.user_id == user_id))
         profile_data = dict(row.profile or {}) if row else {}
-        cache_set_json(cache_key, profile_data, ttl_sec=60)
+        cache_set_json(cache_key, profile_data, ttl_sec=15)
 
     summaries = list(profile_data.get("session_summaries") or [])
     recent_summaries: list[str] = []
@@ -155,7 +160,7 @@ def build_user_memory_context(
             "effective_coping": context.effective_coping,
             "clinical_trajectory": context.clinical_trajectory,
         },
-        ttl_sec=60,
+        ttl_sec=5,
     )
     return context
 
@@ -163,3 +168,60 @@ def build_user_memory_context(
 def get_user_longterm_memories(db: Session, *, user_id: str, limit: int = 3) -> list[str]:
     """Backward-compatible wrapper used by existing callers."""
     return build_user_memory_context(db, user_id=user_id).recent_summaries[:limit]
+
+
+def persist_turn_memory(
+    db: Session,
+    *,
+    user_id: str,
+    session_id: str,
+    user_message: str,
+    assistant_reply: str,
+    sos_triggered: bool = False,
+) -> None:
+    """Persist lightweight structured memory after each completed turn.
+
+    This keeps profile memory warm across active sessions instead of waiting for `/chat/end`.
+    """
+    safe_user_message = mask_pii(user_message)[:1200]
+    safe_assistant_reply = mask_pii(assistant_reply)[:1200]
+    transcript = (
+        f"user: {safe_user_message}\n"
+        f"assistant: {safe_assistant_reply}"
+    )
+    try:
+        # Turn-level memory update should stay low-latency and deterministic.
+        extract = _fallback_extract(transcript, sos_triggered=sos_triggered)
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.warning("turn memory extract failed for %s: %s", user_id, exc)
+        return
+
+    # Test doubles may not implement SQLAlchemy's scalar() API; skip persistence in that case.
+    if not hasattr(db, "scalar"):
+        logger.debug("persist_turn_memory skipped for %s: db adapter has no scalar()", user_id)
+        return
+
+    row = db.scalar(select(UserProfile).where(UserProfile.user_id == user_id))
+    if not row:
+        row = UserProfile(user_id=user_id, profile={})
+        db.add(row)
+        db.flush()
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    base = dict(row.profile or {})
+    updated = apply_to_profile(
+        base,
+        extract=extract,
+        session_meta={
+            "session_id": session_id,
+            "started_at": now_iso,
+            "ended_at": now_iso,
+            "turn_count": 2,
+            "crisis_level_peak": 5 if sos_triggered else 0,
+        },
+        summary_text=(safe_assistant_reply or safe_user_message)[:400],
+        max_items=120,
+    )
+    row.profile = updated
+    row.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    cache_set_json(profile_cache_key(user_id), updated, ttl_sec=15)

@@ -40,6 +40,10 @@
         min-height: 100%;
     }
 
+    html {
+        font-size: 15px;
+    }
+
     body {
         margin: 0;
         font-family: var(--font-body);
@@ -128,7 +132,9 @@
     .backdrop {
         @apply bg-white/10 backdrop-blur-xl transition hover:bg-white/15;
     }
+
 }
+
 
 @layer base {
 
