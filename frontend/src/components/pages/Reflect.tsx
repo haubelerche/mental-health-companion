@@ -128,6 +128,11 @@ export default function Reflect() {
     const [selectedDay, setSelectedDay] = useState<DayDetail | null>(null)
 
     useEffect(() => {
+        if (!user) {
+            setLoading(false)
+            return
+        }
+
         let mounted = true
         const loadReflectData = async () => {
             setLoading(true)
@@ -162,7 +167,7 @@ export default function Reflect() {
         return () => {
             mounted = false
         }
-    }, [])
+    }, [user])
 
     const peaceScore = summary?.wellness_score ?? 0
     const chartData = useMemo(
@@ -204,15 +209,15 @@ export default function Reflect() {
             <div className="flex-1">
 
                 <div className="mx-auto flex w-full max-w-5xl flex-col items-center">
-                    <section className="border border-white/35 bg-white/40 backdrop-blur-xl w-full rounded-4xl  p-5 shadow-md md:p-10 lg:p-12">
+                    <section className="w-full rounded-4xl border border-white/35 bg-white/40 p-4 shadow-md backdrop-blur-xl md:p-7 lg:p-8">
                         <div className="text-center">
                             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.28em] text-serene-primary/70">
                                 Nhìn Lại
                             </p>
-                            <h1 className="font-display text-5xl font-light leading-tight text-[#2F342E] md:text-6xl lg:text-7xl">
+                            <h1 className="font-display text-4xl font-light leading-tight text-[#2F342E] md:text-5xl lg:text-6xl">
                                 Chào <span className="italic text-primary font-medium">{displayName}</span>
                             </h1>
-                            <p className="mx-auto mt-5 max-w-2xl text-sm italic leading-relaxed text-serene-primary/80 md:text-lg">
+                            <p className="mx-auto mt-3 max-w-2xl text-xs italic leading-relaxed text-serene-primary/80 md:text-sm">
                                 Dữ liệu cảm xúc của bạn đang được cập nhật liên tục từ những phiên trò chuyện cùng Serene.
                             </p>
                         </div>
@@ -238,11 +243,11 @@ export default function Reflect() {
 
                         {/* ── Wellness Radar — Hero Section ── */}
                         {wellnessScores && (
-                            <section className="mt-8 rounded-[1.75rem] border border-white/25 bg-white/30 p-6 backdrop-blur-md md:p-8">
+                            <section className="mt-6 rounded-[1.75rem] border border-white/25 bg-white/30 p-4 backdrop-blur-md md:p-6">
                                 <div className="mb-1 flex items-end justify-between gap-4">
                                     <div>
                                         <p className="text-[10px] uppercase tracking-[0.3em] text-serene-primary/70">Wellness Radar</p>
-                                        <h2 className="mt-1 font-display text-2xl text-serene-ink md:text-3xl">6 chiều sức khoẻ</h2>
+                                        <h2 className="mt-1 font-display text-xl text-serene-ink md:text-2xl">6 chiều sức khoẻ</h2>
                                     </div>
                                     <p className="text-right text-[10px] text-serene-muted/60 max-w-[120px] leading-relaxed">
                                         Ước tính từ dữ liệu của bạn
@@ -251,7 +256,7 @@ export default function Reflect() {
 
                                 <WellnessRadar scores={wellnessScores} className="mt-2" />
 
-                                <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+                                <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
                                     {(
                                         [
                                             { label: 'Cảm xúc', value: wellnessScores.emotional },
@@ -262,20 +267,20 @@ export default function Reflect() {
                                             { label: 'Phát triển', value: wellnessScores.growth },
                                         ] as const
                                     ).map(({ label, value }) => (
-                                        <div key={label} className="rounded-2xl bg-white/50 px-3 py-2.5 text-center">
-                                            <p className="text-xs font-semibold text-serene-ink">{value}%</p>
-                                            <p className="mt-0.5 text-[10px] text-serene-muted/70">{label}</p>
+                                        <div key={label} className="rounded-2xl bg-white/50 px-2.5 py-2 text-center">
+                                            <p className="text-[11px] font-semibold text-serene-ink">{value}%</p>
+                                            <p className="mt-0.5 text-[9px] text-serene-muted/70">{label}</p>
                                         </div>
                                     ))}
                                 </div>
                             </section>
                         )}
 
-                        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
-                            <div className="rounded-[1.75rem] border border-white/25 bg-white/30 p-6 text-center backdrop-blur-md md:p-8">
-                                <p className="mb-6 text-[10px] uppercase tracking-[0.3em] text-primary">Peace Score</p>
-                                <div className="relative mx-auto flex h-48 w-48 items-center justify-center md:h-56 md:w-56">
-                                    <svg className="h-full w-full -rotate-90 transform">
+                        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-5">
+                            <div className="rounded-[1.75rem] border border-white/25 bg-white/30 p-4 text-center backdrop-blur-md md:p-6">
+                                <p className="mb-4 text-[10px] uppercase tracking-[0.3em] text-primary">Peace Score</p>
+                                <div className="relative mx-auto flex h-40 w-40 items-center justify-center md:h-48 md:w-48">
+                                    <svg viewBox="0 0 224 224" className="h-full w-full -rotate-90 transform">
                                         <circle cx="112" cy="112" r="82" fill="transparent" className="text-white/40" stroke="currentColor" strokeWidth="12" />
                                         <circle
                                             cx="112"
@@ -297,26 +302,26 @@ export default function Reflect() {
                                     </svg>
 
                                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                        <span className="font-display text-5xl font-light text-serene-pborder-serene-primary md:text-6xl">
+                                        <span className="font-display text-4xl font-light text-serene-primary md:text-5xl">
                                             {loading ? '--' : peaceScore}
-                                            <span className="text-xl opacity-40 md:text-2xl">%</span>
+                                            <span className="text-lg opacity-40 md:text-xl">%</span>
                                         </span>
                                         <span className="mt-2 text-[10px] uppercase tracking-[0.3em] text-serene-primary-dim">
                                             {loading ? 'Đang cập nhật' : summary?.wellness_label || 'Đang cập nhật'}
                                         </span>
                                     </div>
                                 </div>
-                                <p className="mx-auto mt-6 max-w-sm text-sm leading-relaxed">
+                                <p className="mx-auto mt-4 max-w-sm text-xs leading-relaxed md:text-sm">
                                     {loading
                                         ? 'Đang tổng hợp dữ liệu từ mood check-in và các phiên trò chuyện...'
                                         : `Bạn đã có ${summary?.session_stats.total_sessions || 0} phiên, chuỗi duy trì hiện tại là ${summary?.session_stats.streak_days || 0} ngày.`}
                                 </p>
                             </div>
 
-                            <div className="rounded-[1.75rem] border border-white/25 bg-white/30 p-6 backdrop-blur-md md:p-8">
-                                <div className="mb-6 flex items-end justify-between gap-4">
+                            <div className="rounded-[1.75rem] border border-white/25 bg-white/30 p-4 backdrop-blur-md md:p-6">
+                                <div className="mb-4 flex items-end justify-between gap-4">
                                     <div>
-                                        <h2 className="font-display text-2xl text-serene-pborder-serene-primary md:text-[2rem]">Biểu đồ cảm xúc</h2>
+                                        <h2 className="font-display text-xl text-serene-primary md:text-2xl">Biểu đồ cảm xúc</h2>
                                         <p className="text-[10px] uppercase tracking-[0.28em] text-serene-primary/60">
                                             7 ngày qua
                                         </p>
@@ -327,9 +332,9 @@ export default function Reflect() {
                                     </div>
                                 </div>
 
-                                <div className="min-h-72 min-w-0 md:min-h-80">
+                                <div className="min-h-60 min-w-0 md:min-h-68">
                                     {chartData.length > 0 ? (
-                                        <ResponsiveContainer width="100%" height={288} minWidth={1} minHeight={1}>
+                                        <ResponsiveContainer width="100%" height={248} minWidth={1} minHeight={1}>
                                             <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                                                 <defs>
                                                     <linearGradient id="moodGradient" x1="0" x2="0" y1="0" y2="1">
@@ -378,7 +383,7 @@ export default function Reflect() {
                                     )}
                                 </div>
 
-                                <div className="mt-5 flex justify-between px-1 text-[10px] uppercase tracking-widest text-serene-primary/70">
+                                <div className="mt-3 flex justify-between px-1 text-[9px] uppercase tracking-wider text-serene-primary/70 md:text-[10px]">
                                     <span>{moodTrend?.period.from || ''}</span>
                                     <span className="font-bold text-primary">{moodTrend?.summary || ''}</span>
                                     <span>{moodTrend?.period.to || ''}</span>
@@ -388,13 +393,13 @@ export default function Reflect() {
 
                         {/* ── Mood Calendar — 28 ngày ── */}
                         {moodTrend && moodTrend.points.length > 0 && (
-                            <section className="mt-8 rounded-[1.75rem] border border-white/25 bg-white/30 p-6 backdrop-blur-md md:p-8">
-                                <div className="mb-5 flex items-end justify-between gap-4">
+                            <section className="mt-6 rounded-[1.75rem] border border-white/25 bg-white/30 p-4 backdrop-blur-md md:p-6">
+                                <div className="mb-4 flex items-end justify-between gap-4">
                                     <div>
                                         <p className="text-[10px] uppercase tracking-[0.3em] text-serene-primary/70">Lịch tâm trạng</p>
-                                        <h2 className="mt-1 font-display text-2xl text-serene-ink md:text-3xl">28 ngày qua</h2>
+                                        <h2 className="mt-1 font-display text-xl text-serene-ink md:text-2xl">28 ngày qua</h2>
                                     </div>
-                                    <div className="flex items-center gap-2 text-[10px] text-serene-muted/60">
+                                    <div className="flex items-center gap-2 text-[9px] text-serene-muted/60 md:text-[10px]">
                                         <span>😊 Tốt</span>
                                         <span>😌 Ổn</span>
                                         <span>😐 Bình</span>
@@ -426,10 +431,10 @@ export default function Reflect() {
 
                         {/* ── Progress Stats ── */}
                         {summary && (
-                            <section className="mt-8 rounded-[1.75rem] border border-white/25 bg-white/30 p-6 backdrop-blur-md md:p-8">
-                                <div className="mb-5">
+                            <section className="mt-6 rounded-[1.75rem] border border-white/25 bg-white/30 p-4 backdrop-blur-md md:p-6">
+                                <div className="mb-4">
                                     <p className="text-[10px] uppercase tracking-[0.3em] text-serene-primary/70">Tiến trình</p>
-                                    <h2 className="mt-1 font-display text-2xl text-serene-ink md:text-3xl">Thống kê của bạn</h2>
+                                    <h2 className="mt-1 font-display text-xl text-serene-ink md:text-2xl">Thống kê của bạn</h2>
                                 </div>
                                 <ProgressStats
                                     data={{
@@ -446,28 +451,28 @@ export default function Reflect() {
                             </section>
                         )}
 
-                        <section className="mt-8 rounded-3xl border-l-4 border-serene-primary bg-serene-primary/5 p-6 md:p-8">
-                            <div className="mb-5 flex items-center gap-4">
-                                <div className="rounded-full bg-primary/10 p-3 text-primary">
-                                    <Sparkles className="h-6 w-6" />
+                        <section className="mt-6 rounded-3xl border-l-4 border-serene-primary bg-serene-primary/5 p-4 md:p-6">
+                            <div className="mb-4 flex items-center gap-3">
+                                <div className="rounded-full bg-primary/10 p-2.5 text-primary">
+                                    <Sparkles className="h-5 w-5" />
                                 </div>
-                                <h2 className="font-display text-2xl italic text-emerald-900 md:text-3xl">
+                                <h2 className="font-display text-xl italic text-emerald-900 md:text-2xl">
                                     Lời nhắn tuần từ Serene
                                 </h2>
                             </div>
-                            <p className="text-base leading-relaxed text-serene-ink/90 md:text-lg">
+                            <p className="text-sm leading-relaxed text-serene-ink/90 md:text-base">
                                 {loading
                                     ? 'Serene đang phân tích dữ liệu tuần của bạn...'
                                     : `“${weeklyNote?.content || 'Bạn đang duy trì nỗ lực rất tốt. Hãy tiếp tục giữ nhịp nghỉ ngơi và chăm sóc bản thân.'}”`}
                             </p>
                         </section>
 
-                        <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
-                            <div className="rounded-3xl border border-white/25 bg-white/10 p-6 backdrop-blur-md lg:col-span-2 md:p-8">
-                                <div className="mb-7 flex items-center justify-between gap-4">
+                        <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-5">
+                            <div className="rounded-3xl border border-white/25 bg-white/10 p-4 backdrop-blur-md lg:col-span-2 md:p-6">
+                                <div className="mb-5 flex items-center justify-between gap-4">
                                     <div className="flex items-center gap-3">
-                                        <Leaf className="h-5 w-5 text-primary" />
-                                        <h3 className="font-display text-2xl text-serene-pborder-serene-primary">Nhật ký gần đây</h3>
+                                        <Leaf className="h-4 w-4 text-primary" />
+                                        <h3 className="font-display text-xl text-serene-primary">Nhật ký gần đây</h3>
                                     </div>
                                     <span className="text-[10px] uppercase tracking-widest text-serene-primary/50">
                                         {recentJournal?.created_at
@@ -476,7 +481,7 @@ export default function Reflect() {
                                     </span>
                                 </div>
 
-                                <blockquote className="mb-6 font-display text-xl italic leading-relaxed text-serene-primary-dim md:text-3xl">
+                                <blockquote className="mb-5 font-display text-lg italic leading-relaxed text-serene-primary-dim md:text-2xl">
                                     {recentJournal
                                         ? `“${recentJournal.content_preview}”`
                                         : '“Hãy viết vài dòng cảm nhận để hệ thống hiểu bạn sâu hơn.”'}
@@ -491,9 +496,9 @@ export default function Reflect() {
                                 </button>
                             </div>
 
-                            <aside className="rounded-3xl border border-white/25 bg-white/10 p-6 backdrop-blur-md md:p-8">
-                                <h3 className="mb-6 font-display text-2xl text-serene-pborder-serene-primary">Bài tập nhanh</h3>
-                                <div className="space-y-4">
+                            <aside className="rounded-3xl border border-white/25 bg-white/10 p-4 backdrop-blur-md md:p-6">
+                                <h3 className="mb-5 font-display text-xl text-serene-primary">Bài tập nhanh</h3>
+                                <div className="space-y-3">
                                     {quickExercises.map((exercise) => {
                                         const Icon = exercise.icon
 
@@ -501,13 +506,13 @@ export default function Reflect() {
                                             <button
                                                 key={exercise.title}
                                                 type="button"
-                                                className="group flex w-full items-center gap-4 rounded-full bg-white p-4 text-left transition-all hover:bg-white/60"
+                                                className="group flex w-full items-center gap-3 rounded-full bg-white p-3 text-left transition-all hover:bg-white/60"
                                             >
-                                                <div className={`flex h-10 w-10 items-center justify-center rounded-full ${exercise.tone} bg-serene-on-primary `}>
-                                                    <Icon className="h-5 w-5" />
+                                                <div className={`flex h-9 w-9 items-center justify-center rounded-full ${exercise.tone} bg-serene-on-primary `}>
+                                                    <Icon className="h-4 w-4" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-bold text-serene-pborder-serene-primary">{exercise.title}</p>
+                                                    <p className="text-[13px] font-bold text-serene-primary">{exercise.title}</p>
                                                     <p className="text-[10px] text-serene-primary">{exercise.duration}</p>
                                                 </div>
                                                 <ChevronRight className="ml-auto h-4 w-4 text-serene-primary/30 transition-transform group-hover:translate-x-1" />
@@ -515,7 +520,7 @@ export default function Reflect() {
                                         )
                                     })}
                                 </div>
-                                <div className="mt-6 rounded-2xl bg-white/60 p-4 text-xs text-serene-primary">
+                                <div className="mt-4 rounded-2xl bg-white/60 p-3 text-[11px] text-serene-primary">
                                     <p>Tỷ lệ coping hiệu quả: {formatPercent(summary?.coping_stats.effective_rate)}</p>
                                     <p className="mt-2">
                                         Trigger gần đây:{' '}
@@ -545,8 +550,8 @@ export default function Reflect() {
                             </section>
                         )}
 
-                        <div className="mt-8 border-t border-serene-primary/5 pt-10 text-center">
-                            <p className="font-display text-lg italic text-serene-primary border-serene-primary/50 md:text-xl">
+                        <div className="mt-6 border-t border-serene-primary/5 pt-7 text-center">
+                            <p className="font-display text-base italic text-serene-primary border-serene-primary/50 md:text-lg">
                                 “Học cách chữa lành là hành trình đẹp đẽ nhất của mỗi con người.”
                             </p>
                         </div>
