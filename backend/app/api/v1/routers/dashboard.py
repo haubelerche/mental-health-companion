@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import ensure_policy_acknowledged
 from app.core.responses import ok
-from app.db.models import ClinicalProfile, Conversation, MoodCheckin, User
+from app.db.models import ClinicalProfile, Conversation, MoodCheckin, User, UserProfile
 from app.db.session import get_db
 from app.services.utils import (
     local_date_utc7,
@@ -42,6 +42,59 @@ def _mood_score(mood: str | None) -> tuple[int, str]:
     return _MOOD_TO_SCORE.get(mood, (3, "ổn"))
 
 
+def _top_items(counter_map: dict, *, limit: int = 3) -> list[dict]:
+    ranked: list[dict] = []
+    for label, raw in list((counter_map or {}).items()):
+        row = raw if isinstance(raw, dict) else {}
+        ranked.append(
+            {
+                "label": str(label),
+                "count": int(row.get("count") or 0),
+                "last_seen": row.get("last_seen"),
+            }
+        )
+    ranked.sort(key=lambda item: item["count"], reverse=True)
+    return ranked[:limit]
+
+
+def _build_dashboard_insights(profile_data: dict | None) -> dict:
+    profile = dict(profile_data or {})
+    summaries = list(profile.get("session_summaries") or [])
+    latest_summary = summaries[-1] if summaries else {}
+    stats = dict(profile.get("stats") or {})
+    triggers = _top_items(dict(profile.get("trigger_tags") or {}), limit=3)
+    coping_history = list(profile.get("coping_history") or [])
+    coping_ranked = sorted(
+        [
+            {
+                "action": str(item.get("action") or ""),
+                "tried_count": int(item.get("tried_count") or 0),
+                "self_reported_effective": int(item.get("self_reported_effective") or 0),
+            }
+            for item in coping_history
+            if str(item.get("action") or "").strip()
+        ],
+        key=lambda row: (row["self_reported_effective"], row["tried_count"]),
+        reverse=True,
+    )[:3]
+    return {
+        "latest_session_summary": str(latest_summary.get("summary") or "").strip() or None,
+        "dominant_emotion": latest_summary.get("dominant_emotion"),
+        "top_triggers": triggers,
+        "effective_coping": coping_ranked,
+        "active_goals": [
+            str((goal or {}).get("text") or "").strip()
+            for goal in list(profile.get("goals") or [])
+            if str((goal or {}).get("status") or "active").strip().lower() == "active"
+        ][:3],
+        "memory_stats": {
+            "total_sessions_summarized": len(summaries),
+            "days_active_last_30": int(stats.get("days_active_last_30") or 0),
+            "streak_days": int(stats.get("streak_days") or 0),
+        },
+    }
+
+
 @router.get("/overview")
 def overview(
     current_user: User = Depends(ensure_policy_acknowledged),
@@ -67,6 +120,7 @@ def overview(
     )
 
     clin = db.scalar(select(ClinicalProfile).where(ClinicalProfile.user_id == current_user.user_id))
+    user_profile = db.scalar(select(UserProfile).where(UserProfile.user_id == current_user.user_id))
     assessment = None
     if clin:
         assessment = {
@@ -87,6 +141,7 @@ def overview(
         "last_session_at": last_session_at.isoformat() + "Z" if last_session_at else None,
         "mood_today": {"checked_in": mood_today is not None, "mood": mood_today.mood if mood_today else None},
         "assessment": assessment,
+        "analyst_insights": _build_dashboard_insights(user_profile.profile if user_profile else {}),
     }
 
     if window is not None:
@@ -123,6 +178,64 @@ def overview(
         }
 
     return ok(payload)
+
+
+_DAILY_NUTRITION_TIPS = [
+    {
+        "day_index": 0,
+        "dish": "Yến mạch + chuối + hạt óc chó",
+        "benefit": "Carb chậm và omega-3 giúp ổn định năng lượng, giảm dao động cảm xúc đầu tuần.",
+    },
+    {
+        "day_index": 1,
+        "dish": "Cơm gạo lứt, cá hồi áp chảo, rau xanh",
+        "benefit": "Đạm chất lượng và folate hỗ trợ tổng hợp serotonin, giúp đầu óc tập trung hơn.",
+    },
+    {
+        "day_index": 2,
+        "dish": "Bún ức gà, rau củ luộc, 1 quả cam",
+        "benefit": "Protein nạc + vitamin C giúp giảm mệt mỏi tinh thần khi áp lực giữa tuần tăng cao.",
+    },
+    {
+        "day_index": 3,
+        "dish": "Đậu hũ sốt nấm, khoai lang, salad",
+        "benefit": "Chất xơ và magnesium hỗ trợ giấc ngủ tối, giảm cảm giác bồn chồn kéo dài.",
+    },
+    {
+        "day_index": 4,
+        "dish": "Phở bò nạc + rau thơm + sữa chua",
+        "benefit": "Bổ sung sắt và lợi khuẩn đường ruột để tinh thần bền hơn sau tuần làm việc dài.",
+    },
+    {
+        "day_index": 5,
+        "dish": "Bánh mì nguyên cám, trứng, bơ, cà chua",
+        "benefit": "Bữa gọn nhẹ nhưng đủ dưỡng chất, giúp cơ thể phục hồi và giảm cáu gắt cuối tuần.",
+    },
+    {
+        "day_index": 6,
+        "dish": "Canh bí đỏ, cá thu, rau luộc, trái cây ít ngọt",
+        "benefit": "Giữ đường huyết ổn định và chuẩn bị giấc ngủ tốt để bước vào tuần mới nhẹ hơn.",
+    },
+]
+
+
+@router.get("/nutrition-daily")
+def nutrition_daily(
+    current_user: User = Depends(ensure_policy_acknowledged),
+    db: Session = Depends(get_db),
+):
+    _ = db, current_user
+    today_index = local_date_utc7().weekday()
+    tip = next((item for item in _DAILY_NUTRITION_TIPS if item["day_index"] == today_index), _DAILY_NUTRITION_TIPS[0])
+    return ok(
+        {
+            "timezone": "Asia/Ho_Chi_Minh",
+            "day_index": today_index,
+            "dish": tip["dish"],
+            "benefit": tip["benefit"],
+            "tip": "Uống đủ nước và ăn đúng giờ để giữ nhịp cảm xúc ổn định.",
+        }
+    )
 
 
 class MoodTrendPreset(str, Enum):
