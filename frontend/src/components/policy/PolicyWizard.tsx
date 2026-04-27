@@ -3,20 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { policyService } from '../../services/policyService'
 import { toast } from 'react-toastify'
+import { ROUTE_PATHS } from '../../routes/paths'
 
 const SLIDES = [
   {
     icon: '🤝',
-    persona: 'An · Trò Chuyện · Thư Viện · Kết Nối · Nhìn Lại',
-    heading: 'Đồng hành, không chẩn đoán',
-    body: 'Các nhân vật AI trong Serene chỉ hỗ trợ và tham vấn thông tin — không thay thế chuyên gia sức khoẻ tâm thần.',
+    heading: 'Nơi mọi cảm xúc được lắng nghe',
+    body: 'Serene được xây dựng để trở thành người bạn đồng hành, giúp bạn thấu hiểu bản thân và tìm thấy sự bình yên trong tâm trí. Tuy nhiên, các nhân vật AI không có chức năng thay thế bác sĩ hay các lộ trình trị liệu chuyên sâu. Hãy tìm đến chuyên gia y tế khi bạn cần một chẩn đoán y khoa chính thức.',
   },
-  {
-    icon: '🆘',
-    persona: 'Kết Nối',
-    heading: 'Khủng hoảng — ưu tiên người thật',
-    body: 'Khi có nguy cơ, hãy liên hệ đường dây nóng 1800-599-920 hoặc cấp cứu 115 ngay. Serene sẽ luôn hiển thị hotline khi cần.',
-  },
+  
   {
     icon: '🔒',
     persona: 'Nhìn Lại',
@@ -52,7 +47,7 @@ export function PolicyWizard() {
     setLoading(true)
     try {
       await policyService.acknowledge()
-      navigate('/serene')
+      navigate(ROUTE_PATHS.onboarding)
     } catch {
       toast.error('Có lỗi xảy ra. Vui lòng thử lại.')
     } finally {
