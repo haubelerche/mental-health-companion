@@ -4,6 +4,86 @@
 
 ---
 
+## [Unreleased] — Sprint 5 · 2026-04-27
+
+### Added
+- **`Chat.tsx`** — Thiết kế lại hoàn toàn giao diện Chat theo phong cách **Cozy Pixel Café**: GIF `nen2.gif` (hai chú mèo pixel art) làm backdrop cố định cao 300px; bubble thoại mini-pixel tự động nổi bên trên mèo trắng (Serene/AI) và mèo đen (User) theo tin nhắn mới nhất; các tin nhắn trong feed dùng **pixel dialogue box** có border 3px kiểu JRPG (cream cho AI, dark cho user, đỏ cho SOS), animation step-reveal `pixelReveal`; thanh input tối phong cách terminal với nút `SEND ►` font pixel. Toàn bộ logic nghiệp vụ (streaming, SSE, guest mode, voice consent, debug mode) giữ nguyên. Thêm font **Press Start 2P** và CSS pixel-art vào `index.css`.
+- **`Nutrition.tsx`** — Thiết kế lại theo phong cách **Vintage Minimalism**: bỏ card glassmorphism, dùng layout mở với `border-b` divider mỏng, tiêu đề italic serif lớn, daily tip kiểu blockquote editorial, ba pillars thành text list thoáng.
+- **`BambooForest.tsx`** + **`anonymousShareService.ts`** — Nâng cấp giao diện/luồng "Rừng Trúc" theo hướng cinematic: màn rừng đêm sâu hơn, CTA mở thư random rõ ràng, thêm nút **Hòm Thư** cách điệu bằng biểu tượng mailbox + badge số thư để vào xem lại nhanh. Bổ sung local daily-inbox logic: mỗi ngày user nhận nhiều thư ngẫu nhiên (2–5 thư/ngày), vẫn giữ flow trả lời hoặc truyền thư cho người khác.
+- **`Nutrition.tsx`** + **`dashboardService.ts`** + **`/dashboard/nutrition-daily`** — Thêm trang Dinh dưỡng (`/serene/nutrition`) với gợi ý món ăn theo ngày và ý nghĩa với tinh thần; trang Home có widget “Hôm nay ăn gì” để mở nhanh sang gợi ý chi tiết.
+- **`dashboard.py`** — `overview` trả thêm `analyst_insights` (tóm tắt phiên gần nhất, trigger nổi bật, coping hiệu quả, goals active, memory stats) để dashboard phản ánh dữ liệu analyst/memory có ý nghĩa hơn.
+
+### Changed
+- **`Reflect.tsx` + `ProgressStats.tsx`** — Thu nhỏ typography và nén spacing/padding ở trang `Nhìn lại` để bố cục vừa khung hình hơn trên màn hình laptop (giảm cỡ tiêu đề, card, biểu đồ và khoảng trắng giữa các section).
+- **`Setting.tsx` + `appSettings.ts` + `Sidebar.tsx` + `BeachMessage.tsx`** — Gỡ section “Quyền riêng tư & Bảo mật” khỏi trang Cài đặt, thêm toggle chế độ Sáng/Tối ngay trong mục Giao diện, và đồng bộ toàn app sang một nguồn `mode` chung trong app settings (loại bỏ việc suy luận mode từ `theme` ở từng trang).
+- **`Sidebar.tsx`** — Đổi icon menu `Thư` từ biểu tượng lá sang biểu tượng thuyền (`Sailboat`) để đúng ngữ nghĩa trang thư thả biển.
+- **`BeachMessage.tsx`** — Tối giản lại màn hình Thư: giãn tab `Bến thư`/`Kho thư` cách nhau 100px, tăng độ tương phản chữ hiển thị chính, và bỏ các dòng chữ phụ dư thừa.
+- **`BeachMessage.tsx`** — Logic hiển thị thuyền chuyển sang theo trạng thái có thư chờ: có thư thì hiện thuyền, mở thư xong thì ẩn thuyền và hiển thị trạng thái “chưa có thư mới”.
+- **`BeachMessage.tsx`** — Đồng bộ lại trang Thư theo bản code chuẩn đã chốt (CinematicBg, FloatingBottle ripple, overlay hồi âm/viết thư, tab Bãi Biển/Cộng đồng và hệ thống typography/transition tương ứng).
+- **`BeachMessage.tsx`** — Gỡ nút chuyển `Sáng/Tối` khỏi riêng trang Thư; theme giờ chỉ đổi từ trang `Setting` để tránh 2 điểm điều khiển khác nhau gây rối.
+- **`BeachMessage.tsx`** — Sửa giao diện trang Thư theo feedback: popup viết thư ở theme sáng chuyển sang tông sáng rõ (không còn xám tối), nút Gửi có trạng thái `disabled` và hover sáng lên khi đủ điều kiện gửi, nhãn “Chạm để xem” tăng độ đậm/dễ đọc, thuyền chuyển tông xanh sáng hơn để hòa với mặt nước, tab header `Hộp thư/Cộng đồng` giãn cách + luôn có gạch chân nhận diện, và nền trang đổi sang ảnh `reference-images/nền.avif`.
+- **`BeachMessage.tsx` + `Sidebar.tsx`** — Đồng bộ màu chữ theo theme (tối: chữ trắng, sáng: chữ đen) cho trang Thư và thanh điều hướng; đồng thời tăng cỡ chữ các tiêu đề/nhãn chính, lược bớt thông điệp phụ để giao diện dễ đọc hơn.
+- **`BeachMessage.tsx` + `frontend/src/assets/thuyen.png`** — Thay SVG thuyền giấy trung tâm bằng asset hình thật `thuyen.png` để khớp hình tham chiếu.
+- **`BeachMessage.tsx`** — Bổ sung hiệu ứng gợn sóng lan tỏa dưới thuyền theo nhịp nhấp nhô, tăng cảm giác thuyền nổi trên mặt nước.
+- **`BeachMessage.tsx`** — Nút gửi trong popup thư chuyển sang xử lý click trực tiếp (tránh trạng thái disable gây kẹt), đồng thời thuyền chỉ xuất hiện khi có thư random và tự ẩn sau khi mở thư.
+- **`BeachMessage.tsx` + `AppRoutes.tsx` + cleanup pages** — Chuyển logic trang thư từ `.jsx` sang `BeachMessage.tsx` (TypeScript), route dùng trực tiếp trang này làm nguồn duy nhất; đồng thời xoá file dư `BeachMessage.jsx` và `BambooForest.tsx` để tránh cập nhật phân tán.
+- **`Sidebar.tsx` + `BambooForest.tsx`** — Đổi toàn bộ nhãn hiển thị trang từ **"Rừng Trúc"** sang **"Thư"** trong điều hướng và tiêu đề/nội dung trang.
+- **`Main.tsx` + `Sidebar.tsx` + `HeaderMain.tsx` + `index.css` + `Home.tsx`** — Thu nhỏ mật độ UI toàn app cho màn hình zoom 100%: sidebar hẹp hơn (60 thay vì 72), brand/nav/header scale xuống, container nội dung từ `max-w-7xl` về `max-w-6xl`, giảm padding layout, và đặt base font-size 15px để giao diện bớt “tràn to” khó nhìn.
+- **`HeaderMain.tsx` + `Main.tsx` + `index.css`** — Thêm cơ chế thu gọn thanh công cụ trên cùng để tăng không gian tương tác; bổ sung nút tam giác cách điệu cho thao tác ẩn/hiện nhanh (khi ẩn vẫn còn chip nổi để mở lại ngay).
+- **`Home.tsx`** — “Hôm nay của bạn” chuyển từ checklist sang nhắc nhở theo khung giờ: sáng (05:00–10:00), trưa/chiều (10:00–18:00), tối (18:00–24:00); mỗi nhắc nhở bấm vào sẽ mở phần giải thích “tầm quan trọng” + “nếu bỏ qua” (ăn sáng/ăn trưa/ngồi nhiều/ăn tối/ngủ sớm...), không còn gạch ngang hay biến mất như todo list.
+- **`chat.py`** + **`longterm_memory.py`** + **`chat_response_cache.py`** — Memory được làm “nóng” sau mỗi lượt chat (không chờ `/chat/end`), đồng thời cache key chat thêm `context_seed` để tránh trả lại phản hồi cũ khi cùng nội dung nhưng ngữ cảnh đã thay đổi.
+- **`langgraph_chat.py`** + **`Chat.tsx`** — Hội thoại thường không còn hiển thị `goi_y_nhanh` dưới bong bóng chat; bỏ block “Gợi ý tiếp theo” từ proactive intervention để response gọn và chuyên nghiệp hơn.
+- **`langgraph_chat.py`** + **`Sidebar.tsx`** + **`paths.ts`** + **`AppRoutes.tsx`** + **`Home.tsx`** — Agent có thể đính kèm deep-link dinh dưỡng khi user hỏi diet/ăn uống; thêm route + điều hướng Dinh dưỡng trong app shell.
+- **`BeachMessage.tsx`** — Nút chuyển `Sáng/Tối` ở trang Thư nay đồng bộ với `appSettings` toàn cục: đọc/lưu cùng storage key + lắng nghe event cập nhật, nên đổi mode ở trang Thư sẽ áp dụng nhất quán trên toàn ứng dụng.
+
+- **`CheckinFlow.tsx`** / **`Home.tsx`** — Check-in rút gọn: một bước chip "Tâm trạng hôm nay?" (dùng `MoodWordChips`) rồi thẳng tới "Điều gì ảnh hưởng đến bạn hôm nay?" + ghi chú; bỏ bước thang 5 mức "Hôm nay bạn cảm thấy thế nào?" và lưới cảm xúc tiếng Anh. Từ trang chủ, "Ghi chép thêm" truyền `moodWords` qua `location.state` để vào thẳng bước yếu tố. API vẫn gửi `mood` (suy ra từ chip) và `emotions` = các từ đã chọn.
+- **`Sidebar.tsx`** — Removed "Bài tập" (Dumbbell) as a standalone nav item; renamed "Nguồn lực" → "Tài nguyên" with `Library` icon. Mobile bottom nav rebalanced to 5 remaining items.
+- **`Resources.tsx`** — Full rewrite: (1) Vietnamese labels for all category tabs (Thiền định, Ngủ & Thở, Âm nhạc, Trí tuệ, Vận động); (2) new **SleepTab** component for "Ngủ & Thở" category — shows 4 breathing/relaxation exercises (cards linking to `/serene/exercises?exercise=…`) + Sleep Stories section + Soundscapes section; (3) `AnimatePresence` fade-slide transitions between tabs; (4) extracted `ResourceGrid` component for generic categories; (5) loads exercises via `exerciseService.list()` with `FALLBACK_EXERCISES` fallback; default landing category changed to `sleep`.
+- **`rewardProgress.ts` + `CheckinFlow.tsx` + `Home.tsx`** — Sau khi bấm “Nhận phần thưởng”, tim/streak được persist vào localStorage và phát event cập nhật UI; Home đọc dữ liệu thưởng thay cho số hardcode `0`, đồng thời đồng bộ streak với `/reflect/mental-health-summary` nếu server trả về lớn hơn.
+
+### Fixed
+- **`test_onboarding_integration.py`** — Override `get_db` và `get_current_user` (đúng với router onboarding); thêm `disclaimer_accepted` trong payload `POST /onboarding/complete` để test khớp validation.
+- **`Reflect.tsx`** — Sửa lỗi vòng `Peace Score` bị vỡ/cắt khi thu nhỏ layout: chuẩn hoá SVG bằng `viewBox` để vòng tròn scale đúng theo khung card.
+- **`httpClient.ts` + `AuthContext.tsx` + `Home.tsx` + `Reflect.tsx`** — Giảm spam lỗi `401 Unauthorized`: thêm cơ chế broadcast unauthorized toàn cục để clear auth state sớm và dừng gọi API protected khi user không còn session.
+- **`backend/app/api/v1/routers/auth.py` + `backend/tests/test_auth_integration.py`** — Sửa lỗi không đăng ký được ở local khi chưa cấu hình SMTP: signup không còn fail `500 CONFIG_ERROR`; hệ thống tự auto-verify tài khoản trong chế độ local (`auto_create_schema=true`) để user đăng nhập ngay, đồng thời thêm test regression cho fallback này.
+- **`backend/app/api/v1/routers/auth.py` + `frontend/src/components/policy/PolicyWizard.tsx` + `backend/tests/test_auth_integration.py`** — Sửa lỗi kẹt ở màn hình Policy sau khi bấm “Tôi đồng ý”: trong nhánh signup local fallback, backend nay phát hành luôn auth cookies (access/refresh + CSRF) để các call `/policies/current` và `/policies/acknowledge` không còn `401`.
+- **`frontend/src/components/auth/Register.tsx` + `frontend/src/components/pages/OnboardingFlow.tsx` + `backend/app/api/v1/routers/onboarding.py` + `backend/app/schemas/payloads.py`** — Gộp luồng disclaimer vào onboarding (bỏ bước policy rời trong flow signup), cho phép user đi thẳng `/serene/onboarding` sau đăng ký; onboarding hoàn tất sẽ ghi nhận `disclaimer_accepted` và cập nhật policy ack trên backend.
+- **`frontend/src/components/layout/HeaderMain.tsx`** — Menu tài khoản giờ hiển thị theo trạng thái auth: đã đăng nhập chỉ hiện `Tài khoản` / `Đổi mật khẩu` / `Đăng xuất`, không còn hiển thị nút `Đăng nhập` gây hiểu nhầm.
+
+---
+
+## [Unreleased] — Sprint 4 · 2026-04-27
+
+### Added
+- **`anonymousShareService.ts`** — `POST /bamboo/send` + `GET /bamboo/inbox` with graceful localStorage fallback when backend endpoint is unavailable; 3 curated mock messages for offline inbox demo.
+- **`BambooForestPage.tsx`** (`/serene/bamboo`) — Full anonymous sharing feature: (1) **Composer** with category selector (Lời khích lệ / Chia sẻ / Hỏi đáp), styled textarea, character counter; (2) **Confirmation modal** with 3-item checklist the user must tick before sending (no harmful content / no PII / suitable for strangers) — "Gửi" disabled until all checked; (3) **Dual action** — "Gửi vào dòng suối 🌊" sends to random user, "Đốt an toàn 🔥" discards locally; (4) **Community Guidelines modal** (Info button); (5) **Done/Burn splash** screens; (6) **Inbox tab** with received anonymous messages styled per category. Bamboo forest dark-olive gradient background.
+- **`DayDetailSheet.tsx`** (`frontend/src/components/wellness/`) — Framer-motion bottom sheet; opens on MoodCalendar cell tap; shows date, mood emoji, score bar, word chips, journal note; spring entrance animation.
+- **`ProgressStats.tsx`** (`frontend/src/components/wellness/`) — 4-stat grid (streak days, weekly check-ins, total sessions, hearts/tim); weekly check-in dot bar with animated fill; integrated into `Reflect.tsx`.
+
+### Changed
+- **`MoodCalendar.tsx`** — Added optional `onDayClick(date, score, label)` prop; cells are now `<button>` elements when `onDayClick` provided; tap highlights with scale animation.
+- **`Reflect.tsx`** — Integrated `DayDetailSheet` (tapping calendar cells opens day detail); integrated `ProgressStats` section after milestones chips; added `selectedDay` state.
+- **`Sidebar.tsx`** — Added "Rừng Trúc" nav item (Leaf icon, `/serene/bamboo`).
+- **`paths.ts`** / **`AppRoutes.tsx`** — Registered `/serene/bamboo` route.
+
+---
+
+## [Unreleased] — Sprint 3 · 2026-04-27
+
+### Added
+- **`OnboardingFlow.tsx`** — 8-step new-user questionnaire (Splash → Nickname → Gender → Age group → Mental concerns checklist → Stress frequency slider → Sleep schedule time-pickers → Goals); data persisted to `localStorage`; route `/serene/onboarding` wired into `AppRoutes.tsx` + `paths.ts`.
+- **`ScreeningFlow.tsx`** — Likert pill UI replaces plain radio buttons; frequency dot indicators (0–3 filled dots per option); animated `AnalyzingLoader` with 3-step message sequence shown while submitting final answer; instrument selection cards with icon + description.
+- **`ResultsPage.tsx`** — Dual animated score bars (raw score % + severity %, `motion` fill); per-severity recommendation exercise cards (2 cols); Web Share API share button with clipboard fallback; "Chat with Serene" CTA card at bottom; action buttons upgraded with Lucide icons.
+- **`MoodGauge.tsx`** (`frontend/src/components/common/`) — SVG semicircle gauge 1–10; animated spring needle; gradient color track (red→yellow→green); click-to-set + stepper buttons; accessible `role="slider"` attributes.
+- **`StreakCelebration.tsx`** (`frontend/src/components/common/`) — Animated modal celebrating consecutive check-in days; S M T W T F S dot circles (amber = done); hearts reward badge; spring scale entrance animation; integrated into `CheckinFlow` summary step.
+- **`DateDivider.tsx`** (`frontend/src/components/chat/`) — Date separator between chat messages when day changes (shows "Hôm nay" / "Hôm qua" / formatted date); wired into Chat.tsx message feed via `timestamp` field on `UiMessage`.
+
+### Changed
+- **`CheckinFlow.tsx`** — Added `StreakCelebration` modal on submit completion; fixed English "Chat with Mây" button to Vietnamese.
+- **`Chat.tsx`** — Added `timestamp?: number` to `UiMessage` type; new user/assistant messages include `Date.now()` timestamp; `DateDivider` rendered between messages on day boundaries.
+
+---
+
 ## [Unreleased] — Sprint 2 · 2026-04-25
 
 ### Added
@@ -45,6 +125,7 @@
 - `main.py`: starts outbox worker thread alongside idle-session worker on startup.
 
 ### Fixed
+- **`StreakBar.tsx`** — Sửa logic đánh dấu “Chuỗi tuần này” theo ngày hiện tại: streak giờ được tô ngược từ hôm nay (có wrap qua CN/T7), tránh lỗi luôn tô cố định từ T2 làm sai khi hôm nay là thứ 2 nhưng UI vẫn tô T3/T4.
 - `chat.py` + `langgraph_chat.py`: load memory context once per turn, include memory for recall questions even at low distress, and skip cold-start profiling on short low-risk turns to reduce latency.
 - `counseling_retriever.py`: indentation error in `try` block — `rows = db.execute(...)` was unindented.
 - `outbox_worker.py`: marks dispatched events as `done` (was using invalid `processed` status).
