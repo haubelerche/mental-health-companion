@@ -31,23 +31,8 @@ def _trusted_origins(raw: str) -> set[str]:
 
 
 def _is_origin_allowed(request_origin: str, trusted_origins: set[str]) -> bool:
-    """Allow exact origin, or loopback host with any local dev port."""
-    if request_origin in trusted_origins:
-        return True
-
-    parsed_request = urlparse(request_origin)
-    request_host = (parsed_request.hostname or "").lower()
-    request_scheme = parsed_request.scheme.lower()
-    if request_host not in {"localhost", "127.0.0.1", "::1"}:
-        return False
-
-    for trusted in trusted_origins:
-        parsed_trusted = urlparse(trusted)
-        trusted_host = (parsed_trusted.hostname or "").lower()
-        trusted_scheme = parsed_trusted.scheme.lower()
-        if trusted_host in {"localhost", "127.0.0.1", "::1"} and trusted_scheme == request_scheme:
-            return True
-    return False
+    """Exact-match only. Add every origin (including dev ports) to CSRF_TRUSTED_ORIGINS."""
+    return request_origin in trusted_origins
 
 
 def require_csrf(
