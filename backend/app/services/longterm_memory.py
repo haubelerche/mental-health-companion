@@ -196,11 +196,6 @@ def persist_turn_memory(
         logger.warning("turn memory extract failed for %s: %s", user_id, exc)
         return
 
-    # Test doubles may not implement SQLAlchemy's scalar() API; skip persistence in that case.
-    if not hasattr(db, "scalar"):
-        logger.debug("persist_turn_memory skipped for %s: db adapter has no scalar()", user_id)
-        return
-
     row = db.scalar(select(UserProfile).where(UserProfile.user_id == user_id))
     if not row:
         row = UserProfile(user_id=user_id, profile={})
