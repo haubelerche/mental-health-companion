@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentProps } from 'react'
-import { History, Loader2, MoreVertical } from 'lucide-react'
+import { History, MoreVertical } from 'lucide-react'
 import { TypingIndicator } from './TypingIndicator'
 import { DateDivider } from './DateDivider'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -695,18 +695,18 @@ export default function Chat() {
 
     // ─── Render ────────────────────────────────────────────────────────────────
     return (
-        <>
-            <div className="flex h-[calc(100svh-6rem)] flex-col overflow-hidden rounded-[28px] border border-white/35 bg-white/35 backdrop-blur-xl lg:h-[calc(100svh-4rem)]">
+        <div >
+            <div className="h-screen flex flex-col bg-white/50 backdrop-blur-xl rounded-4xl p-4 shadow-xl">
 
                 {/* ── Header ───────────────────────────────────────────── */}
-                <div className="flex shrink-0 items-center justify-between border-b border-serene-outline/20 px-5 py-3">
+                <div className="flex shrink-0 items-center justify-between mb-3 border-b-2 border-black/10 px-5 py-3">
                     <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-serene-primary/10 text-lg">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-serene-primary/50 text-2xl">
                             🌿
                         </div>
                         <div>
-                            <p className="text-sm font-semibold text-serene-ink">Serene</p>
-                            <p className="text-[11px] text-serene-muted">Luôn ở đây cùng bạn</p>
+                            <p className="text-2xl font-display font-semibold text-serene-ink">Serene</p>
+                            <p className="text-sm text-serene-muted">Luôn ở đây cùng bạn</p>
                         </div>
                     </div>
 
@@ -729,19 +729,19 @@ export default function Chat() {
                         <button
                             type="button"
                             onClick={() => void openHistory()}
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-serene-muted transition hover:bg-serene-surface hover:text-serene-ink"
+                            className="flex items-center justify-center rounded-full text-serene-muted transition  hover:text-serene-ink"
                             aria-label="Lịch sử chat"
                         >
-                            {historyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <History className="h-4 w-4" />}
+                            <History className="h-6 w-6" />
                         </button>
                         <div className="relative">
                             <button
                                 type="button"
                                 onClick={() => setShowOptions((prev) => !prev)}
-                                className="flex h-8 w-8 items-center justify-center rounded-full text-serene-muted transition hover:bg-serene-surface hover:text-serene-ink"
+                                className="flex items-center justify-center rounded-full text-serene-muted transition hover:text-serene-ink"
                                 aria-label="Tùy chọn"
                             >
-                                <MoreVertical className="h-4 w-4" />
+                                <MoreVertical className="h-6 w-6" />
                             </button>
                             {showOptions && (
                                 <div className="absolute right-0 top-10 z-50 w-72 rounded-2xl border border-serene-outline/30 bg-white/95 p-3 shadow-xl backdrop-blur-xl">
@@ -782,12 +782,12 @@ export default function Chat() {
                 />
 
                 {/* ── Message feed ──────────────────────────────────────── */}
-                <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                <div className="flex-1 mb-15 overflow-y-auto p-4 sm:px-6">
                     <div className="flex min-h-full flex-col justify-end gap-3">
                         {messages.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                                 <div className="text-4xl">🌿</div>
-                                <p className="text-sm text-serene-muted">Chia sẻ điều bạn đang cảm thấy, mình lắng nghe.</p>
+                                <p className=" text-serene-muted">Chia sẻ điều bạn đang cảm thấy, mình lắng nghe.</p>
                             </div>
                         ) : (
                             messages.map((m, idx) => {
@@ -805,10 +805,10 @@ export default function Chat() {
                                             <div className="mt-1 shrink-0 select-none text-xl leading-none" aria-hidden="true">
                                                 {isAI ? '🌿' : '🙂'}
                                             </div>
-                                            <div className={`flex max-w-[80%] flex-col gap-2 ${isAI ? 'items-start' : 'items-end'}`}>
+                                            <div className={`flex max-w-[70%] flex-col gap-2 ${isAI ? 'items-start' : 'items-end'}`}>
                                                 <article
                                                     className={[
-                                                        'rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line',
+                                                        'rounded-2xl px-4 py-3 leading-relaxed whitespace-pre-line',
                                                         isAI
                                                             ? m.apiData?.sos_triggered
                                                                 ? 'bg-red-50 text-red-800 border border-red-200'
@@ -863,24 +863,25 @@ export default function Chat() {
                         </button>
                     </div>
                 )}
-
                 {/* ── Input bar ─────────────────────────────────────────── */}
                 <form
                     onSubmit={handleSend}
-                    className="shrink-0 border-t border-serene-outline/20 bg-white/40 px-4 py-3 backdrop-blur-sm"
+                    className="sticky bottom-15 rounded-full bg-white px-4 py-3 backdrop-blur-sm border border-white/25 shadow-2xl"
                 >
+                    {/* overlay */}
+
                     <div className="flex items-center gap-3">
                         <input
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             disabled={isGuestMode && guestSecondsLeft <= 0}
                             placeholder="Chia sẻ điều bạn đang cảm thấy..."
-                            className="flex-1 rounded-full border border-serene-outline/30 bg-white/70 px-4 py-2.5 text-sm text-serene-ink placeholder-serene-muted/50 outline-none focus:border-serene-primary focus:ring-1 focus:ring-serene-primary/30"
+                            className="flex-1 rounded-full px-4 py-3 text-md text-serene-ink focus:outline-none"
                         />
                         <button
                             type="submit"
                             disabled={!canSend}
-                            className="shrink-0 rounded-full bg-serene-primary px-5 py-2.5 text-sm font-medium text-serene-on-primary transition hover:bg-serene-primary-dim disabled:cursor-not-allowed disabled:opacity-40"
+                            className="shrink-0 rounded-full bg-serene-primary px-5 py-2.5 font-medium text-serene-on-primary transition hover:bg-serene-primary-dim disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             {sending ? '···' : 'Gửi'}
                         </button>
@@ -888,7 +889,8 @@ export default function Chat() {
                 </form>
             </div>
 
+
             <HotlineBar visible={sosActive} />
-        </>
+        </div>
     )
 }
