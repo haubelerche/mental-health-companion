@@ -20,6 +20,7 @@ import {
   APP_SETTINGS_UPDATED_EVENT,
   readAppSettings,
   saveAppSettings,
+  updateAppMode,
   type AppearanceMode,
   type AppSettings,
   type ThemeOption,
@@ -102,23 +103,6 @@ export default function Setting() {
     const previewSettings: AppSettings = {
       theme,
       mode: selectedMode,
-      maskIdentity,
-      shareData,
-      reminder,
-      weeklySummary,
-      sosAccess,
-    }
-    window.dispatchEvent(
-      new CustomEvent<AppSettings>(APP_SETTINGS_UPDATED_EVENT, {
-        detail: previewSettings,
-      }),
-    )
-  }
-
-  const previewMode = (mode: AppearanceMode) => {
-    const previewSettings: AppSettings = {
-      theme: selectedTheme,
-      mode,
       maskIdentity,
       shareData,
       reminder,
@@ -232,7 +216,8 @@ export default function Setting() {
                 onChange={(checked) => {
                   const nextMode: AppearanceMode = checked ? 'dark' : 'light'
                   setSelectedMode(nextMode)
-                  previewMode(nextMode)
+                  setSavedSettings((prev) => ({ ...prev, mode: nextMode }))
+                  updateAppMode(nextMode)
                 }}
               />
             </div>
