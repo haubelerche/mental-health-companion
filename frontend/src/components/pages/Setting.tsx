@@ -321,24 +321,17 @@ export default function Setting() {
             </div>
           </section>
 
-          <section className="mt-12 space-y-6">
-            <div className="flex items-center gap-2 border-b border-serene-ink/5 pb-2">
-              <LogOut className="h-5 w-5 text-red-600" />
-              <h2 className="font-display text-2xl text-serene-ink">Phiên đăng nhập</h2>
-            </div>
-            <div className="rounded-3xl border border-red-200/80 bg-red-50/70 p-6">
-              <p className="text-sm text-serene-muted">
-                Đăng xuất khỏi tài khoản trên thiết bị này.
-              </p>
-              <button
-                type="button"
-                onClick={() => void handleLogout()}
-                disabled={isLoggingOut}
-                className="mt-4 rounded-full bg-red-600 px-6 py-3 text-xs font-bold uppercase tracking-[0.22em] text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
-              </button>
-            </div>
+          <section className="mt-8 text-center">
+            <button
+              type="button"
+              onClick={() => void handleLogout()}
+              disabled={isLoggingOut}
+              className="inline-flex gap-2 items-center mt-4 rounded-full bg-red-600 px-6 py-3 text-xs font-bold uppercase tracking-[0.22em] text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <LogOut className="h-5 w-5 " />
+              {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất '}
+            </button>
+
           </section>
 
           {/*nếu có thay đổi thì mới hiện*/}

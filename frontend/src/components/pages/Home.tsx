@@ -97,7 +97,7 @@ const QUICK_ACTIONS: QuickAction[] = [
         desc: '1–5 phút',
         route: ROUTE_PATHS.exercises,
         bgClass: 'bg-may-bg',
-        iconClass: 'text-may',
+        iconClass: 'text-blue-500',
     },
     {
         icon: BookOpen,
@@ -372,7 +372,7 @@ export default function Home() {
             {/* ── Greeting header ── */}
             <header className="flex items-start justify-between gap-4">
                 <div>
-                    <p className="text-sm font-medium uppercase tracking-wide text-white/70">
+                    <p className="text-sm font-medium uppercase tracking-wide text-white">
                         {getGreeting()}
                     </p>
                     <h1 className="mt-1 font-display text-3xl italic text-white sm:text-4xl">
@@ -380,12 +380,12 @@ export default function Home() {
                     </h1>
                 </div>
                 <div className="flex items-center gap-3 rounded-full border border-white/30 bg-white/20 px-4 py-2 backdrop-blur-sm">
-                    <span className="flex items-center gap-1 text-sm font-semibold text-rose-300">
+                    <span className="flex items-center gap-1 text-sm font-semibold text-rose-500">
                         <Heart className="h-4 w-4 fill-current" />
                         {hearts}
                     </span>
                     <span className="h-4 w-px bg-white/30" />
-                    <span className="flex items-center gap-1 text-sm font-semibold text-amber-300">
+                    <span className="flex items-center gap-1 text-sm font-semibold text-amber-400">
                         <Flame className="h-4 w-4 fill-current" />
                         {streak}
                     </span>
@@ -402,7 +402,7 @@ export default function Home() {
                 </div>
                 <p className="mb-4 text-sm text-serene-muted">{TIME_SLOT_META[currentSlot].intro}</p>
 
-                <div className="space-y-2.5">
+                <div className="space-y-3">
                     {currentReminders.map((item) => {
                         const active = selectedReminderId === item.id
                         return (
@@ -414,13 +414,13 @@ export default function Home() {
                                     setDetailReminderId(item.id)
                                 }}
                                 className={[
-                                    'flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition active:scale-[0.98]',
+                                    'flex w-full items-center gap-3 rounded-2xl p-4 text-left transition active:scale-[0.98]',
                                     active
                                         ? 'border border-serene-primary/30 bg-serene-primary/10'
                                         : 'border border-transparent bg-white/60 hover:bg-white/80',
                                 ].join(' ')}
                             >
-                                <Info className={`h-5 w-5 flex-shrink-0 ${active ? 'text-serene-primary' : 'text-serene-outline'}`} />
+                                <Info className={`h-5 w-5 shrink-0 ${active ? 'text-serene-primary' : 'text-serene-outline'}`} />
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm font-semibold text-serene-ink">{item.title}</p>
                                     <p className="mt-0.5 text-xs text-serene-muted">{item.summary}</p>
@@ -471,7 +471,7 @@ export default function Home() {
 
             {/* ── Quick action grid 2×2 ── */}
             <section>
-                <h2 className="mb-4 font-display text-2xl text-white">Bắt đầu từ đây</h2>
+                <h2 className="mb-4 font-display text-3xl text-white">Bắt đầu từ đây</h2>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {QUICK_ACTIONS.map((action) => {
                         const Icon = action.icon
@@ -501,7 +501,7 @@ export default function Home() {
             <button
                 type="button"
                 onClick={() => navigate(ROUTE_PATHS.reflect)}
-                className="group w-full rounded-[28px] border border-white/25 bg-serene-primary/85 p-6 text-left backdrop-blur-xl transition hover:bg-serene-primary/95 active:scale-[0.99]"
+                className="group w-full rounded-3xl border border-white/25 bg-serene-primary/85 p-6 text-left backdrop-blur-xl transition hover:bg-serene-primary/95 active:scale-[0.99]"
             >
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex-1">
@@ -511,12 +511,10 @@ export default function Home() {
                         <h3 className="mt-1.5 font-display text-2xl text-serene-on-primary">
                             6 chiều sức khoẻ
                         </h3>
-                        <p className="mt-1 text-sm text-serene-on-primary/70">
-                            Xem chi tiết biểu đồ →
-                        </p>
+                       
                         <ArrowRight className="mt-3 h-5 w-5 text-serene-on-primary/50 transition group-hover:translate-x-1" />
                     </div>
-                    <div className="flex-shrink-0">
+                    <div className="shrink-0">
                         {wellnessScores ? (
                             <WellnessRadar scores={wellnessScores} mini />
                         ) : (
@@ -533,11 +531,11 @@ export default function Home() {
             {/* ── Dành cho bạn ── */}
             <section>
                 <div className="mb-4 flex items-center justify-between">
-                    <h2 className="font-display text-2xl text-white">Dành cho bạn</h2>
+                    <h2 className="font-display text-3xl text-white">Dành cho bạn</h2>
                     <button
                         type="button"
                         onClick={() => navigate(ROUTE_PATHS.exercises)}
-                        className="text-xs font-medium text-white/70 underline underline-offset-4 transition hover:text-white"
+                        className="font-medium text-white underline underline-offset-4 transition hover:text-white/50"
                     >
                         Xem tất cả
                     </button>
@@ -549,14 +547,14 @@ export default function Home() {
                                 key={card.label}
                                 type="button"
                                 onClick={() => navigate(card.route)}
-                                className="flex min-w-[148px] flex-shrink-0 flex-col gap-3 rounded-[22px] border border-white/35 bg-white/50 p-4 text-left backdrop-blur-xl transition hover:bg-white/70 active:scale-[0.97]"
+                                className="flex min-w-[148px] shrink-0 flex-col gap-3 rounded-[22px] border border-white/35 bg-white/50 p-4 text-left backdrop-blur-xl transition hover:bg-white/70 active:scale-[0.97]"
                             >
-                                <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl text-xl ${card.accentClass}`}>
+                                <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl text-xl ${card.accentClass}`}>
                                     {card.emoji}
                                 </div>
                                 <div>
                                     <p className="text-sm font-semibold text-serene-ink leading-tight">{card.label}</p>
-                                    <p className="mt-0.5 text-xs text-serene-muted">{card.desc}</p>
+                                    <p className="mt-1 text-xs text-serene-muted">{card.desc}</p>
                                 </div>
                             </button>
                         )

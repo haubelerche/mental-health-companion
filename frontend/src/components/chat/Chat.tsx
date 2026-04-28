@@ -696,7 +696,7 @@ export default function Chat() {
     // ─── Render ────────────────────────────────────────────────────────────────
     return (
         <div >
-            <div className="h-[90dvh] flex flex-col bg-white/50 backdrop-blur-xl rounded-4xl p-4 shadow-xl">
+            <div className="h-[92dvh] flex flex-col bg-white/70 backdrop-blur-xl rounded-4xl p-4 shadow-xl">
 
                 {/* ── Header ───────────────────────────────────────────── */}
                 <div className="flex shrink-0 items-center justify-between mb-3 border-b-2 border-black/10 px-5 py-3">
@@ -782,7 +782,7 @@ export default function Chat() {
                 />
 
                 {/* ── Message feed ──────────────────────────────────────── */}
-                <div className="flex-1 mb-15 overflow-y-auto p-4 sm:px-6">
+                <div className="flex-1 mb-8 overflow-y-auto p-4 sm:px-6">
                     <div className="flex min-h-full flex-col justify-end gap-3">
                         {messages.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
