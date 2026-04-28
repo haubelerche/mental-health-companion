@@ -696,7 +696,7 @@ export default function Chat() {
     // ─── Render ────────────────────────────────────────────────────────────────
     return (
         <div >
-            <div className="h-screen flex flex-col bg-white/50 backdrop-blur-xl rounded-4xl p-4 shadow-xl">
+            <div className="h-[90dvh] flex flex-col bg-white/50 backdrop-blur-xl rounded-4xl p-4 shadow-xl">
 
                 {/* ── Header ───────────────────────────────────────────── */}
                 <div className="flex shrink-0 items-center justify-between mb-3 border-b-2 border-black/10 px-5 py-3">
@@ -888,8 +888,6 @@ export default function Chat() {
                     </div>
                 </form>
             </div>
-
-
             <HotlineBar visible={sosActive} />
         </div>
     )
