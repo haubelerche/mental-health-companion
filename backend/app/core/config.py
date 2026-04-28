@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Self
+from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from pydantic import AliasChoices, Field, model_validator
@@ -109,7 +109,7 @@ class Settings(BaseSettings):
     langfuse_host: str = Field(default="https://cloud.langfuse.com", validation_alias=AliasChoices("LANGFUSE_HOST"))
 
     @model_validator(mode="after")
-    def _aura_neo4j_defaults(self) -> Self:
+    def _aura_neo4j_defaults(self) -> "Settings":
         """Aura Bolt user and default DB are *neo4j*, not the hostname instance id."""
         uri = (self.neo4j_uri or "").strip()
         inst = _aura_instance_from_uri(uri)
@@ -122,7 +122,7 @@ class Settings(BaseSettings):
         return self
 
     @model_validator(mode="after")
-    def _local_database_defaults(self) -> Self:
+    def _local_database_defaults(self) -> "Settings":
         """Không có DATABASE_URL → SQLite file trong cwd (thường là `backend/`) + tạo bảng tự động."""
         if (self.database_url or "").strip():
             return self

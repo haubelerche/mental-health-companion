@@ -12,9 +12,9 @@ Backend hiện có các nhóm endpoint:
 - Reflect: 5 endpoints
 - Resources: 6 endpoints
 - Connect: 2 endpoints
-- Admin: 3 endpoints
+- Admin: 7 endpoints
 
-Tổng cộng: 33 endpoints.
+Tổng cộng: 37 endpoints.
 
 ## 2. Base URL và Response Format
 
@@ -57,6 +57,7 @@ Tạo 1 environment với các biến:
 - `sessionId` = (rỗng)
 - `checkinId` = (rỗng)
 - `resourceId` = `res_001` (hoặc id thật trong DB)
+- `adminResourceId` = (rỗng)
 
 Lưu ý:
 - Postman phải bật cookie jar mặc định.
@@ -95,8 +96,12 @@ Lưu ý:
 29. Admin -> auth login
 30. Admin -> crisis-logs
 31. Admin -> dashboard
-32. Auth -> refresh
-33. Auth -> logout
+32. Admin -> resources list
+33. Admin -> resources create (lấy `adminResourceId`)
+34. Admin -> resources patch
+35. Admin -> resources delete
+36. Auth -> refresh
+37. Auth -> logout
 
 ## 5. Test Cases Chi Tiết Theo Endpoint
 
@@ -542,6 +547,72 @@ pm.environment.set("checkinId", body.data.checkin_id);
   - HTTP 200
   - Có các trường aggregate
 
+### GET /v1/admin/resources?category=meditate&include_inactive=true&limit=20&offset=0
+- URL: `{{baseUrl}}/v1/admin/resources?category=meditate&include_inactive=true&limit=20&offset=0`
+- Kỳ vọng pass:
+  - HTTP 200
+  - Có `items`, `total`, `has_more`
+- Kỳ vọng fail:
+  - category sai -> 400 `INVALID_PARAMETER`
+  - limit/offset sai -> 400 `INVALID_PARAMETER`
+
+### POST /v1/admin/resources
+- URL: `{{baseUrl}}/v1/admin/resources`
+- Body:
+
+```json
+{
+  "category": "meditate",
+  "title": "Thiền thở 5 phút",
+  "description": "Bài thở ngắn",
+  "format": "audio",
+  "duration_sec": 300,
+  "storage_key": "audio/med_100.mp3",
+  "thumbnail_key": "thumb/med_100.jpg",
+  "tags": ["beginner", "calm"],
+  "is_active": true
+}
+```
+
+- Kỳ vọng pass:
+  - HTTP 201
+  - Có `data.resource_id`, `data.created_at`
+- Kỳ vọng fail:
+  - category/format sai -> 400 `INVALID_PARAMETER`
+
+- Postman Tests:
+
+```javascript
+const body = pm.response.json();
+pm.environment.set("adminResourceId", body.data.resource_id);
+```
+
+### PATCH /v1/admin/resources/{resource_id}
+- URL: `{{baseUrl}}/v1/admin/resources/{{adminResourceId}}`
+- Body:
+
+```json
+{
+  "title": "Thiền thở 5 phút (cập nhật)",
+  "is_active": false
+}
+```
+
+- Kỳ vọng pass:
+  - HTTP 200
+  - Có `data.resource_id`, `data.updated_at`
+- Kỳ vọng fail:
+  - id sai -> 404 `RESOURCE_NOT_FOUND`
+
+### DELETE /v1/admin/resources/{resource_id}
+- URL: `{{baseUrl}}/v1/admin/resources/{{adminResourceId}}`
+- Kỳ vọng pass:
+  - HTTP 200
+  - Có `data.resource_id`, `data.deleted_at`
+- Kỳ vọng fail:
+  - id sai -> 404 `RESOURCE_NOT_FOUND`
+  - resource đang có dữ liệu liên quan -> 409 `RESOURCE_IN_USE`
+
 ## 6. Negative Test Nên Chạy Thêm
 
 - Signup disclaimer false -> 400 `DISCLAIMER_NOT_ACCEPTED`
@@ -552,6 +623,8 @@ pm.environment.set("checkinId", body.data.checkin_id);
 - Reflect mood-trend với `days=0` hoặc `days=91` -> 400 `INVALID_PARAMETER`
 - Resources category sai -> 400 `INVALID_PARAMETER`
 - Resources detail id sai -> 404 `RESOURCE_NOT_FOUND`
+- Admin resources category sai -> 400 `INVALID_PARAMETER`
+- Admin delete resource đang được bookmark/play-event -> 409 `RESOURCE_IN_USE`
 
 ## 7. Quick Postman Test Scripts (Optional)
 

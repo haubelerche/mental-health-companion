@@ -775,6 +775,8 @@ Lấy danh sách gợi ý prompt viết journal từ Knowledge Base.
 
 ## 5. Resources
 
+> Nhóm endpoint trong mục này là luồng **user consume** (xem/list/detail/track/bookmark). Luồng **admin quản trị tài nguyên (CRUD)** nằm ở mục **7. Admin / Internal**.
+
 ### `GET /resources/categories`
 ```json
 // Response 200
@@ -1035,6 +1037,108 @@ Số liệu ẩn danh cho B2B dashboard (trường học, tổ chức).
 }
 ```
 
+### `GET /admin/resources?category=meditate&include_inactive=true&limit=20&offset=0`
+Danh sách tài nguyên cho trang quản trị. Hỗ trợ lọc theo category và chọn có/không lấy bản ghi inactive.
+
+```json
+// Response 200
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "resource_id": "res_xxx",
+        "category": "meditate",
+        "title": "Thiền cho người lo âu",
+        "description": "...",
+        "format": "audio",
+        "duration_sec": 600,
+        "storage_key": "audio/med_042.mp3",
+        "thumbnail_key": "thumb/med_042.jpg",
+        "tags": ["lo_au", "beginner"],
+        "is_active": true,
+        "created_at": "2026-04-22T08:00:00Z"
+      }
+    ],
+    "total": 24,
+    "has_more": false
+  },
+  "error": null
+}
+```
+
+**Validation chính:**
+- `category` nếu có phải thuộc danh sách category hợp lệ.
+- `limit` trong [1, 100], `offset >= 0`.
+
+### `POST /admin/resources`
+Tạo tài nguyên mới (do admin quản lý nội dung).
+
+```json
+// Request
+{
+  "category": "meditate",
+  "title": "Thiền thở 5 phút",
+  "description": "Bài thở ngắn để làm dịu căng thẳng",
+  "format": "audio",
+  "duration_sec": 300,
+  "storage_key": "audio/med_100.mp3",
+  "thumbnail_key": "thumb/med_100.jpg",
+  "tags": ["beginner", "calm"],
+  "is_active": true
+}
+
+// Response 201
+{
+  "success": true,
+  "data": {
+    "resource_id": "res_xxx",
+    "created_at": "2026-04-22T08:01:00Z"
+  },
+  "error": null
+}
+```
+
+### `PATCH /admin/resources/{resource_id}`
+Cập nhật một phần metadata của tài nguyên.
+
+```json
+// Request (partial)
+{
+  "title": "Thiền thở 5 phút (cập nhật)",
+  "is_active": false
+}
+
+// Response 200
+{
+  "success": true,
+  "data": {
+    "resource_id": "res_xxx",
+    "updated_at": "2026-04-22T08:05:00Z"
+  },
+  "error": null
+}
+```
+
+### `DELETE /admin/resources/{resource_id}`
+Xóa cứng một tài nguyên.
+
+```json
+// Response 200
+{
+  "success": true,
+  "data": {
+    "resource_id": "res_xxx",
+    "deleted_at": "2026-04-22T08:07:00Z"
+  },
+  "error": null
+}
+```
+
+**Error chính:**
+- `RESOURCE_NOT_FOUND` (404)
+- `RESOURCE_IN_USE` (409) khi tài nguyên đang có dữ liệu liên quan (bookmark/play-event), không thể xóa cứng.
+
 ---
 
 ## Error Codes
@@ -1051,6 +1155,7 @@ Số liệu ẩn danh cho B2B dashboard (trường học, tổ chức).
 | `CHECKIN_NOT_EDITABLE` | 409 | Chỉ được sửa checkin của ngày hôm nay |
 | `SESSION_NOT_FOUND` | 404 | Sai hoặc không có quyền truy cập session_id |
 | `RESOURCE_NOT_FOUND` | 404 | ID nội dung không tồn tại |
+| `RESOURCE_IN_USE` | 409 | Tài nguyên đang có dữ liệu liên quan, không thể xóa cứng |
 | `GUARDRAIL_INPUT_BLOCKED` | 422 | Input bị NeMo chặn (prompt injection, toxic) |
 | `LLM_TIMEOUT` | 504 | LangGraph pipeline > 10s — FE nên retry 1 lần |
 | `SCHEMA_VALIDATION_FAILED` | 500 | Agent trả sai schema, đã fallback safe reply |

@@ -115,6 +115,30 @@ class PlayEventRequest(BaseModel):
     percent: int = Field(ge=0, le=100)
 
 
+class AdminResourceCreateRequest(BaseModel):
+    category: str = Field(min_length=1, max_length=50)
+    title: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+    format: str = Field(min_length=1, max_length=20)
+    duration_sec: int = Field(ge=1)
+    storage_key: str = Field(min_length=1, max_length=500)
+    thumbnail_key: str | None = Field(default=None, max_length=500)
+    tags: list[str] = Field(default_factory=list)
+    is_active: bool = True
+
+
+class AdminResourceUpdateRequest(BaseModel):
+    category: str | None = Field(default=None, min_length=1, max_length=50)
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
+    format: str | None = Field(default=None, min_length=1, max_length=20)
+    duration_sec: int | None = Field(default=None, ge=1)
+    storage_key: str | None = Field(default=None, min_length=1, max_length=500)
+    thumbnail_key: str | None = Field(default=None, max_length=500)
+    tags: list[str] | None = None
+    is_active: bool | None = None
+
+
 class ClinicsRequest(BaseModel):
     lat: float | None = Field(default=None, ge=-90, le=90)
     lng: float | None = Field(default=None, ge=-180, le=180)
