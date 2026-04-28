@@ -13,6 +13,7 @@ import { chatService } from '../../services/chatService'
 import { policyService } from '../../services/policyService'
 import { Switch } from '../ui/switch'
 import { HotlineBar } from '../crisis/HotlineBar'
+import { ChatHistoryModal } from './ChatHistoryModal'
 
 // ─── API response types ────────────────────────────────────────────────────────
 
@@ -265,6 +266,7 @@ export default function Chat() {
     const [showDebug, setShowDebug] = useState(true)
     const [showOptions, setShowOptions] = useState(false)
     const [showHistory, setShowHistory] = useState(false)
+    const [historyLoading, setHistoryLoading] = useState(false)
     const [sessions, setSessions] = useState<Array<{ session_id: string; preview: string | null; last_message_at: string }>>([])
     const [guestSecondsLeft, setGuestSecondsLeft] = useState<number>(FALLBACK_GUEST_CHAT_DURATION_SECONDS)
     const [guestSessionLoading, setGuestSessionLoading] = useState(false)
@@ -616,17 +618,24 @@ export default function Chat() {
     }
 
     const loadHistory = async () => {
+        setHistoryLoading(true)
         try {
             const data = await chatService.getSessions()
             setSessions(data.sessions)
         } catch {
             setSessions([])
+        } finally {
+            setHistoryLoading(false)
         }
     }
 
     const openHistory = async () => {
-        setShowHistory((prev) => !prev)
-        if (!showHistory) await loadHistory()
+        if (showHistory) {
+            setShowHistory(false)
+            return
+        }
+        setShowHistory(true)
+        await loadHistory()
     }
 
     const loadSessionMessages = async (targetSessionId: string) => {
@@ -686,18 +695,18 @@ export default function Chat() {
 
     // ─── Render ────────────────────────────────────────────────────────────────
     return (
-        <>
-            <div className="flex h-[calc(100svh-6rem)] flex-col overflow-hidden rounded-[28px] border border-white/35 bg-white/35 backdrop-blur-xl lg:h-[calc(100svh-4rem)]">
+        <div >
+            <div className="h-[92dvh] flex flex-col bg-white/70 backdrop-blur-xl rounded-4xl p-4 shadow-xl">
 
                 {/* ── Header ───────────────────────────────────────────── */}
-                <div className="flex shrink-0 items-center justify-between border-b border-serene-outline/20 px-5 py-3">
+                <div className="flex shrink-0 items-center justify-between mb-3 border-b-2 border-black/10 px-5 py-3">
                     <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-serene-primary/10 text-lg">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-serene-primary/50 text-2xl">
                             🌿
                         </div>
                         <div>
-                            <p className="text-sm font-semibold text-serene-ink">Serene</p>
-                            <p className="text-[11px] text-serene-muted">Luôn ở đây cùng bạn</p>
+                            <p className="text-2xl font-display font-semibold text-serene-ink">Serene</p>
+                            <p className="text-sm text-serene-muted">Luôn ở đây cùng bạn</p>
                         </div>
                     </div>
 
@@ -720,19 +729,19 @@ export default function Chat() {
                         <button
                             type="button"
                             onClick={() => void openHistory()}
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-serene-muted transition hover:bg-serene-surface hover:text-serene-ink"
+                            className="flex items-center justify-center rounded-full text-serene-muted transition  hover:text-serene-ink"
                             aria-label="Lịch sử chat"
                         >
-                            <History className="h-4 w-4" />
+                            <History className="h-6 w-6" />
                         </button>
                         <div className="relative">
                             <button
                                 type="button"
                                 onClick={() => setShowOptions((prev) => !prev)}
-                                className="flex h-8 w-8 items-center justify-center rounded-full text-serene-muted transition hover:bg-serene-surface hover:text-serene-ink"
+                                className="flex items-center justify-center rounded-full text-serene-muted transition hover:text-serene-ink"
                                 aria-label="Tùy chọn"
                             >
-                                <MoreVertical className="h-4 w-4" />
+                                <MoreVertical className="h-6 w-6" />
                             </button>
                             {showOptions && (
                                 <div className="absolute right-0 top-10 z-50 w-72 rounded-2xl border border-serene-outline/30 bg-white/95 p-3 shadow-xl backdrop-blur-xl">
@@ -764,48 +773,21 @@ export default function Chat() {
                     </div>
                 </div>
 
-                {/* ── History panel ─────────────────────────────────────── */}
-                {showHistory && (
-                    <div className="shrink-0 border-b border-serene-outline/20 bg-serene-surface/60 px-4 py-3">
-                        <div className="mb-2 flex items-center justify-between">
-                            <p className="text-xs font-semibold text-serene-ink">Lịch sử hội thoại</p>
-                            <button
-                                type="button"
-                                onClick={() => setShowHistory(false)}
-                                className="text-xs text-serene-muted transition hover:text-serene-ink"
-                            >
-                                Đóng
-                            </button>
-                        </div>
-                        <div className="max-h-40 space-y-1.5 overflow-y-auto">
-                            {sessions.length === 0 ? (
-                                <p className="py-2 text-xs text-serene-muted/60">Chưa có phiên nào.</p>
-                            ) : (
-                                sessions.map((sess) => (
-                                    <button
-                                        key={sess.session_id}
-                                        type="button"
-                                        onClick={() => void loadSessionMessages(sess.session_id)}
-                                        className="w-full rounded-xl border border-serene-outline/20 bg-white/50 px-3 py-2 text-left transition hover:bg-serene-accent/30"
-                                    >
-                                        <p className="text-xs text-serene-ink">{sess.preview || 'Phiên trò chuyện'}</p>
-                                        <p className="mt-0.5 text-[10px] text-serene-muted">
-                                            {new Date(sess.last_message_at).toLocaleString('vi-VN')}
-                                        </p>
-                                    </button>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                )}
+                <ChatHistoryModal
+                    open={showHistory}
+                    loading={historyLoading}
+                    sessions={sessions}
+                    onClose={() => setShowHistory(false)}
+                    onSelectSession={(sessionId) => void loadSessionMessages(sessionId)}
+                />
 
                 {/* ── Message feed ──────────────────────────────────────── */}
-                <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                <div className="flex-1 mb-8 overflow-y-auto p-4 sm:px-6">
                     <div className="flex min-h-full flex-col justify-end gap-3">
                         {messages.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                                 <div className="text-4xl">🌿</div>
-                                <p className="text-sm text-serene-muted">Chia sẻ điều bạn đang cảm thấy, mình lắng nghe.</p>
+                                <p className=" text-serene-muted">Chia sẻ điều bạn đang cảm thấy, mình lắng nghe.</p>
                             </div>
                         ) : (
                             messages.map((m, idx) => {
@@ -823,10 +805,10 @@ export default function Chat() {
                                             <div className="mt-1 shrink-0 select-none text-xl leading-none" aria-hidden="true">
                                                 {isAI ? '🌿' : '🙂'}
                                             </div>
-                                            <div className={`flex max-w-[80%] flex-col gap-2 ${isAI ? 'items-start' : 'items-end'}`}>
+                                            <div className={`flex max-w-[70%] flex-col gap-2 ${isAI ? 'items-start' : 'items-end'}`}>
                                                 <article
                                                     className={[
-                                                        'rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line',
+                                                        'rounded-2xl px-4 py-3 leading-relaxed whitespace-pre-line',
                                                         isAI
                                                             ? m.apiData?.sos_triggered
                                                                 ? 'bg-red-50 text-red-800 border border-red-200'
@@ -881,32 +863,32 @@ export default function Chat() {
                         </button>
                     </div>
                 )}
-
                 {/* ── Input bar ─────────────────────────────────────────── */}
                 <form
                     onSubmit={handleSend}
-                    className="shrink-0 border-t border-serene-outline/20 bg-white/40 px-4 py-3 backdrop-blur-sm"
+                    className="sticky bottom-15 rounded-full bg-white px-4 py-3 backdrop-blur-sm border border-white/25 shadow-2xl"
                 >
+                    {/* overlay */}
+
                     <div className="flex items-center gap-3">
                         <input
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             disabled={isGuestMode && guestSecondsLeft <= 0}
                             placeholder="Chia sẻ điều bạn đang cảm thấy..."
-                            className="flex-1 rounded-full border border-serene-outline/30 bg-white/70 px-4 py-2.5 text-sm text-serene-ink placeholder-serene-muted/50 outline-none focus:border-serene-primary focus:ring-1 focus:ring-serene-primary/30"
+                            className="flex-1 rounded-full px-4 py-3 text-md text-serene-ink focus:outline-none"
                         />
                         <button
                             type="submit"
                             disabled={!canSend}
-                            className="shrink-0 rounded-full bg-serene-primary px-5 py-2.5 text-sm font-medium text-serene-on-primary transition hover:bg-serene-primary-dim disabled:cursor-not-allowed disabled:opacity-40"
+                            className="shrink-0 rounded-full bg-serene-primary px-5 py-2.5 font-medium text-serene-on-primary transition hover:bg-serene-primary-dim disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             {sending ? '···' : 'Gửi'}
                         </button>
                     </div>
                 </form>
             </div>
-
             <HotlineBar visible={sosActive} />
-        </>
+        </div>
     )
 }

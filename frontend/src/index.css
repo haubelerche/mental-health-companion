@@ -3,6 +3,7 @@
 
 @theme {
     --font-display: "Newsreader", serif;
+    --font-garamond: "Cormorant Garamond", serif;
     --font-body: "Inter", sans-serif;
 
     --color-serene-bg: #faf9f5;
@@ -115,6 +116,10 @@
 @layer components {
     .font-display {
         font-family: var(--font-display);
+    }
+
+    .font-garamond {
+        font-family: var(--font-garamond);
     }
 
     .auth-disclaimer {

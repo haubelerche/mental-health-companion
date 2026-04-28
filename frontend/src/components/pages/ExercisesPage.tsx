@@ -122,9 +122,11 @@ export function ExercisesPage() {
   }
 
   return (
-    <div className="relative -m-5 min-h-[calc(100vh-5rem)] overflow-hidden rounded-[2rem] text-white sm:-m-8 lg:-m-12">
-      <img src={ocean} alt="" className="absolute inset-0 h-full w-full object-cover" />
-      <div className="absolute inset-0 bg-[#073f52]/45 backdrop-blur-[1px]" />
+    <div className="min-h-screen overflow-hidden rounded-xl text-serene sm:-m-8 lg:-m-12">
+      <div className='absolute inset-0'>
+        <img src={ocean} alt="" className=" inset-0 h-full w-full object-cover" />
+      </div>
+
 
       <div className="relative min-h-[calc(100vh-5rem)] px-6 py-8 md:px-12">
         {isHubMode ? (
@@ -267,9 +269,8 @@ export function ExercisesPage() {
                   key={item.id}
                   type="button"
                   onClick={() => startExercise(item.id)}
-                  className={`rounded-3xl border px-5 py-4 text-left backdrop-blur-xl transition ${
-                    item.id === exercise.id ? 'border-white/70 bg-white/25' : 'border-white/20 bg-white/10 hover:bg-white/18'
-                  }`}
+                  className={`rounded-3xl border px-5 py-4 text-left backdrop-blur-xl transition ${item.id === exercise.id ? 'border-white/70 bg-white/25' : 'border-white/20 bg-white/10 hover:bg-white/18'
+                    }`}
                 >
                   <p className="font-display text-xl">{item.title}</p>
                   <p className="mt-1 text-xs text-white/70">{Math.round(item.duration_sec / 60)} phút · {item.type.replaceAll('_', ' ')}</p>
