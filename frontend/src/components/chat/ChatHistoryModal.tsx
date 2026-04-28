@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
+import Modal from 'react-modal'
 
 export type ChatSession = {
     session_id: string
@@ -15,12 +17,23 @@ type ChatHistoryModalProps = {
 }
 
 export function ChatHistoryModal({ open, loading, sessions, onClose, onSelectSession }: ChatHistoryModalProps) {
-    if (!open) return null
+    useEffect(() => {
+        if (typeof document !== 'undefined') {
+            Modal.setAppElement('#root')
+        }
+    }, [])
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-md">
-            <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
-            <div className="relative z-10 w-full max-w-2xl overflow-hidden rounded-[28px] border border-white/35 bg-white/96 shadow-[0_30px_80px_rgba(15,23,42,0.22)]">
+        <Modal
+            isOpen={open}
+            onRequestClose={onClose}
+            shouldCloseOnEsc
+            shouldCloseOnOverlayClick
+            contentLabel="Lịch sử chat"
+            className="relative z-10 w-full max-w-2xl overflow-hidden rounded-[28px] border border-white/35 bg-white/96 shadow-md outline-none"
+            overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
+        >
+            <div>
                 <div className="flex items-start justify-between border-b border-serene-outline/20 px-5 py-4">
                     <div>
                         <p className="text-[10px] uppercase tracking-[0.24em] text-serene-muted">Lịch sử chat</p>
@@ -74,6 +87,6 @@ export function ChatHistoryModal({ open, loading, sessions, onClose, onSelectSes
                     )}
                 </div>
             </div>
-        </div>
+        </Modal>
     )
 }
