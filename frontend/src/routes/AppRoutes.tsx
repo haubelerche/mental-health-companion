@@ -21,6 +21,7 @@ import { useAuth } from '../hooks/useAuth'
 import { ROUTE_PATHS } from './paths'
 import Setting from '../components/pages/Setting.tsx'
 import Forget from '../components/auth/Forget.tsx'
+import AdminLogin from '../components/admin/AdminLogin.tsx'
 
 function RequireAuth({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()
@@ -47,6 +48,11 @@ function RequireOnboarding({ children }: { children: ReactElement }) {
 export default function AppRoutes() {
     return (
         <Routes>
+            {/* admin */}
+            <Route path={ROUTE_PATHS.admin} element={<Navigate to={ROUTE_PATHS.adminLogin} replace />} />
+            <Route path={ROUTE_PATHS.adminLogin} element={<AdminLogin />} />
+            
+            {/* user */}
             <Route path={ROUTE_PATHS.root} element={<Navigate to={ROUTE_PATHS.landing} replace />} />
             <Route path={ROUTE_PATHS.login} element={<Login />} />
             <Route path={ROUTE_PATHS.register} element={<Register />} />

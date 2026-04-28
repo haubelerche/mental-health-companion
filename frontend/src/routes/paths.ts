@@ -23,4 +23,8 @@ export const ROUTE_PATHS = {
     screening: '/serene/screening',
     results: '/serene/results',
     exercises: '/serene/exercises',
+
+    //admin
+    admin: '/admin',
+    adminLogin: '/admin/login',
 } as const
