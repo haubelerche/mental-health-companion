@@ -50,9 +50,9 @@ const ANIMATIONS_CSS = `
 
 // Get UI classes based on dark mode
 const getUi = (dark: boolean) => ({
-  textPrimary: dark ? "text-white" : "text-slate-950",
-  textSubtle: dark ? "text-stone-200" : "text-slate-800",
-  textSubtler: dark ? "text-stone-300" : "text-slate-700",
+  textPrimary: dark ? "text-white" : "text-slate-900",
+  textSubtle: dark ? "text-white" : "text-slate-800",
+  textSubtler: dark ? "text-white/50" : "text-slate-900",
   glassLight: dark
     ? "bg-slate-900/50 border-stone-50/20"
     : "bg-white/86 border-stone-950/18",
@@ -123,7 +123,7 @@ function CinematicBg({ dark }: { dark: boolean }) {
       <div
         className={`absolute bottom-0 left-0 right-0 h-12 ${dark
           ? "bg-linear-to-b from-transparent to-slate-950/90"
-          : "bg-linear-to-b from-transparent to-amber-900/80"
+          : ""
           }`}
       />
     </div>
@@ -223,16 +223,16 @@ function LetterOverlay({ letter, onClose, dark }: { letter: Letter; onClose: () 
         <div className={`border-b ${ui.glassBorder} px-8 py-7 flex justify-between items-start`}>
           <div>
             <p
-              className={`${ui.textSubtler} font-serif text-xs font-light uppercase tracking-widest mb-2`}
+              className={`${ui.textSubtler} font-display text-xs font-bold uppercase tracking-wide mb-2`}
             >
               Lá thư từ biển khơi
             </p>
-            <p className={`${ui.textPrimary} font-serif text-lg italic font-light`}>
+            <p className={`${ui.textPrimary} font-display text-lg font-semibold`}>
               {letter.from}
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <span className={`${ui.textSubtler} font-sans text-xs`}>
+            <span className={`${ui.textSubtler} italic text-xs`}>
               {letter.time}
             </span>
             <button
@@ -257,7 +257,7 @@ function LetterOverlay({ letter, onClose, dark }: { letter: Letter; onClose: () 
         {/* Body */}
         <div className="px-8 py-7">
           <p
-            className={`${ui.textPrimary} font-serif text-lg italic font-light leading-relaxed`}
+            className={`${ui.textPrimary} font-display text-lg italic  leading-relaxed tracking-[.5px]`}
           >
             {letter.body}
           </p>
@@ -271,18 +271,17 @@ function LetterOverlay({ letter, onClose, dark }: { letter: Letter; onClose: () 
                 <button
                   type="button"
                   onClick={() => setReplyOpen(true)}
-                  className={`flex-1 bg-none border rounded-xl py-2.5 px-0 font-serif text-base italic font-normal tracking-wide cursor-pointer transition-all`}
+                  className={`flex-1 bg-none border rounded-xl py-2.5 px-0 font-display tracking-wide cursor-pointer transition-all`}
                   style={{
                     borderColor: dark ? "rgba(242,235,224,0.13)" : "rgba(18,30,40,0.18)",
-                    color: dark ? "rgba(242,235,224,0.45)" : "rgba(20,26,33,0.45)",
+                    color: dark ? "rgba(242,235,224,0.45)" : "rgba(20,26,33,0.7)",
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.color = dark
                       ? "rgba(242,235,224,0.92)"
                       : "rgba(20,26,33,0.92)";
-                    e.currentTarget.style.borderColor = dark
-                      ? "rgba(242,235,224,0.92)"
-                      : "rgba(20,26,33,0.92)";
+                    e.currentTarget.style.borderColor = "rgba(111,190,214,0.68)";
+                    e.currentTarget.style.background = "rgba(111,190,214,0.12)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.color = dark
@@ -291,6 +290,7 @@ function LetterOverlay({ letter, onClose, dark }: { letter: Letter; onClose: () 
                     e.currentTarget.style.borderColor = dark
                       ? "rgba(242,235,224,0.13)"
                       : "rgba(18,30,40,0.18)";
+                    e.currentTarget.style.background = "none";
                   }}
                 >
                   Trả lời thư
@@ -298,10 +298,10 @@ function LetterOverlay({ letter, onClose, dark }: { letter: Letter; onClose: () 
                 <button
                   type="button"
                   onClick={onClose}
-                  className={`flex-1 bg-none border rounded-xl py-2.5 px-0 font-serif text-base italic font-semibold tracking-wide cursor-pointer transition-all`}
+                  className={`flex-1 bg-none border rounded-xl py-2.5 px-0 font-display  font-semibold tracking-wide cursor-pointer transition-all`}
                   style={{
                     borderColor: dark ? "rgba(242,235,224,0.13)" : "rgba(18,30,40,0.18)",
-                    color: dark ? "rgba(242,235,224,0.45)" : "rgba(20,26,33,0.45)",
+                    color: dark ? "rgba(242,235,224,0.45)" : "rgba(20,26,33,0.7)",
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.color = dark
@@ -334,7 +334,7 @@ function LetterOverlay({ letter, onClose, dark }: { letter: Letter; onClose: () 
                   onChange={(e) => setReply(e.target.value)}
                   placeholder="Viết hồi âm của bạn..."
                   rows={3}
-                  className={`w-full rounded-xl p-4 font-serif text-lg italic font-light leading-relaxed resize-none outline-none transition-colors`}
+                  className={`w-full rounded-xl p-4 font-display text-lg italic font-light leading-relaxed resize-none outline-none transition-colors`}
                   style={{
                     backgroundColor: dark ? "rgba(242,235,224,0.05)" : "rgb(255,255,255)",
                     borderColor: dark ? "rgba(242,235,224,0.13)" : "rgba(18,30,40,0.18)",
@@ -364,7 +364,7 @@ function LetterOverlay({ letter, onClose, dark }: { letter: Letter; onClose: () 
                       border: "none",
                       color: dark ? "rgba(242,235,224,0.55)" : "rgba(20,26,33,0.56)",
                     }}
-                    className={`font-sans text-xs cursor-pointer tracking-wide`}
+                    className={` text-xs cursor-pointer tracking-wide`}
                   >
                     Huỷ
                   </button>
@@ -394,7 +394,7 @@ function LetterOverlay({ letter, onClose, dark }: { letter: Letter; onClose: () 
                           : "rgba(20,26,33,0.45)",
                       cursor: reply.trim() ? "pointer" : "default",
                     }}
-                    className={`px-6 py-2 rounded-lg font-serif text-sm italic transition-all`}
+                    className={`px-6 py-2 rounded-lg font-display text-sm italic transition-all`}
                     onMouseEnter={(e) => {
                       if (reply.trim()) {
                         e.currentTarget.style.background =
@@ -418,7 +418,7 @@ function LetterOverlay({ letter, onClose, dark }: { letter: Letter; onClose: () 
               className="mt-5 text-center py-3"
               style={{ animation: "fadeUpCard 0.5s ease" }}
             >
-              <p className={`${ui.textSubtle} font-serif text-base italic font-light`}>
+              <p className={`${ui.textSubtle} font-display text-base italic font-light`}>
                 Hồi âm đã trôi ra biển khơi...
               </p>
             </div>
@@ -450,11 +450,11 @@ function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boolean })
         <div className={`border-b ${ui.glassBorder} px-8 py-7 flex justify-between items-start`}>
           <div>
             <p
-              className={`${ui.textSubtler} font-serif text-lg font-light uppercase tracking-wider mb-2`}
+              className={`${ui.textSubtler} text-lg font-light uppercase tracking-wider mb-2`}
             >
               Viết lá thư của bạn
             </p>
-            <p className={`${ui.textSubtle} font-serif text-base italic font-light`}>
+            <p className={`${ui.textSubtle} font-display text-base italic font-light`}>
               Lá thư sẽ trôi đến tay một người xa lạ
             </p>
           </div>
@@ -492,7 +492,7 @@ function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boolean })
                 placeholder="Hôm nay bạn muốn chia sẻ điều gì..."
                 rows={6}
                 autoFocus
-                className={`w-full rounded-3xl p-4 font-serif text-lg italic font-light leading-relaxed resize-none outline-none transition-colors`}
+                className={`w-full rounded-3xl p-4 font-display text-lg italic font-light leading-relaxed resize-none outline-none transition-colors`}
                 style={{
                   backgroundColor: dark ? "rgba(242,235,224,0.05)" : "rgb(255,255,255)",
                   borderColor: dark ? "rgba(242,235,224,0.13)" : "rgba(18,30,40,0.18)",
@@ -537,7 +537,7 @@ function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boolean })
                         : "rgba(20,26,33,0.45)",
                     cursor: text.trim() ? "pointer" : "default",
                   }}
-                  className={`px-8 py-2.5 rounded-3xl font-serif text-base italic transition-all`}
+                  className={`px-8 py-2.5 rounded-3xl font-display text-base italic transition-all`}
                   onMouseEnter={(e) => {
                     if (text.trim()) {
                       e.currentTarget.style.background =
@@ -560,7 +560,7 @@ function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boolean })
               className="text-center py-6"
               style={{ animation: "fadeUpCard 0.6s ease" }}
             >
-              <p className={`${ui.textSubtle} font-serif text-lg italic font-light leading-relaxed`}>
+              <p className={`${ui.textSubtle} font-display text-lg italic font-light leading-relaxed`}>
                 Lá thư đã trôi ra biển khơi...
                 <br />
                 <span className={`${ui.textSubtler} text-xs font-normal uppercase tracking-wide`}>
@@ -617,14 +617,14 @@ export default function BeachMessage() {
   };
 
   return (
-    <div className="s-scroll relative min-h-screen overflow-hidden font-sans">
+    <div className="s-scroll relative min-h-screen overflow-hidden ">
       <style>{ANIMATIONS_CSS}</style>
       <FontLink />
       <CinematicBg dark={dark} />
 
       {/* Navigation */}
       <nav
-        className={`relative z-10 flex items-center justify-center px-8 py-4.5 border-b ${ui.glassBorder} backdrop-blur-md`}
+        className={`relative z-10 flex items-center justify-center px-8 py-4.5  ${ui.glassBorder} backdrop-blur-md`}
       >
         <div className="flex gap-24">
           {[
@@ -656,7 +656,7 @@ export default function BeachMessage() {
                       : "rgba(20,26,33,0.45)",
                 marginBottom: "-1px",
               }}
-              className={`py-1.5 px-4 font-sans text-sm font-semibold tracking-tight cursor-pointer transition-all`}
+              className={`py-1.5 px-4 text-lg font-display font-semibold tracking-wide cursor-pointer transition-all`}
             >
               {t.label}
             </button>
@@ -672,7 +672,7 @@ export default function BeachMessage() {
             style={{ animation: "fadeUp 1s ease 0.1s both" }}
           >
             <h1
-              className={`${ui.textPrimary} font-serif text-5xl italic font-normal leading-snug drop-shadow-xl`}
+              className={`${ui.textPrimary} font-display text-5xl italic font-normal leading-snug drop-shadow-xl`}
               style={{
                 textShadow: dark
                   ? "0 2px 18px rgba(0,0,0,0.45)"
@@ -690,8 +690,7 @@ export default function BeachMessage() {
             >
               <FloatingBottle dark={dark} onClick={handleBottle} isClicked={ripple} />
               <p
-                className={`${ui.textPrimary} font-serif text-base font-semibold tracking-widest uppercase mt-2 transition-opacity duration-500`}
-                style={{ animation: "breathe 3.5s ease-in-out infinite" }}
+                className={`text-white font-display font-semibold tracking-widest uppercase mt-2 animate-pulse`}
               >
                 Chạm để xem
               </p>
@@ -702,7 +701,7 @@ export default function BeachMessage() {
               style={{ animation: "fadeUp 1s ease 0.3s both" }}
             >
               <p
-                className={`${ui.textPrimary} font-serif text-2xl italic font-normal leading-relaxed`}
+                className={`${ui.textPrimary} font-display text-2xl italic font-normal leading-relaxed`}
                 style={{ opacity: dark ? 0.78 : 0.88 }}
               >
                 Biển đang lặng, chưa có thư trôi đến.
@@ -718,11 +717,11 @@ export default function BeachMessage() {
               type="button"
               onClick={() => setShowWrite(true)}
               style={{
-                background: dark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.34)",
-                borderColor: dark ? "rgba(212,184,150,0.45)" : "rgba(20,38,50,0.35)",
+                background: dark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.72)",
+                borderColor: dark ? "rgba(255,255,255,0.45)" : "rgba(20,38,50,0.35)",
                 color: dark ? "rgba(255,255,255,0.96)" : "rgba(20,30,40,0.92)",
               }}
-              className={`border rounded-full px-10 py-3 font-serif text-2xl italic font-bold tracking-tight cursor-pointer transition-all`}
+              className={`border rounded-full px-10 py-3 font-display text-2xl font-semibold cursor-pointer transition-all`}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = dark
                   ? "rgba(111,190,214,0.2)"
@@ -762,7 +761,7 @@ export default function BeachMessage() {
         >
           <div className="mb-10">
             <h2
-              className={`${ui.textPrimary} font-serif text-4xl italic font-normal`}
+              className={`${ui.textPrimary} font-display text-4xl italic font-normal`}
               style={{
                 textShadow: dark
                   ? "0 2px 16px rgba(0,0,0,0.36)"
@@ -782,19 +781,19 @@ export default function BeachMessage() {
                 style={{ animation: `fadeUpCard 0.6s ease ${i * 0.1}s both` }}
               >
                 <div className="flex justify-between items-start mb-3">
-                  <p className={`${ui.textSubtle} font-serif text-sm italic`}>
+                  <p className={`${ui.textSubtle} font-display text-sm font-semibold tracking-wide`}>
                     {l.from}
                   </p>
-                  <p className={`${ui.textSubtler} font-sans text-xs`}>
+                  <p className={`${ui.textSubtler}  text-xs`}>
                     {l.time}
                   </p>
                 </div>
                 <p
-                  className={`${ui.textSubtle} font-serif text-lg italic font-light leading-relaxed mb-3 line-clamp-3`}
+                  className={`${ui.textSubtle} font-display text-lg italic leading-relaxed mb-3 line-clamp-3`}
                 >
                   {l.body}
                 </p>
-                <p className={`${ui.textSubtler} font-sans text-xs tracking-wider`}>
+                <p className={`${ui.textSubtler} text-xs tracking-wider `}>
                   Nhấn để đọc & hồi âm →
                 </p>
               </div>
