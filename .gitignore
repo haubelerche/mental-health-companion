@@ -60,3 +60,6 @@ backend/data/counseling_corpus_embeddings.pkl
 backend/data/emotion_centroids.pkl
 # Keep the curated examples JSONL in git (small text file)
 
+# Local design reference / screenshots (not shipped with app; app assets live under frontend/src/assets)
+reference-images/
+

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import paperBoatImage from "../../assets/thuyen.png";
-import beachBackgroundImage from "../../../../reference-images/nền.avif";
+import beachBackgroundImage from "../../assets/beach-message-bg.avif";
 import {
   APP_SETTINGS_STORAGE_KEY,
   APP_SETTINGS_UPDATED_EVENT,
