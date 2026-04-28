@@ -1,7 +1,7 @@
 
 import { useState } from 'react'
 import type { ComponentProps } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { Loader2, ShieldCheck } from 'lucide-react'
 import { ApiRequestError } from '../../api/types'
@@ -10,6 +10,7 @@ import { adminAuthService } from '../../services/adminAuthService.ts'
 
 export default function AdminLogin() {
   type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [totpCode, setTotpCode] = useState('')
@@ -31,6 +32,7 @@ export default function AdminLogin() {
 
       setSubmitted(true)
       toast.success(`Đăng nhập admin thành công (${response.admin_id})`)
+      navigate(ROUTE_PATHS.admin)
     } catch (error) {
       if (error instanceof ApiRequestError) {
         setErrorMessage(error.message)
@@ -151,7 +153,7 @@ export default function AdminLogin() {
           <footer className="mt-10 space-y-4 text-center">
             {submitted ? (
               <p className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800">
-                Phiên admin đã được cấp cookie xác thực. Bạn có thể tiếp tục tới các trang nội bộ.
+                Phiên admin đã được cấp cookie xác thực. Đang chuyển bạn đến khu vực nội bộ.
               </p>
             ) : null}
             <p className="text-xs tracking-tight text-serene-muted/60">

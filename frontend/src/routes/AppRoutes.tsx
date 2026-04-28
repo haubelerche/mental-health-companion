@@ -22,6 +22,7 @@ import { ROUTE_PATHS } from './paths'
 import Setting from '../components/pages/Setting.tsx'
 import Forget from '../components/auth/Forget.tsx'
 import AdminLogin from '../components/admin/AdminLogin.tsx'
+import AdminDashboard from '../components/admin/AdminDashboard'
 
 function RequireAuth({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()
@@ -49,7 +50,7 @@ export default function AppRoutes() {
     return (
         <Routes>
             {/* admin */}
-            <Route path={ROUTE_PATHS.admin} element={<Navigate to={ROUTE_PATHS.adminLogin} replace />} />
+            <Route path={ROUTE_PATHS.admin} element={<AdminDashboard />} />
             <Route path={ROUTE_PATHS.adminLogin} element={<AdminLogin />} />
             
             {/* user */}
