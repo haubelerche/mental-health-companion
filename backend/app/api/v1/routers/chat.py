@@ -2,6 +2,7 @@ import logging
 import asyncio
 import json
 import mimetypes
+import threading
 import time
 from datetime import timedelta
 
@@ -24,7 +25,13 @@ from app.services.confidence_router import route_for_human_review
 from app.services.guest_service import heartbeat as guest_heartbeat
 from app.services.guest_service import start_session as guest_start_session
 from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn, stream_non_sos_turn_events
-from app.services.longterm_memory import UserMemoryContext, build_user_memory_context, get_user_longterm_memories
+from app.services.longterm_memory import (
+    UserMemoryContext,
+    build_user_memory_context,
+    get_user_longterm_memories,
+    persist_turn_memory,
+)
+from app.services.mem0_service import MemoryManager
 from app.services.pii_mask import mask_pii
 from app.services.rate_limit import get_rate_limiter
 from app.services.session_summary import close_session_summary
@@ -64,6 +71,20 @@ def _build_heartbeat_event(*, started_at: float, last_heartbeat_at: float, stage
         "elapsed_ms": int((now - started_at) * 1000),
     }
     return now, "event: heartbeat\ndata: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
+
+
+def _enqueue_turn_mem0(user_id: str, raw_text: str, assistant_text: str) -> None:
+    """Persist recent turn to Mem0 without blocking the API response path."""
+    try:
+        MemoryManager.instance().add_session(
+            user_id=user_id,
+            messages=[
+                {"role": "user", "content": raw_text},
+                {"role": "assistant", "content": assistant_text},
+            ],
+        )
+    except Exception as exc:  # pragma: no cover - fail-safe
+        logger.warning("mem0 turn add failed for %s: %s", user_id, exc)
 
 
 def _record_sos_side_effects(
@@ -380,7 +401,7 @@ def send_message(
         distress = min(1.0, distress + 0.08)
 
     turn = None
-    message_hash = hash_message(raw_text)
+    message_hash = hash_message(raw_text, context_seed=f"{session.session_id}:{session.message_count}:{len(ctx.recent_messages)}")
     if settings.chat_response_cache_ttl_seconds > 0:
         turn = get_cached_turn(session.session_id, message_hash)
 
@@ -438,6 +459,14 @@ def send_message(
     db.add(assistant_msg)
     session.message_count += 1
     session.last_message_at = now
+    persist_turn_memory(
+        db,
+        user_id=current_user.user_id,
+        session_id=session.session_id,
+        user_message=raw_text,
+        assistant_reply=assistant_content,
+        sos_triggered=False,
+    )
     review_decision = route_for_human_review(
         distress_score=snap.distress_score,
         sos_triggered=False,
@@ -453,6 +482,11 @@ def send_message(
             host=host,
         )
     db.commit()
+    threading.Thread(
+        target=_enqueue_turn_mem0,
+        args=(current_user.user_id, raw_text, assistant_content),
+        daemon=True,
+    ).start()
 
     vhint = None
     if snap.safety_tier == "voice_recommended":
@@ -665,7 +699,10 @@ def send_message_stream(
             if ctx.mood_today and ctx.mood_today.get("mood") in ("stressed", "restless", "melancholic"):
                 distress = min(1.0, distress + 0.08)
 
-            message_hash = hash_message(raw_text)
+            message_hash = hash_message(
+                raw_text,
+                context_seed=f"{session.session_id}:{session.message_count}:{len(ctx.recent_messages)}",
+            )
             turn = get_cached_turn(session.session_id, message_hash) if settings.chat_response_cache_ttl_seconds > 0 else None
             if turn is None:
                 memory_ctx, compat_longterm = _load_memory_context_for_turn(
@@ -729,6 +766,14 @@ def send_message_stream(
             db.add(assistant_msg)
             session.message_count += 1
             session.last_message_at = now
+            persist_turn_memory(
+                db,
+                user_id=current_user.user_id,
+                session_id=session.session_id,
+                user_message=raw_text,
+                assistant_reply=assistant_content,
+                sos_triggered=False,
+            )
             review_decision = route_for_human_review(
                 distress_score=snap.distress_score,
                 sos_triggered=False,
@@ -744,6 +789,11 @@ def send_message_stream(
                     host=host,
                 )
             db.commit()
+            threading.Thread(
+                target=_enqueue_turn_mem0,
+                args=(current_user.user_id, raw_text, assistant_content),
+                daemon=True,
+            ).start()
 
             vhint = None
             if snap.safety_tier == "voice_recommended":
@@ -802,6 +852,13 @@ def send_message_stream(
         except Exception as exc:
             logger.exception("chat stream failed: %s", exc)
             yield "event: error\ndata: " + json.dumps({"code": "STREAM_INTERNAL_ERROR", "message": "Lỗi stream phản hồi"}, ensure_ascii=False) + "\n\n"
+        finally:
+            # Ensure any uncommitted transaction is rolled back when the generator
+            # exits — including mid-stream client disconnects that abandon the generator.
+            try:
+                db.rollback()
+            except Exception:
+                pass
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 

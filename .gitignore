@@ -16,7 +16,12 @@ build/
 node_modules/
 package.json
 package-lock.json
+# Loại bỏ tất cả các tệp hình ảnh
 
+
+
+# Loại bỏ tất cả các tệp tài liệu PDF
+*.pdf
 # Local app config (env-backed; không đưa lên remote)
 scripts/config.py
 scripts/supabase/
@@ -54,4 +59,7 @@ backend/data/mental_chat_embeddings.pkl
 backend/data/counseling_corpus_embeddings.pkl
 backend/data/emotion_centroids.pkl
 # Keep the curated examples JSONL in git (small text file)
+
+# Local design reference / screenshots (not shipped with app; app assets live under frontend/src/assets)
+reference-images/
 

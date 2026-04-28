@@ -1,7 +1,9 @@
 export type ThemeOption = 'sunset' | 'ocean' | 'dawn' | 'night'
+export type AppearanceMode = 'light' | 'dark'
 
 export type AppSettings = {
     theme: ThemeOption
+    mode: AppearanceMode
     maskIdentity: boolean
     shareData: boolean
     reminder: boolean
@@ -14,6 +16,7 @@ export const APP_SETTINGS_UPDATED_EVENT = 'serene:app-settings-updated'
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
     theme: 'night',
+    mode: 'dark',
     maskIdentity: false,
     shareData: false,
     reminder: true,
@@ -23,6 +26,10 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
 
 function isThemeOption(value: unknown): value is ThemeOption {
     return value === 'sunset' || value === 'ocean' || value === 'dawn' || value === 'night'
+}
+
+function isAppearanceMode(value: unknown): value is AppearanceMode {
+    return value === 'light' || value === 'dark'
 }
 
 export function readAppSettings(): AppSettings {
@@ -40,6 +47,9 @@ export function readAppSettings(): AppSettings {
 
         return {
             theme: isThemeOption(parsed.theme) ? parsed.theme : DEFAULT_APP_SETTINGS.theme,
+            mode: isAppearanceMode(parsed.mode)
+                ? parsed.mode
+                : (isThemeOption(parsed.theme) && parsed.theme === 'night' ? 'dark' : 'light'),
             maskIdentity: typeof parsed.maskIdentity === 'boolean' ? parsed.maskIdentity : DEFAULT_APP_SETTINGS.maskIdentity,
             shareData: typeof parsed.shareData === 'boolean' ? parsed.shareData : DEFAULT_APP_SETTINGS.shareData,
             reminder: typeof parsed.reminder === 'boolean' ? parsed.reminder : DEFAULT_APP_SETTINGS.reminder,

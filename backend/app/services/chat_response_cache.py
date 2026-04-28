@@ -19,9 +19,10 @@ _CACHE: dict[str, _CacheEntry] = {}
 _MAX_ITEMS = 2048
 
 
-def hash_message(message: str) -> str:
+def hash_message(message: str, *, context_seed: str = "") -> str:
     text = (message or "").strip()
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    material = f"{context_seed}|{text}" if context_seed else text
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 def _cache_key(session_id: str, message_hash: str) -> str:

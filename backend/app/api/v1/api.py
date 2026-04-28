@@ -10,6 +10,7 @@ from app.api.v1.routers import (
     guest,
     home,
     intake,
+    onboarding,
     policies,
     reflect,
     resources,
@@ -21,6 +22,7 @@ api_router = APIRouter()
 api_router.include_router(auth.router)
 api_router.include_router(guest.router)
 api_router.include_router(policies.router)
+api_router.include_router(onboarding.router)
 api_router.include_router(intake.router)
 api_router.include_router(checkin.router)
 api_router.include_router(screening.router)

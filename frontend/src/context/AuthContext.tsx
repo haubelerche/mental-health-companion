@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { AuthContext } from './authContextValue'
 import type { AuthUser } from './authContextValue'
 import { authService } from '../services/authService'
+import { HTTP_UNAUTHORIZED_EVENT } from '../api/httpClient'
 import type {
     LoginPayload,
     SignupPayload,
@@ -36,28 +37,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const clearGuestSession = useCallback(() => setGuestSession(null), [])
 
+    const refreshUser = useCallback(async () => {
+        try {
+            const data = await authService.me()
+            setUser({
+                userId: data.user_id,
+                email: data.email,
+                displayName: data.display_name,
+                onboardingCompleted: Boolean(data.onboarding_completed),
+                onboardingSkipped: Boolean(data.onboarding_skipped),
+            })
+        } catch {
+            setUser(null)
+        } finally {
+            setIsLoading(false)
+        }
+    }, [])
+
     useEffect(() => {
-        let mounted = true
-        authService
-            .me()
-            .then((data) => {
-                if (!mounted) return
-                setUser({
-                    userId: data.user_id,
-                    email: data.email,
-                    displayName: data.display_name,
-                })
-            })
-            .catch(() => {
-                if (!mounted) return
-                setUser(null)
-            })
-            .finally(() => {
-                if (!mounted) return
-                setIsLoading(false)
-            })
+        void refreshUser()
+    }, [refreshUser])
+
+    useEffect(() => {
+        const handleUnauthorized = () => {
+            setUser(null)
+            setIsLoading(false)
+        }
+
+        window.addEventListener(HTTP_UNAUTHORIZED_EVENT, handleUnauthorized as EventListener)
         return () => {
-            mounted = false
+            window.removeEventListener(HTTP_UNAUTHORIZED_EVENT, handleUnauthorized as EventListener)
         }
     }, [])
 
@@ -69,6 +78,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 userId: data.user_id,
                 email: payload.email,
                 displayName: payload.display_name,
+                onboardingCompleted: false,
+                onboardingSkipped: false,
             })
             return data
         } finally {
@@ -80,13 +91,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setIsLoading(true)
         try {
             const data = await authService.login(payload)
-            const displayNameFromEmail = payload.email.split('@')[0] || payload.email
-
-            setUser({
-                userId: data.user_id,
-                email: payload.email,
-                displayName: displayNameFromEmail,
-            })
+            const me = await authService.me().catch(() => null)
+            if (me) {
+                setUser({
+                    userId: me.user_id,
+                    email: me.email,
+                    displayName: me.display_name,
+                    onboardingCompleted: Boolean(me.onboarding_completed),
+                    onboardingSkipped: Boolean(me.onboarding_skipped),
+                })
+            } else {
+                const displayNameFromEmail = payload.email.split('@')[0] || payload.email
+                setUser({
+                    userId: data.user_id,
+                    email: payload.email,
+                    displayName: displayNameFromEmail,
+                    onboardingCompleted: false,
+                    onboardingSkipped: false,
+                })
+            }
 
             return data
         } finally {
@@ -106,9 +129,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
     }
 
+    const markOnboardingCompleted = useCallback((skipped = false) => {
+        setUser((prev) => (prev ? { ...prev, onboardingCompleted: true, onboardingSkipped: skipped } : prev))
+    }, [])
+
     const value = useMemo(
-        () => ({ user, isLoading, signup, login, logout, guestSession, startGuestSession, clearGuestSession }),
-        [user, isLoading, guestSession, startGuestSession, clearGuestSession],
+        () => ({
+            user,
+            isLoading,
+            signup,
+            login,
+            logout,
+            refreshUser,
+            markOnboardingCompleted,
+            guestSession,
+            startGuestSession,
+            clearGuestSession,
+        }),
+        [user, isLoading, refreshUser, markOnboardingCompleted, guestSession, startGuestSession, clearGuestSession],
     )
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
