@@ -49,7 +49,7 @@ export default function AdminLogin() {
   return (
     <div className="auth-page">
       <div className="fixed inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(11,95,88,0.26),transparent_46%),linear-gradient(180deg,rgba(5,28,26,0.94)_0%,rgba(9,38,36,0.88)_100%)]" />
+        <div className="absolute inset-0 bg-serene-primary/20" />
         <div className="absolute inset-0 bg-black/10" />
       </div>
 
@@ -70,17 +70,15 @@ export default function AdminLogin() {
             <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full border border-serene-primary/20 bg-serene-primary/10 text-serene-primary">
               <ShieldCheck className="h-6 w-6" aria-hidden="true" />
             </div>
-            <h2 className="font-display text-2xl text-serene-ink sm:text-[28px]">
+            <h2 className="font-display text-3xl text-serene-ink sm:text-[28px]">
               Đăng nhập quản trị
             </h2>
-            <p className="mt-2 text-sm text-serene-muted/90">
-              Luồng này dùng endpoint riêng cho admin, bắt buộc thêm mã TOTP 6 số.
-            </p>
+           
           </header>
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="admin-email" className="auth-label mb-2 pl-1 font-medium tracking-[0.3em]">
+              <label htmlFor="admin-email" className="auth-label mb-2 pl-1 font-bold tracking-[0.2em]">
                 Email admin
               </label>
               <input
@@ -96,7 +94,7 @@ export default function AdminLogin() {
             </div>
 
             <div>
-              <label htmlFor="admin-password" className="auth-label mb-2 pl-1 font-medium tracking-[0.3em]">
+              <label htmlFor="admin-password" className="auth-label mb-2 pl-1 font-bold tracking-[0.2em]">
                 Mật khẩu
               </label>
               <input
@@ -112,7 +110,7 @@ export default function AdminLogin() {
             </div>
 
             <div>
-              <label htmlFor="admin-totp" className="auth-label mb-2 pl-1 font-medium tracking-[0.3em]">
+              <label htmlFor="admin-totp" className="auth-label mb-2 pl-1 font-bold tracking-[0.2em]">
                 TOTP
               </label>
               <input
@@ -127,8 +125,8 @@ export default function AdminLogin() {
                 maxLength={6}
                 required
               />
-              <p className="mt-2 text-xs text-serene-muted/70">
-                Mã xác thực chỉ có hiệu lực ngắn hạn theo spec.
+              <p className="mt-5 text-xs text-serene-muted/70">
+                Vui lòng tải ứng dụng Authenticator và quét QR code đã thiết lập để lấy mã TOTP.
               </p>
             </div>
 

@@ -27,4 +27,5 @@ export const ROUTE_PATHS = {
     //admin
     admin: '/admin',
     adminLogin: '/admin/login',
+    adminDashboard: '/admin/dashboard',
 } as const

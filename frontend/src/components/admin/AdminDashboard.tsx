@@ -22,7 +22,7 @@ export default function AdminDashboard() {
     return (
         <div className="auth-page">
             <div className="fixed inset-0">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(11,95,88,0.26),transparent_46%),linear-gradient(180deg,rgba(5,28,26,0.94)_0%,rgba(9,38,36,0.88)_100%)]" />
+                <div className="absolute inset-0 bg-serene-primary/20" />
                 <div className="absolute inset-0 bg-black/10" />
             </div>
 
