@@ -617,7 +617,7 @@ export default function BeachMessage() {
   };
 
   return (
-    <div className="s-scroll relative min-h-screen overflow-hidden ">
+    <div className="h-screen overflow-hidden ">
       <style>{ANIMATIONS_CSS}</style>
       <FontLink />
       <CinematicBg dark={dark} />
@@ -716,36 +716,14 @@ export default function BeachMessage() {
             <button
               type="button"
               onClick={() => setShowWrite(true)}
-              style={{
-                background: dark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.72)",
-                borderColor: dark ? "rgba(255,255,255,0.45)" : "rgba(20,38,50,0.35)",
-                color: dark ? "rgba(255,255,255,0.96)" : "rgba(20,30,40,0.92)",
-              }}
-              className={`border rounded-full px-10 py-3 font-display text-2xl font-semibold cursor-pointer transition-all`}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = dark
-                  ? "rgba(111,190,214,0.2)"
-                  : "rgba(111,190,214,0.24)";
-                e.currentTarget.style.borderColor = "rgba(111,190,214,0.85)";
-                e.currentTarget.style.color = "#ffffff";
-                e.currentTarget.style.boxShadow = "0 12px 28px rgba(66,153,180,0.42)";
-                e.currentTarget.style.transform = "translateY(-1px)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = dark
-                  ? "rgba(255,255,255,0.06)"
-                  : "rgba(255,255,255,0.34)";
-                e.currentTarget.style.borderColor = dark
-                  ? "rgba(212,184,150,0.45)"
-                  : "rgba(20,38,50,0.35)";
-                e.currentTarget.style.color = dark
-                  ? "rgba(255,255,255,0.96)"
-                  : "rgba(20,30,40,0.92)";
-                e.currentTarget.style.boxShadow = dark
-                  ? "0 10px 24px rgba(0,0,0,0.28)"
-                  : "0 8px 20px rgba(20,40,56,0.18)";
-                e.currentTarget.style.transform = "translateY(0)";
-              }}
+              className={`
+                border rounded-full px-10 py-3 font-display text-2xl font-semibold cursor-pointer transition-all
+                ${dark
+                  ? "bg-white/10 border-white/45 text-white/95 shadow-[0_10px_24px_rgba(0,0,0,0.28)]"
+                  : "bg-white/80 border-slate-900/30 text-slate-900/90 shadow-[0_8px_20px_rgba(20,40,56,0.18)]"
+                }
+                hover:bg-cyan-400/25 hover:border-cyan-400/85 hover:text-white hover:shadow-[0_12px_28px_rgba(66,153,180,0.42)] hover:-translate-y-px
+              `}
             >
               Viết lá thư của bạn
             </button>
