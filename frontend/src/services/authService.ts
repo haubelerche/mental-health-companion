@@ -11,6 +11,8 @@ export type SignupPayload = {
 export type SignupResponse = {
     user_id: string
     expires_in?: number
+    verification_required?: boolean
+    message?: string
 }
 
 export type LoginPayload = {
@@ -48,6 +50,8 @@ export type MeResponse = {
     user_id: string
     email: string
     display_name: string
+    onboarding_completed?: boolean
+    onboarding_skipped?: boolean
 }
 export const authService = {
     signup: async (payload: SignupPayload) => {

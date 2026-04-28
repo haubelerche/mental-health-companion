@@ -390,6 +390,16 @@
           "type": "boolean",
           "description": "Assertion that all text fields in this profile have been PII-masked. Must be true before sync to outbox.",
           "default": true
+        },
+        "weekly_note_content": {
+          "type": ["string", "null"],
+          "description": "Cached personalized weekly insight generated for Reflect dashboard.",
+          "maxLength": 1000
+        },
+        "weekly_note_generated_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 UTC timestamp when weekly_note_content was generated."
         }
       }
     }

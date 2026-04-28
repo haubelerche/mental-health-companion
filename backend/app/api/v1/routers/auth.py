@@ -3,7 +3,7 @@ import time
 
 from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_csrf
@@ -11,7 +11,18 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.product_constants import CURRENT_POLICY_VERSION
 from app.core.responses import ok
-from app.db.models import EmailVerificationToken, PasswordResetToken, RefreshToken, User
+from app.db.models import (
+    Conversation,
+    ConversationMemory,
+    CrisisLog,
+    EmailVerificationToken,
+    Message,
+    PasswordResetToken,
+    RefreshToken,
+    User,
+    UserProfile,
+    UserProfileSnapshot,
+)
 from app.db.session import get_db
 from app.schemas.payloads import (
     ForgotPasswordRequest,
@@ -24,6 +35,8 @@ from app.services.auth_email import send_password_reset_email, send_verification
 from app.services.cookies import clear_auth_cookies, set_auth_cookies, set_csrf_cookie
 from app.services.auth_latency_metrics import observe_auth_latency
 from app.services.rate_limit import get_rate_limiter
+from app.services.redis_client import cache_delete, profile_cache_key
+from app.services.mem0_service import MemoryManager
 from app.services.security import (
     generate_csrf_token,
     generate_one_time_token,
@@ -46,6 +59,16 @@ def _elapsed_ms(start: float) -> float:
 
 def _utc_naive_now():
     return utc_now().replace(tzinfo=None)
+
+
+def _allow_local_signup_without_smtp() -> bool:
+    settings = get_settings()
+    if settings.auth_allow_signup_without_smtp:
+        return True
+    backend_base_url = settings.backend_public_base_url.strip().lower()
+    return settings.auto_create_schema or backend_base_url.startswith("http://127.0.0.1") or backend_base_url.startswith(
+        "http://localhost"
+    )
 
 
 def _issue_login_session(user: User, response: Response, request: Request, db: Session):
@@ -106,7 +129,10 @@ def signup(payload: SignupRequest, response: Response, request: Request, db: Ses
     bcrypt_ms = 0.0
     redis_ms = 0.0
     success = False
+    verification_required = True
+    signup_message = "Vui lòng kiểm tra email để xác nhận tài khoản"
     settings = get_settings()
+    local_smtp_fallback_enabled = _allow_local_signup_without_smtp()
     limiter = get_rate_limiter()
     ip = request.client.host if request.client else "unknown"
     redis_start = time.perf_counter()
@@ -145,11 +171,31 @@ def signup(payload: SignupRequest, response: Response, request: Request, db: Ses
     db.add(user)
     try:
         db.flush()
-        verify_token = _create_email_verification_token(db=db, user_id=user.user_id)
-        send_verification_email(to_email=user.email, display_name=user.display_name, token=verify_token)
+        try:
+            verify_token = _create_email_verification_token(db=db, user_id=user.user_id)
+            send_verification_email(to_email=user.email, display_name=user.display_name, token=verify_token)
+        except RuntimeError as exc:
+            if not local_smtp_fallback_enabled:
+                raise AppError("CONFIG_ERROR", str(exc), 500) from exc
+            user.is_active = True
+            user.email_verified_at = now
+            verification_required = False
+            signup_message = (
+                "Đăng ký thành công ở môi trường local. "
+                "SMTP chưa sẵn sàng nên hệ thống đã bỏ qua bước xác nhận email."
+            )
+            logger.warning(
+                "auth.signup local_auto_verify user_id=%s reason=%s",
+                user.user_id,
+                str(exc),
+            )
         db_start = time.perf_counter()
         db.commit()
         db_ms += _elapsed_ms(db_start)
+        if not verification_required:
+            db_start = time.perf_counter()
+            _issue_login_session(user=user, response=response, request=request, db=db)
+            db_ms += _elapsed_ms(db_start)
         success = True
     except AppError:
         db.rollback()
@@ -185,8 +231,8 @@ def signup(payload: SignupRequest, response: Response, request: Request, db: Ses
     return ok(
         {
             "user_id": user.user_id,
-            "verification_required": True,
-            "message": "Vui lòng kiểm tra email để xác nhận tài khoản",
+            "verification_required": verification_required,
+            "message": signup_message,
         },
         status_code=202,
         response=response,
@@ -473,12 +519,37 @@ def logout(response: Response, refresh_token: str | None = Cookie(default=None),
 
 
 @router.get("/me")
-def me(current_user: User = Depends(get_current_user)):
+def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    profile_row = db.scalar(select(UserProfile).where(UserProfile.user_id == current_user.user_id))
+    profile_data = dict(profile_row.profile or {}) if profile_row else {}
+    onboarding = dict(profile_data.get("onboarding") or {})
     return ok(
         {
             "user_id": current_user.user_id,
             "email": current_user.email,
             "display_name": current_user.display_name,
             "policy_version_ack": current_user.policy_version_ack,
+            "onboarding_completed": bool(onboarding.get("completed_at")),
+            "onboarding_skipped": bool(onboarding.get("skipped", False)),
         }
     )
+
+
+@router.delete("/me/data", dependencies=[Depends(require_csrf)])
+def erase_my_data(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    user_id = current_user.user_id
+    now = utc_now().replace(tzinfo=None)
+    db.execute(delete(Message).where(Message.user_id == user_id))
+    db.execute(delete(ConversationMemory).where(ConversationMemory.user_id == user_id))
+    db.execute(delete(CrisisLog).where(CrisisLog.user_id == user_id))
+    db.execute(delete(Conversation).where(Conversation.user_id == user_id))
+    db.execute(delete(UserProfileSnapshot).where(UserProfileSnapshot.user_id == user_id))
+    db.execute(delete(UserProfile).where(UserProfile.user_id == user_id))
+    db.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
+    db.execute(delete(EmailVerificationToken).where(EmailVerificationToken.user_id == user_id))
+    db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user_id))
+    db.execute(delete(User).where(User.user_id == user_id))
+    db.commit()
+    cache_delete(profile_cache_key(user_id))
+    MemoryManager.instance().delete_user(user_id)
+    return ok({"deleted": True, "deleted_at": now.isoformat() + "Z"})

@@ -101,8 +101,8 @@ def test_enqueue_voice_job_auto_process_uses_settings(monkeypatch):
         "get_settings",
         lambda: SimpleNamespace(
             voice_tts_auto_process_on_enqueue=True,
-            elevenlabs_voice_id="voice_test",
-            elevenlabs_model_id="model_test",
+            tts_provider="blaze",
+            blaze_tts_model="blaze-tts-1",
         ),
     )
     monkeypatch.setattr(proactive_voice, "_VOICE_PROVIDER_BLOCKED_CODE", None)
@@ -125,12 +125,12 @@ def test_enqueue_voice_job_auto_process_uses_settings(monkeypatch):
     assert result["tts_job_id"] == "tts_1"
 
 
-def test_render_tts_audio_uses_vieneu_provider(monkeypatch):
+def test_render_tts_audio_uses_blaze_provider(monkeypatch):
     monkeypatch.setattr(
         proactive_voice,
         "get_settings",
-        lambda: SimpleNamespace(tts_provider="vieneu", tts_fallback_provider="none"),
+        lambda: SimpleNamespace(tts_provider="blaze"),
     )
-    monkeypatch.setattr(proactive_voice, "_render_vieneu_audio", lambda *_args, **_kwargs: "ok.wav")
+    monkeypatch.setattr(proactive_voice, "_render_blaze_audio", lambda *_args, **_kwargs: "ok.mp3")
     out = proactive_voice._render_tts_audio(12, "xin chao")
-    assert out == "ok.wav"
+    assert out == "ok.mp3"

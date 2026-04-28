@@ -21,7 +21,6 @@ _INFLIGHT_JOBS: set[int] = set()
 _LAST_TRIGGER_AT: dict[str, datetime] = {}
 _VOICE_PROVIDER_BLOCKED_CODE: str | None = None
 _SESSION_ACTIVE_JOB: dict[str, str] = {}
-_VIENEU_CLIENT: Any | None = None
 _AUDIO_DIR = Path(__file__).resolve().parents[2] / "generated_voice"
 _AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 VOICE_JOB_EVENT_TYPE = "voice.tts_request"
@@ -101,16 +100,14 @@ def enqueue_voice_job(
 ) -> dict[str, Any]:
     global _VOICE_PROVIDER_BLOCKED_CODE
     settings = get_settings()
-    provider = str(getattr(settings, "tts_provider", "elevenlabs") or "elevenlabs").lower()
-    fallback_provider = str(getattr(settings, "tts_fallback_provider", "none") or "none").lower()
-    if _VOICE_PROVIDER_BLOCKED_CODE and provider == "elevenlabs" and fallback_provider != "vieneu":
+    provider = str(getattr(settings, "tts_provider", "blaze") or "blaze").lower()
+    if _VOICE_PROVIDER_BLOCKED_CODE:
         return {
             "provider": provider,
             "tts_job_id": None,
             "audio_url": None,
             "status": "failed",
-            "voice_id": settings.elevenlabs_voice_id,
-            "model_id": settings.elevenlabs_model_id,
+            "model_id": settings.blaze_tts_model,
             "error_code": _VOICE_PROVIDER_BLOCKED_CODE,
             "error_message": "Voice provider hiện không khả dụng với cấu hình hiện tại. Hiển thị script text thay thế.",
         }
@@ -124,8 +121,7 @@ def enqueue_voice_job(
                 "tts_job_id": existing_tts_id,
                 "audio_url": None,
                 "status": existing_job["status"],
-                "voice_id": settings.elevenlabs_voice_id,
-                "model_id": settings.elevenlabs_model_id,
+                "model_id": settings.blaze_tts_model,
             }
     outbox = SyncOutbox(
         event_type=VOICE_JOB_EVENT_TYPE,
@@ -153,8 +149,7 @@ def enqueue_voice_job(
         "tts_job_id": tts_job_id,
         "audio_url": None,
         "status": "queued",
-        "voice_id": settings.elevenlabs_voice_id,
-        "model_id": settings.elevenlabs_model_id,
+        "model_id": settings.blaze_tts_model,
     }
 
 
@@ -235,120 +230,75 @@ def _process_job(job_id: int) -> None:
 
 def _render_tts_audio(job_id: int, voice_script: str) -> Path | None:
     settings = get_settings()
-    provider = str(getattr(settings, "tts_provider", "elevenlabs") or "elevenlabs").lower()
-    fallback_provider = str(getattr(settings, "tts_fallback_provider", "none") or "none").lower()
-    if provider == "vieneu":
-        return _render_vieneu_audio(job_id, voice_script)
-    try:
-        primary = _render_elevenlabs_audio(job_id, voice_script)
-        if primary:
-            return primary
-    except PermanentTtsError:
-        if fallback_provider == "vieneu":
-            fallback = _render_vieneu_audio(job_id, voice_script)
-            if fallback:
-                return fallback
-        raise
-    if fallback_provider == "vieneu":
-        return _render_vieneu_audio(job_id, voice_script)
-    return None
+    provider = str(getattr(settings, "tts_provider", "blaze") or "blaze").lower()
+    if provider != "blaze":
+        logger.info("tts_provider=%s is deprecated; forcing blaze", provider)
+    return _render_blaze_audio(job_id, voice_script)
 
 
-def _render_elevenlabs_audio(job_id: int, voice_script: str) -> Path | None:
+def _render_blaze_audio(job_id: int, voice_script: str) -> Path | None:
+    """Call Blaze TTS API (https://blaze.vn) and save the returned audio."""
     settings = get_settings()
-    if not settings.elevenlabs_api_key:
-        return None
-    try:
-        from elevenlabs.client import ElevenLabs
-    except Exception:
+    api_key = (settings.blaze_api_key or "").strip()
+    if not api_key:
+        logger.warning("blaze tts: BLAZE_API key is not configured")
         return None
 
-    timeout = getattr(settings, "tts_timeout_seconds", 4.0)
-    client = ElevenLabs(api_key=settings.elevenlabs_api_key, timeout=timeout)
+    url = (settings.blaze_tts_url or "").strip()
+    model = (settings.blaze_tts_model or "blaze-tts-1").strip()
+    output_format = (settings.blaze_tts_output_format or "mp3").strip().lower()
+    timeout = float(getattr(settings, "tts_timeout_seconds", 4.0))
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "query": voice_script,
+        "model": model,
+    }
+
     try:
-        raw = client.text_to_speech.convert(
-            text=voice_script,
-            voice_id=settings.elevenlabs_voice_id.strip(),
-            model_id=settings.elevenlabs_model_id,
-            output_format=settings.elevenlabs_output_format,
-        )
-        audio_bytes = _normalize_audio_bytes(raw)
+        import httpx
+
+        with httpx.Client(timeout=timeout) as client:
+            with client.stream("POST", url, json=payload, headers=headers) as response:
+                if response.status_code == 402:
+                    raise PermanentTtsError("blaze_paid_plan_required")
+                if response.status_code == 401:
+                    raise PermanentTtsError("blaze_unauthorized")
+                if not response.is_success:
+                    logger.warning(
+                        "blaze tts: HTTP %s — %s",
+                        response.status_code,
+                        response.read().decode(errors="replace")[:200],
+                    )
+                    return None
+
+                audio_chunks: list[bytes] = []
+                for chunk in response.iter_bytes(chunk_size=4096):
+                    if chunk:
+                        audio_chunks.append(chunk)
+
+        audio_bytes = b"".join(audio_chunks)
         if not audio_bytes:
+            logger.warning("blaze tts: empty audio response for job %s", job_id)
             return None
-        out = _AUDIO_DIR / f"tts_{job_id}.mp3"
+
+        ext = "mp3" if output_format == "mp3" else output_format
+        out = _AUDIO_DIR / f"tts_{job_id}.{ext}"
         out.write_bytes(audio_bytes)
+        logger.info("blaze tts: saved %d bytes to %s", len(audio_bytes), out)
         return out
+
+    except PermanentTtsError:
+        raise
     except Exception as exc:
         message = str(exc).lower()
-        if "paid_plan_required" in message or "payment_required" in message:
-            raise PermanentTtsError("paid_plan_required") from exc
-        logger.warning("elevenlabs convert failed: %s", exc)
+        if "paid" in message or "payment" in message:
+            raise PermanentTtsError("blaze_paid_plan_required") from exc
+        logger.warning("blaze tts synthesis failed (job %s): %s", job_id, exc)
         return None
-
-
-def _get_vieneu_client() -> Any | None:
-    global _VIENEU_CLIENT
-    if _VIENEU_CLIENT is not None:
-        return _VIENEU_CLIENT
-    settings = get_settings()
-    try:
-        from vieneu import Vieneu
-    except Exception as exc:
-        logger.warning("vieneu sdk import failed: %s", exc)
-        return None
-    try:
-        if (getattr(settings, "vieneu_mode", "local") or "local").lower() == "remote":
-            api_base = str(getattr(settings, "vieneu_api_base", "") or "").strip()
-            model_name = str(getattr(settings, "vieneu_model_name", "") or "").strip()
-            if not api_base:
-                logger.warning("vieneu remote mode enabled but VIENEU_API_BASE is empty")
-                return None
-            kwargs: dict[str, Any] = {"mode": "remote", "api_base": api_base}
-            if model_name:
-                kwargs["model_name"] = model_name
-            _VIENEU_CLIENT = Vieneu(**kwargs)
-        else:
-            _VIENEU_CLIENT = Vieneu()
-        return _VIENEU_CLIENT
-    except Exception as exc:
-        logger.warning("vieneu client init failed: %s", exc)
-        return None
-
-
-def _render_vieneu_audio(job_id: int, voice_script: str) -> Path | None:
-    settings = get_settings()
-    client = _get_vieneu_client()
-    if client is None:
-        return None
-    voice_data = None
-    voice_id = str(getattr(settings, "vieneu_voice_id", "") or "").strip()
-    if voice_id:
-        try:
-            presets = client.list_preset_voices()
-            matched_id = None
-            for item in presets or []:
-                if isinstance(item, (list, tuple)) and len(item) >= 2 and str(item[1]) == voice_id:
-                    matched_id = str(item[1])
-                    break
-            if matched_id:
-                voice_data = client.get_preset_voice(matched_id)
-        except Exception as exc:
-            logger.warning("vieneu preset voice lookup failed: %s", exc)
-    try:
-        if voice_data is not None:
-            audio = client.infer(text=voice_script, voice=voice_data)
-        else:
-            audio = client.infer(text=voice_script)
-        out = _AUDIO_DIR / f"tts_{job_id}.wav"
-        client.save(audio, str(out))
-        if not out.exists():
-            return None
-        return out
-    except Exception as exc:
-        logger.warning("vieneu synthesis failed: %s", exc)
-        return None
-
-
 def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
     if not tts_job_id.startswith("tts_"):
         return None

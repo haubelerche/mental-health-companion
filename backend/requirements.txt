@@ -7,10 +7,14 @@ httpx
 langchain-core>=0.3.0
 langchain-openai>=0.2.0
 langgraph>=0.2.0
+langfuse>=2.0.0
+mem0ai
 neo4j>=5.0.0
+numpy
 openai>=1.0.0
 pgvector
 psycopg[binary]
+pypdf
 pytest>=8.0.0
 pytest-asyncio>=0.24.0
 pydantic
@@ -20,6 +24,7 @@ python-dotenv
 python-jose[cryptography]
 pyotp
 redis
+rank-bm25
 sqlalchemy
 supabase
 uvicorn[standard]

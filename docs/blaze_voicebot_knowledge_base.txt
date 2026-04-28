@@ -1,0 +1,109 @@
+# TÀI LIỆU THAM CHIẾU — MAY VOICEBOT (SERENE APP)
+# Dùng để upload làm nguồn dữ liệu cho voicebot Blaze.vn
+
+===========================================================
+1. ĐƯỜNG DÂY HỖ TRỢ TÂM LÝ TẠI VIỆT NAM
+===========================================================
+
+- Đường dây hỗ trợ sức khỏe tâm thần 24/7: 1800 599 920 (miễn phí)
+- Tổng đài tư vấn tâm lý Bộ Y tế: 1800 1267 (miễn phí)
+- Đường dây khẩn cấp quốc gia: 113 (cảnh sát), 115 (cấp cứu)
+- Trung tâm Sức khỏe Tâm thần Quốc gia (NIMH): 024 3843 0073
+- Bệnh viện Tâm thần Trung ương 1 (Hà Nội): 024 3825 3772
+- Bệnh viện Tâm thần TP.HCM: 028 3865 0424
+
+===========================================================
+2. KỸ THUẬT THỞ VÀ GROUNDING — CÓ THỂ HƯỚNG DẪN TRỰC TIẾP
+===========================================================
+
+BÀI THỞ 4-7-8:
+- Hít vào từ từ trong 4 giây
+- Nín thở trong 7 giây
+- Thở ra chậm trong 8 giây
+- Lặp lại 3-4 lần. Kỹ thuật này giúp kích hoạt hệ thần kinh đối giao cảm, giảm lo âu nhanh.
+
+BÀI THỞ HÌNH VUÔNG (Box Breathing):
+- Hít vào 4 giây — Nín 4 giây — Thở ra 4 giây — Nín 4 giây
+- Lặp 4 vòng. Dùng khi cần bình tĩnh trước quyết định quan trọng.
+
+KỸ THUẬT GROUNDING 5-4-3-2-1:
+- Nhìn thấy 5 vật xung quanh, đặt tên từng cái
+- Chạm vào 4 bề mặt khác nhau, cảm nhận kết cấu
+- Lắng nghe 3 âm thanh đang xảy ra quanh đó
+- Nhận ra 2 mùi hương trong không gian
+- Chú ý 1 vị trong miệng
+Kỹ thuật này đưa sự chú ý về thực tại, giảm cơn lo âu hoặc dissociation.
+
+KỸ THUẬT THẢ LỎNG NHANH:
+- Giữ chặt hai tay thành nắm đấm trong 5 giây, rồi thả ra
+- Cảm nhận sự khác biệt giữa căng và thư giãn
+- Làm lần lượt từ bàn chân, bắp chân, đùi, bụng, tay, vai, mặt
+
+===========================================================
+3. PHẢN ỨNG BÌNH THƯỜNG KHI ĐANG CĂNG THẲNG CAO
+===========================================================
+
+Các phản ứng sau là BÌNH THƯỜNG khi căng thẳng cao — không có nghĩa là "bị bệnh":
+- Tim đập nhanh, thở gấp
+- Tay run, chân yếu
+- Khóc không rõ lý do
+- Không thể tập trung, hay quên
+- Muốn trốn tránh mọi người
+- Cảm giác ngực nặng hoặc tức
+- Khó ngủ hoặc ngủ quá nhiều
+- Ăn không ngon hoặc ăn quá nhiều
+
+Cơ thể đang cố bảo vệ bạn. Những phản ứng này sẽ giảm khi bạn được nghỉ ngơi và hỗ trợ đúng cách.
+
+===========================================================
+4. KHI NÀO CẦN TÌM CHUYÊN GIA
+===========================================================
+
+Hãy tìm chuyên gia tâm lý hoặc bác sĩ khi:
+- Triệu chứng kéo dài hơn 2 tuần không cải thiện
+- Có suy nghĩ tự làm hại bản thân hoặc người khác
+- Không thể làm việc, học tập, sinh hoạt bình thường
+- Cảm giác vô vọng, không còn ý nghĩa sống
+- Sử dụng rượu/thuốc để đối phó với cảm xúc
+
+Tìm chuyên gia là hành động DŨNG CẢM, không phải yếu đuối.
+
+===========================================================
+5. THÔNG TIN VỀ SERENE APP
+===========================================================
+
+Serene là ứng dụng hỗ trợ sức khỏe tâm lý dành cho người Việt.
+- Agent Mây: người bạn đồng hành, lắng nghe không phán xét
+- Tính năng check-in cảm xúc hàng ngày
+- Thư viện bài tập thở và grounding
+- Theo dõi trạng thái tâm lý theo thời gian
+
+Serene KHÔNG THAY THẾ bác sĩ hoặc nhà tâm lý học chuyên nghiệp.
+Trong trường hợp khẩn cấp, hãy gọi 1800 599 920 hoặc 115.
+
+===========================================================
+6. MỘT SỐ CÂU TRẢ LỜI MẪU CHO TÌNH HUỐNG KHÓ
+===========================================================
+
+Khi người dùng nói "Tôi không muốn sống nữa":
+→ "Mình nghe cậu và mình rất quan tâm đến sự an toàn của cậu lúc này. Cậu có thể nói thêm cậu đang trải qua điều gì không? Mình ở đây lắng nghe."
+
+Khi người dùng nói "Không ai hiểu tôi":
+→ "Cảm giác cô đơn khi không được hiểu là một trong những điều đau nhất. Mình đang cố gắng hiểu cậu — cậu có muốn kể thêm không?"
+
+Khi người dùng nói "Tôi quá mệt rồi":
+→ "Mệt mỏi mà không thể giải thích rõ đôi khi còn nặng hơn mệt thể chất. Cậu đang gánh điều gì khiến cậu cảm thấy vậy?"
+
+Khi người dùng nói "Tôi vô dụng":
+→ "Mình không đồng ý với cậu về điều đó. Khi người ta quá mệt, não hay nói những điều tàn nhẫn như vậy — nhưng đó không phải sự thật. Cậu đang trải qua điều gì khiến cậu nghĩ vậy?"
+
+===========================================================
+7. NGUYÊN TẮC AN TOÀN — MAY TUYỆT ĐỐI KHÔNG LÀM
+===========================================================
+
+- Không đề cập chi tiết phương thức tự hại
+- Không phán xét hoặc so sánh với người khác
+- Không hứa hẹn kết quả chữa bệnh
+- Không chẩn đoán bất kỳ bệnh tâm lý nào
+- Không ngắt kết nối đột ngột khi người dùng đang trong khủng hoảng
+- Luôn nhắc đường dây hỗ trợ khi có dấu hiệu nguy hiểm

@@ -17,7 +17,7 @@ export default function AboutAiSection() {
                     </h3>
                     <p className="mx-auto mt-7 max-w-3xl text-base leading-relaxed text-white/90 sm:text-lg">
                         Serene là người đồng hành AI thấu cảm, mang đến những cuộc trò chuyện sâu sắc
-                        giúp bạn thực hành chánh niệm và giải tỏa căng thẳng trong không gian đại dương an yên.
+                        giúp bạn thực hành chánh niệm và giải tỏa căng thẳng.
                     </p>
                 </div>
             </div>

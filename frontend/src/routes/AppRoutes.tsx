@@ -9,6 +9,14 @@ import Home from '../components/pages/Home.tsx'
 import Landing from '../components/pages/Landing.tsx'
 import Reflect from '../components/pages/Reflect.tsx'
 import Resources from '../components/pages/Resources.tsx'
+import Nutrition from '../components/pages/Nutrition.tsx'
+import { CheckinFlow } from '../components/pages/CheckinFlow'
+import { SafetyCheck } from '../components/pages/SafetyCheck'
+import { ScreeningFlow } from '../components/pages/ScreeningFlow'
+import { ResultsPage } from '../components/pages/ResultsPage'
+import { ExercisesPage } from '../components/pages/ExercisesPage'
+import { OnboardingFlow } from '../components/pages/OnboardingFlow.tsx'
+import LetterPage from '../components/pages/BeachMessage.tsx'
 import { useAuth } from '../hooks/useAuth'
 import { ROUTE_PATHS } from './paths'
 import Setting from '../components/pages/Setting.tsx'
@@ -25,6 +33,17 @@ function RequireAuth({ children }: { children: ReactElement }) {
     return children
 }
 
+function RequireOnboarding({ children }: { children: ReactElement }) {
+    const { user, isLoading } = useAuth()
+    if (isLoading) {
+        return null
+    }
+    if (user && !user.onboardingCompleted) {
+        return <Navigate to={ROUTE_PATHS.onboarding} replace />
+    }
+    return children
+}
+
 export default function AppRoutes() {
     return (
         <Routes>
@@ -33,47 +52,98 @@ export default function AppRoutes() {
             <Route path={ROUTE_PATHS.register} element={<Register />} />
             <Route path={ROUTE_PATHS.forget} element={<Forget />} />
             <Route path={ROUTE_PATHS.landing} element={<Landing />} />
+            <Route path={ROUTE_PATHS.onboardingPolicy} element={<Navigate to={ROUTE_PATHS.onboarding} replace />} />
 
-            <Route path={ROUTE_PATHS.home} element={<Main />}>
+            <Route
+                path={ROUTE_PATHS.onboarding}
+                element={
+                    <RequireAuth>
+                        <OnboardingFlow />
+                    </RequireAuth>
+                }
+            />
+
+            <Route
+                path={ROUTE_PATHS.home}
+                element={
+                    <RequireAuth>
+                        <RequireOnboarding>
+                            <Main />
+                        </RequireOnboarding>
+                    </RequireAuth>
+                }
+            >
                 <Route
                     index
                     element={
-                        <RequireAuth>
-                            <Home />
-                        </RequireAuth>
+                        <Home />
                     }
                 />
                 <Route path={ROUTE_PATHS.chat} element={<Chat />} />
                 <Route
                     path={ROUTE_PATHS.reflect}
                     element={
-                        <RequireAuth>
-                            <Reflect />
-                        </RequireAuth>
+                        <Reflect />
                     }
                 />
                 <Route
                     path={ROUTE_PATHS.resources}
                     element={
-                        <RequireAuth>
-                            <Resources />
-                        </RequireAuth>
+                        <Resources />
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.nutrition}
+                    element={
+                        <Nutrition />
                     }
                 />
                 <Route
                     path={ROUTE_PATHS.connect}
                     element={
-                        <RequireAuth>
-                            <Connect />
-                        </RequireAuth>
+                        <Connect />
                     }
                 />
                 <Route
                     path={ROUTE_PATHS.setting}
                     element={
-                        <RequireAuth>
-                            <Setting />
-                        </RequireAuth>
+                        <Setting />
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.safetyCheck}
+                    element={
+                        <SafetyCheck />
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.checkin}
+                    element={
+                        <CheckinFlow />
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.screening}
+                    element={
+                        <ScreeningFlow />
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.results}
+                    element={
+                        <ResultsPage />
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.exercises}
+                    element={
+                        <ExercisesPage />
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.bamboo}
+                    element={
+                        <LetterPage />
                     }
                 />
             </Route>

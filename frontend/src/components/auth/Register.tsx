@@ -14,7 +14,6 @@ export default function Register() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
-    const [acknowledged, setAcknowledged] = useState(false)
     const [voiceConsent, setVoiceConsent] = useState(true)
     const navigate = useNavigate()
     const { signup, isLoading } = useAuth()
@@ -37,23 +36,20 @@ export default function Register() {
             toast.error('Mật khẩu xác nhận không khớp.')
             return
         }
-        if (!acknowledged) {
-            toast.error('Bạn phải đồng ý với điều khoản trước khi tiếp tục.')
-            return
-        }
-
-
         try {
-            await signup({
+            const res = await signup({
                 display_name: fullName.trim(),
                 email: email.trim(),
                 password,
-                disclaimer_accepted: acknowledged,
+                disclaimer_accepted: true,
                 voice_consent: voiceConsent,
             })
-
-            toast.success('Đăng ký thành công. Chào mừng bạn đến với Serene!')
-            navigate(ROUTE_PATHS.home)
+            if (res.verification_required) {
+                toast.success(res.message || 'Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản.')
+            } else {
+                toast.success('Đăng ký thành công. Chào mừng bạn đến với Serene!')
+            }
+            navigate(ROUTE_PATHS.onboarding)
             console.info('[auth-metrics] signup.click_to_navigate_ms', Math.round(performance.now() - clickStartedAt))
         } catch (error) {
             console.info('[auth-metrics] signup.failed_ms', Math.round(performance.now() - clickStartedAt))
@@ -70,7 +66,7 @@ export default function Register() {
         <div className="auth-page">
             <div className="fixed inset-0">
                 <img
-                    alt="Dawn sk over oceany"
+                    alt="Dawn sky over ocean"
                     src={bg2}
                     className="auth-bg-image"
                 />
@@ -158,22 +154,6 @@ export default function Register() {
                                     required
                                 />
                             </div>
-                        </div>
-
-                        <div className="auth-disclaimer">
-                            <label className="flex items-start gap-3 text-xs leading-relaxed text-serene-muted sm:text-sm" htmlFor="disclaimer">
-                                <input
-                                    id="disclaimer"
-                                    type="checkbox"
-                                    checked={acknowledged}
-                                    onChange={(event) => setAcknowledged(event.target.checked)}
-                                    className="mt-0.5 h-5 w-5 rounded border-serene-outline bg-serene-bg/50 text-serene-primary focus:ring-serene-primary"
-                                    required
-                                />
-                                <span>
-                                    Mình hiểu <span className="font-semibold text-serene-primary">Serene</span> là AI đồng hành, không phải bác sĩ. Trong trường hợp khẩn cấp, mình sẽ gọi <span className="font-bold text-serene-ink">1800-599-920</span> hoặc <span className="font-bold text-serene-ink">115</span>.
-                                </span>
-                            </label>
                         </div>
 
                         <div className="auth-disclaimer">

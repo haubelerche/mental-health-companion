@@ -87,6 +87,8 @@ class CheckinQuickRequest(BaseModel):
     stress_level: int | None = Field(default=None, ge=0, le=10)
     sleep_hours: float | None = Field(default=None, ge=0, le=24)
     study_hours: float | None = Field(default=None, ge=0, le=24)
+    emotions: list[str] = Field(default_factory=list)
+    triggers: list[str] = Field(default_factory=list)
     note: str | None = None
 
 
@@ -153,3 +155,23 @@ class AdminLoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     totp_code: str = Field(min_length=6, max_length=10)
+
+
+class CrisisReviewRequest(BaseModel):
+    reviewed: bool = True
+    note: str | None = Field(default=None, max_length=500)
+
+
+class OnboardingCompleteRequest(BaseModel):
+    disclaimer_accepted: bool
+    nickname: str = Field(min_length=1, max_length=64)
+    age_group: str = Field(min_length=1, max_length=32)
+    emotional_state: str = Field(
+        pattern="^(difficult_recently|ongoing_challenges|doing_okay)$"
+    )
+    primary_concern: str | None = Field(default=None, max_length=64)
+    support_level: str | None = Field(default=None, pattern="^(excellent|good|limited|poor)$")
+    stress_level: int = Field(ge=0, le=4)
+    wake_time: str = Field(pattern="^([01]\\d|2[0-3]):[0-5]\\d$")
+    bed_time: str = Field(pattern="^([01]\\d|2[0-3]):[0-5]\\d$")
+    practice_ids: list[str] = Field(default_factory=list, max_length=8)
