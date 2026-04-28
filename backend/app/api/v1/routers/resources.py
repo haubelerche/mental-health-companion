@@ -148,6 +148,7 @@ def track_play_event(
         event=payload.event,
         duration_sec=final_duration,
         percent=payload.percent,
+        tracked_at=utc_now(),
     )
     db.add(ev)
     db.commit()
@@ -164,7 +165,12 @@ def create_bookmark(resource_id: str, current_user: User = Depends(ensure_policy
         select(Bookmark).where(Bookmark.user_id == current_user.user_id, Bookmark.resource_id == resource_id)
     )
     if not existing:
-        existing = Bookmark(bookmark_id=make_id("bm"), user_id=current_user.user_id, resource_id=resource_id)
+        existing = Bookmark(
+            bookmark_id=make_id("bm"),
+            user_id=current_user.user_id,
+            resource_id=resource_id,
+            bookmarked_at=utc_now(),
+        )
         db.add(existing)
         db.commit()
 

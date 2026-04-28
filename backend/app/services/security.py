@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from functools import lru_cache
 
 import bcrypt
@@ -65,7 +65,7 @@ def verify_totp(code: str, secret: str) -> bool:
 def issue_access_token(subject: str, role: str = "user", scope: str = "user") -> str:
     settings = get_settings()
     sign_key, _, algorithm = _jwt_material()
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     payload = {
         "sub": subject,
         "role": role,
@@ -79,7 +79,7 @@ def issue_access_token(subject: str, role: str = "user", scope: str = "user") ->
 def issue_admin_token(subject: str) -> str:
     settings = get_settings()
     sign_key, _, algorithm = _jwt_material()
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     payload = {
         "sub": subject,
         "role": "admin",
