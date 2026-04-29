@@ -308,7 +308,7 @@ def admin_update_resource(
         row.format = payload.format
     if "duration_sec" in provided:
         row.duration_sec = payload.duration_sec
-    if "storage_key" in provided:
+    if "storage_key" in provided and payload.storage_key is not None:
         row.storage_key = payload.storage_key
     if "external_url" in provided:
         row.external_url = payload.external_url
