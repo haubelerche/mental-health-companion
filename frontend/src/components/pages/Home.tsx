@@ -23,7 +23,7 @@ import exerciseImg from '../../assets/exercise.png'
 import forestImg from '../../assets/forest.png'
 import healingImg from '../../assets/healing.jpg'
 import nutritionImg from '../../assets/nutrition-a1.jpg'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { homeService } from '../../services/homeService'
 import { httpClient } from '../../api/httpClient'
 import { ROUTE_PATHS } from '../../routes/paths'
@@ -398,19 +398,19 @@ export default function Home() {
             {/* ── Greeting header ── */}
             <header className="flex items-start justify-between gap-4">
                 <div>
-                    <p className="text-sm font-medium uppercase tracking-wide text-white">
+                    <p className="font-display text-2xl font-medium uppercase tracking-wide text-white">
                         {getGreeting()}
                     </p>
                     <h1 className="mt-1 font-display text-3xl italic text-white sm:text-4xl">
                         {displayName}
                     </h1>
                 </div>
-                <div className="flex items-center gap-3 rounded-full border border-white/30 bg-white/20 px-4 py-2 backdrop-blur-sm">
-                    <span className="flex items-center gap-1 text-sm font-semibold text-rose-500">
+                <div className="flex items-center gap-3 rounded-full border border-serene-border/30 bg-serene-border px-4 py-2 backdrop-blur-sm">
+                    <span className="flex items-center gap-1 text-sm font-semibold text-rose-400">
                         <Heart className="h-4 w-4 fill-current" />
                         {hearts}
                     </span>
-                    <span className="h-4 w-px bg-white/30" />
+                    <span className="h-4 w-px bg-black" />
                     <span className="flex items-center gap-1 text-sm font-semibold text-amber-400">
                         <Flame className="h-4 w-4 fill-current" />
                         {streak}
@@ -423,12 +423,12 @@ export default function Home() {
                 <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
                     <div>
                         <div className="mb-4 flex items-center justify-between gap-4">
-                            <h2 className="font-display text-[1.6rem] text-serene-ink">Hôm nay của bạn</h2>
+                            <h2 className="font-display text-3xl text-serene-ink">Hôm nay của bạn</h2>
                             <span className="rounded-full bg-serene-primary/10 px-3 py-1 text-xs font-semibold text-serene-primary">
                                 {TIME_SLOT_META[currentSlot].label} · {TIME_SLOT_META[currentSlot].range}
                             </span>
                         </div>
-                        <p className="mb-4 text-sm text-serene-muted">{TIME_SLOT_META[currentSlot].intro}</p>
+                       
 
                         <div className="space-y-3">
                             {currentReminders.map((item) => {
@@ -442,10 +442,10 @@ export default function Home() {
                                             setDetailReminderId(item.id)
                                         }}
                                         className={[
-                                            'flex w-full items-center gap-3 rounded-2xl p-4 text-left transition active:scale-[0.98]',
+                                            'flex w-full items-center gap-3 rounded-2xl p-4 text-left transition active:scale-[0.98] cursor-pointer',
                                             active
                                                 ? 'border border-serene-primary/30 bg-serene-primary/10'
-                                                : 'border border-transparent bg-white/60 hover:bg-white/80',
+                                                : 'border border-transparent bg-white/60 hover:bg-serene-on-primary cursor-pointer/80',
                                         ].join(' ')}
                                     >
                                         <Info className={`h-5 w-5 shrink-0 ${active ? 'text-serene-primary' : 'text-serene-outline'}`} />
@@ -473,18 +473,18 @@ export default function Home() {
                             alt="Khung cảnh thiên nhiên dịu nhẹ cho phần nhịp hôm nay"
                             className="absolute inset-0 h-full w-full object-cover"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-serene-ink/70 via-serene-ink/25 to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-serene-ink/70 via-serene-ink/55 to-transparent" />
                         <div className="absolute inset-x-0 bottom-0 p-5 text-white">
                             <p className="text-xs uppercase tracking-[0.22em] text-white/75">Nhịp hôm nay</p>
                             <p className="mt-2 text-lg font-semibold">{TIME_SLOT_META[currentSlot].label}</p>
-                            <p className="mt-1 max-w-sm text-sm leading-relaxed text-white/85">{TIME_SLOT_META[currentSlot].intro}</p>
+                            <p className="mt-1 text-sm leading-relaxed text-white/85">{TIME_SLOT_META[currentSlot].intro}</p>
                         </div>
                     </div>
                 </div>
             </section>
 
             {/* ── Dành cho bạn ── */}
-            <section className='bg-serene-bg/75 p-4 border border-white/35 rounded-3xl backdrop-blur-xl'>
+            <section className='bg-serene-bg/75 p-6 border border-white/35 rounded-3xl backdrop-blur-xl'>
 
                 <div className="flex items-center justify-between gap-4">
                     <div>
@@ -496,7 +496,7 @@ export default function Home() {
                     <button
                         type="button"
                         onClick={() => navigate(ROUTE_PATHS.exercises)}
-                        className="font-medium text-serene-primary underline underline-offset-4 transition hover:text-serene-primary/70"
+                        className="font-medium text-serene-primary underline underline-offset-4 cursor-pointer transition hover:text-serene-primary/70"
                     >
                         Xem tất cả
                     </button>
@@ -522,7 +522,7 @@ export default function Home() {
                                 key={card.label}
                                 type="button"
                                 onClick={() => navigate(card.route)}
-                                className="flex min-w-37 shrink-0 flex-col gap-3 rounded-[22px] border border-gray-400 bg-white/70 p-4 text-left backdrop-blur-xl transition-colors hover:bg-serene-on-primary active:scale-[0.97]"
+                                className="cursor-pointer flex min-w-37 shrink-0 flex-col gap-3 rounded-[22px] border border-gray-300 bg-white/70 p-4 text-left backdrop-blur-xl transition-colors hover:bg-serene-on-primary active:scale-[0.97]"
                             >
                                 <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl text-xl ${card.accentClass}`}>
                                     {card.emoji}
@@ -546,7 +546,7 @@ export default function Home() {
                         </p>
 
                         <div className="mt-4">
-                            <div className="relative h-full overflow-hidden rounded-[22px] border border-white/50 min-h-[190px]">
+                            <div className="relative h-full overflow-hidden rounded-[22px] border border-white/50 min-h-[200px]">
                                 <img
                                     src={healingImg}
                                     alt="Không gian chữa lành dịu nhẹ cho phần chọn từ mô tả tâm trạng"
@@ -567,12 +567,12 @@ export default function Home() {
                             <div>
                                 <h3 className=" uppercase tracking-[0.2em] font-display">Một câu nhắc dịu dàng</h3>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="mt-4 flex items-center gap-2">
                                 <button
                                     type="button"
                                     aria-label="Câu trước"
                                     onClick={() => setQuoteIndex((current) => (current - 1 + Math.max(quotes.length, 1)) % Math.max(quotes.length, 1))}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-serene-outline/20 bg-white/80 text-serene-muted transition duration-200 ease-in-out hover:bg-white"
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-serene-outline/20 bg-white/80 text-serene-muted transition duration-200 ease-in-out hover:bg-serene-on-primary cursor-pointer"
                                 >
                                     <ChevronLeft className="h-4 w-4" />
                                 </button>
@@ -580,14 +580,14 @@ export default function Home() {
                                     type="button"
                                     aria-label="Câu sau"
                                     onClick={() => setQuoteIndex((current) => (current + 1) % Math.max(quotes.length, 1))}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-serene-outline/20 bg-white/80 text-serene-muted transition duration-200 ease-in-out hover:bg-white"
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-serene-outline/20 bg-white/80 text-serene-muted transition duration-200 ease-in-out hover:bg-serene-on-primary cursor-pointer"
                                 >
                                     <ChevronRight className="h-4 w-4" />
                                 </button>
                             </div>
                         </div>
 
-                        <div className="relative min-h-55 overflow-hidden rounded-3xl border border-serene-outline/10 bg-[linear-gradient(135deg,rgba(111,174,180,0.82),rgba(255,255,255,0.96))] p-5 sm:p-6">
+                        <div className="relative min-h-53 overflow-hidden rounded-3xl border border-serene-outline/10 bg-[linear-gradient(135deg,rgba(111,174,180,0.82),rgba(255,255,255,0.96))] p-5 sm:p-6">
                             <img
                                 src={beachMessageBg}
                                 alt="Nền sóng biển dịu để làm nổi bật câu nhắc"
@@ -601,14 +601,14 @@ export default function Home() {
                                     initial={{ opacity: 0, x: 20, filter: 'blur(6px)' }}
                                     animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
                                     exit={{ opacity: 0, x: -20, filter: 'blur(6px)' }}
-                                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                                    transition={{ duration: 0.4, ease: 'easeOut' }}
                                     className="relative flex h-full flex-col justify-between"
                                 >
                                     <blockquote className="font-display text-[1.15rem] italic leading-8 text-serene-ink sm:text-[1.35rem]">
                                         {quoteContent}
                                     </blockquote>
                                     <div className="mt-6 flex items-center justify-between gap-4">
-                                        <p className="text-[11px] uppercase tracking-[0.24em] text-serene-muted/75">
+                                        <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-serene-muted/75">
                                             {quoteAuthor}
                                         </p>
                                         <div className="flex items-center gap-1.5">
@@ -661,16 +661,16 @@ export default function Home() {
                 transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                 className="group w-full rounded-[28px] border border-white/40 bg-linear-to-br from-white/85 via-white/75 to-amber-50/60 p-7 text-left backdrop-blur-xl shadow-[0_8px_24px_rgba(251,191,36,0.08)] transition-all hover:shadow-[0_12px_32px_rgba(251,191,36,0.12)] active:scale-[0.98]"
             >
-                <div className="grid gap-5 lg:grid-cols-[220px_1fr_auto] lg:items-center">
+                <div className="grid gap-5 lg:grid-cols-[220px_1fr_auto] lg:items-center cursor-pointer">
                     <div className="relative overflow-hidden rounded-[24px] border border-white/60 min-h-[170px] shadow-[0_12px_26px_rgba(251,191,36,0.12)]">
                         <img
                             src={nutritionImg}
                             alt="Món ăn gợi ý cho phần dinh dưỡng"
                             className="absolute inset-0 h-full w-full object-cover"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-tr from-serene-ink/55 via-serene-ink/10 to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-serene-ink via-serene-ink/50 to-transparent" />
                         <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                            <p className="text-xs uppercase tracking-[0.22em] text-white/75">Nạp lại năng lượng</p>
+                            <p className="text-xs uppercase tracking-[0.19em] text-white">Nạp lại năng lượng</p>
                             <p className="mt-1 text-sm font-semibold">Ăn đủ để mood cũng được nâng lên</p>
                         </div>
                     </div>
@@ -689,7 +689,7 @@ export default function Home() {
             </motion.button>
 
             {/* ── Quick action grid 2×2 ── */}
-            <section className='p-6 bg-serene-on-primary/75 backdrop-blur-2xl rounded-4xl'>
+            <section className='p-6 bg-white/75 backdrop-blur-2xl rounded-4xl'>
                 <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_220px] lg:items-center">
                     <div>
                         <h2 className="font-display text-3xl text-serene-ink">Bắt đầu từ đây</h2>
@@ -703,11 +703,11 @@ export default function Home() {
                     {QUICK_ACTIONS.map((action) => {
                         const Icon = action.icon
                         return (
-                            <button
+                            <Link
                                 key={action.label}
-                                type="button"
+                                to={action.route}
 
-                                className="group flex flex-col gap-4 rounded-[22px] border bg-white/80 p-6 text-left backdrop-blur-xl shadow-md hover:scale-105 duration-500 transition-all"
+                                className="group flex flex-col gap-4 rounded-[22px] border border-gray-300 bg-white/80 p-6 text-left backdrop-blur-xl shadow-md hover:scale-105 duration-500 transition-all"
                             >
                                 <motion.div
                                     className={`inline-flex h-12 w-12 items-center justify-center rounded-xl ${action.bgClass} ${action.iconClass}`}
@@ -720,26 +720,20 @@ export default function Home() {
                                     <p className="text-sm font-bold text-serene-ink leading-tight">{action.label}</p>
                                     <p className="mt-1 text-xs text-serene-muted/80">{action.desc}</p>
                                 </div>
-                            </button>
+                            </Link>
                         )
                     })}
                 </div>
             </section>
 
             {/* ── Wellness radar mini preview ── */}
-            <motion.button
+            <button
                 type="button"
                 onClick={() => navigate(ROUTE_PATHS.reflect)}
-                whileHover={{ y: -4 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+               
                 className="group relative w-full overflow-hidden rounded-3xl border border-serene-primary/40 bg-gradient-to-br from-serene-primary/90 via-serene-primary/85 to-serene-primary/75 p-7 text-left backdrop-blur-xl shadow-[0_10px_32px_rgba(111,164,180,0.2)] hover:shadow-[0_14px_40px_rgba(111,164,180,0.28)] transition-all"
             >
-                <img
-                    src={reflectBgImg}
-                    alt="Nền minh họa cho phần nhìn lại tiến trình"
-                    className="absolute inset-0 h-full w-full object-cover opacity-15"
-                />
-                <div className="absolute inset-0 bg-gradient-to-br from-serene-primary/10 via-transparent to-serene-primary/25" />
+              
                 <div className="flex items-center justify-between gap-5">
                     <div className="flex-1">
                         <motion.p
@@ -794,7 +788,7 @@ export default function Home() {
                         )}
                     </div>
                 </div>
-            </motion.button>
+            </button>
 
 
 
