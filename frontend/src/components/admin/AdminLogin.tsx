@@ -32,7 +32,7 @@ export default function AdminLogin() {
 
       setSubmitted(true)
       toast.success(`Đăng nhập admin thành công (${response.admin_id})`)
-      navigate(ROUTE_PATHS.admin)
+      navigate(ROUTE_PATHS.adminDashboard)
     } catch (error) {
       if (error instanceof ApiRequestError) {
         setErrorMessage(error.message)
