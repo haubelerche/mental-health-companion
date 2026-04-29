@@ -79,3 +79,28 @@ def vn_week_chart_range(ref: date | None = None) -> tuple[date, date, int]:
 def make_id(prefix: str, size: int = 10) -> str:
     token = "".join(secrets.choice(ID_ALPHABET) for _ in range(size))
     return f"{prefix}_{token}"
+
+
+def make_anon_name(topic: str | None = None, tone: str | None = None) -> str:
+    """Generate a variable anonymous display name.
+
+    Optionally bias the selection based on topic or tone for a touch of relevance.
+    """
+    adjectives = [
+        "Một người", "Một người bạn", "Người lạ", "Bạn ẩn danh", "Người bạn", "Người quen vô danh",
+        "Một trái tim", "Một lời nhắn", "Một bóng hình",
+    ]
+    nouns = [
+        "dễ mến", "vô danh", "tốt bụng", "hiền hòa", "bí ẩn", "tò mò", "thân thiện", "ôm ấp",
+        "lặng lẽ", "tươi cười",
+    ]
+    # small topic/tone hints
+    if topic:
+        topic_hint = topic.split()[0][:8]
+    else:
+        topic_hint = None
+
+    pick_adj = secrets.choice(adjectives)
+    pick_noun = secrets.choice(nouns)
+    suffix = f" {topic_hint}" if topic_hint else ""
+    return f"{pick_adj} {pick_noun}{suffix}".strip()
