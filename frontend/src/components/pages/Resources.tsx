@@ -3,8 +3,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-    FALLBACK_RESOURCE_CATEGORIES,
-    getFallbackResources,
     resourceService,
     type ResourceItem,
 } from '../../services/resourceService'
@@ -34,6 +32,8 @@ function getPatternTag(ex: ExerciseItem): string {
     if (ex.pattern.hold2 && ex.pattern.hold2 > 0) parts.push(ex.pattern.hold2)
     return parts.join('-')
 }
+
+const RESOURCE_CATEGORY_IDS = ['all', 'meditate', 'sleep', 'music', 'wisdom', 'movement', 'work_study']
 
 const PURPOSE: Record<string, string> = {
     box_breath: 'Thư giãn',
@@ -282,20 +282,20 @@ export default function Resources() {
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const requestedCategory = searchParams.get('category') || 'sleep'
-    const validIds = useMemo(() => FALLBACK_RESOURCE_CATEGORIES.map((c) => c.id), [])
-    const initialCategory = validIds.includes(requestedCategory) ? requestedCategory : 'sleep'
+    const initialCategory = RESOURCE_CATEGORY_IDS.includes(requestedCategory) ? requestedCategory : 'sleep'
 
-    const [categories, setCategories] = useState(FALLBACK_RESOURCE_CATEGORIES)
+    const [categories, setCategories] = useState([{ id: 'all', label: 'Tất cả', icon: '✦' }])
     const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory)
-    const [items, setItems] = useState<ResourceItem[]>(getFallbackResources(initialCategory))
+    const [items, setItems] = useState<ResourceItem[]>([])
     const [exercises, setExercises] = useState<ExerciseItem[]>(FALLBACK_EXERCISES)
     const [query, setQuery] = useState(searchParams.get('q') || '')
+    const [loadingResources, setLoadingResources] = useState(true)
 
     useEffect(() => {
         resourceService
             .getCategories()
             .then((data) => {
-                setCategories([FALLBACK_RESOURCE_CATEGORIES[0], ...data.categories])
+                setCategories([{ id: 'all', label: 'Tất cả', icon: '✦' }, ...data.categories])
             })
             .catch(() => undefined)
     }, [])
@@ -308,15 +308,34 @@ export default function Resources() {
     }, [])
 
     useEffect(() => {
-        if (selectedCategory === 'all') return
-        resourceService
-            .list(selectedCategory, 10, 0)
-            .then((data) => setItems(data.items.length ? data.items : getFallbackResources(selectedCategory)))
-            .catch(() => setItems(getFallbackResources(selectedCategory)))
-    }, [selectedCategory])
+        let active = true
 
-    const visibleItems =
-        selectedCategory === 'all' ? getFallbackResources('all') : items
+        const loadResources = async () => {
+            setLoadingResources(true)
+            try {
+                if (selectedCategory === 'all') {
+                    const categoryIds = categories.filter((cat) => cat.id !== 'all').map((cat) => cat.id)
+                    const responses = await Promise.all(categoryIds.map((category) => resourceService.list(category, 50, 0)))
+                    const merged = responses.flatMap((response) => response.items)
+                    if (active) setItems(merged)
+                } else {
+                    const data = await resourceService.list(selectedCategory, 50, 0)
+                    if (active) setItems(data.items)
+                }
+            } catch {
+                if (active) setItems([])
+            } finally {
+                if (active) setLoadingResources(false)
+            }
+        }
+
+        void loadResources()
+        return () => {
+            active = false
+        }
+    }, [categories, selectedCategory])
+
+    const visibleItems = items
 
     const filteredItems = useMemo(() => {
         const q = query.trim().toLowerCase()
@@ -396,10 +415,14 @@ export default function Resources() {
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.2, ease: 'easeOut' }}
                 >
-                    {isSleepTab ? (
+                    {loadingResources ? (
+                        <div className="flex h-40 items-center justify-center rounded-3xl bg-white/30 text-sm text-serene-muted">
+                            Đang tải tài nguyên...
+                        </div>
+                    ) : isSleepTab ? (
                         <SleepTab
                             exercises={exercises}
-                            sleepItems={getFallbackResources('sleep')}
+                            sleepItems={items}
                             onOpenItem={openItem}
                             onOpenExercise={openExercise}
                         />
