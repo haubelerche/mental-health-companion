@@ -13,7 +13,7 @@ import {
 } from '../../services/onboardingService'
 import { useAuth } from '../../hooks/useAuth'
 import bgGradient from '../../assets//bg-gradient.png'
-import { div } from 'framer-motion/client'
+
 
 type OnboardingDraft = {
     disclaimerAccepted: boolean
