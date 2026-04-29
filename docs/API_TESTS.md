@@ -695,11 +695,13 @@ Example request:
 
 ### POST /v1/bamboo/reply
 - Body: `message_id`, `content`, optional `topic`.
-- Creates a reply (treated as a new pending message). Expected: HTTP 201, `reply_id`, `message_id`, `status` = `pending`.
+- Creates a reply (treated as a new pending message) and routes it back to original sender of target letter. Expected: HTTP 201, `reply_id`, `message_id`, `status` = `pending`.
+- Only current recipient of the target letter can reply.
 
 ### POST /v1/bamboo/pass
 - Body: `message_id`.
 - Increments `pass_count` for an approved message. Expected: HTTP 200 with updated `pass_count` and `passed_at`.
+- Only current recipient of the target letter can pass.
 
 ### GET /v1/bamboo/moderation/queue (admin)
 - Admin-only. Expected: HTTP 200, `items` list of pending items.
