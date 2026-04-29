@@ -122,10 +122,9 @@ function toStoredLetter(letter: BambooStoredItem): Letter {
 }
 
 function pickRandomLetter(messages: BambooInboxItem[]): Letter | null {
-  const actionable = messages.filter((message) => (message.status ?? "approved") === "approved");
-  if (!actionable.length) return null;
-  const index = Math.floor(Math.random() * actionable.length);
-  return toLetter(actionable[index]);
+  if (!messages.length) return null;
+  const index = Math.floor(Math.random() * messages.length);
+  return toLetter(messages[index]);
 }
 
 function CinematicBg({ dark }: { dark: boolean }) {
@@ -1048,7 +1047,7 @@ export default function BeachMessage() {
           letter={openLetter}
           onClose={() => setOpenLetter(null)}
           dark={dark}
-          canInteract={openLetter.direction === "received" && openLetter.status === "approved"}
+          canInteract={openLetter.direction === "received"}
           onReply={async (content) => {
             await handleReplyLetter(content, openLetter.id);
           }}
