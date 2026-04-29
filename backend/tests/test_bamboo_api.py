@@ -5,9 +5,14 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
+
 from app.main import app
 from app.api.v1.routers import bamboo as bamboo_router
 from app.api.deps import ensure_policy_acknowledged, get_admin_claims, enforce_admin_ip
+from app.db.session import Base, get_db
 
 
 @pytest.fixture
@@ -26,10 +31,31 @@ def client_user(monkeypatch):
 
     app.dependency_overrides[ensure_policy_acknowledged] = _stub_user
 
+    # also override DB to use in-memory for isolation
+    engine = create_engine(
+        "sqlite+pysqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        future=True,
+    )
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, class_=Session)
+    Base.metadata.create_all(bind=engine)
+
+    def override_db():
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_db
+
     with TestClient(app) as client:
         yield client
 
     app.dependency_overrides.clear()
+    Base.metadata.drop_all(bind=engine)
+    engine.dispose()
 
 
 @pytest.fixture
