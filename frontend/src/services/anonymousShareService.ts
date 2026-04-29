@@ -5,32 +5,44 @@ export type BambooCategory = 'encouragement' | 'sharing' | 'question'
 export type BambooMessage = {
   id: string
   content: string
-  category: BambooCategory
+  anonymous_name: string
   received_at: string
+  topic?: string | null
+  tone?: string | null
+  reply_count?: number
+  pass_count?: number
 }
 
 export type StoredLetter = {
   id: string
   content: string
-  category: BambooCategory
+  anonymous_name?: string
   direction: 'sent' | 'received'
   timestamp: string
   pass_count?: number
+  reply_count?: number
+  topic?: string | null
+  tone?: string | null
 }
 
 export type SendBambooPayload = {
   content: string
-  category: BambooCategory
+  topic?: string
+  tone?: string
 }
 
 export type SendBambooResponse = {
   message_id: string
+  status?: string
   sent_at: string
+  moderation_mode?: string
+  anonymous_name?: string
 }
 
 export type BambooInboxResponse = {
   messages: BambooMessage[]
   total: number
+  has_more?: boolean
 }
 
 export type BambooStorageResponse = {
@@ -42,19 +54,19 @@ const MOCK_MESSAGES: BambooMessage[] = [
   {
     id: 'mock_1',
     content: 'Bạn đang làm rất tốt rồi. Dù hôm nay khó khăn thế nào, chỉ cần tiếp tục hiện diện là đủ.',
-    category: 'encouragement',
+    anonymous_name: 'Một người vô danh',
     received_at: new Date(Date.now() - 1000 * 60 * 47).toISOString(),
   },
   {
     id: 'mock_2',
     content: 'Hôm nay mình cũng cảm thấy mệt. Nhưng nhìn lại, mỗi ngày mình đều vượt qua được. Bạn cũng sẽ làm được.',
-    category: 'sharing',
+    anonymous_name: 'Người lữ hành',
     received_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
   },
   {
     id: 'mock_3',
     content: 'Có ai thấy việc ngồi một mình với cảm xúc của mình vừa đáng sợ vừa cần thiết không? Mình đang học cách làm điều đó.',
-    category: 'question',
+    anonymous_name: 'Ẩn danh từ biển',
     received_at: new Date(Date.now() - 1000 * 60 * 60 * 11).toISOString(),
   },
 ]
@@ -79,7 +91,34 @@ const DAILY_INBOX_DAY_KEY = 'serene_bamboo_inbox_day'
  * Set VITE_BAMBOO_API=true in .env when the backend implements /bamboo/* endpoints.
  * Until then all calls short-circuit to local fallback — no 404 noise in the console.
  */
-const BAMBOO_API_ENABLED = import.meta.env.VITE_BAMBOO_API === 'true'
+const BAMBOO_API_ENABLED = import.meta.env.VITE_BAMBOO_API !== 'false'
+
+function normalizeInboxMessage(message: Record<string, unknown>): BambooMessage {
+  return {
+    id: String(message.message_id ?? message.id ?? `msg_${Date.now()}`),
+    content: String(message.content ?? ''),
+    anonymous_name: String(message.anonymous_name ?? 'Một người vô danh'),
+    received_at: String(message.received_at ?? message.sent_at ?? new Date().toISOString()),
+    topic: (message.topic as string | null | undefined) ?? null,
+    tone: (message.tone as string | null | undefined) ?? null,
+    reply_count: typeof message.reply_count === 'number' ? message.reply_count : 0,
+    pass_count: typeof message.pass_count === 'number' ? message.pass_count : 0,
+  }
+}
+
+function normalizeStorageLetter(letter: Record<string, unknown>): StoredLetter {
+  return {
+    id: String(letter.message_id ?? letter.id ?? `msg_${Date.now()}`),
+    content: String(letter.content ?? ''),
+    anonymous_name: letter.anonymous_name ? String(letter.anonymous_name) : undefined,
+    direction: String(letter.direction ?? 'received') === 'sent' ? 'sent' : 'received',
+    timestamp: String(letter.created_at ?? letter.timestamp ?? new Date().toISOString()),
+    pass_count: typeof letter.pass_count === 'number' ? letter.pass_count : 0,
+    reply_count: typeof letter.reply_count === 'number' ? letter.reply_count : 0,
+    topic: (letter.topic as string | null | undefined) ?? null,
+    tone: (letter.tone as string | null | undefined) ?? null,
+  }
+}
 
 function loadSentFull(): StoredLetter[] {
   try {
@@ -131,7 +170,7 @@ function pickRandomMessages(): BambooMessage[] {
   return picked.map((item, index) => ({
     id: `daily_${getTodayKey()}_${index}`,
     content: item.content,
-    category: item.category,
+    anonymous_name: 'Một người vô danh',
     received_at: new Date(now - (index + 1) * 1000 * 60 * 43).toISOString(),
   }))
 }
@@ -171,19 +210,19 @@ export const anonymousShareService = {
       saveSentFull({
         id: messageId,
         content: payload.content,
-        category: payload.category,
+        anonymous_name: 'Một người vô danh',
         direction: 'sent',
         timestamp: sentAt,
         pass_count: 0,
       })
-      return { message_id: messageId, sent_at: sentAt }
+      return { message_id: messageId, sent_at: sentAt, status: 'pending', anonymous_name: 'Một người vô danh', moderation_mode: 'local' }
     }
     try {
       const res = await httpClient.postWithCsrf<SendBambooResponse>('/bamboo/send', payload)
       saveSentFull({
         id: res.message_id,
         content: payload.content,
-        category: payload.category,
+        anonymous_name: res.anonymous_name ?? 'Một người vô danh',
         direction: 'sent',
         timestamp: res.sent_at,
         pass_count: 0,
@@ -196,12 +235,12 @@ export const anonymousShareService = {
       saveSentFull({
         id: messageId,
         content: payload.content,
-        category: payload.category,
+        anonymous_name: 'Một người vô danh',
         direction: 'sent',
         timestamp: sentAt,
         pass_count: 0,
       })
-      return { message_id: messageId, sent_at: sentAt }
+      return { message_id: messageId, sent_at: sentAt, status: 'pending', anonymous_name: 'Một người vô danh', moderation_mode: 'fallback' }
     }
   },
 
@@ -214,7 +253,12 @@ export const anonymousShareService = {
     if (!BAMBOO_API_ENABLED) return localFallback()
 
     try {
-      return await httpClient.get<BambooInboxResponse>('/bamboo/inbox')
+      const data = await httpClient.get<{ messages: Record<string, unknown>[]; total: number; has_more?: boolean }>('/bamboo/inbox')
+      return {
+        messages: data.messages.map(normalizeInboxMessage),
+        total: data.total,
+        has_more: data.has_more,
+      }
     } catch {
       return localFallback()
     }
@@ -225,7 +269,7 @@ export const anonymousShareService = {
       saveSentFull({
         id: `reply_${Date.now()}`,
         content,
-        category: 'encouragement',
+        anonymous_name: 'Một người vô danh',
         direction: 'sent',
         timestamp: new Date().toISOString(),
         pass_count: 0,
@@ -239,7 +283,7 @@ export const anonymousShareService = {
       saveSentFull({
         id: `reply_${Date.now()}`,
         content,
-        category: 'encouragement',
+        anonymous_name: 'Một người vô danh',
         direction: 'sent',
         timestamp: new Date().toISOString(),
         pass_count: 0,
@@ -262,7 +306,7 @@ export const anonymousShareService = {
       const received: StoredLetter[] = MOCK_MESSAGES.map((m) => ({
         id: m.id,
         content: m.content,
-        category: m.category,
+        anonymous_name: m.anonymous_name,
         direction: 'received',
         timestamp: m.received_at,
       }))
@@ -272,7 +316,8 @@ export const anonymousShareService = {
       return { letters: combined }
     }
     try {
-      return await httpClient.get<BambooStorageResponse>('/bamboo/storage')
+      const data = await httpClient.get<{ letters: Record<string, unknown>[] }>('/bamboo/storage')
+      return { letters: data.letters.map(normalizeStorageLetter) }
     } catch {
       return { letters: loadSentFull() }
     }
