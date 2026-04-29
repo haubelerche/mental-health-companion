@@ -175,3 +175,19 @@ class OnboardingCompleteRequest(BaseModel):
     wake_time: str = Field(pattern="^([01]\\d|2[0-3]):[0-5]\\d$")
     bed_time: str = Field(pattern="^([01]\\d|2[0-3]):[0-5]\\d$")
     practice_ids: list[str] = Field(default_factory=list, max_length=8)
+
+
+class BambooSendRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=2000)
+    topic: str | None = Field(default=None, max_length=50)
+    tone: str | None = Field(default=None, max_length=50)
+
+
+class BambooReplyRequest(BaseModel):
+    message_id: str = Field(min_length=1, max_length=80)
+    content: str = Field(min_length=1, max_length=1000)
+    topic: str | None = Field(default=None, max_length=50)
+
+
+class BambooPassRequest(BaseModel):
+    message_id: str = Field(min_length=1, max_length=80)
