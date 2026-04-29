@@ -178,6 +178,13 @@ export const httpClient = {
             body: body !== undefined ? JSON.stringify(body) : undefined,
             ...init,
         }),
+    patch: <T>(path: string, body?: unknown, init?: RequestInit) =>
+        request<T>(path, {
+            method: 'PATCH',
+            body: body !== undefined ? JSON.stringify(body) : undefined,
+            ...init,
+        }),
+    delete: <T>(path: string, init?: RequestInit) => request<T>(path, { method: 'DELETE', ...init }),
     postWithCsrf,
     postStreamWithCsrf,
 }
