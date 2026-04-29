@@ -410,7 +410,7 @@ export default function Home() {
             </header>
 
             {/* ── Today's plan + streak ── */}
-            <section className="rounded-[28px] border border-white/35 bg-white/45 p-6 backdrop-blur-xl">
+            <section className="rounded-[28px] border border-white/35 bg-serene-bg/75 p-6 backdrop-blur-xl">
                 <div className="mb-4 flex items-center justify-between">
                     <h2 className="font-display text-[1.6rem] text-serene-ink">Hôm nay của bạn</h2>
                     <span className="rounded-full bg-serene-primary/10 px-3 py-1 text-xs font-semibold text-serene-primary">
@@ -453,6 +453,40 @@ export default function Home() {
                         Chuỗi tuần này
                     </p>
                     <StreakBar streak={streak} />
+                </div>
+            </section>
+
+                {/* ── Dành cho bạn ── */}
+            <section className='bg-serene-bg/75 p-4 border border-white/35 rounded-3xl backdrop-blur-xl'>
+                <div className="mb-4 flex items-center justify-between">
+                    <h2 className="font-display text-3xl text-serene-ink">Dành cho bạn</h2>
+                    <button
+                        type="button"
+                        onClick={() => navigate(ROUTE_PATHS.exercises)}
+                        className="font-medium text-serene-primary underline underline-offset-4 transition hover:text-serene-primary/70"
+                    >
+                        Xem tất cả
+                    </button>
+                </div>
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                    {RECO_CARDS.map((card) => {
+                        return (
+                            <button
+                                key={card.label}
+                                type="button"
+                                onClick={() => navigate(card.route)}
+                                className="flex min-w-37 shrink-0 flex-col gap-3 rounded-[22px] border border-white/35 bg-white/50 p-4 text-left backdrop-blur-xl transition hover:bg-white/70 active:scale-[0.97]"
+                            >
+                                <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl text-xl ${card.accentClass}`}>
+                                    {card.emoji}
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-serene-ink leading-tight">{card.label}</p>
+                                    <p className="mt-1 text-xs text-serene-muted">{card.desc}</p>
+                                </div>
+                            </button>
+                        )
+                    })}
                 </div>
             </section>
 
@@ -617,39 +651,7 @@ export default function Home() {
                 </div>
             </button>
 
-            {/* ── Dành cho bạn ── */}
-            <section>
-                <div className="mb-4 flex items-center justify-between">
-                    <h2 className="font-display text-3xl text-white">Dành cho bạn</h2>
-                    <button
-                        type="button"
-                        onClick={() => navigate(ROUTE_PATHS.exercises)}
-                        className="font-medium text-white underline underline-offset-4 transition hover:text-white/50"
-                    >
-                        Xem tất cả
-                    </button>
-                </div>
-                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                    {RECO_CARDS.map((card) => {
-                        return (
-                            <button
-                                key={card.label}
-                                type="button"
-                                onClick={() => navigate(card.route)}
-                                className="flex min-w-37 shrink-0 flex-col gap-3 rounded-[22px] border border-white/35 bg-white/50 p-4 text-left backdrop-blur-xl transition hover:bg-white/70 active:scale-[0.97]"
-                            >
-                                <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl text-xl ${card.accentClass}`}>
-                                    {card.emoji}
-                                </div>
-                                <div>
-                                    <p className="text-sm font-semibold text-serene-ink leading-tight">{card.label}</p>
-                                    <p className="mt-1 text-xs text-serene-muted">{card.desc}</p>
-                                </div>
-                            </button>
-                        )
-                    })}
-                </div>
-            </section>
+        
 
             {detailReminder && (
                 <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/35 px-4">
