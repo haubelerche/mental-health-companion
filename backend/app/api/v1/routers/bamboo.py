@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends
-from typing import List
 from sqlalchemy.orm import Session
 
 from app.core.responses import ok
@@ -15,10 +14,46 @@ from datetime import datetime
 router = APIRouter(prefix="/bamboo", tags=["bamboo"])
 
 
+def _pick_recipient(
+    db: Session,
+    *,
+    sender_user_id: str,
+    excluded_user_ids: set[str] | None = None,
+) -> str | None:
+    excluded = {sender_user_id}
+    if excluded_user_ids:
+        excluded.update(uid for uid in excluded_user_ids if uid)
+
+    candidates = (
+        db.query(User)
+        .filter(
+            User.is_active.is_(True),
+            User.policy_acknowledged_at.is_not(None),
+            ~User.user_id.in_(list(excluded)),
+        )
+        .all()
+    )
+    eligible = []
+    for user in candidates:
+        unread_count = (
+            db.query(BambooMessage)
+            .filter(
+                BambooMessage.recipient_id == user.user_id,
+                BambooMessage.status == "approved",
+                BambooMessage.opened_at.is_(None),
+            )
+            .count()
+        )
+        if unread_count < 5:
+            eligible.append(user.user_id)
+    return random.choice(eligible) if eligible else None
+
+
 @router.post("/send")
 def send_letter(payload: BambooSendRequest, db: Session = Depends(get_db), current_user: User = Depends(ensure_policy_acknowledged)):
     msg_id = make_id("bam")
     anon_name = make_anon_name(payload.topic, payload.tone)
+    recipient_id = _pick_recipient(db, sender_user_id=current_user.user_id)
     record = BambooMessage(
         message_id=msg_id,
         user_id=current_user.user_id,
@@ -28,6 +63,7 @@ def send_letter(payload: BambooSendRequest, db: Session = Depends(get_db), curre
         tone=payload.tone,
         direction="sent",
         status="pending",
+        recipient_id=recipient_id,
     )
     db.add(record)
     db.commit()
@@ -48,7 +84,10 @@ def send_letter(payload: BambooSendRequest, db: Session = Depends(get_db), curre
 def get_inbox(db: Session = Depends(get_db), current_user: User = Depends(ensure_policy_acknowledged)):
     rows = (
         db.query(BambooMessage)
-        .filter(BambooMessage.status == "approved", BambooMessage.recipient_id == current_user.user_id)
+        .filter(
+            BambooMessage.recipient_id == current_user.user_id,
+            BambooMessage.status.in_(["approved", "pending"]),
+        )
         .order_by(BambooMessage.created_at.desc())
         .all()
     )
@@ -60,6 +99,7 @@ def get_inbox(db: Session = Depends(get_db), current_user: User = Depends(ensure
             "topic": r.topic,
             "tone": r.tone,
             "received_at": r.created_at.isoformat() + "Z",
+            "status": r.status,
             "pass_count": r.pass_count,
             "reply_count": r.reply_count,
         }
@@ -70,7 +110,17 @@ def get_inbox(db: Session = Depends(get_db), current_user: User = Depends(ensure
 
 @router.get("/storage")
 def get_storage(db: Session = Depends(get_db), current_user: User = Depends(ensure_policy_acknowledged)):
-    rows = db.query(BambooMessage).filter((BambooMessage.user_id == current_user.user_id) | (BambooMessage.status == "approved")).order_by(BambooMessage.created_at.desc()).all()
+    rows = (
+        db.query(BambooMessage)
+        .filter(
+            (BambooMessage.user_id == current_user.user_id)
+            | (
+                (BambooMessage.recipient_id == current_user.user_id)
+            )
+        )
+        .order_by(BambooMessage.created_at.desc())
+        .all()
+    )
     letters = [
         {
             "message_id": r.message_id,
@@ -91,7 +141,7 @@ def get_letter(message_id: str, db: Session = Depends(get_db), current_user: Use
     row = db.get(BambooMessage, message_id)
     if not row:
         raise AppError("BAMBOO_MESSAGE_NOT_FOUND", "Không tìm thấy thư", 404)
-    if row.status != "approved" and row.user_id != current_user.user_id:
+    if row.status != "approved" and row.user_id != current_user.user_id and row.recipient_id != current_user.user_id:
         raise AppError("BAMBOO_MESSAGE_NOT_FOUND", "Không tìm thấy thư", 404)
     # mark opened if recipient is the current user and not opened yet
     if row.recipient_id == current_user.user_id and row.opened_at is None:
@@ -145,20 +195,12 @@ def pass_letter(payload: BambooPassRequest, db: Session = Depends(get_db), curre
     if not target or target.status != "approved":
         raise AppError("BAMBOO_MESSAGE_NOT_FOUND", "Không tìm thấy thư", 404)
     target.pass_count = (target.pass_count or 0) + 1
-    # find a new recipient (exclude sender and current recipient)
-    candidates = (
-        db.query(User)
-        .filter(User.user_id != target.user_id, User.user_id != target.recipient_id, User.is_active.is_(True), User.policy_acknowledged_at.is_not(None))
-        .all()
+    # rotate recipient (exclude sender and previous recipient)
+    new_recipient = _pick_recipient(
+        db,
+        sender_user_id=target.user_id,
+        excluded_user_ids={target.recipient_id} if target.recipient_id else None,
     )
-    new_recipient = None
-    elig = []
-    for u in candidates:
-        cnt = db.query(BambooMessage).filter(BambooMessage.recipient_id == u.user_id, BambooMessage.status == "approved", BambooMessage.opened_at.is_(None)).count()
-        if cnt < 5:
-            elig.append(u)
-    if elig:
-        new_recipient = random.choice(elig).user_id
     target.recipient_id = new_recipient
     db.add(target)
     db.commit()
@@ -193,22 +235,10 @@ def moderation_action(message_id: str, payload: dict, admin: dict = Depends(get_
         raise AppError("INVALID_PARAMETER", "status không hợp lệ", 400)
     row.status = status
     row.reviewed_at = utc_now()
-    # on approval, assign to a random recipient who has <5 unread messages
+    # on approval, keep pre-assigned recipient if present; otherwise assign one
     if status == "approved":
-        candidates = (
-            db.query(User)
-            .filter(User.user_id != row.user_id, User.is_active.is_(True), User.policy_acknowledged_at.is_not(None))
-            .all()
-        )
-        elig = []
-        for u in candidates:
-            cnt = db.query(BambooMessage).filter(BambooMessage.recipient_id == u.user_id, BambooMessage.status == "approved", BambooMessage.opened_at.is_(None)).count()
-            if cnt < 5:
-                elig.append(u)
-        new_recipient = None
-        if elig:
-            new_recipient = random.choice(elig).user_id
-        row.recipient_id = new_recipient
+        if row.recipient_id is None:
+            row.recipient_id = _pick_recipient(db, sender_user_id=row.user_id)
     db.add(row)
     db.commit()
     return ok({"message_id": message_id, "status": status, "recipient_id": row.recipient_id, "reviewed_at": row.reviewed_at.isoformat() + "Z"})
