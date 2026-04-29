@@ -37,6 +37,19 @@ def _backfill_policy_versions() -> None:
         pass
 
 
+def _backfill_resources_external_url() -> None:
+    try:
+        factory = get_session_factory()
+        db = factory()
+        try:
+            db.execute(text("ALTER TABLE resources ADD COLUMN IF NOT EXISTS external_url VARCHAR(500)"))
+            db.commit()
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+
 def _idle_loop() -> None:
     from app.services.idle_sessions import summarize_idle_sessions
 
@@ -59,6 +72,7 @@ async def lifespan(_: FastAPI):
     if settings.auto_create_schema:
         init_db()
     _backfill_policy_versions()
+    _backfill_resources_external_url()
     threading.Thread(target=_idle_loop, daemon=True).start()
     threading.Thread(target=_outbox_loop, daemon=True).start()
     yield
