@@ -95,7 +95,7 @@ def list_resources(
                 "format": row.format,
                 "url": row.external_url or f"https://cdn.example.com/{row.storage_key}?sig=dummy",
                 "url_expires_at": expires_at,
-                "thumbnail": f"https://cdn.example.com/{row.thumbnail_key}" if row.thumbnail_key else None,
+                "thumbnail": row.thumbnail_key if row.thumbnail_key else None,
                 "bookmarked": bookmarked is not None,
                 "tags": row.tags,
             }
