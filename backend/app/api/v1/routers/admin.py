@@ -225,6 +225,7 @@ def admin_list_resources(
                     "format": row.format,
                     "duration_sec": row.duration_sec,
                     "storage_key": row.storage_key,
+                    "external_url": row.external_url,
                     "thumbnail_key": row.thumbnail_key,
                     "tags": row.tags,
                     "is_active": row.is_active,
@@ -256,7 +257,8 @@ def admin_create_resource(
         description=payload.description,
         format=payload.format,
         duration_sec=payload.duration_sec,
-        storage_key=payload.storage_key,
+        storage_key=payload.storage_key or make_id("src"),
+        external_url=payload.external_url,
         thumbnail_key=payload.thumbnail_key,
         tags=payload.tags,
         is_active=payload.is_active,
@@ -306,8 +308,10 @@ def admin_update_resource(
         row.format = payload.format
     if "duration_sec" in provided:
         row.duration_sec = payload.duration_sec
-    if "storage_key" in provided:
+    if "storage_key" in provided and payload.storage_key is not None:
         row.storage_key = payload.storage_key
+    if "external_url" in provided:
+        row.external_url = payload.external_url
     if "thumbnail_key" in provided:
         row.thumbnail_key = payload.thumbnail_key
     if "tags" in provided:

@@ -23,6 +23,8 @@ import Setting from '../components/pages/Setting.tsx'
 import Forget from '../components/auth/Forget.tsx'
 import AdminLogin from '../components/admin/AdminLogin.tsx'
 import AdminDashboard from '../components/admin/AdminDashboard'
+import AdminCrisisLogs from '../components/admin/AdminCrisisLogs'
+import AdminResources from '../components/admin/AdminResources'
 import AdminMain from '../components/admin/layout/AdminMain.tsx'
 import Home from '../components/pages/Home.tsx'
 
@@ -54,7 +56,10 @@ export default function AppRoutes() {
             {/* admin */}
             <Route path={ROUTE_PATHS.adminLogin} element={<AdminLogin />} />
             <Route path={ROUTE_PATHS.admin} element={<AdminMain />}>
-                <Route index element={<AdminDashboard />} />
+                <Route index element={<Navigate to={ROUTE_PATHS.adminDashboard} replace />} />
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="crisis-logs" element={<AdminCrisisLogs />} />
+                <Route path="resources" element={<AdminResources />} />
             </Route>
 
             {/* user */}
