@@ -1322,6 +1322,7 @@ Lấy danh sách thư được gán cho user hiện tại (bao gồm `pending` v
         "topic": "encouragement",
         "tone": "gentle",
         "received_at": "2026-04-29T09:30:00Z",
+        "reply_to_message_id": "bam_123",
         "pass_count": 2,
         "reply_count": 1
       }
@@ -1399,6 +1400,7 @@ Lấy chi tiết một lá thư cụ thể khi user mở thư từ inbox hoặc 
     "tone": "gentle",
     "direction": "received",
     "status": "approved",
+    "reply_to_message_id": "bam_123",
     "received_at": "2026-04-29T09:30:00Z",
     "reply_count": 1,
     "pass_count": 2
@@ -1431,6 +1433,7 @@ Hồi âm một lá thư đã đọc.
   "data": {
     "reply_id": "bam_r_900",
     "message_id": "bam_pub_001",
+    "reply_to_message_id": "bam_pub_001",
     "status": "pending"
   },
   "error": null
@@ -1575,6 +1578,7 @@ Mỗi lá thư nên lưu tối thiểu:
 - `reviewed_at`
 - `pass_count`
 - `reply_count`
+- `reply_to_message_id` (nullable, dùng để biểu diễn thư phản hồi thuộc thư gốc nào)
 - `moderation_reason`
 
 ### Ghi chú triển khai FE
