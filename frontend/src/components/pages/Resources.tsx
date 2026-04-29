@@ -1,4 +1,4 @@
-import { Download, Heart, Play, Search, Wind } from 'lucide-react'
+import { Download, Heart, Play, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -6,12 +6,11 @@ import {
     resourceService,
     type ResourceItem,
 } from '../../services/resourceService'
-import { FALLBACK_EXERCISES, exerciseService, type ExerciseItem } from '../../services/exerciseService'
 // ── Vietnamese category labels ────────────────────────────────────────────────
 const VI_LABELS: Record<string, { label: string; icon: string }> = {
     all: { label: 'Tất cả', icon: '✦' },
     meditate: { label: 'Thiền định', icon: '♧' },
-    sleep: { label: 'Ngủ & Thở', icon: '🌙' },
+    sleep: { label: 'Ngủ', icon: '🌙' },
     music: { label: 'Âm nhạc', icon: '♪' },
     wisdom: { label: 'Trí tuệ', icon: '◌' },
     movement: { label: 'Vận động', icon: '↟' },
@@ -26,169 +25,7 @@ function minutes(durationSec: number): string {
     return `${Math.max(1, Math.round(durationSec / 60))} phút`
 }
 
-function getPatternTag(ex: ExerciseItem): string {
-    if (!ex.pattern) return ex.type.replace(/_/g, ' ')
-    const parts = [ex.pattern.inhale, ex.pattern.hold, ex.pattern.exhale]
-    if (ex.pattern.hold2 && ex.pattern.hold2 > 0) parts.push(ex.pattern.hold2)
-    return parts.join('-')
-}
-
 const RESOURCE_CATEGORY_IDS = ['all', 'meditate', 'sleep', 'music', 'wisdom', 'movement', 'work_study']
-
-const PURPOSE: Record<string, string> = {
-    box_breath: 'Thư giãn',
-    breath_478: 'Ngủ ngon',
-    equal_breath: 'Tập trung',
-    custom_breath: 'Tuỳ chỉnh',
-    body_scan: 'Buông lỏng',
-    grounding_54321: 'Grounding',
-}
-
-// ── Exercise card used in the Sleep tab ───────────────────────────────────────
-function ExerciseCard({ ex, onOpen }: { ex: ExerciseItem; onOpen: (ex: ExerciseItem) => void }) {
-    return (
-        <motion.button
-            type="button"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => onOpen(ex)}
-            className="group flex items-center gap-4 rounded-[1.75rem] bg-white/60 p-4 text-left shadow-[0_2px_12px_rgba(47,52,46,0.08)] transition hover:bg-white/85 hover:shadow-[0_8px_24px_rgba(47,52,46,0.12)]"
-        >
-            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-serene-primary/10">
-                <Wind className="h-6 w-6 text-serene-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-                <p className="font-display text-xl leading-tight text-serene-ink truncate">{ex.title}</p>
-                <p className="mt-0.5 text-xs text-serene-muted">
-                    {getPatternTag(ex)} · {minutes(ex.duration_sec)} · {PURPOSE[ex.id] ?? 'Hơi thở'}
-                </p>
-            </div>
-            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-serene-primary/20 text-serene-primary transition group-hover:bg-serene-primary group-hover:text-white">
-                <Play className="ml-0.5 h-4 w-4 fill-current" />
-            </span>
-        </motion.button>
-    )
-}
-
-// ── Sleep-specific tab content ─────────────────────────────────────────────────
-function SleepTab({
-    exercises,
-    sleepItems,
-    onOpenItem,
-    onOpenExercise,
-}: {
-    exercises: ExerciseItem[]
-    sleepItems: ResourceItem[]
-    onOpenItem: (item: ResourceItem) => void
-    onOpenExercise: (ex: ExerciseItem) => void
-}) {
-    const sleepExercises = exercises.filter((ex) =>
-        ['breath_478', 'box_breath', 'body_scan', 'equal_breath'].includes(ex.id),
-    )
-    const stories = sleepItems.slice(0, 3)
-    const soundscapes = sleepItems.slice(1, 4)
-
-    return (
-        <div className="space-y-10">
-            {/* Bài tập thở */}
-            <section>
-                <div className="mb-4">
-                    <h2 className="font-display text-3xl text-serene-ink">Bài tập thở & thư giãn</h2>
-                    <p className="mt-1 text-sm text-serene-muted">
-                        Chọn nhịp thở phù hợp để cơ thể chuẩn bị vào giấc.
-                    </p>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                    {sleepExercises.map((ex, i) => (
-                        <motion.div
-                            key={ex.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.07 }}
-                        >
-                            <ExerciseCard ex={ex} onOpen={onOpenExercise} />
-                        </motion.div>
-                    ))}
-                </div>
-            </section>
-
-            {/* Sleep stories */}
-            {stories.length > 0 && (
-                <section>
-                    <div className="mb-4 flex items-center justify-between">
-                        <h2 className="font-display text-3xl text-serene-primary">Câu chuyện ngủ</h2>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-serene-muted">
-                            {stories.length} phiên
-                        </span>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-3">
-                        {stories.map((item) => (
-                            <button
-                                key={item.id}
-                                type="button"
-                                onClick={() => onOpenItem(item)}
-                                className="group text-left transition"
-                            >
-                                {item.thumbnail ? (
-                                    <img
-                                        src={item.thumbnail}
-                                        alt=""
-                                        className="h-32 w-full rounded-3xl object-cover transition group-hover:brightness-105"
-                                    />
-                                ) : (
-                                    <div className="h-32 w-full rounded-3xl bg-serene-primary/10" />
-                                )}
-                                <h3 className="mt-3 font-display text-xl leading-tight text-serene-ink">
-                                    {item.title}
-                                </h3>
-                                <p className="mt-1 text-[0.68rem] text-serene-muted">
-                                    {minutes(item.duration_sec)} · Âm thanh dẫn
-                                </p>
-                            </button>
-                        ))}
-                    </div>
-                </section>
-            )}
-
-            {/* Soundscapes */}
-            {soundscapes.length > 0 && (
-                <section>
-                    <div className="mb-4">
-                        <h2 className="font-display text-3xl text-serene-primary">Âm thanh nền</h2>
-                        <p className="mt-1 text-sm italic text-serene-muted">Không lời dẫn — chỉ thuần âm thanh</p>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-3">
-                        {soundscapes.map((item) => (
-                            <button
-                                key={item.id}
-                                type="button"
-                                onClick={() => onOpenItem(item)}
-                                className="relative min-h-36 overflow-hidden rounded-3xl p-4 text-left text-white shadow-xl transition hover:brightness-105"
-                            >
-                                {item.thumbnail && (
-                                    <img
-                                        src={item.thumbnail}
-                                        alt=""
-                                        className="absolute inset-0 h-full w-full object-cover"
-                                    />
-                                )}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                                <div className="relative mt-16">
-                                    <h3 className="font-semibold leading-tight">{item.title}</h3>
-                                    <p className="mt-1 text-[0.62rem] uppercase tracking-[0.18em] text-white/75">
-                                        {item.format}
-                                    </p>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </section>
-            )}
-        </div>
-    )
-}
-
 // ── Generic resource grid (other tabs) ────────────────────────────────────────
 function ResourceGrid({
     items,
@@ -287,7 +124,6 @@ export default function Resources() {
     const [categories, setCategories] = useState([{ id: 'all', label: 'Tất cả', icon: '✦' }])
     const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory)
     const [items, setItems] = useState<ResourceItem[]>([])
-    const [exercises, setExercises] = useState<ExerciseItem[]>(FALLBACK_EXERCISES)
     const [query, setQuery] = useState(searchParams.get('q') || '')
     const [loadingResources, setLoadingResources] = useState(true)
 
@@ -297,13 +133,6 @@ export default function Resources() {
             .then((data) => {
                 setCategories([{ id: 'all', label: 'Tất cả', icon: '✦' }, ...data.categories])
             })
-            .catch(() => undefined)
-    }, [])
-
-    useEffect(() => {
-        exerciseService
-            .list()
-            .then((data) => { if (data.items.length) setExercises(data.items) })
             .catch(() => undefined)
     }, [])
 
@@ -354,12 +183,6 @@ export default function Resources() {
         }
         window.open(item.url, '_blank', 'noopener,noreferrer')
     }
-
-    const openExercise = (ex: ExerciseItem) => {
-        navigate(ex.route)
-    }
-
-    const isSleepTab = selectedCategory === 'sleep'
 
     return (
         <section className="mx-auto max-w-6xl rounded-[2.5rem] border border-white/50 bg-[#f5eee5]/78 p-5 shadow-[0_30px_90px_rgba(47,52,46,0.18)] backdrop-blur-2xl sm:p-8 lg:p-10">
@@ -419,13 +242,6 @@ export default function Resources() {
                         <div className="flex h-40 items-center justify-center rounded-3xl bg-white/30 text-sm text-serene-muted">
                             Đang tải tài nguyên...
                         </div>
-                    ) : isSleepTab ? (
-                        <SleepTab
-                            exercises={exercises}
-                            sleepItems={items}
-                            onOpenItem={openItem}
-                            onOpenExercise={openExercise}
-                        />
                     ) : (
                         <ResourceGrid items={filteredItems} onOpen={openItem} />
                     )}
