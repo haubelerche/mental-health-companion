@@ -87,10 +87,11 @@ def list_resources(
                 "title": row.title,
                 "duration_sec": row.duration_sec,
                 "format": row.format,
-                "url": f"https://cdn.example.com/{row.storage_key}?sig=dummy",
+                "url": row.external_url or f"https://cdn.example.com/{row.storage_key}?sig=dummy",
                 "url_expires_at": expires_at,
                 "thumbnail": f"https://cdn.example.com/{row.thumbnail_key}" if row.thumbnail_key else None,
                 "bookmarked": bookmarked is not None,
+                "tags": row.tags,
             }
         )
 
@@ -115,7 +116,7 @@ def resource_detail(resource_id: str, current_user: User = Depends(ensure_policy
             "description": row.description,
             "duration_sec": row.duration_sec,
             "format": row.format,
-            "url": f"https://cdn.example.com/{row.storage_key}?sig=dummy",
+            "url": row.external_url or f"https://cdn.example.com/{row.storage_key}?sig=dummy",
             "url_expires_at": expires_at,
             "thumbnail": f"https://cdn.example.com/{row.thumbnail_key}" if row.thumbnail_key else None,
             "bookmarked": bookmarked is not None,
