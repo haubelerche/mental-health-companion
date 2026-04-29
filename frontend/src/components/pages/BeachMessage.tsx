@@ -2,7 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import paperBoatImage from "../../assets/thuyen.png";
 import beachBackgroundImage from "../../assets/beach-message-bg.avif";
-import { anonymousShareService, type BambooMessage as BambooInboxItem } from "../../services/anonymousShareService";
+import {
+  anonymousShareService,
+  type BambooMessage as BambooInboxItem,
+  type StoredLetter as BambooStoredItem,
+} from "../../services/anonymousShareService";
 import {
   APP_SETTINGS_STORAGE_KEY,
   APP_SETTINGS_UPDATED_EVENT,
@@ -15,11 +19,26 @@ type Letter = {
   from: string;
   time: string;
   body: string;
+  direction?: "sent" | "received";
+  status?: string;
   topic?: string | null;
   tone?: string | null;
 };
 
 type TabId = "beach" | "community";
+type StorageFilter = "all" | "sent" | "received";
+
+const TOPIC_OPTIONS = [
+  { value: "encouragement", label: "Khích lệ" },
+  { value: "sharing", label: "Chia sẻ" },
+  { value: "question", label: "Hỏi đáp" },
+];
+
+const TONE_OPTIONS = [
+  { value: "gentle", label: "Nhẹ nhàng" },
+  { value: "uplifting", label: "Tích cực" },
+  { value: "reflective", label: "Sâu lắng" },
+];
 
 const FontLink = () => (
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400;1,500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
@@ -82,15 +101,31 @@ function toLetter(message: BambooInboxItem): Letter {
     from: message.anonymous_name,
     time: formatRelativeTime(message.received_at),
     body: message.content,
+    direction: "received",
+    status: message.status ?? "approved",
     topic: message.topic,
     tone: message.tone,
   };
 }
 
+function toStoredLetter(letter: BambooStoredItem): Letter {
+  return {
+    id: letter.id,
+    from: letter.direction === "sent" ? "Bạn" : letter.anonymous_name ?? "Một người vô danh",
+    time: formatRelativeTime(letter.timestamp),
+    body: letter.content,
+    direction: letter.direction,
+    status: letter.status,
+    topic: letter.topic,
+    tone: letter.tone,
+  };
+}
+
 function pickRandomLetter(messages: BambooInboxItem[]): Letter | null {
-  if (!messages.length) return null;
-  const index = Math.floor(Math.random() * messages.length);
-  return toLetter(messages[index]);
+  const actionable = messages.filter((message) => (message.status ?? "approved") === "approved");
+  if (!actionable.length) return null;
+  const index = Math.floor(Math.random() * actionable.length);
+  return toLetter(actionable[index]);
 }
 
 function CinematicBg({ dark }: { dark: boolean }) {
@@ -225,12 +260,14 @@ function LetterOverlay({
   letter,
   onClose,
   dark,
+  canInteract,
   onReply,
   onPass,
 }: {
   letter: Letter;
   onClose: () => void;
   dark: boolean;
+  canInteract: boolean;
   onReply: (content: string) => Promise<void>;
   onPass: () => Promise<void>;
 }) {
@@ -294,6 +331,11 @@ function LetterOverlay({
 
         {/* Body */}
         <div className="px-8 py-7">
+          {(letter.topic || letter.tone) && (
+            <p className={`${ui.textSubtler} text-xs tracking-wide mb-3`}>
+              {letter.topic ? `Chủ đề: ${letter.topic}` : ""}{letter.topic && letter.tone ? " • " : ""}{letter.tone ? `Tone: ${letter.tone}` : ""}
+            </p>
+          )}
           <p
             className={`${ui.textPrimary} font-display text-lg italic  leading-relaxed tracking-[.5px]`}
           >
@@ -303,7 +345,11 @@ function LetterOverlay({
 
         {/* Footer */}
         <div className={`px-8 py-7 border-t ${ui.glassBorder}`}>
-          {!sent ? (
+          {!canInteract ? (
+            <p className={`${ui.textSubtler} text-sm`}>
+              Thư đã gửi chỉ có thể xem lại nội dung.
+            </p>
+          ) : !sent ? (
             !replyOpen ? (
               <div className="mt-5 flex gap-3">
                 <button
@@ -492,6 +538,8 @@ function LetterOverlay({
 function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boolean }) {
   const ui = getUi(dark);
   const [text, setText] = useState("");
+  const [topic, setTopic] = useState("");
+  const [tone, setTone] = useState("");
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -547,6 +595,48 @@ function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boolean })
         <div className="px-8 py-7">
           {!sent ? (
             <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                <label className="text-sm">
+                  <span className={`${ui.textSubtler} block mb-1`}>Chủ đề (tuỳ chọn)</span>
+                  <select
+                    value={topic}
+                    onChange={(event) => setTopic(event.target.value)}
+                    className="w-full rounded-xl p-2"
+                    style={{
+                      backgroundColor: dark ? "rgba(242,235,224,0.05)" : "rgb(255,255,255)",
+                      border: `1px solid ${dark ? "rgba(242,235,224,0.13)" : "rgba(18,30,40,0.18)"}`,
+                      color: dark ? "rgb(255,255,255)" : "rgb(15,23,42)",
+                    }}
+                  >
+                    <option value="" style={{ color: "#0f172a", backgroundColor: "#ffffff" }}>Không chọn</option>
+                    {TOPIC_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value} style={{ color: "#0f172a", backgroundColor: "#ffffff" }}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm">
+                  <span className={`${ui.textSubtler} block mb-1`}>Tone (tuỳ chọn)</span>
+                  <select
+                    value={tone}
+                    onChange={(event) => setTone(event.target.value)}
+                    className="w-full rounded-xl p-2"
+                    style={{
+                      backgroundColor: dark ? "rgba(242,235,224,0.05)" : "rgb(255,255,255)",
+                      border: `1px solid ${dark ? "rgba(242,235,224,0.13)" : "rgba(18,30,40,0.18)"}`,
+                      color: dark ? "rgb(255,255,255)" : "rgb(15,23,42)",
+                    }}
+                  >
+                    <option value="" style={{ color: "#0f172a", backgroundColor: "#ffffff" }}>Không chọn</option>
+                    {TONE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value} style={{ color: "#0f172a", backgroundColor: "#ffffff" }}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
@@ -578,7 +668,11 @@ function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boolean })
                       if (!text.trim() || busy) return;
                       setBusy(true);
                       try {
-                        await anonymousShareService.send({ content: text.trim() });
+                        await anonymousShareService.send({
+                          content: text.trim(),
+                          topic: topic || undefined,
+                          tone: tone || undefined,
+                        });
                         setSent(true);
                         setTimeout(onClose, 2200);
                       } catch {
@@ -666,7 +760,8 @@ export default function BeachMessage() {
   }, []);
 
   const [tab, setTab] = useState<TabId>("beach");
-  const [inboxLetters, setInboxLetters] = useState<Letter[]>([]);
+  const [storageLetters, setStorageLetters] = useState<Letter[]>([]);
+  const [storageFilter, setStorageFilter] = useState<StorageFilter>("all");
   const [pendingLetter, setPendingLetter] = useState<Letter | null>(null);
   const [ripple, setRipple] = useState(false);
   const [openLetter, setOpenLetter] = useState<Letter | null>(null);
@@ -677,24 +772,30 @@ export default function BeachMessage() {
 
   useEffect(() => {
     let active = true;
-    const loadInbox = async () => {
+    const loadLetters = async () => {
       setLoadingInbox(true);
       try {
-        const data = await anonymousShareService.getInbox();
+        const inboxData = await anonymousShareService.getInbox();
         if (!active) return;
-        const mapped = data.messages.map(toLetter);
-        setInboxLetters(mapped);
-        setPendingLetter((current) => current ?? pickRandomLetter(data.messages));
+        setPendingLetter((current) => current ?? pickRandomLetter(inboxData.messages));
       } catch {
         if (!active) return;
-        setInboxLetters([]);
         setPendingLetter(null);
       } finally {
         if (active) setLoadingInbox(false);
       }
+
+      try {
+        const storageData = await anonymousShareService.getStorage();
+        if (!active) return;
+        setStorageLetters(storageData.letters.map(toStoredLetter));
+      } catch {
+        if (!active) return;
+        setStorageLetters([]);
+      }
     };
 
-    void loadInbox();
+    void loadLetters();
     return () => {
       active = false;
     };
@@ -719,6 +820,10 @@ export default function BeachMessage() {
     await anonymousShareService.passItOn(letterId);
     refreshInbox();
   };
+  const filteredStorageLetters = storageLetters.filter((letter) => {
+    if (storageFilter === "all") return true;
+    return letter.direction === storageFilter;
+  });
 
   return (
     <div className="relative min-h-screen overflow-x-hidden overflow-y-auto">
@@ -853,13 +958,47 @@ export default function BeachMessage() {
                   : "0 2px 10px rgba(255,255,255,0.35)",
               }}
             >
-              Kho thư cộng đồng
+              Kho thư cá nhân
             </h2>
           </div>
 
+          <div className="flex gap-2 mb-5">
+            {[
+              { id: "all", label: "Tất cả" },
+              { id: "sent", label: "Đã gửi" },
+              { id: "received", label: "Đã nhận" },
+            ].map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setStorageFilter(item.id as StorageFilter)}
+                className="px-3 py-1 rounded-full border text-sm"
+                style={{
+                  borderColor: dark ? "rgba(242,235,224,0.2)" : "rgba(18,30,40,0.2)",
+                  color:
+                    storageFilter === item.id
+                      ? dark
+                        ? "rgb(255,255,255)"
+                        : "rgb(15,23,42)"
+                      : dark
+                        ? "rgba(242,235,224,0.65)"
+                        : "rgba(20,26,33,0.65)",
+                  background:
+                    storageFilter === item.id
+                      ? dark
+                        ? "rgba(255,255,255,0.12)"
+                        : "rgba(255,255,255,0.7)"
+                      : "transparent",
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
           <div className="flex flex-col gap-4">
-            {inboxLetters.length > 0 ? (
-              inboxLetters.map((l, i) => (
+            {filteredStorageLetters.length > 0 ? (
+              filteredStorageLetters.map((l, i) => (
                 <div
                   key={l.id}
                   onClick={() => setOpenLetter(l)}
@@ -874,21 +1013,31 @@ export default function BeachMessage() {
                       {l.time}
                     </p>
                   </div>
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className={`${ui.textSubtler} text-xs uppercase tracking-wider`}>
+                      {l.direction === "sent" ? "Đã gửi" : "Đã nhận"}
+                    </span>
+                    {l.status && (
+                      <span className={`${ui.textSubtler} text-xs uppercase tracking-wider`}>
+                        • {l.status}
+                      </span>
+                    )}
+                  </div>
                   <p className={`${ui.textSubtle} font-display text-lg italic leading-relaxed mb-3 line-clamp-3`}>
                     {l.body}
                   </p>
                   <p className={`${ui.textSubtler} text-xs tracking-wider `}>
-                    Nhấn để đọc & hồi âm →
+                    {l.direction === "received" ? "Nhấn để đọc & hồi âm →" : "Nhấn để xem chi tiết →"}
                   </p>
                 </div>
               ))
             ) : (
               <div className={`${ui.glassLight} border rounded-2xl p-6 text-center`}>
-                <p className={`${ui.textSubtle} font-display text-lg italic`}>
-                  Chưa có thư nào trong kho.
-                </p>
-              </div>
-            )}
+                  <p className={`${ui.textSubtle} font-display text-lg italic`}>
+                    Chưa có thư phù hợp bộ lọc.
+                  </p>
+                </div>
+              )}
           </div>
         </div>
       )}
@@ -899,6 +1048,7 @@ export default function BeachMessage() {
           letter={openLetter}
           onClose={() => setOpenLetter(null)}
           dark={dark}
+          canInteract={openLetter.direction === "received" && openLetter.status === "approved"}
           onReply={async (content) => {
             await handleReplyLetter(content, openLetter.id);
           }}
