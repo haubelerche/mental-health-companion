@@ -428,7 +428,7 @@ export default function Home() {
                                 {TIME_SLOT_META[currentSlot].label} · {TIME_SLOT_META[currentSlot].range}
                             </span>
                         </div>
-                       
+
 
                         <div className="space-y-3">
                             {currentReminders.map((item) => {
@@ -697,7 +697,7 @@ export default function Home() {
                             Các lối vào ngắn để bạn chuyển nhanh từ cảm nhận sang hành động.
                         </p>
                     </div>
-                
+
                 </div>
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                     {QUICK_ACTIONS.map((action) => {
@@ -730,10 +730,10 @@ export default function Home() {
             <button
                 type="button"
                 onClick={() => navigate(ROUTE_PATHS.reflect)}
-               
+
                 className="group relative w-full overflow-hidden rounded-3xl border border-serene-primary/40 bg-gradient-to-br from-serene-primary/90 via-serene-primary/85 to-serene-primary/75 p-7 text-left backdrop-blur-xl shadow-[0_10px_32px_rgba(111,164,180,0.2)] hover:shadow-[0_14px_40px_rgba(111,164,180,0.28)] transition-all"
             >
-              
+
                 <div className="flex items-center justify-between gap-5">
                     <div className="flex-1">
                         <motion.p
