@@ -6,6 +6,7 @@ export type BambooMessage = {
   anonymous_name: string
   received_at: string
   status?: string
+  reply_to_message_id?: string | null
   topic?: string | null
   tone?: string | null
   reply_count?: number
@@ -18,6 +19,7 @@ export type StoredLetter = {
   anonymous_name?: string
   direction: 'sent' | 'received'
   status?: string
+  reply_to_message_id?: string | null
   timestamp: string
   pass_count?: number
   reply_count?: number
@@ -58,6 +60,7 @@ function normalizeInboxMessage(message: Record<string, unknown>): BambooMessage 
     anonymous_name: String(message.anonymous_name ?? 'Một người vô danh'),
     received_at: String(message.received_at ?? message.sent_at ?? new Date().toISOString()),
     status: typeof message.status === 'string' ? message.status : 'approved',
+    reply_to_message_id: (message.reply_to_message_id as string | null | undefined) ?? null,
     topic: (message.topic as string | null | undefined) ?? null,
     tone: (message.tone as string | null | undefined) ?? null,
     reply_count: typeof message.reply_count === 'number' ? message.reply_count : 0,
@@ -72,6 +75,7 @@ function normalizeStorageLetter(letter: Record<string, unknown>): StoredLetter {
     anonymous_name: letter.anonymous_name ? String(letter.anonymous_name) : undefined,
     direction: String(letter.direction ?? 'received') === 'sent' ? 'sent' : 'received',
     status: typeof letter.status === 'string' ? letter.status : undefined,
+    reply_to_message_id: (letter.reply_to_message_id as string | null | undefined) ?? null,
     timestamp: String(letter.created_at ?? letter.timestamp ?? new Date().toISOString()),
     pass_count: typeof letter.pass_count === 'number' ? letter.pass_count : 0,
     reply_count: typeof letter.reply_count === 'number' ? letter.reply_count : 0,
@@ -106,6 +110,7 @@ export const anonymousShareService = {
       anonymous_name: res.anonymous_name ?? 'Một người vô danh',
       direction: 'sent',
       status: res.status ?? 'pending',
+      reply_to_message_id: null,
       timestamp: res.sent_at,
       pass_count: 0,
       topic: payload.topic ?? null,
