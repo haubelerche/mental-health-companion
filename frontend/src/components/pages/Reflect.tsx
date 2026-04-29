@@ -209,7 +209,7 @@ export default function Reflect() {
             <div className="flex-1">
 
                 <div className="mx-auto flex w-full max-w-5xl flex-col items-center">
-                    <section className="w-full rounded-4xl border border-white/35 bg-white/40 p-4 shadow-md backdrop-blur-xl md:p-7 lg:p-8">
+                    <section className="w-full rounded-4xl border border-white/35 bg-serene-bg/70 p-4 shadow-md backdrop-blur-xl md:p-7 lg:p-8">
                         <div className="text-center">
                             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.28em] text-serene-primary/70">
                                 Nhìn Lại

@@ -122,13 +122,13 @@ export function ExercisesPage() {
   }
 
   return (
-    <div className="min-h-screen overflow-hidden rounded-xl text-serene sm:-m-8 lg:-m-12">
+    <div className="h-screen overflow-hidden rounded-xl text-serene sm:-m-8 lg:-m-12">
       <div className='absolute inset-0'>
         <img src={ocean} alt="" className=" inset-0 h-full w-full object-cover" />
       </div>
 
 
-      <div className="relative min-h-[calc(100vh-5rem)] px-6 py-8 md:px-12">
+      <div className="relative px-6 py-8 md:px-12">
         {isHubMode ? (
           <div className="mx-auto w-full max-w-3xl">
             <header className="mb-8 flex items-center justify-between">
