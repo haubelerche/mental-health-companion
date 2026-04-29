@@ -14,6 +14,9 @@ import {
     X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import Carousel from 'react-multi-carousel/lib/Carousel';
+import 'react-multi-carousel/lib/styles.css';
+import quotesJson from '../../../famous-quotes.json'
 import { useNavigate } from 'react-router-dom'
 import { homeService } from '../../services/homeService'
 import { httpClient } from '../../api/httpClient'
@@ -289,6 +292,27 @@ export default function Home() {
         () => currentReminders.find((item) => item.id === detailReminderId) ?? null,
         [currentReminders, detailReminderId],
     )
+    const responsive = {
+        superLargeDesktop: {
+            // the naming can be any, depends on you.
+            breakpoint: { max: 4000, min: 3000 },
+            items: 5
+        },
+        desktop: {
+            breakpoint: { max: 3000, min: 1024 },
+            items: 3
+        },
+        tablet: {
+            breakpoint: { max: 1024, min: 464 },
+            items: 2
+        },
+        mobile: {
+            breakpoint: { max: 464, min: 0 },
+            items: 1
+        }
+    };
+
+    const quotes = ((quotesJson as unknown) as { quotes?: Array<{ id: string; content_vi?: string; content_en?: string; author?: string }> }).quotes ?? []
 
     useEffect(() => {
         if (!user) {
@@ -361,7 +385,10 @@ export default function Home() {
     }, [])
     useEffect(() => {
         if (currentReminders.some((item) => item.id === selectedReminderId)) return
-        setSelectedReminderId(currentReminders[0]?.id ?? '')
+        const newId = currentReminders[0]?.id ?? ''
+        if (newId !== selectedReminderId) {
+            setSelectedReminderId(newId)
+        }
     }, [currentReminders, selectedReminderId])
 
     const displayName = user?.displayName || 'bạn'
@@ -393,7 +420,7 @@ export default function Home() {
             </header>
 
             {/* ── Today's plan + streak ── */}
-            <section className="rounded-[28px] border border-white/35 bg-white/45 p-6 backdrop-blur-xl">
+            <section className="rounded-[28px] border border-white/35 bg-white/55 p-6 backdrop-blur-xl">
                 <div className="mb-4 flex items-center justify-between">
                     <h2 className="font-display text-[1.6rem] text-serene-ink">Hôm nay của bạn</h2>
                     <span className="rounded-full bg-serene-primary/10 px-3 py-1 text-xs font-semibold text-serene-primary">
@@ -439,26 +466,56 @@ export default function Home() {
                 </div>
             </section>
 
-            <section className="rounded-[28px] border border-white/35 bg-white/45 p-6 backdrop-blur-xl">
+            <section className="rounded-[28px] border border-white/35 bg-white/55 p-6 backdrop-blur-xl">
                 <h2 className="mb-4 font-display text-2xl text-serene-ink">Tâm trạng hôm nay?</h2>
-                <MoodWordChips selected={homeMoodWords} onChange={setHomeMoodWords} />
-                {homeMoodWords.length > 0 && (
-                    <button
-                        type="button"
-                        onClick={() =>
-                            navigate(ROUTE_PATHS.checkin, { state: { moodWords: homeMoodWords } })
-                        }
-                        className="mt-4 text-sm font-medium text-serene-primary underline underline-offset-4 transition hover:opacity-70"
-                    >
-                        Ghi chép thêm →
-                    </button>
-                )}
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                        <MoodWordChips selected={homeMoodWords} onChange={setHomeMoodWords} />
+                        {homeMoodWords.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    navigate(ROUTE_PATHS.checkin, { state: { moodWords: homeMoodWords } })
+                                }
+                                className="mt-4 text-sm font-medium text-serene-primary underline underline-offset-4 transition hover:opacity-70"
+                            >
+                                Ghi chép thêm →
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="flex items-center justify-center">
+                        <div className="w-full">
+                            <Carousel.default
+                                responsive={responsive}
+                                infinite
+                                autoPlay
+                                autoPlaySpeed={4500}
+                                showDots
+                                arrows={false}
+                            >
+                                {quotes.slice(0, 8).map((q) => (
+                                    <div key={q.id} className="px-3">
+                                        <div className="rounded-2xl border border-white/20 bg-white/10 p-6 text-left">
+                                            <blockquote className="font-display text-lg italic text-serene-on-primary">
+                                                {q.content_vi || q.content_en}
+                                            </blockquote>
+                                            <p className="mt-3 text-xs uppercase tracking-[0.18em] text-serene-on-primary/70">
+                                                {q.author || 'Không rõ'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </Carousel.default>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <button
                 type="button"
                 onClick={() => navigate(ROUTE_PATHS.nutrition)}
-                className="w-full rounded-[28px] border border-white/35 bg-white/50 p-6 text-left backdrop-blur-xl transition hover:bg-white/70 active:scale-[0.99]"
+                className="w-full rounded-[28px] border border-white/35 bg-white/55 p-6 text-left backdrop-blur-xl transition hover:bg-white/70 active:scale-[0.99]"
             >
                 <p className="text-xs uppercase tracking-[0.22em] text-serene-muted">Hôm nay ăn gì</p>
                 <h2 className="mt-2 font-display text-2xl text-serene-ink">
@@ -511,14 +568,14 @@ export default function Home() {
                         <h3 className="mt-1.5 font-display text-2xl text-serene-on-primary">
                             6 chiều sức khoẻ
                         </h3>
-                       
+
                         <ArrowRight className="mt-3 h-5 w-5 text-serene-on-primary/50 transition group-hover:translate-x-1" />
                     </div>
                     <div className="shrink-0">
                         {wellnessScores ? (
                             <WellnessRadar scores={wellnessScores} mini />
                         ) : (
-                            <div className="flex h-[156px] w-32 items-center justify-center rounded-2xl bg-white/10">
+                            <div className="flex h-39 w-32 items-center justify-center rounded-2xl bg-white/10">
                                 <p className="text-center text-[10px] text-serene-on-primary/50 leading-relaxed px-2">
                                     Check-in thêm để thấy radar
                                 </p>
@@ -547,7 +604,7 @@ export default function Home() {
                                 key={card.label}
                                 type="button"
                                 onClick={() => navigate(card.route)}
-                                className="flex min-w-[148px] shrink-0 flex-col gap-3 rounded-[22px] border border-white/35 bg-white/50 p-4 text-left backdrop-blur-xl transition hover:bg-white/70 active:scale-[0.97]"
+                                className="flex min-w-37 shrink-0 flex-col gap-3 rounded-[22px] border border-white/35 bg-white/50 p-4 text-left backdrop-blur-xl transition hover:bg-white/70 active:scale-[0.97]"
                             >
                                 <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl text-xl ${card.accentClass}`}>
                                     {card.emoji}
@@ -575,7 +632,7 @@ export default function Home() {
             </section>
 
             {detailReminder && (
-                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/35 px-4">
+                <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/35 px-4">
                     <article className="w-full max-w-lg rounded-3xl border border-white/40 bg-white p-5 shadow-2xl">
                         <div className="flex items-start justify-between gap-4">
                             <p className="text-base font-semibold text-serene-ink">{detailReminder.detailTitle}</p>
