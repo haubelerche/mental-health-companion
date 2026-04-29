@@ -58,11 +58,13 @@ def _backfill_bamboo_messages() -> None:
                     "pass_count INTEGER NOT NULL DEFAULT 0, "
                     "reply_count INTEGER NOT NULL DEFAULT 0, "
                     "recipient_id VARCHAR(50) NULL REFERENCES users(user_id), "
+                    "reply_to_message_id VARCHAR(50) NULL, "
                     "opened_at TIMESTAMP NULL"
                     ")"
                 )
             )
             db.execute(text("ALTER TABLE bamboo_messages ADD COLUMN IF NOT EXISTS recipient_id VARCHAR(50)"))
+            db.execute(text("ALTER TABLE bamboo_messages ADD COLUMN IF NOT EXISTS reply_to_message_id VARCHAR(50)"))
             db.execute(text("ALTER TABLE bamboo_messages ADD COLUMN IF NOT EXISTS opened_at TIMESTAMP NULL"))
             db.commit()
         finally:
