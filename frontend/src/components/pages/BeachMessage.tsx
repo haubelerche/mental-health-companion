@@ -721,7 +721,7 @@ export default function BeachMessage() {
   };
 
   return (
-    <div className="h-screen overflow-hidden ">
+    <div className="relative min-h-screen overflow-x-hidden overflow-y-auto">
       <style>{ANIMATIONS_CSS}</style>
       <FontLink />
       <CinematicBg dark={dark} />
@@ -770,7 +770,7 @@ export default function BeachMessage() {
 
       {/* Beach Tab */}
       {tab === "beach" && (
-        <div className="relative z-10 flex flex-col items-center min-h-[calc(100vh-64px)] pt-20 pb-16">
+        <div className="relative z-10 flex flex-col items-center min-h-[calc(100vh-64px)] pt-20 pb-24">
           <div
             className="text-center mb-16"
             style={{ animation: "fadeUp 1s ease 0.1s both" }}
@@ -841,7 +841,7 @@ export default function BeachMessage() {
       {/* Community Tab */}
       {tab === "community" && (
         <div
-          className="relative z-10 max-w-2xl mx-auto px-6 py-16 pb-20"
+          className="relative z-10 max-w-2xl mx-auto px-6 py-16 pb-24"
           style={{ animation: "fadeUp 0.8s ease both" }}
         >
           <div className="mb-10">
