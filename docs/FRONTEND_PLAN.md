@@ -223,3 +223,123 @@ Sidebar hoặc bottom nav tùy breakpoint; **guest** thấy subset + CTA đăng 
 Bản plan 2.0 đặt **luồng cảm xúc và an toàn** ở trung tâm: vào nhanh → chọn nhu cầu → **kiểm tra an toàn** → nhánh phù hợp → **kết quả dễ hiểu** + **bước tiếp theo** → **Gương**. Người dùng thấy **An, Mây, Lửa, La Bàn, Gương**; dev và admin vẫn làm việc với **agent/graph/schema** như tài liệu kỹ thuật.
 
 *Tài liệu này thay thế cấu trúc “chỉ mô tả từng tab” của phiên bản 1.0; phần mockup chi tiết từng ảnh có thể bổ sung lại dưới dạng subsection khi copy UI được cập nhật theo persona mới.*
+
+## 13. MVP triển khai Thư ẩn danh
+
+### 13.1 Mục tiêu
+
+- Giữ cảm giác “thả thư ra biển” như hiện tại, nhưng chuyển phần gửi/nhận sang backend thật.
+- Không làm mất chất chill: user vẫn có thể viết nhanh, nhận thư ngẫu nhiên, đọc lại và hồi âm.
+- Ẩn danh ở mức sản phẩm, nhưng vẫn phải có khả năng kiểm duyệt, rate limit và chống spam.
+
+### 13.2 Phạm vi MVP
+
+MVP chỉ cần 4 hành vi:
+
+1. Viết và gửi thư ẩn danh.
+2. Nhận một lá thư từ cộng đồng/inbox.
+3. Đọc thư và hồi âm ẩn danh.
+4. Lưu lịch sử thư đã gửi của chính user.
+
+Không làm trong MVP:
+
+- Follow/friend graph.
+- Chat realtime giữa hai user.
+- Hộp thư theo chủ đề quá sâu.
+- Rich media, file đính kèm, voice note.
+
+Phạm vi truy cập:
+
+- Chỉ user đã đăng nhập mới được dùng Thư.
+- Guest không được gửi, nhận, hay lưu kho thư để tránh abuse và giữ dữ liệu đồng bộ.
+
+### 13.3 User flow đề xuất
+
+1. User vào tab Thư.
+2. Màn bến thư cho thấy một lá thư đang chờ hoặc trạng thái trống.
+3. User bấm “Viết lá thư của bạn”.
+4. User nhập nội dung, chọn tâm trạng hoặc chủ đề nhẹ nếu cần.
+5. User bấm gửi.
+6. Backend nhận thư, lưu trạng thái, và có thể đưa vào pool nhận thư sau khi qua kiểm duyệt.
+7. Khi user mở thư cộng đồng, hệ thống trả về một lá thư phù hợp để đọc.
+8. User có thể hồi âm, và hồi âm này cũng đi vào hàng chờ moderation như một thư mới.
+
+### 13.4 API tối thiểu
+
+Nên thiết kế một nhóm endpoint riêng cho bến thư, thay vì nhét chung vào chat:
+
+- `POST /v1/bamboo/send`.
+- `GET /v1/bamboo/inbox`.
+- `POST /v1/bamboo/reply`.
+- `POST /v1/bamboo/pass`.
+- `GET /v1/bamboo/storage`.
+
+### 13.5 Data model tối thiểu
+
+Một lá thư nên có các trường cơ bản sau:
+
+- `message_id`.
+- `user_id` hoặc `guest_id` nội bộ.
+- `content`.
+- `category` hoặc `tone`.
+- `direction` là `sent`, `received`, hoặc `reply`.
+- `status` là `pending`, `approved`, `rejected`, `archived`.
+- `created_at`, `updated_at`.
+- `moderation_reason` nếu bị từ chối.
+- `pass_count` nếu thư được chuyền tiếp.
+
+### 13.6 Quy tắc sản phẩm
+
+- Ẩn danh với người dùng khác, nhưng backend vẫn giữ trace nội bộ để chống abuse.
+- Không hiển thị định danh thật trong UI.
+- Nội dung bị kiểm duyệt cần bị loại khỏi inbox công cộng, nhưng vẫn giữ log nội bộ.
+- Có giới hạn tần suất gửi theo user/IP.
+- Có giới hạn độ dài nội dung và bộ lọc từ khóa nhạy cảm.
+- Chủ đề/tone nên là metadata nhẹ, tùy chọn khi gửi, không bắt user điền form dài.
+- Dùng chủ đề để gợi ý inbox, lọc moderation và tránh feed quá ngẫu nhiên.
+
+### 13.7 UI state cần có trên FE
+
+- `empty`: chưa có thư.
+- `bottle_waiting`: có thư đang chờ mở.
+- `writing`: đang nhập thư.
+- `sending`: đang gửi.
+- `sent`: đã thả thư ra biển.
+- `reading`: đang đọc thư cộng đồng.
+- `replying`: đang hồi âm.
+- `error`: gửi thất bại, có thể thử lại.
+
+### 13.8 Mapping từ code hiện tại
+
+- [BeachMessage.tsx](../frontend/src/components/pages/BeachMessage.tsx) đã có shell UI và animation tốt, nên giữ lại layout này.
+- [anonymousShareService.ts](../frontend/src/services/anonymousShareService.ts) hiện là lớp mock/fallback, có thể thay bằng adapter gọi API thật.
+- [ROUTE_PATHS.bamboo](../frontend/src/routes/paths.ts) và route trong [AppRoutes.tsx](../frontend/src/routes/AppRoutes.tsx) giữ nguyên.
+- [Main.tsx](../frontend/src/components/layout/Main.tsx) đang special-case full bleed cho trang Thư, nên tiếp tục giữ.
+
+### 13.9 Kế hoạch triển khai theo phase
+
+Phase 1:
+
+- Giữ UI hiện tại.
+- Đổi service sang API thật.
+- Lưu thư đã gửi và thư nhận được.
+
+Phase 2:
+
+- Thêm moderation queue.
+- Thêm pass-on và reply chuẩn hóa.
+- Thêm thống kê nhẹ như số thư đã gửi, số thư đã nhận.
+
+Phase 3:
+
+- Gợi ý thư theo mood.
+- Ghép với nội dung từ chat/reflect nếu sản phẩm muốn đồng bộ hành trình.
+- Tinh chỉnh feed để thư cộng đồng không bị lặp và không quá “random”.
+
+### 13.10 Quyết định mở còn treo
+
+Trước khi code, team cần chốt 3 câu:
+
+1. Thư ẩn danh: chỉ user đã đăng nhập.
+2. Chủ đề/tone: có, nhưng là metadata nhẹ và optional, không phải form bắt buộc.
+3. Moderation: hybrid, nghĩa là sync filter nhẹ ở lúc gửi và async queue cho kiểm duyệt chính.
