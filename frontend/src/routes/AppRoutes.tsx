@@ -5,7 +5,7 @@ import Register from '../components/auth/Register.tsx'
 import Chat from '../components/chat/Chat.tsx'
 import Main from '../components/layout/Main.tsx'
 import Connect from '../components/pages/Connect.tsx'
-import Home from '../components/pages/Home.tsx'
+
 import Landing from '../components/pages/Landing.tsx'
 import Reflect from '../components/pages/Reflect.tsx'
 import Resources from '../components/pages/Resources.tsx'
@@ -24,6 +24,7 @@ import Forget from '../components/auth/Forget.tsx'
 import AdminLogin from '../components/admin/AdminLogin.tsx'
 import AdminDashboard from '../components/admin/AdminDashboard'
 import AdminMain from '../components/admin/layout/AdminMain.tsx'
+import Home from '../components/pages/Home.tsx'
 
 function RequireAuth({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()

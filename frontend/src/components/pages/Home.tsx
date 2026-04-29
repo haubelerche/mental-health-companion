@@ -2,6 +2,7 @@ import {
     ArrowRight,
     BarChart2,
     BookOpen,
+    ChevronLeft,
     Flame,
     Heart,
     MessageSquareText,
@@ -14,8 +15,7 @@ import {
     X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import Carousel from 'react-multi-carousel/lib/Carousel';
-import 'react-multi-carousel/lib/styles.css';
+import { AnimatePresence, motion } from 'framer-motion'
 import quotesJson from '../../../famous-quotes.json'
 import { useNavigate } from 'react-router-dom'
 import { homeService } from '../../services/homeService'
@@ -283,36 +283,19 @@ export default function Home() {
     const [wellnessScores, setWellnessScores] = useState<WellnessScores | null>(null)
     const [nutritionTip, setNutritionTip] = useState<NutritionDailyTip | null>(null)
     const [homeMoodWords, setHomeMoodWords] = useState<string[]>([])
+    const [quoteIndex, setQuoteIndex] = useState(0)
     const currentHour = new Date().getHours()
     const currentSlot = useMemo<TimeSlot>(() => getCurrentTimeSlot(currentHour), [currentHour])
     const currentReminders = useMemo(() => SLOT_REMINDERS[currentSlot], [currentSlot])
-    const [selectedReminderId, setSelectedReminderId] = useState<string>(currentReminders[0]?.id ?? '')
     const [detailReminderId, setDetailReminderId] = useState<string | null>(null)
     const detailReminder = useMemo(
         () => currentReminders.find((item) => item.id === detailReminderId) ?? null,
         [currentReminders, detailReminderId],
     )
-    const responsive = {
-        superLargeDesktop: {
-            // the naming can be any, depends on you.
-            breakpoint: { max: 4000, min: 3000 },
-            items: 5
-        },
-        desktop: {
-            breakpoint: { max: 3000, min: 1024 },
-            items: 3
-        },
-        tablet: {
-            breakpoint: { max: 1024, min: 464 },
-            items: 2
-        },
-        mobile: {
-            breakpoint: { max: 464, min: 0 },
-            items: 1
-        }
-    };
-
     const quotes = ((quotesJson as unknown) as { quotes?: Array<{ id: string; content_vi?: string; content_en?: string; author?: string }> }).quotes ?? []
+    const activeQuote = quotes.length > 0 ? quotes[quoteIndex % quotes.length] : null
+    const quoteContent = activeQuote?.content_vi || activeQuote?.content_en || quote?.text || 'Giây phút hiện tại là nơi duy nhất sự sống thực sự tồn tại.'
+    const quoteAuthor = activeQuote?.author || quote?.author || 'Thích Nhất Hạnh'
 
     useEffect(() => {
         if (!user) {
@@ -383,13 +366,20 @@ export default function Home() {
             window.removeEventListener('storage', onStorage)
         }
     }, [])
+
     useEffect(() => {
-        if (currentReminders.some((item) => item.id === selectedReminderId)) return
-        const newId = currentReminders[0]?.id ?? ''
-        if (newId !== selectedReminderId) {
-            setSelectedReminderId(newId)
-        }
-    }, [currentReminders, selectedReminderId])
+        if (quotes.length <= 1) return
+
+        const timer = window.setInterval(() => {
+            setQuoteIndex((current) => (current + 1) % quotes.length)
+        }, 5000)
+
+        return () => window.clearInterval(timer)
+    }, [quotes.length])
+
+    const activeReminderId = detailReminderId && currentReminders.some((item) => item.id === detailReminderId)
+        ? detailReminderId
+        : currentReminders[0]?.id ?? ''
 
     const displayName = user?.displayName || 'bạn'
 
@@ -420,7 +410,7 @@ export default function Home() {
             </header>
 
             {/* ── Today's plan + streak ── */}
-            <section className="rounded-[28px] border border-white/35 bg-white/55 p-6 backdrop-blur-xl">
+            <section className="rounded-[28px] border border-white/35 bg-white/45 p-6 backdrop-blur-xl">
                 <div className="mb-4 flex items-center justify-between">
                     <h2 className="font-display text-[1.6rem] text-serene-ink">Hôm nay của bạn</h2>
                     <span className="rounded-full bg-serene-primary/10 px-3 py-1 text-xs font-semibold text-serene-primary">
@@ -431,13 +421,13 @@ export default function Home() {
 
                 <div className="space-y-3">
                     {currentReminders.map((item) => {
-                        const active = selectedReminderId === item.id
+                        const active = activeReminderId === item.id
                         return (
                             <button
                                 key={item.id}
                                 type="button"
                                 onClick={() => {
-                                    setSelectedReminderId(item.id)
+                                    setDetailReminderId(item.id)
                                     setDetailReminderId(item.id)
                                 }}
                                 className={[
@@ -466,47 +456,89 @@ export default function Home() {
                 </div>
             </section>
 
-            <section className="rounded-[28px] border border-white/35 bg-white/55 p-6 backdrop-blur-xl">
-                <h2 className="mb-4 font-display text-2xl text-serene-ink">Tâm trạng hôm nay?</h2>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <section className="rounded-[28px] border border-white/35 bg-white/45 p-6 backdrop-blur-xl">
+                <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
                     <div>
-                        <MoodWordChips selected={homeMoodWords} onChange={setHomeMoodWords} />
-                        {homeMoodWords.length > 0 && (
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    navigate(ROUTE_PATHS.checkin, { state: { moodWords: homeMoodWords } })
-                                }
-                                className="mt-4 text-sm font-medium text-serene-primary underline underline-offset-4 transition hover:opacity-70"
-                            >
-                                Ghi chép thêm →
-                            </button>
-                        )}
+                        <p className="text-xs uppercase tracking-[0.22em] text-serene-muted">Tâm trạng hôm nay?</p>
+                        <h2 className="mt-2 font-display text-2xl text-serene-ink sm:text-[1.7rem]">Chọn một từ cho cảm xúc</h2>
+                        <p className="mt-2 max-w-xl text-sm leading-relaxed text-serene-muted">
+                            Chọn 1-3 từ mô tả điều đang diễn ra bên trong bạn. Những từ nhỏ cũng đủ giúp bạn nhìn rõ mình hơn.
+                        </p>
+
+                        <div className="mt-5 rounded-3xl border border-white/50 bg-white/55 p-4 backdrop-blur-xl">
+                            <MoodWordChips selected={homeMoodWords} onChange={setHomeMoodWords} />
+                            {homeMoodWords.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        navigate(ROUTE_PATHS.checkin, { state: { moodWords: homeMoodWords } })
+                                    }
+                                    className="mt-4 inline-flex items-center gap-2 rounded-full bg-serene-primary/10 px-4 py-2 text-sm font-medium text-serene-primary transition duration-200 ease-in-out hover:bg-serene-primary/15"
+                                >
+                                    Ghi chép thêm
+                                    <ArrowRight className="h-4 w-4" />
+                                </button>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="flex items-center justify-center">
-                        <div className="w-full">
-                            <Carousel.default
-                                responsive={responsive}
-                                infinite
-                                autoPlay
-                                autoPlaySpeed={4500}
-                                showDots
-                                arrows={false}
-                            >
-                                {quotes.slice(0, 8).map((q) => (
-                                    <div key={q.id} className="px-3">
-                                        <div className="rounded-2xl border border-white/20 bg-white/10 p-6 text-left">
-                                            <blockquote className="font-display text-lg italic text-serene-on-primary">
-                                                {q.content_vi || q.content_en}
-                                            </blockquote>
-                                            <p className="mt-3 text-xs uppercase tracking-[0.18em] text-serene-on-primary/70">
-                                                {q.author || 'Không rõ'}
-                                            </p>
+                    <div className="rounded-4xl border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(250,247,242,0.96))] p-5 shadow-[0_14px_35px_rgba(72,78,90,0.08)] sm:p-6">
+                        <div className="mb-4 flex items-center justify-between gap-4">
+                            <div>
+                                <p className="text-xs uppercase tracking-[0.22em] text-serene-muted/80">Một câu nhắc dịu dàng</p>
+                                <h3 className="mt-2 text-xl font-display text-serene-ink">Lời nhắc hôm nay</h3>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    aria-label="Câu trước"
+                                    onClick={() => setQuoteIndex((current) => (current - 1 + Math.max(quotes.length, 1)) % Math.max(quotes.length, 1))}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-serene-outline/20 bg-white/80 text-serene-muted transition duration-200 ease-in-out hover:bg-white"
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    aria-label="Câu sau"
+                                    onClick={() => setQuoteIndex((current) => (current + 1) % Math.max(quotes.length, 1))}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-serene-outline/20 bg-white/80 text-serene-muted transition duration-200 ease-in-out hover:bg-white"
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="min-h-55 rounded-3xl border border-serene-outline/10 bg-[linear-gradient(135deg,rgba(111,164,180,0.12),rgba(255,255,255,0.96))] p-5 sm:p-6">
+                            <AnimatePresence mode="wait">
+                                <motion.div
+                                    key={activeQuote?.id || 'default-quote'}
+                                    initial={{ opacity: 0, x: 20, filter: 'blur(6px)' }}
+                                    animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+                                    exit={{ opacity: 0, x: -20, filter: 'blur(6px)' }}
+                                    transition={{ duration: 0.35, ease: 'easeOut' }}
+                                    className="flex h-full flex-col justify-between"
+                                >
+                                    <blockquote className="font-display text-[1.15rem] italic leading-8 text-serene-ink sm:text-[1.35rem]">
+                                        {quoteContent}
+                                    </blockquote>
+                                    <div className="mt-6 flex items-center justify-between gap-4">
+                                        <p className="text-[11px] uppercase tracking-[0.24em] text-serene-muted/75">
+                                            {quoteAuthor}
+                                        </p>
+                                        <div className="flex items-center gap-1.5">
+                                            {quotes.slice(0, 5).map((item, index) => (
+                                                <button
+                                                    key={item.id}
+                                                    type="button"
+                                                    aria-label={`Chuyển sang câu ${index + 1}`}
+                                                    onClick={() => setQuoteIndex(index)}
+                                                    className={`h-2.5 rounded-full transition-all duration-200 ease-in-out ${index === quoteIndex % Math.max(quotes.length, 1) ? 'w-8 bg-serene-primary' : 'w-2.5 bg-serene-outline/30'}`}
+                                                />
+                                            ))}
                                         </div>
                                     </div>
-                                ))}
-                            </Carousel.default>
+                                </motion.div>
+                            </AnimatePresence>
                         </div>
                     </div>
                 </div>
@@ -515,7 +547,7 @@ export default function Home() {
             <button
                 type="button"
                 onClick={() => navigate(ROUTE_PATHS.nutrition)}
-                className="w-full rounded-[28px] border border-white/35 bg-white/55 p-6 text-left backdrop-blur-xl transition hover:bg-white/70 active:scale-[0.99]"
+                className="w-full rounded-[28px] border border-white/35 bg-white/50 p-6 text-left backdrop-blur-xl transition hover:bg-white/70 active:scale-[0.99]"
             >
                 <p className="text-xs uppercase tracking-[0.22em] text-serene-muted">Hôm nay ăn gì</p>
                 <h2 className="mt-2 font-display text-2xl text-serene-ink">
@@ -617,18 +649,6 @@ export default function Home() {
                         )
                     })}
                 </div>
-            </section>
-
-            {/* ── Quote section ── */}
-            <section className="rounded-4xl border border-white/30 bg-serene-primary/80 px-7 py-14 text-center backdrop-blur-xl sm:px-12 lg:px-20 lg:py-20">
-                <blockquote className="mx-auto max-w-4xl font-display text-3xl italic leading-snug text-serene-on-primary sm:text-5xl">
-                    {quote?.text
-                        ? `"${quote.text}"`
-                        : '"Giây phút hiện tại là nơi duy nhất sự sống thực sự tồn tại."'}
-                </blockquote>
-                <p className="mt-5 text-xs uppercase tracking-[0.25em] text-serene-on-primary/65">
-                    {quote?.author || 'Thích Nhất Hạnh'}
-                </p>
             </section>
 
             {detailReminder && (
