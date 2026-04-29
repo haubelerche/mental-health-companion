@@ -1293,6 +1293,7 @@ Gửi một lá thư ẩn danh mới.
 - `topic` optional, nếu có chỉ nhận các giá trị đã định nghĩa.
 - `tone` optional, ví dụ: `gentle`, `uplifting`, `reflective`.
 - Nội dung có email / số điện thoại / link lộ PII nên bị mask hoặc chặn theo policy.
+- Backend pre-assign `recipient_id` ngẫu nhiên ngay lúc gửi (không trả field này cho client), moderation giữ assignment này nếu hợp lệ.
 
 **Error chính**
 - `AUTH_INVALID_TOKEN` (401)
@@ -1306,7 +1307,7 @@ Gửi một lá thư ẩn danh mới.
 ---
 
 ### `GET /bamboo/inbox`
-Lấy danh sách thư công cộng/được ghép theo feed cho user.
+Lấy danh sách thư được gán cho user hiện tại (bao gồm `pending` và `approved`).
 
 ```json
 // Response 200
@@ -1333,8 +1334,9 @@ Lấy danh sách thư công cộng/được ghép theo feed cho user.
 ```
 
 **Ghi chú**
-- Endpoint này chỉ trả thư đã `approved`.
-- Feed có thể ưu tiên thư cùng topic nhưng không bắt buộc.
+- Endpoint này chỉ trả thư có `recipient_id == current_user`.
+- `status` mỗi item hiện có thể là `pending` hoặc `approved`.
+- FE có thể random 1 lá từ danh sách này để hiển thị "thư đang chờ".
 
 **Error chính**
 - `AUTH_INVALID_TOKEN` (401)
@@ -1378,7 +1380,7 @@ Lấy lịch sử thư đã gửi và thư đã nhận của user hiện tại.
 
 **Ghi chú**
 - Dùng cho kho thư cá nhân.
-- Trả cả thư do user gửi và thư user đã mở/nhận.
+- Trả thư do user gửi (`user_id == current_user`) và thư được gán cho user (`recipient_id == current_user`).
 
 ---
 
@@ -1429,8 +1431,7 @@ Hồi âm một lá thư đã đọc.
   "data": {
     "reply_id": "bam_r_900",
     "message_id": "bam_pub_001",
-    "status": "pending",
-    "sent_at": "2026-04-29T10:05:00Z"
+    "status": "pending"
   },
   "error": null
 }
@@ -1465,6 +1466,7 @@ Hồi âm một lá thư đã đọc.
   "data": {
     "message_id": "bam_pub_001",
     "pass_count": 3,
+    "new_recipient": "usr_xxxxx",
     "passed_at": "2026-04-29T10:06:00Z"
   },
   "error": null
@@ -1536,6 +1538,7 @@ Duyệt hoặc từ chối một lá thư.
   "data": {
     "message_id": "bam_123",
     "status": "approved",
+    "recipient_id": "usr_xxxxx",
     "reviewed_at": "2026-04-29T10:10:00Z"
   },
   "error": null
@@ -1574,6 +1577,6 @@ Mỗi lá thư nên lưu tối thiểu:
 ### Ghi chú triển khai FE
 
 - `topic` nên là optional metadata nhẹ, không bắt user chọn.
-- `GET /bamboo/inbox` chỉ trả thư approved để UI không phải tự lọc.
+- `GET /bamboo/inbox` trả thư assign cho current user (pending/approved).
 - `GET /bamboo/storage` dùng cho kho thư cá nhân.
 - `GET /bamboo/moderation/queue` và `PATCH /bamboo/moderation/{message_id}` dành cho admin/reviewer, không đưa vào user nav.
