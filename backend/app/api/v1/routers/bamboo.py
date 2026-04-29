@@ -100,6 +100,7 @@ def get_inbox(db: Session = Depends(get_db), current_user: User = Depends(ensure
             "tone": r.tone,
             "received_at": r.created_at.isoformat() + "Z",
             "status": r.status,
+            "reply_to_message_id": r.reply_to_message_id,
             "pass_count": r.pass_count,
             "reply_count": r.reply_count,
         }
@@ -129,6 +130,7 @@ def get_storage(db: Session = Depends(get_db), current_user: User = Depends(ensu
             "content": r.content,
             "topic": r.topic,
             "tone": r.tone,
+            "reply_to_message_id": r.reply_to_message_id,
             "created_at": r.created_at.isoformat() + "Z",
         }
         for r in rows
@@ -158,6 +160,7 @@ def get_letter(message_id: str, db: Session = Depends(get_db), current_user: Use
             "tone": row.tone,
             "direction": "received" if row.user_id != current_user.user_id else "sent",
             "status": row.status,
+            "reply_to_message_id": row.reply_to_message_id,
             "received_at": row.created_at.isoformat() + "Z",
             "reply_count": row.reply_count,
             "pass_count": row.pass_count,
@@ -183,13 +186,22 @@ def reply_letter(payload: BambooReplyRequest, db: Session = Depends(get_db), cur
         direction="reply",
         status="pending",
         recipient_id=target.user_id,
+        reply_to_message_id=target.message_id,
     )
     db.add(reply)
     # increment reply_count for target
     target.reply_count = (target.reply_count or 0) + 1
     db.add(target)
     db.commit()
-    return ok({"reply_id": rid, "message_id": payload.message_id, "status": "pending"}, status_code=201)
+    return ok(
+        {
+            "reply_id": rid,
+            "message_id": payload.message_id,
+            "reply_to_message_id": target.message_id,
+            "status": "pending",
+        },
+        status_code=201,
+    )
 
 
 @router.post("/pass")
