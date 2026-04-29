@@ -421,9 +421,9 @@ export default function Home() {
             <section className="rounded-[28px] border border-white/35 bg-white/45 p-6 backdrop-blur-xl">
                 <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
                     <div>
-                        <div className="mb-4 flex items-center justify-between gap-4">
+                        <div className="mb-5 flex items-center justify-between gap-4">
                             <h2 className="font-display text-3xl text-serene-ink">Hôm nay của bạn</h2>
-                            <span className="rounded-full bg-serene-primary/10 px-3 py-1 text-xs font-semibold text-serene-primary">
+                            <span className="rounded-full bg-serene-primary/10 px-3 py-1 text-sm font-semibold text-serene-primary">
                                 {TIME_SLOT_META[currentSlot].label} · {TIME_SLOT_META[currentSlot].range}
                             </span>
                         </div>
@@ -444,13 +444,13 @@ export default function Home() {
                                             'flex w-full items-center gap-3 rounded-2xl p-4 text-left transition active:scale-[0.98] cursor-pointer',
                                             active
                                                 ? 'border border-serene-primary/30 bg-serene-primary/10'
-                                                : 'border border-transparent bg-white/60 hover:bg-serene-on-primary cursor-pointer/80',
+                                                : 'border border-transparent bg-white/80 hover:bg-serene-primary/10 cursor-pointer',
                                         ].join(' ')}
                                     >
                                         <Info className={`h-5 w-5 shrink-0 ${active ? 'text-serene-primary' : 'text-serene-outline'}`} />
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-semibold text-serene-ink">{item.title}</p>
-                                            <p className="mt-0.5 text-xs text-serene-muted">{item.summary}</p>
+                                            <p className="text-lg font-semibold text-serene-ink">{item.title}</p>
+                                            <p className="mt-0.5 text-sm text-serene-muted">{item.summary}</p>
                                         </div>
                                         <ChevronRight className={`h-4 w-4 ${active ? 'text-serene-primary' : 'text-serene-muted'}`} />
                                     </button>
@@ -458,7 +458,7 @@ export default function Home() {
                             })}
                         </div>
 
-                        <div className="mt-5 border-t border-serene-outline/20 pt-5">
+                        <div className="mt-5 border-t border-serene-ink/30 pt-5">
                             <p className="mb-3 text-xs uppercase tracking-[0.22em] text-serene-muted">
                                 Chuỗi tuần này
                             </p>
@@ -466,7 +466,7 @@ export default function Home() {
                         </div>
                     </div>
 
-                    <div className="relative overflow-hidden rounded-[26px] border border-white/40 min-h-[280px] shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+                    <div className="relative overflow-hidden rounded-[26px] border border-white/40 min-h-[280px] shadow-xl">
                         <img
                             src={forestImg}
                             alt="Khung cảnh thiên nhiên dịu nhẹ cho phần nhịp hôm nay"
@@ -474,7 +474,7 @@ export default function Home() {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-serene-ink/70 via-serene-ink/55 to-transparent" />
                         <div className="absolute inset-x-0 bottom-0 p-5 text-white">
-                            <p className="text-xs uppercase tracking-[0.22em] text-white/75">Nhịp hôm nay</p>
+                            <p className="text-lg uppercase tracking-[0.22em] text-white/75">Nhịp hôm nay</p>
                             <p className="mt-2 text-lg font-semibold">{TIME_SLOT_META[currentSlot].label}</p>
                             <p className="mt-1 text-sm leading-relaxed text-white/85">{TIME_SLOT_META[currentSlot].intro}</p>
                         </div>
@@ -488,7 +488,7 @@ export default function Home() {
                 <div className="flex items-center justify-between gap-4">
                     <div>
                         <h2 className="font-display text-3xl text-serene-ink">Dành cho bạn</h2>
-                        <p className="mt-2 max-w-xl text-sm text-serene-muted">
+                        <p className="mt-2 text-xs lg:text-base  text-serene-muted">
                             Chọn một lối vào ngắn, nhẹ và đúng nhu cầu hiện tại để bạn bắt đầu nhanh hơn.
                         </p>
                     </div>
@@ -509,8 +509,8 @@ export default function Home() {
                     />
                     <div className="absolute inset-0 bg-gradient-to-tr from-serene-ink/65 via-serene-ink/18 to-transparent" />
                     <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/75">Khởi động nhẹ</p>
-                        <p className="mt-1 text-sm font-semibold">Một chạm là có thể bắt đầu ngay</p>
+                        <p className="text-sm font-bold uppercase tracking-[0.2em] text-white/75">Khởi động nhẹ</p>
+                        <p className="mt-1 text-sm ">Một chạm là có thể bắt đầu ngay</p>
                     </div>
                 </div>
 
@@ -527,8 +527,8 @@ export default function Home() {
                                     {card.emoji}
                                 </div>
                                 <div>
-                                    <p className="text-sm font-semibold text-serene-ink leading-tight">{card.label}</p>
-                                    <p className="mt-1 text-xs text-serene-muted">{card.desc}</p>
+                                    <p className=" font-semibold text-serene-ink leading-tight">{card.label}</p>
+                                    <p className="mt-1 text-sm text-serene-muted">{card.desc}</p>
                                 </div>
                             </button>
                         )
@@ -675,11 +675,11 @@ export default function Home() {
                     </div>
 
                     <div className="flex-1">
-                        <p className="text-xs uppercase tracking-[0.22em] font-semibold text-serene-muted/80">Gợi ý dinh dưỡng</p>
+                        <p className="text-xs uppercase tracking-[0.2em] font-bold text-serene-ink">Gợi ý dinh dưỡng</p>
                         <h2 className="mt-2.5 font-display text-2xl text-serene-ink group-hover:text-amber-700 transition-colors">
                             {nutritionTip?.dish || 'Yến mạch + trái cây + hạt'}
                         </h2>
-                        <p className="mt-3 text-sm leading-relaxed text-serene-muted">
+                        <p className="mt-3 leading-relaxed text-serene-muted">
                             {nutritionTip?.benefit || 'Bữa ăn đủ đạm và chất xơ giúp ổn định mood, giảm cảm giác tụt năng lượng.'}
                         </p>
                     </div>
@@ -692,7 +692,7 @@ export default function Home() {
                 <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_220px] lg:items-center">
                     <div>
                         <h2 className="font-display text-3xl text-serene-ink">Bắt đầu từ đây</h2>
-                        <p className="mt-2 max-w-2xl text-sm text-serene-muted">
+                        <p className="mt-2 max-w-2xl text-serene-muted">
                             Các lối vào ngắn để bạn chuyển nhanh từ cảm nhận sang hành động.
                         </p>
                     </div>
@@ -792,8 +792,12 @@ export default function Home() {
 
 
             {detailReminder && (
-                <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/35 px-4">
-                    <article className="w-full max-w-lg rounded-3xl border border-white/40 bg-white p-5 shadow-2xl">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="fixed inset-0 z-70 flex items-center justify-center bg-black/35 px-4"
+                >
+                    <article className="w-full max-w-xl rounded-3xl border border-white/40 bg-white p-5 shadow-2xl">
                         <div className="flex items-start justify-between gap-4">
                             <p className="text-base font-semibold text-serene-ink">{detailReminder.detailTitle}</p>
                             <button
@@ -826,7 +830,7 @@ export default function Home() {
                             </button>
                         ) : null}
                     </article>
-                </div>
+                </motion.div>
             )}
         </div>
     )

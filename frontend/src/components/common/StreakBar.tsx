@@ -30,7 +30,7 @@ export function StreakBar({ streak, className }: Props) {
                     <div key={day} className="flex flex-1 flex-col items-center gap-1">
                         <div
                             className={[
-                                'flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-all',
+                                'flex h-8 w-8 items-center justify-center rounded-full  font-semibold transition-all',
                                 isCompleted
                                     ? 'bg-serene-primary text-serene-on-primary shadow-sm'
                                     : isToday
@@ -40,7 +40,7 @@ export function StreakBar({ streak, className }: Props) {
                         >
                             {isCompleted ? '✓' : day.charAt(0)}
                         </div>
-                        <span className="text-[9px] text-serene-muted/60">{day}</span>
+                        <span className="text-sm text-serene-muted">{day}</span>
                     </div>
                 )
             })}
