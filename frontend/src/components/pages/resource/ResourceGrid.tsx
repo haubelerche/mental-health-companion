@@ -82,7 +82,7 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                         {displayedSideItems.map((item) => (
                             <div
                                 key={item.id}
-                         
+
                                 onClick={() => onOpen(item)}
                                 className="group grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-[1.75rem] bg-white/50 p-4 text-left shadow-lg transition hover:-translate-y-1 hover:bg-white/75"
                             >
@@ -107,31 +107,37 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                     </div>
 
                     {/* See more / Show less button */}
-                    {(hasMore || isFullyExpanded) && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (hasMore) {
-                                    setExpandedCount((prev) => prev + 6)
-                                } else {
-                                    setExpandedCount(3)
-                                }
-                            }}
-                            className="mx-auto flex items-center gap-2 rounded-full bg-white/55 px-6 py-3 text-sm font-semibold text-serene-muted transition hover:bg-white/85 hover:text-serene-ink"
-                        >
-                            {hasMore ? (
-                                <>
-                                    <span>Xem thêm</span>
-                                    <ChevronDown className="h-4 w-4" />
-                                </>
-                            ) : (
-                                <>
-                                    <span>Ẩn bớt</span>
-                                    <ChevronUp className="h-4 w-4" />
-                                </>
-                            )}
-                        </button>
+                    {items.length > 4 ? (
+                        (hasMore || isFullyExpanded) && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (hasMore) {
+                                        setExpandedCount((prev) => prev + 6)
+                                    } else {
+                                        setExpandedCount(3)
+                                    }
+                                }}
+                                className="mx-auto flex items-center gap-2 rounded-full bg-white/55 px-6 py-3 text-sm font-semibold text-serene-muted transition hover:bg-white/85 hover:text-serene-ink"
+                            >
+                                {hasMore ? (
+                                    <>
+                                        <span>Xem thêm</span>
+                                        <ChevronDown className="h-4 w-4" />
+                                    </>
+                                ) : (
+                                    <>
+                                        <span>Ẩn bớt</span>
+                                        <ChevronUp className="h-4 w-4" />
+                                    </>
+                                )}
+                            </button>
+                        )
+                    ) : (
+                        <div></div>
                     )}
+
+
                 </div>
             )}
         </div>
