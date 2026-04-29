@@ -1,4 +1,4 @@
-import { Download, Heart, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -8,6 +8,7 @@ import {
 } from './../../../services/resourceService'
 import { ResourceGrid } from './ResourceGrid'
 import { YouTubeEmbed, isYouTubeUrl } from './YouTubeEmbed'
+import Loading from '../../ui/Loading'
 
 // ── Vietnamese category labels ────────────────────────────────────────────────
 const VI_LABELS: Record<string, { label: string; icon: string }> = {
@@ -115,7 +116,7 @@ export default function Resources() {
                 <div>
                     <h1 className="mt-1 font-display text-4xl text-serene-ink md:text-5xl"> Thư viện tài nguyên</h1>
                 </div>
-                <label className="flex items-center gap-2 rounded-full bg-white/45 px-4 py-3 text-sm text-serene-muted shadow-inner">
+                <label className="flex items-center gap-2 border border-gray-300 rounded-full bg-white px-4 py-3 text-sm text-serene-muted shadow-inner">
                     <Search className="h-4 w-4 shrink-0" />
                     <input
                         value={query}
@@ -158,9 +159,7 @@ export default function Resources() {
                     transition={{ duration: 0.2, ease: 'easeOut' }}
                 >
                     {loadingResources ? (
-                        <div className="flex h-40 items-center justify-center rounded-3xl bg-white/30 text-sm text-serene-muted">
-                            Đang tải tài nguyên...
-                        </div>
+                        <Loading text="Đang tải tài nguyên..." />
                     ) : (
                         <ResourceGrid items={filteredItems} onOpen={openItem} />
                     )}
@@ -183,13 +182,8 @@ export default function Resources() {
             </AnimatePresence>
 
             {/* Footer */}
-            <footer className="mt-12 flex flex-wrap items-center justify-center gap-8 border-t border-serene-ink/5 pt-7 text-xs text-serene-muted">
-                <span className="inline-flex items-center gap-2">
-                    <Heart className="h-4 w-4" /> Yêu thích
-                </span>
-                <span className="inline-flex items-center gap-2">
-                    <Download className="h-4 w-4" /> Offline
-                </span>
+            <footer className="mt-12 flex flex-wrap items-center justify-center gap-8 border-t border-serene-ink/20 pt-7 text-xs ">
+
                 <p className="w-full text-center font-display text-lg italic text-serene-muted/60">
                     "Học cách chữa lành là hành trình đẹp để nhớ của mỗi con người."
                 </p>

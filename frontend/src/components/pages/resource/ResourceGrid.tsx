@@ -31,7 +31,7 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
         <div className="space-y-6">
             {/* Featured */}
             <article className="rounded-4xl bg-white/52 p-5 shadow-lg">
-                <div className="relative overflow-hidden rounded-3xl cursor-pointer">
+                <div className="relative overflow-hidden rounded-3xl cursor-pointer" onClick={() => onOpen(featured)}>
                     {featured.thumbnail ? (
                         <div className="aspect-video relative">
                             <img
@@ -47,7 +47,7 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                     )}
 
                     {/* label */}
-                    <span className="absolute bottom-4 left-4 rounded-full bg-serene-primary px-3 py-1 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-white">
+                    <span className="absolute bottom-4 left-4 rounded-full bg-serene-primary px-3 py-1 tracking-wide font-bold uppercase  text-white">
                         Nổi bật
                     </span>
 
@@ -55,7 +55,7 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                     <button
                         type="button"
                         onClick={() => onOpen(featured)}
-                        className="cursor-pointer absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-red-500 text-serene-on-primary shadow-xl transition hover:scale-120"
+                        className="cursor-pointer absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-red-500 text-serene-on-primary shadow-xl transition hover:scale-120 duration-300"
                         aria-label={`Mở ${featured.title}`}
                     >
                         <Play className="ml-1 h-6 w-6 fill-current" />
@@ -63,9 +63,9 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                 </div>
                 <div className="mt-5 flex items-end justify-between gap-4">
                     <div>
-                        <h2 className="font-display text-4xl text-serene-ink">{featured.title}</h2>
-                        <p className="mt-1.5 text-xs text-serene-muted">
-                            {minutes(featured.duration_sec)} · {featured.format.replace(/_/g, ' ')}
+                        <h2 className="font-display font-semibold text-4xl text-serene-ink">{featured.title}</h2>
+                        <p className="mt-1.5 ml-1.5 text-sm text-serene-muted">
+                            <span>{minutes(featured.duration_sec)}</span> · <span className='font-semibold capitalize'>{featured.format.replace(/_/g, ' ')}</span>
                         </p>
                     </div>
 
@@ -84,22 +84,22 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                                 key={item.id}
                                 type="button"
                                 onClick={() => onOpen(item)}
-                                className="group grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-[1.75rem] bg-white/50 p-4 text-left shadow-[0_18px_44px_rgba(47,52,46,0.07)] transition hover:-translate-y-1 hover:bg-white/75"
+                                className="group grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-[1.75rem] bg-white/50 p-4 text-left shadow-lg transition hover:-translate-y-1 hover:bg-white/75"
                             >
                                 {item.thumbnail ? (
-                                    <img src={item.thumbnail} alt="" className="h-16 w-16 rounded-2xl object-cover" />
+                                    <img src={item.thumbnail} alt="" className="h-20 w-20 rounded-2xl object-cover shadow" />
                                 ) : (
                                     <div className="h-16 w-16 rounded-2xl bg-serene-primary/10" />
                                 )}
                                 <div>
-                                    <h3 className="font-display text-lg leading-tight text-serene-ink">
+                                    <h3 className="font-display text-lg font-semibold leading-tight text-serene-ink">
                                         {item.title}
                                     </h3>
-                                    <p className="mt-1 text-[0.68rem] text-serene-muted">
-                                        {minutes(item.duration_sec)} · {item.format.replace(/_/g, ' ')}
+                                    <p className="mt-1 text-xs text-serene-muted">
+                                        <span>{minutes(item.duration_sec)}</span> · <span className='font-semibold capitalize'>{item.format.replace(/_/g, ' ')}</span>
                                     </p>
                                 </div>
-                                <button className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-full border border-serene-primary/20 text-serene-primary transition group-hover:bg-serene-primary group-hover:text-white">
+                                <button className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-full border border-serene-primary text-serene-primary transition group-hover:bg-serene-primary group-hover:text-white">
                                     <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
                                 </button>
                             </button>

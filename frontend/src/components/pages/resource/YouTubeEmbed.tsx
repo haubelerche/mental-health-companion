@@ -40,9 +40,24 @@ export function YouTubeEmbed({ url, title, isOpen, onClose }: YouTubeEmbedProps)
             isOpen={isOpen}
             onRequestClose={onClose}
             contentLabel={title}
-            overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-            className="relative w-full max-w-4xl outline-none"
-            bodyOpenClassName="overflow-hidden"
+            style={{
+                overlay: {
+                    position: "fixed",
+                    zIndex: 9999,
+                    backgroundColor: "rgba(0, 0, 0, 0.6)",
+                },
+                content: {
+                    top: "50%",
+                    left: "50%",
+                    right: "auto",
+                    bottom: "auto",
+                    marginRight: "-50%",
+                    transform: "translate(-50%, -50%)",
+                    maxWidth: "800px",
+                    width: "100%",
+                },
+            }}
+
         >
             <div className="rounded-lg bg-black shadow-2xl">
                 {/* Close button */}
@@ -70,7 +85,7 @@ export function YouTubeEmbed({ url, title, isOpen, onClose }: YouTubeEmbedProps)
 
                 {/* Title */}
                 <div className="rounded-b-lg bg-white/5 p-4 text-white">
-                    <p className="font-display text-lg">{title}</p>
+                    <p className="font-display text-xl">{title}</p>
                 </div>
             </div>
         </Modal>
