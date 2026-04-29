@@ -335,3 +335,5 @@ class BambooMessage(Base):
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     pass_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     reply_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    recipient_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
