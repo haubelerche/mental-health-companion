@@ -107,7 +107,7 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                     </div>
 
                     {/* See more / Show less button */}
-                    {items.length > 4 ? (
+                    {displayedSideItems.length > 3 ? (
                         (hasMore || isFullyExpanded) && (
                             <button
                                 type="button"
