@@ -62,6 +62,8 @@ def _backfill_bamboo_messages() -> None:
                     ")"
                 )
             )
+            db.execute(text("ALTER TABLE bamboo_messages ADD COLUMN IF NOT EXISTS recipient_id VARCHAR(50)"))
+            db.execute(text("ALTER TABLE bamboo_messages ADD COLUMN IF NOT EXISTS opened_at TIMESTAMP NULL"))
             db.commit()
         finally:
             db.close()
