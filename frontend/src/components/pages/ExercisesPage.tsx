@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Pause, Play, Settings, Waves, X } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import ocean from '../../assets/bg-reflect.png'
+import ocean from '../../assets/forest.png'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { exerciseService, FALLBACK_EXERCISES, findFallbackExercise, type ExerciseItem } from '../../services/exerciseService'
 
@@ -77,17 +77,17 @@ export function ExercisesPage() {
     .map((id) => exercises.find((item) => item.id === id) ?? findFallbackExercise(id))
 
   const getPatternLabel = (item: ExerciseItem) => {
-    if (!item.pattern) return 'Set your own pattern'
+    if (!item.pattern) return 'Đặt mẫu của bạn'
     const parts = [item.pattern.inhale, item.pattern.hold, item.pattern.exhale]
     if (item.pattern.hold2 && item.pattern.hold2 > 0) parts.push(item.pattern.hold2)
     return parts.join('-')
   }
 
   const getPurpose = (id: string) => {
-    if (id === 'box_breath') return 'Relaxation'
-    if (id === 'breath_478') return 'Sleep'
-    if (id === 'equal_breath') return 'Focus'
-    if (id === 'custom_breath') return 'Custom'
+    if (id === 'box_breath') return 'Thư giãn'
+    if (id === 'breath_478') return 'Ngủ'
+    if (id === 'equal_breath') return 'Tập trung'
+    if (id === 'custom_breath') return 'Tự do'
     return 'Breathing'
   }
 
@@ -122,79 +122,80 @@ export function ExercisesPage() {
   }
 
   return (
-    <div className="h-screen overflow-hidden rounded-xl text-serene sm:-m-8 lg:-m-12">
-      <div className='absolute inset-0'>
-        <img src={ocean} alt="" className=" inset-0 h-full w-full object-cover" />
+    <div className="h-screen overflow-hidden rounded-xl text-serene-ink sm:-m-8 lg:-m-12">
+      <div className="absolute inset-0">
+        <img src={ocean} alt="" className="h-full w-full object-cover" />
+      <div className='absolute inset-0 bg-linear-to-t from-black/10 to-black/20'/>
+        
       </div>
-
-
-      <div className="relative px-6 py-8 md:px-12">
+      <div className="relative h-full overflow-y-auto mx-auto w-full max-w-5xl px-4 py-6 md:px-8 md:py-8">
         {isHubMode ? (
-          <div className="mx-auto w-full max-w-3xl">
+          <section className="rounded-4xl border border-white/40 bg-serene-bg/75 p-5 shadow-md backdrop-blur-xl md:p-8">
             <header className="mb-8 flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => navigate(ROUTE_PATHS.resources)}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition hover:bg-white/30"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/50 bg-white/70 text-serene-ink backdrop-blur-md transition duration-200 ease-in-out hover:bg-white"
                 aria-label="Quay lại thư viện"
               >
                 <X className="h-5 w-5" />
               </button>
-              <h1 className="font-display text-4xl text-white/90">Breathing exercises</h1>
+              <h1 className="font-display text-3xl text-serene-ink md:text-4xl">Các bài tập hít thở</h1>
               <span className="h-11 w-11" />
             </header>
 
-            <h2 className="mb-7 text-5xl font-semibold leading-tight text-white/95">
-              Choose a breathing
-              <br />
-              exercise to practise.
+            <h2 className="mb-7 font-display text-4xl leading-tight text-serene-ink md:text-2xl">
+              Chọn một bài tập để thực hành
             </h2>
 
             <section className="grid gap-4 sm:grid-cols-2">
               {hubCards.map((item) => (
-                <button
+                <motion.button
                   key={item.id}
                   type="button"
                   onClick={() => startExercise(item.id)}
-                  className="rounded-3xl bg-[#4b4297]/90 p-5 text-left shadow-[0_12px_28px_rgba(0,0,0,0.2)] transition hover:brightness-110"
+                  whileHover={{ y: -4, scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  transition={{ duration: 0.22, ease: 'easeInOut' }}
+                  className="rounded-3xl border border-white/45 bg-white/72 p-5 text-left shadow-[0_10px_24px_rgba(72,78,90,0.12)] backdrop-blur-xl transition duration-200 ease-in-out hover:bg-white/86"
                 >
-                  <p className="font-display text-4xl leading-none text-white">{item.title}</p>
-                  <p className="mt-2 text-3xl font-semibold text-white/90">{getPatternLabel(item)}</p>
-                  <p className="mt-1 text-xl text-white/70">{getPurpose(item.id)}</p>
-                  <div className="mt-8 flex items-center justify-between text-white/70">
-                    <span className="text-xl">{Math.round(item.duration_sec / 60)} mins</span>
+                  <p className="font-display text-3xl leading-none text-serene-ink">{item.title}</p>
+                  <p className="mt-2 text-2xl font-semibold text-serene-primary">{getPatternLabel(item)}</p>
+                  <p className="mt-1 text-base text-serene-muted">{getPurpose(item.id)}</p>
+                  <div className="mt-8 flex items-center justify-between text-serene-muted">
+                    <span className="text-xl">{Math.round(item.duration_sec / 60)} phút</span>
                     <Settings className="h-5 w-5" />
                   </div>
-                </button>
+                </motion.button>
               ))}
             </section>
 
-            <section className="mt-6 flex items-center justify-between rounded-3xl bg-[#27235f]/90 p-5">
+            <section className="mt-6 flex items-center justify-between rounded-3xl border border-white/35 bg-white/65 p-5 backdrop-blur-xl">
               <div>
-                <h3 className="text-3xl font-semibold">Before you get started</h3>
-                <p className="mt-2 max-w-md text-xl text-white/75">
-                  Learn how each breathing exercise works and get tips to help you practise.
+                <h3 className="font-display text-2xl text-serene-ink">Khởi động</h3>
+                <p className="mt-2 max-w-md text-base text-serene-muted">
+                  Tìm hiểu cách thức hoạt động của từng bài tập thở và nhận những lời khuyên hữu ích để thực hành.
                 </p>
               </div>
-              <div className="h-24 w-24 rounded-3xl bg-[#75c6ed]" />
+              <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-serene-primary/15 text-3xl">🌬️</div>
             </section>
-          </div>
+          </section>
         ) : (
-          <div className="flex min-h-[calc(100vh-5rem)] flex-col">
+          <section className="flex min-h-[calc(100vh-5rem)] flex-col rounded-4xl border border-white/40 bg-serene-bg/75 p-5 shadow-md backdrop-blur-xl md:p-8">
             <header className="flex items-center justify-between">
               <button
                 type="button"
                 onClick={backToHub}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-md transition hover:bg-white/30"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/50 bg-white/70 text-serene-ink backdrop-blur-md transition duration-200 ease-in-out hover:bg-white"
                 aria-label="Quay lại danh sách bài thở"
               >
                 <X className="h-5 w-5" />
               </button>
-              <p className="font-display text-3xl text-white/85">{exercise.title}</p>
+              <p className="font-display text-2xl text-serene-ink md:text-3xl">{exercise.title}</p>
               <button
                 type="button"
                 onClick={resetExercise}
-                className="rounded-full bg-white/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/80"
+                className="rounded-full border border-white/50 bg-white/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-serene-muted transition duration-200 ease-in-out hover:bg-white"
               >
                 Reset
               </button>
@@ -204,44 +205,44 @@ export function ExercisesPage() {
               <motion.div
                 animate={{ scale: isRunning ? phase.scale : 1 }}
                 transition={{ duration: 1.1, ease: 'easeInOut' }}
-                className="relative flex h-56 w-56 items-center justify-center rounded-full bg-white/12 shadow-[0_0_80px_rgba(188,233,231,0.35)] md:h-72 md:w-72"
+                className="relative flex h-56 w-56 items-center justify-center rounded-full bg-white/45 shadow-[0_0_80px_rgba(111,164,180,0.28)] md:h-72 md:w-72"
               >
-                <div className="absolute inset-8 rounded-full bg-white/20" />
-                <div className="absolute inset-16 rounded-full bg-white/35" />
+                <div className="absolute inset-8 rounded-full bg-white/55" />
+                <div className="absolute inset-16 rounded-full bg-white/75" />
                 <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-serene-primary/85">
-                  <Waves className="h-9 w-9 text-white/85" />
+                  <Waves className="h-9 w-9 text-white" />
                 </div>
               </motion.div>
 
               <div className="mt-8">
-                <p className="font-display text-3xl text-white/90">
+                <p className="font-display text-3xl text-serene-ink">
                   {isDone ? 'Hoàn thành' : `${phase.label} (${phase.count})`}
                 </p>
                 <div className="mt-4 flex justify-center gap-2">
                   {exercise.steps.slice(0, 4).map((_, index) => (
                     <span
                       key={index}
-                      className={`h-2 w-2 rounded-full ${index === phase.stepIndex && !isDone ? 'bg-white' : 'bg-white/35'}`}
+                      className={`h-2 w-2 rounded-full ${index === phase.stepIndex && !isDone ? 'bg-serene-primary' : 'bg-serene-outline/30'}`}
                     />
                   ))}
                 </div>
               </div>
 
               <div className="mt-10 w-full max-w-2xl">
-                <div className="h-2 overflow-hidden rounded-full bg-white/45">
-                  <div className="h-full rounded-full bg-white transition-all" style={{ width: `${progress}%` }} />
+                <div className="h-2 overflow-hidden rounded-full bg-white/65">
+                  <div className="h-full rounded-full bg-serene-primary transition-all duration-300 ease-in-out" style={{ width: `${progress}%` }} />
                 </div>
                 <div className="mt-5 grid grid-cols-3 gap-4 text-serene-ink">
                   {exercise.pattern ? (
                     <>
-                      <div className="rounded-3xl bg-white/75 px-5 py-4"><p className="text-xs font-bold uppercase">Hít vào</p><p className="mt-1 font-display text-2xl">{exercise.pattern.inhale}s</p></div>
-                      <div className="rounded-3xl bg-white/75 px-5 py-4"><p className="text-xs font-bold uppercase">Giữ</p><p className="mt-1 font-display text-2xl">{exercise.pattern.hold}s</p></div>
-                      <div className="rounded-3xl bg-white/75 px-5 py-4"><p className="text-xs font-bold uppercase">Thở ra</p><p className="mt-1 font-display text-2xl">{exercise.pattern.exhale}s</p></div>
+                      <div className="rounded-3xl border border-white/45 bg-white/78 px-5 py-4"><p className="text-xs font-bold uppercase text-serene-muted">Hít vào</p><p className="mt-1 font-display text-2xl">{exercise.pattern.inhale}s</p></div>
+                      <div className="rounded-3xl border border-white/45 bg-white/78 px-5 py-4"><p className="text-xs font-bold uppercase text-serene-muted">Giữ</p><p className="mt-1 font-display text-2xl">{exercise.pattern.hold}s</p></div>
+                      <div className="rounded-3xl border border-white/45 bg-white/78 px-5 py-4"><p className="text-xs font-bold uppercase text-serene-muted">Thở ra</p><p className="mt-1 font-display text-2xl">{exercise.pattern.exhale}s</p></div>
                     </>
                   ) : (
                     exercise.steps.slice(0, 3).map((step, index) => (
-                      <div key={step} className="rounded-3xl bg-white/75 px-5 py-4">
-                        <p className="text-xs font-bold uppercase">Bước {index + 1}</p>
+                      <div key={step} className="rounded-3xl border border-white/45 bg-white/78 px-5 py-4">
+                        <p className="text-xs font-bold uppercase text-serene-muted">Bước {index + 1}</p>
                         <p className="mt-1 text-xs leading-relaxed">{step}</p>
                       </div>
                     ))
@@ -249,35 +250,40 @@ export function ExercisesPage() {
                 </div>
               </div>
 
-              <button
+              <motion.button
                 type="button"
                 onClick={() => (isDone ? resetExercise() : setIsRunning((value) => !value))}
-                className="mt-9 flex h-20 w-20 items-center justify-center rounded-full bg-serene-primary text-white shadow-[0_20px_50px_rgba(0,0,0,0.22)] transition hover:scale-105"
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+                className="mt-9 flex h-20 w-20 items-center justify-center rounded-full bg-serene-primary text-white shadow-[0_16px_40px_rgba(111,164,180,0.35)]"
                 aria-label={isRunning ? 'Tạm dừng' : 'Bắt đầu'}
               >
                 {isRunning ? <Pause className="h-8 w-8 fill-current" /> : <Play className="ml-1 h-9 w-9 fill-current" />}
-              </button>
+              </motion.button>
 
-              <p className="mt-5 text-sm text-white/75">
+              <p className="mt-5 text-sm text-serene-muted">
                 {isDone ? 'Bạn đã hoàn thành phiên này. Cơ thể có thể cần vài giây để nhận ra sự dịu lại.' : `Còn lại ${formatTime(remaining)} · ${exercise.description}`}
               </p>
             </main>
 
             <aside className="grid gap-3 pb-3 md:grid-cols-3">
               {exercises.map((item) => (
-                <button
+                <motion.button
                   key={item.id}
                   type="button"
                   onClick={() => startExercise(item.id)}
-                  className={`rounded-3xl border px-5 py-4 text-left backdrop-blur-xl transition ${item.id === exercise.id ? 'border-white/70 bg-white/25' : 'border-white/20 bg-white/10 hover:bg-white/18'
+                  whileHover={{ y: -2 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className={`rounded-3xl border px-5 py-4 text-left backdrop-blur-xl transition duration-200 ease-in-out ${item.id === exercise.id ? 'border-serene-primary/45 bg-white/82 shadow-[0_8px_18px_rgba(111,164,180,0.15)]' : 'border-white/35 bg-white/65 hover:bg-white/78'
                     }`}
                 >
-                  <p className="font-display text-xl">{item.title}</p>
-                  <p className="mt-1 text-xs text-white/70">{Math.round(item.duration_sec / 60)} phút · {item.type.replaceAll('_', ' ')}</p>
-                </button>
+                  <p className="font-display text-xl text-serene-ink">{item.title}</p>
+                  <p className="mt-1 text-xs text-serene-muted">{Math.round(item.duration_sec / 60)} phút · {item.type.replaceAll('_', ' ')}</p>
+                </motion.button>
               ))}
             </aside>
-          </div>
+          </section>
         )}
       </div>
     </div>
