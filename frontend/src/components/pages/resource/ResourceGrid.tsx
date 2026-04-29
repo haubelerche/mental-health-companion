@@ -80,9 +80,9 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                 <div className="space-y-4">
                     <div className="grid gap-4 sm:grid-cols-3">
                         {displayedSideItems.map((item) => (
-                            <button
+                            <div
                                 key={item.id}
-                                type="button"
+                         
                                 onClick={() => onOpen(item)}
                                 className="group grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-[1.75rem] bg-white/50 p-4 text-left shadow-lg transition hover:-translate-y-1 hover:bg-white/75"
                             >
@@ -102,7 +102,7 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                                 <button className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-full border border-serene-primary text-serene-primary transition group-hover:bg-serene-primary group-hover:text-white">
                                     <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
                                 </button>
-                            </button>
+                            </div>
                         ))}
                     </div>
 
