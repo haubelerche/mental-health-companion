@@ -168,7 +168,9 @@ def get_letter(message_id: str, db: Session = Depends(get_db), current_user: Use
 @router.post("/reply")
 def reply_letter(payload: BambooReplyRequest, db: Session = Depends(get_db), current_user: User = Depends(ensure_policy_acknowledged)):
     target = db.get(BambooMessage, payload.message_id)
-    if not target or target.status != "approved":
+    if not target:
+        raise AppError("BAMBOO_MESSAGE_NOT_FOUND", "Không tìm thấy thư", 404)
+    if target.recipient_id != current_user.user_id:
         raise AppError("BAMBOO_MESSAGE_NOT_FOUND", "Không tìm thấy thư", 404)
     rid = make_id("bam_r")
     reply = BambooMessage(
@@ -180,6 +182,7 @@ def reply_letter(payload: BambooReplyRequest, db: Session = Depends(get_db), cur
         tone=None,
         direction="reply",
         status="pending",
+        recipient_id=target.user_id,
     )
     db.add(reply)
     # increment reply_count for target
@@ -192,7 +195,9 @@ def reply_letter(payload: BambooReplyRequest, db: Session = Depends(get_db), cur
 @router.post("/pass")
 def pass_letter(payload: BambooPassRequest, db: Session = Depends(get_db), current_user: User = Depends(ensure_policy_acknowledged)):
     target = db.get(BambooMessage, payload.message_id)
-    if not target or target.status != "approved":
+    if not target:
+        raise AppError("BAMBOO_MESSAGE_NOT_FOUND", "Không tìm thấy thư", 404)
+    if target.recipient_id != current_user.user_id:
         raise AppError("BAMBOO_MESSAGE_NOT_FOUND", "Không tìm thấy thư", 404)
     target.pass_count = (target.pass_count or 0) + 1
     # rotate recipient (exclude sender and previous recipient)
