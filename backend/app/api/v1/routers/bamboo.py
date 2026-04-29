@@ -9,6 +9,8 @@ from app.api.deps import ensure_policy_acknowledged, get_admin_claims, enforce_a
 from app.schemas.payloads import BambooSendRequest, BambooReplyRequest, BambooPassRequest
 from app.db.models import User, BambooMessage
 from app.db.session import get_db
+import random
+from datetime import datetime
 
 router = APIRouter(prefix="/bamboo", tags=["bamboo"])
 
@@ -44,7 +46,12 @@ def send_letter(payload: BambooSendRequest, db: Session = Depends(get_db), curre
 
 @router.get("/inbox")
 def get_inbox(db: Session = Depends(get_db), current_user: User = Depends(ensure_policy_acknowledged)):
-    rows = db.query(BambooMessage).filter(BambooMessage.status == "approved").order_by(BambooMessage.created_at.desc()).all()
+    rows = (
+        db.query(BambooMessage)
+        .filter(BambooMessage.status == "approved", BambooMessage.recipient_id == current_user.user_id)
+        .order_by(BambooMessage.created_at.desc())
+        .all()
+    )
     items = [
         {
             "message_id": r.message_id,
@@ -86,6 +93,12 @@ def get_letter(message_id: str, db: Session = Depends(get_db), current_user: Use
         raise AppError("BAMBOO_MESSAGE_NOT_FOUND", "Không tìm thấy thư", 404)
     if row.status != "approved" and row.user_id != current_user.user_id:
         raise AppError("BAMBOO_MESSAGE_NOT_FOUND", "Không tìm thấy thư", 404)
+    # mark opened if recipient is the current user and not opened yet
+    if row.recipient_id == current_user.user_id and row.opened_at is None:
+        row.opened_at = datetime.utcnow()
+        db.add(row)
+        db.commit()
+
     return ok(
         {
             "message_id": row.message_id,
@@ -132,9 +145,24 @@ def pass_letter(payload: BambooPassRequest, db: Session = Depends(get_db), curre
     if not target or target.status != "approved":
         raise AppError("BAMBOO_MESSAGE_NOT_FOUND", "Không tìm thấy thư", 404)
     target.pass_count = (target.pass_count or 0) + 1
+    # find a new recipient (exclude sender and current recipient)
+    candidates = (
+        db.query(User)
+        .filter(User.user_id != target.user_id, User.user_id != target.recipient_id, User.is_active.is_(True), User.policy_acknowledged_at.is_not(None))
+        .all()
+    )
+    new_recipient = None
+    elig = []
+    for u in candidates:
+        cnt = db.query(BambooMessage).filter(BambooMessage.recipient_id == u.user_id, BambooMessage.status == "approved", BambooMessage.opened_at.is_(None)).count()
+        if cnt < 5:
+            elig.append(u)
+    if elig:
+        new_recipient = random.choice(elig).user_id
+    target.recipient_id = new_recipient
     db.add(target)
     db.commit()
-    return ok({"message_id": payload.message_id, "pass_count": target.pass_count, "passed_at": utc_now().isoformat() + "Z"})
+    return ok({"message_id": payload.message_id, "pass_count": target.pass_count, "new_recipient": new_recipient, "passed_at": utc_now().isoformat() + "Z"})
 
 
 # Moderation endpoints (admin only)
@@ -165,6 +193,22 @@ def moderation_action(message_id: str, payload: dict, admin: dict = Depends(get_
         raise AppError("INVALID_PARAMETER", "status không hợp lệ", 400)
     row.status = status
     row.reviewed_at = utc_now()
+    # on approval, assign to a random recipient who has <5 unread messages
+    if status == "approved":
+        candidates = (
+            db.query(User)
+            .filter(User.user_id != row.user_id, User.is_active.is_(True), User.policy_acknowledged_at.is_not(None))
+            .all()
+        )
+        elig = []
+        for u in candidates:
+            cnt = db.query(BambooMessage).filter(BambooMessage.recipient_id == u.user_id, BambooMessage.status == "approved", BambooMessage.opened_at.is_(None)).count()
+            if cnt < 5:
+                elig.append(u)
+        new_recipient = None
+        if elig:
+            new_recipient = random.choice(elig).user_id
+        row.recipient_id = new_recipient
     db.add(row)
     db.commit()
-    return ok({"message_id": message_id, "status": status, "reviewed_at": row.reviewed_at.isoformat() + "Z"})
+    return ok({"message_id": message_id, "status": status, "recipient_id": row.recipient_id, "reviewed_at": row.reviewed_at.isoformat() + "Z"})
