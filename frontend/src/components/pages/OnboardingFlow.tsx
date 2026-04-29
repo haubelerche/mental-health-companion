@@ -12,6 +12,8 @@ import {
     type SupportLevel,
 } from '../../services/onboardingService'
 import { useAuth } from '../../hooks/useAuth'
+import bgGradient from '../../assets//bg-gradient.png'
+
 
 type OnboardingDraft = {
     disclaimerAccepted: boolean
@@ -93,15 +95,14 @@ function OptionPill({
         <button
             type="button"
             onClick={onClick}
-            className={`relative flex w-full items-center gap-3 rounded-2xl border px-5 py-4 text-left transition-all active:scale-[0.98] ${
-                selected
-                    ? 'border-serene-primary bg-serene-primary/10 text-serene-ink shadow-sm'
-                    : 'border-serene-border bg-white/70 text-serene-ink hover:border-serene-primary/40 hover:bg-white/90'
-            }`}
+            className={`relative flex w-full items-center gap-3 rounded-2xl border px-5 py-4 text-left transition-all active:scale-[0.98] ${selected
+                ? 'border-serene-primary bg-serene-primary/10 text-serene-ink shadow-sm'
+                : 'border-serene-border bg-white/70 text-serene-ink hover:border-serene-primary/40 hover:bg-white/90'
+                }`}
         >
             {children}
             {selected && (
-                <span className="ml-auto flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-serene-primary">
+                <span className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-serene-primary">
                     <Check className="h-3 w-3 text-white" />
                 </span>
             )}
@@ -308,11 +309,10 @@ function StepPractices({ value, onChange }: { value: string[]; onChange: (v: str
                             key={item.id}
                             type="button"
                             onClick={() => toggle(item.id)}
-                            className={`rounded-2xl border px-4 py-3 text-left transition active:scale-[0.98] ${
-                                selected
-                                    ? 'border-serene-primary bg-serene-primary/10'
-                                    : 'border-serene-border bg-white/70 hover:border-serene-primary/40'
-                            }`}
+                            className={`rounded-2xl border px-4 py-3 text-left transition active:scale-[0.98] ${selected
+                                ? 'border-serene-primary bg-serene-primary/10'
+                                : 'border-serene-border bg-white/70 hover:border-serene-primary/40'
+                                }`}
                         >
                             <div className="mb-1 text-xl">{item.icon}</div>
                             <p className={`text-sm font-medium ${selected ? 'text-serene-primary' : 'text-serene-ink'}`}>{item.label}</p>
@@ -567,121 +567,129 @@ export function OnboardingFlow() {
     }, [currentStep, isSubmitting])
 
     return (
-        <div className="flex min-h-screen flex-col bg-serene-bg">
-            {!isSplash && (
-                <div className="px-5 pt-6">
-                    <div className="flex items-center gap-3">
-                        <button
-                            type="button"
-                            onClick={prev}
-                            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-serene-border bg-white/70 text-serene-muted transition hover:bg-white"
-                            aria-label="Quay lại"
-                            disabled={isSubmitting}
-                        >
-                            <ChevronLeft className="h-5 w-5" />
-                        </button>
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-serene-border">
-                            <motion.div
-                                className="h-full rounded-full bg-serene-primary"
-                                animate={{ width: `${progressFraction * 100}%` }}
-                                transition={{ duration: 0.35, ease: 'easeOut' }}
-                            />
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                void skipOnboarding()
-                            }}
-                            className="text-xs font-medium text-serene-muted transition hover:text-serene-ink disabled:opacity-50"
-                            disabled={isSubmitting || (currentStep <= 1 && !draft.disclaimerAccepted)}
-                        >
-                            Bỏ qua
-                        </button>
-                    </div>
-                    <p className="mt-2 text-right text-[11px] text-serene-muted">
-                        {currentStep} / {totalSteps - 1}
-                    </p>
-                </div>
-            )}
-
-            <div className="flex-1 overflow-hidden px-5 pb-8 pt-6">
-                <AnimatePresence mode="wait" custom={direction}>
-                    <motion.div
-                        key={currentStep}
-                        custom={direction}
-                        variants={slideVariants}
-                        initial="enter"
-                        animate="center"
-                        exit="exit"
-                        transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-                    >
-                        {currentStep === 0 && <StepSplash onNext={() => void next()} />}
-                        {currentStep === 1 && (
-                            <StepDisclaimer
-                                value={draft.disclaimerAccepted}
-                                onChange={(value) => setDraft((prevState) => ({ ...prevState, disclaimerAccepted: value }))}
-                            />
-                        )}
-                        {currentStep === 2 && (
-                            <StepNickname value={draft.nickname} onChange={(value) => setDraft((prevState) => ({ ...prevState, nickname: value }))} />
-                        )}
-                        {currentStep === 3 && (
-                            <StepEmotionalState
-                                value={draft.emotionalState}
-                                onChange={(value) => setDraft((prevState) => ({ ...prevState, emotionalState: value }))}
-                            />
-                        )}
-                        {currentStep === 4 && (
-                            <StepPrimaryConcern
-                                value={draft.primaryConcern}
-                                emotionalState={draft.emotionalState}
-                                onChange={(value) => setDraft((prevState) => ({ ...prevState, primaryConcern: value }))}
-                            />
-                        )}
-                        {currentStep === 5 && (
-                            <StepSupportLevel
-                                value={draft.supportLevel}
-                                onChange={(value) => setDraft((prevState) => ({ ...prevState, supportLevel: value }))}
-                            />
-                        )}
-                        {currentStep === 6 && (
-                            <StepAgeGroup value={draft.ageGroup} onChange={(value) => setDraft((prevState) => ({ ...prevState, ageGroup: value }))} />
-                        )}
-                        {currentStep === 7 && (
-                            <StepPractices
-                                value={draft.practiceIds}
-                                onChange={(value) => setDraft((prevState) => ({ ...prevState, practiceIds: value }))}
-                            />
-                        )}
-                        {currentStep === 8 && (
-                            <StepSchedule
-                                wakeTime={draft.wakeTime}
-                                bedTime={draft.bedTime}
-                                onChangeWake={(value) => setDraft((prevState) => ({ ...prevState, wakeTime: value }))}
-                                onChangeBed={(value) => setDraft((prevState) => ({ ...prevState, bedTime: value }))}
-                            />
-                        )}
-                        {currentStep === 9 && (
-                            <StepStressLevel value={draft.stressLevel} onChange={(value) => setDraft((prevState) => ({ ...prevState, stressLevel: value }))} />
-                        )}
-                        {currentStep === 10 && <StepSummary draft={draft} isSubmitting={isSubmitting} />}
-                    </motion.div>
-                </AnimatePresence>
+        <div className='relative min-h-screen flex justify-center'>
+            <div className='fixed inset-0 -z-20'>
+                <img src={bgGradient} alt="" className='w-full h-full object-cover' />
             </div>
+            <main className="w-full max-w-4xl px-4 py-10 flex flex-col justify-center ">
+                <div className='bg-serene-bg/70 rounded-3xl shadow-lg p-6'>
+                    {!isSplash && (
+                        <div className="p-6">
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={prev}
+                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-serene-border bg-white/70 text-serene-muted transition hover:bg-white"
+                                    aria-label="Quay lại"
+                                    disabled={isSubmitting}
+                                >
+                                    <ChevronLeft className="h-5 w-5" />
+                                </button>
+                                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-serene-border">
+                                    <motion.div
+                                        className="h-full rounded-full bg-serene-primary"
+                                        animate={{ width: `${progressFraction * 100}%` }}
+                                        transition={{ duration: 0.35, ease: 'easeOut' }}
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        void skipOnboarding()
+                                    }}
+                                    className="text-xs font-medium text-serene-muted transition hover:text-serene-ink disabled:opacity-50"
+                                    disabled={isSubmitting || (currentStep <= 1 && !draft.disclaimerAccepted)}
+                                >
+                                    Bỏ qua
+                                </button>
+                            </div>
+                            <p className="mt-2 text-right text-[11px] text-serene-muted">
+                                {currentStep} / {totalSteps - 1}
+                            </p>
+                        </div>
+                    )}
 
-            {!isSplash && (
-                <div className="px-5 pb-10">
-                    <button
-                        type="button"
-                        onClick={() => void next()}
-                        disabled={!canAdvance || isSubmitting}
-                        className="flex w-full items-center justify-center gap-2 rounded-full bg-serene-primary py-4 font-semibold text-serene-on-primary shadow-lg shadow-serene-primary/20 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.97]"
-                    >
-                        {isLastStep ? 'Xác nhận và bắt đầu' : 'Tiếp theo'}
-                        {!isLastStep && <ChevronRight className="h-5 w-5" />}
-                    </button>
+                    <div className="flex-1 overflow-hidden px-5 pb-8 pt-6">
+                        <AnimatePresence mode="wait" custom={direction}>
+                            <motion.div
+                                key={currentStep}
+                                custom={direction}
+                                variants={slideVariants}
+                                initial="enter"
+                                animate="center"
+                                exit="exit"
+                                transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                            >
+                                {currentStep === 0 && <StepSplash onNext={() => void next()} />}
+                                {currentStep === 1 && (
+                                    <StepDisclaimer
+                                        value={draft.disclaimerAccepted}
+                                        onChange={(value) => setDraft((prevState) => ({ ...prevState, disclaimerAccepted: value }))}
+                                    />
+                                )}
+                                {currentStep === 2 && (
+                                    <StepNickname value={draft.nickname} onChange={(value) => setDraft((prevState) => ({ ...prevState, nickname: value }))} />
+                                )}
+                                {currentStep === 3 && (
+                                    <StepEmotionalState
+                                        value={draft.emotionalState}
+                                        onChange={(value) => setDraft((prevState) => ({ ...prevState, emotionalState: value }))}
+                                    />
+                                )}
+                                {currentStep === 4 && (
+                                    <StepPrimaryConcern
+                                        value={draft.primaryConcern}
+                                        emotionalState={draft.emotionalState}
+                                        onChange={(value) => setDraft((prevState) => ({ ...prevState, primaryConcern: value }))}
+                                    />
+                                )}
+                                {currentStep === 5 && (
+                                    <StepSupportLevel
+                                        value={draft.supportLevel}
+                                        onChange={(value) => setDraft((prevState) => ({ ...prevState, supportLevel: value }))}
+                                    />
+                                )}
+                                {currentStep === 6 && (
+                                    <StepAgeGroup value={draft.ageGroup} onChange={(value) => setDraft((prevState) => ({ ...prevState, ageGroup: value }))} />
+                                )}
+                                {currentStep === 7 && (
+                                    <StepPractices
+                                        value={draft.practiceIds}
+                                        onChange={(value) => setDraft((prevState) => ({ ...prevState, practiceIds: value }))}
+                                    />
+                                )}
+                                {currentStep === 8 && (
+                                    <StepSchedule
+                                        wakeTime={draft.wakeTime}
+                                        bedTime={draft.bedTime}
+                                        onChangeWake={(value) => setDraft((prevState) => ({ ...prevState, wakeTime: value }))}
+                                        onChangeBed={(value) => setDraft((prevState) => ({ ...prevState, bedTime: value }))}
+                                    />
+                                )}
+                                {currentStep === 9 && (
+                                    <StepStressLevel value={draft.stressLevel} onChange={(value) => setDraft((prevState) => ({ ...prevState, stressLevel: value }))} />
+                                )}
+                                {currentStep === 10 && <StepSummary draft={draft} isSubmitting={isSubmitting} />}
+                            </motion.div>
+                        </AnimatePresence>
+                    </div>
+
+                    {!isSplash && (
+                        <div className="px-5 pb-10">
+                            <button
+                                type="button"
+                                onClick={() => void next()}
+                                disabled={!canAdvance || isSubmitting}
+                                className="flex w-full items-center justify-center gap-2 rounded-full bg-serene-primary py-4 font-semibold text-serene-on-primary shadow-lg shadow-serene-primary/20 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.97]"
+                            >
+                                {isLastStep ? 'Xác nhận và bắt đầu' : 'Tiếp theo'}
+                                {!isLastStep && <ChevronRight className="h-5 w-5" />}
+                            </button>
+                        </div>
+                    )}
                 </div>
-            )}
+            </main>
         </div>
+
     )
 }

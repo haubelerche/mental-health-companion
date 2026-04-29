@@ -374,11 +374,10 @@ export default function Resources() {
                             key={cat.id}
                             type="button"
                             onClick={() => setSelectedCategory(cat.id)}
-                            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition ${
-                                isActive
+                            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition ${isActive
                                     ? 'bg-serene-primary text-serene-on-primary shadow-[0_8px_20px_rgba(77,99,89,0.25)]'
                                     : 'bg-white/55 text-serene-muted hover:bg-white/85 hover:text-serene-ink'
-                            }`}
+                                }`}
                         >
                             <span>{vi.icon}</span>
                             <span>{vi.label}</span>
