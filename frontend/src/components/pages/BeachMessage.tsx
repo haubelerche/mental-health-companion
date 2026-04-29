@@ -21,6 +21,7 @@ type Letter = {
   body: string;
   direction?: "sent" | "received";
   status?: string;
+  replyToMessageId?: string | null;
   topic?: string | null;
   tone?: string | null;
 };
@@ -103,6 +104,7 @@ function toLetter(message: BambooInboxItem): Letter {
     body: message.content,
     direction: "received",
     status: message.status ?? "approved",
+    replyToMessageId: message.reply_to_message_id ?? null,
     topic: message.topic,
     tone: message.tone,
   };
@@ -116,6 +118,7 @@ function toStoredLetter(letter: BambooStoredItem): Letter {
     body: letter.content,
     direction: letter.direction,
     status: letter.status,
+    replyToMessageId: letter.reply_to_message_id ?? null,
     topic: letter.topic,
     tone: letter.tone,
   };
@@ -333,6 +336,11 @@ function LetterOverlay({
           {(letter.topic || letter.tone) && (
             <p className={`${ui.textSubtler} text-xs tracking-wide mb-3`}>
               {letter.topic ? `Chủ đề: ${letter.topic}` : ""}{letter.topic && letter.tone ? " • " : ""}{letter.tone ? `Tone: ${letter.tone}` : ""}
+            </p>
+          )}
+          {letter.replyToMessageId && (
+            <p className={`${ui.textSubtler} text-xs tracking-wide mb-3`}>
+              Phản hồi thư: {letter.replyToMessageId}
             </p>
           )}
           <p
@@ -1022,6 +1030,11 @@ export default function BeachMessage() {
                       </span>
                     )}
                   </div>
+                  {l.replyToMessageId && (
+                    <p className={`${ui.textSubtler} text-xs tracking-wide mb-2`}>
+                      Phản hồi thư: {l.replyToMessageId}
+                    </p>
+                  )}
                   <p className={`${ui.textSubtle} font-display text-lg italic leading-relaxed mb-3 line-clamp-3`}>
                     {l.body}
                   </p>
