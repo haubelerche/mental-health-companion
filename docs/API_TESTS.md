@@ -670,6 +670,7 @@ Auth: cookie `access_token` + header `X-CSRF-Token: {{csrfToken}}`. User phải 
 ### POST /v1/bamboo/send
 - Body: `content` (1-2000 chars), optional `topic`, `tone`.
 - Expected: HTTP 201, data includes `message_id`, `status` = `pending`, `sent_at`.
+- Note: backend pre-assign recipient ngẫu nhiên nội bộ ngay lúc gửi (không trả trực tiếp recipient trong response).
 
 Example request:
 ```json
@@ -681,15 +682,15 @@ Example request:
 ```
 
 ### GET /v1/bamboo/inbox
-- Returns public feed of approved letters.
-- Expected: HTTP 200, `data.messages` array with `message_id`, `anonymous_name`, `content`, `topic`, `tone`, `received_at`, `pass_count`, `reply_count`.
+- Returns letters assigned to current user (`recipient_id == current_user`) with status `pending` or `approved`.
+- Expected: HTTP 200, `data.messages` array with `message_id`, `anonymous_name`, `content`, `topic`, `tone`, `received_at`, `status`, `pass_count`, `reply_count`.
 
 ### GET /v1/bamboo/storage
-- Returns user's sent and received (approved) letters.
+- Returns user-owned sent letters + letters assigned to current user.
 - Expected: HTTP 200, `data.letters` array with `message_id`, `direction`, `status`, `content`, `topic`, `tone`, `created_at`.
 
 ### GET /v1/bamboo/letters/{message_id}
-- Returns details for a letter. Only returns approved letters to other users; owner can view own pending.
+- Returns details for a letter. Owner và recipient đều xem được thư đã assign; user khác chỉ xem thư approved.
 - Expected: HTTP 200, detailed letter object.
 
 ### POST /v1/bamboo/reply
@@ -705,7 +706,7 @@ Example request:
 
 ### PATCH /v1/bamboo/moderation/{message_id} (admin)
 - Body: `{ "status": "approved" | "rejected" | "archived", "reason": null|str }`.
-- Expected: HTTP 200 and message `status` updated.
+- Expected: HTTP 200 and message `status` updated, response includes `recipient_id` when approved.
 
 Negative tests to include:
 - Send without auth -> 401 `AUTH_INVALID_TOKEN`.
