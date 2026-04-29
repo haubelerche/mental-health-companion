@@ -118,7 +118,7 @@ function ResourceGrid({
 export default function Resources() {
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
-    const requestedCategory = searchParams.get('category') || 'sleep'
+    const requestedCategory = searchParams.get('category') || 'all'
     const initialCategory = RESOURCE_CATEGORY_IDS.includes(requestedCategory) ? requestedCategory : 'sleep'
 
     const [categories, setCategories] = useState([{ id: 'all', label: 'Tất cả', icon: '✦' }])
@@ -142,15 +142,14 @@ export default function Resources() {
         const loadResources = async () => {
             setLoadingResources(true)
             try {
-                if (selectedCategory === 'all') {
-                    const categoryIds = categories.filter((cat) => cat.id !== 'all').map((cat) => cat.id)
-                    const responses = await Promise.all(categoryIds.map((category) => resourceService.list(category, 50, 0)))
-                    const merged = responses.flatMap((response) => response.items)
-                    if (active) setItems(merged)
-                } else {
-                    const data = await resourceService.list(selectedCategory, 50, 0)
-                    if (active) setItems(data.items)
-                }
+                const categoryParam =
+                    selectedCategory === 'all'
+                        ? undefined
+                        : selectedCategory
+
+                const data = await resourceService.list(categoryParam, 50, 0)
+
+                if (active) setItems(data.items)
             } catch {
                 if (active) setItems([])
             } finally {
