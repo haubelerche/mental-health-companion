@@ -47,28 +47,34 @@ def categories():
 
 @router.get("")
 def list_resources(
-    category: str = Query(...),
+    category: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
-    if category not in CATEGORIES:
+    # Normalize category
+    if category == "all":
+        category = None
+
+    if category and category not in CATEGORIES:
         raise AppError("INVALID_PARAMETER", "Category không hợp lệ", 400)
 
-    total = (
-        db.scalar(
-            select(func.count(Resource.resource_id)).where(
-                Resource.category == category,
-                Resource.is_active.is_(True),
-            )
-        )
-        or 0
-    )
+    # Build conditions
+    conditions = [Resource.is_active.is_(True)]
 
+    if category:
+        conditions.append(Resource.category == category)
+
+    # Total
+    total = db.scalar(
+        select(func.count(Resource.resource_id)).where(*conditions)
+    ) or 0
+
+    # Query
     rows = db.scalars(
         select(Resource)
-        .where(Resource.category == category, Resource.is_active.is_(True))
+        .where(*conditions)
         .order_by(Resource.created_at.desc())
         .offset(offset)
         .limit(limit)
