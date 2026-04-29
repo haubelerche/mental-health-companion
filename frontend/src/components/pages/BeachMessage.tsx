@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import paperBoatImage from "../../assets/thuyen.png";
 import beachBackgroundImage from "../../assets/beach-message-bg.avif";
+import { anonymousShareService, type BambooMessage as BambooInboxItem } from "../../services/anonymousShareService";
 import {
   APP_SETTINGS_STORAGE_KEY,
   APP_SETTINGS_UPDATED_EVENT,
@@ -10,10 +11,12 @@ import {
 } from "../../utils/appSettings";
 
 type Letter = {
-  id: number;
+  id: string;
   from: string;
   time: string;
   body: string;
+  topic?: string | null;
+  tone?: string | null;
 };
 
 type TabId = "beach" | "community";
@@ -62,11 +65,33 @@ const getUi = (dark: boolean) => ({
   sendText: "text-white",
 });
 
-const LETTERS: Letter[] = [
-  { id: 1, from: "Một người vô danh", time: "2 giờ trước", body: "Hôm nay tôi nhìn ra cửa sổ và thấy một chú mèo đang ngủ trên mái nhà hàng xóm. Nó trông thật bình yên đến mức tôi cũng cảm thấy nhẹ nhàng hơn. Đôi khi những điều nhỏ nhặt nhất lại chữa lành mình nhiều nhất." },
-  { id: 2, from: "Người lữ hành", time: "5 giờ trước", body: "Bạn ơi, nếu hôm nay bạn đang mệt mỏi — điều đó hoàn toàn ổn. Không cần phải mạnh mẽ mọi lúc. Cứ nghỉ ngơi đi nhé, ngày mai lại bắt đầu thôi." },
-  { id: 3, from: "Ẩn danh từ biển", time: "Hôm qua", body: "Tôi đang học cách chấp nhận rằng không phải mọi ngày đều phải ý nghĩa. Đôi khi chỉ cần tồn tại qua một ngày cũng đã là đủ rồi." },
-];
+function formatRelativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffMinutes = Math.max(1, Math.floor(diffMs / 60000));
+  if (diffMinutes < 60) return `${diffMinutes} phút trước`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} giờ trước`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays} ngày trước`;
+  return new Date(iso).toLocaleDateString("vi-VN");
+}
+
+function toLetter(message: BambooInboxItem): Letter {
+  return {
+    id: message.id,
+    from: message.anonymous_name,
+    time: formatRelativeTime(message.received_at),
+    body: message.content,
+    topic: message.topic,
+    tone: message.tone,
+  };
+}
+
+function pickRandomLetter(messages: BambooInboxItem[]): Letter | null {
+  if (!messages.length) return null;
+  const index = Math.floor(Math.random() * messages.length);
+  return toLetter(messages[index]);
+}
 
 function CinematicBg({ dark }: { dark: boolean }) {
   return (
@@ -196,11 +221,24 @@ function FloatingBottle({ dark, onClick, isClicked }: { dark: boolean; onClick: 
   );
 }
 
-function LetterOverlay({ letter, onClose, dark }: { letter: Letter; onClose: () => void; dark: boolean }) {
+function LetterOverlay({
+  letter,
+  onClose,
+  dark,
+  onReply,
+  onPass,
+}: {
+  letter: Letter;
+  onClose: () => void;
+  dark: boolean;
+  onReply: (content: string) => Promise<void>;
+  onPass: () => Promise<void>;
+}) {
   const ui = getUi(dark);
   const [replyOpen, setReplyOpen] = useState(false);
   const [reply, setReply] = useState("");
   const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
   const areaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -271,6 +309,7 @@ function LetterOverlay({ letter, onClose, dark }: { letter: Letter; onClose: () 
                 <button
                   type="button"
                   onClick={() => setReplyOpen(true)}
+                  disabled={busy}
                   className={`flex-1 bg-none border rounded-xl py-2.5 px-0 font-display tracking-wide cursor-pointer transition-all`}
                   style={{
                     borderColor: dark ? "rgba(242,235,224,0.13)" : "rgba(18,30,40,0.18)",
@@ -297,7 +336,19 @@ function LetterOverlay({ letter, onClose, dark }: { letter: Letter; onClose: () 
                 </button>
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={async () => {
+                    if (busy) return;
+                    setBusy(true);
+                    try {
+                      await onPass();
+                    } catch {
+                      return;
+                    } finally {
+                      setBusy(false);
+                      onClose();
+                    }
+                  }}
+                  disabled={busy}
                   className={`flex-1 bg-none border rounded-xl py-2.5 px-0 font-display  font-semibold tracking-wide cursor-pointer transition-all`}
                   style={{
                     borderColor: dark ? "rgba(242,235,224,0.13)" : "rgba(18,30,40,0.18)",
@@ -356,9 +407,11 @@ function LetterOverlay({ letter, onClose, dark }: { letter: Letter; onClose: () 
                   <button
                     type="button"
                     onClick={() => {
+                      if (busy) return;
                       setReplyOpen(false);
                       setReply("");
                     }}
+                    disabled={busy}
                     style={{
                       background: "none",
                       border: "none",
@@ -370,13 +423,20 @@ function LetterOverlay({ letter, onClose, dark }: { letter: Letter; onClose: () 
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (reply.trim()) {
+                    onClick={async () => {
+                      if (!reply.trim() || busy) return;
+                      setBusy(true);
+                      try {
+                        await onReply(reply.trim());
                         setSent(true);
                         setTimeout(onClose, 2000);
+                      } catch {
+                        return;
+                      } finally {
+                        setBusy(false);
                       }
                     }}
-                    disabled={!reply.trim()}
+                    disabled={!reply.trim() || busy}
                     style={{
                       background: reply.trim()
                         ? "linear-gradient(135deg,#5fd0be 0%,#4f9dcb 100%)"
@@ -433,6 +493,7 @@ function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boolean })
   const ui = getUi(dark);
   const [text, setText] = useState("");
   const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   return (
     <div
@@ -513,13 +574,20 @@ function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boolean })
               <div className="flex justify-end mt-3.5">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (text.trim()) {
-                      setSent(true);
-                      setTimeout(onClose, 2200);
-                    }
-                  }}
-                  disabled={!text.trim()}
+                    onClick={async () => {
+                      if (!text.trim() || busy) return;
+                      setBusy(true);
+                      try {
+                        await anonymousShareService.send({ content: text.trim() });
+                        setSent(true);
+                        setTimeout(onClose, 2200);
+                      } catch {
+                        return;
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                  disabled={!text.trim() || busy}
                   style={{
                     background: text.trim()
                       ? "linear-gradient(135deg,#5fd0be 0%,#4f9dcb 100%)"
@@ -598,13 +666,39 @@ export default function BeachMessage() {
   }, []);
 
   const [tab, setTab] = useState<TabId>("beach");
-  const [pendingLetter, setPendingLetter] = useState<Letter | null>(() =>
-    Math.random() >= 0.5 ? LETTERS[Math.floor(Math.random() * LETTERS.length)] : null
-  );
+  const [inboxLetters, setInboxLetters] = useState<Letter[]>([]);
+  const [pendingLetter, setPendingLetter] = useState<Letter | null>(null);
   const [ripple, setRipple] = useState(false);
   const [openLetter, setOpenLetter] = useState<Letter | null>(null);
   const [showWrite, setShowWrite] = useState(false);
+  const [loadingInbox, setLoadingInbox] = useState(false);
+  const [refreshSeed, setRefreshSeed] = useState(0);
   const hasBottle = Boolean(pendingLetter);
+
+  useEffect(() => {
+    let active = true;
+    const loadInbox = async () => {
+      setLoadingInbox(true);
+      try {
+        const data = await anonymousShareService.getInbox();
+        if (!active) return;
+        const mapped = data.messages.map(toLetter);
+        setInboxLetters(mapped);
+        setPendingLetter((current) => current ?? pickRandomLetter(data.messages));
+      } catch {
+        if (!active) return;
+        setInboxLetters([]);
+        setPendingLetter(null);
+      } finally {
+        if (active) setLoadingInbox(false);
+      }
+    };
+
+    void loadInbox();
+    return () => {
+      active = false;
+    };
+  }, [refreshSeed]);
 
   const handleBottle = () => {
     if (!pendingLetter) return;
@@ -614,6 +708,16 @@ export default function BeachMessage() {
       setOpenLetter(pendingLetter);
       setPendingLetter(null);
     }, 700);
+  };
+
+  const refreshInbox = () => setRefreshSeed((value) => value + 1);
+  const handleReplyLetter = async (content: string, letterId: string) => {
+    await anonymousShareService.reply(letterId, content);
+    refreshInbox();
+  };
+  const handlePassLetter = async (letterId: string) => {
+    await anonymousShareService.passItOn(letterId);
+    refreshInbox();
   };
 
   return (
@@ -679,11 +783,17 @@ export default function BeachMessage() {
                   : "0 2px 12px rgba(255,255,255,0.38)",
               }}
             >
-              {hasBottle ? "Có một lá thư đang chờ bạn" : "Chưa có thư mới"}
+              {loadingInbox ? "Đang đón thư từ biển..." : hasBottle ? "Có một lá thư đang chờ bạn" : "Chưa có thư mới"}
             </h1>
           </div>
 
-          {hasBottle ? (
+          {loadingInbox ? (
+            <div className="text-center" style={{ animation: "fadeUp 1s ease 0.3s both" }}>
+              <p className={`${ui.textPrimary} font-display text-2xl italic font-normal leading-relaxed`}>
+                Đang lắng nghe biển khơi...
+              </p>
+            </div>
+          ) : hasBottle ? (
             <div
               className="flex flex-col items-center gap-6"
               style={{ animation: "fadeUp 1s ease 0.3s both" }}
@@ -700,10 +810,7 @@ export default function BeachMessage() {
               className="text-center"
               style={{ animation: "fadeUp 1s ease 0.3s both" }}
             >
-              <p
-                className={`${ui.textPrimary} font-display text-2xl italic font-normal leading-relaxed`}
-                style={{ opacity: dark ? 0.78 : 0.88 }}
-              >
+              <p className={`${ui.textPrimary} font-display text-2xl italic font-normal leading-relaxed`} style={{ opacity: dark ? 0.78 : 0.88 }}>
                 Biển đang lặng, chưa có thư trôi đến.
               </p>
             </div>
@@ -751,38 +858,54 @@ export default function BeachMessage() {
           </div>
 
           <div className="flex flex-col gap-4">
-            {LETTERS.map((l, i) => (
-              <div
-                key={l.id}
-                onClick={() => setOpenLetter(l)}
-                className={`${ui.glassLight} border rounded-2xl p-6 cursor-pointer transition-all hover:bg-opacity-70 hover:border-opacity-80`}
-                style={{ animation: `fadeUpCard 0.6s ease ${i * 0.1}s both` }}
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <p className={`${ui.textSubtle} font-display text-sm font-semibold tracking-wide`}>
-                    {l.from}
+            {inboxLetters.length > 0 ? (
+              inboxLetters.map((l, i) => (
+                <div
+                  key={l.id}
+                  onClick={() => setOpenLetter(l)}
+                  className={`${ui.glassLight} border rounded-2xl p-6 cursor-pointer transition-all hover:bg-opacity-70 hover:border-opacity-80`}
+                  style={{ animation: `fadeUpCard 0.6s ease ${i * 0.1}s both` }}
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <p className={`${ui.textSubtle} font-display text-sm font-semibold tracking-wide`}>
+                      {l.from}
+                    </p>
+                    <p className={`${ui.textSubtler}  text-xs`}>
+                      {l.time}
+                    </p>
+                  </div>
+                  <p className={`${ui.textSubtle} font-display text-lg italic leading-relaxed mb-3 line-clamp-3`}>
+                    {l.body}
                   </p>
-                  <p className={`${ui.textSubtler}  text-xs`}>
-                    {l.time}
+                  <p className={`${ui.textSubtler} text-xs tracking-wider `}>
+                    Nhấn để đọc & hồi âm →
                   </p>
                 </div>
-                <p
-                  className={`${ui.textSubtle} font-display text-lg italic leading-relaxed mb-3 line-clamp-3`}
-                >
-                  {l.body}
-                </p>
-                <p className={`${ui.textSubtler} text-xs tracking-wider `}>
-                  Nhấn để đọc & hồi âm →
+              ))
+            ) : (
+              <div className={`${ui.glassLight} border rounded-2xl p-6 text-center`}>
+                <p className={`${ui.textSubtle} font-display text-lg italic`}>
+                  Chưa có thư nào trong kho.
                 </p>
               </div>
-            ))}
+            )}
           </div>
         </div>
       )}
 
       {/* Overlays */}
       {openLetter && (
-        <LetterOverlay letter={openLetter} onClose={() => setOpenLetter(null)} dark={dark} />
+        <LetterOverlay
+          letter={openLetter}
+          onClose={() => setOpenLetter(null)}
+          dark={dark}
+          onReply={async (content) => {
+            await handleReplyLetter(content, openLetter.id);
+          }}
+          onPass={async () => {
+            await handlePassLetter(openLetter.id);
+          }}
+        />
       )}
       {showWrite && <WriteOverlay onClose={() => setShowWrite(false)} dark={dark} />}
     </div>
