@@ -1440,6 +1440,8 @@ Hồi âm một lá thư đã đọc.
 **Validation**
 - `message_id` phải tồn tại và thuộc inbox / kho thư hợp lệ của user.
 - `content` 1–1,000 ký tự.
+- Reply sẽ được route về `user_id` của thư gốc (người gửi ban đầu) qua `recipient_id`.
+- Chỉ recipient hiện tại của thư gốc mới được phép reply.
 
 **Error chính**
 - `AUTH_INVALID_TOKEN` (401)
@@ -1476,6 +1478,7 @@ Hồi âm một lá thư đã đọc.
 **Ghi chú**
 - Thao tác này có thể chỉ tăng `pass_count` và đưa thư vào batch reselection.
 - Không bắt buộc phải tạo bản sao thư mới.
+- Chỉ recipient hiện tại của thư mới được phép pass.
 
 **Error chính**
 - `AUTH_INVALID_TOKEN` (401)
