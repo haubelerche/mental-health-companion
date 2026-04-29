@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.responses import ok
 from app.core.errors import AppError
-from app.services.utils import make_id, utc_now
+from app.services.utils import make_id, utc_now, make_anon_name
 from app.api.deps import ensure_policy_acknowledged, get_admin_claims, enforce_admin_ip
 from app.schemas.payloads import BambooSendRequest, BambooReplyRequest, BambooPassRequest
 from app.db.models import User, BambooMessage
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/bamboo", tags=["bamboo"])
 @router.post("/send")
 def send_letter(payload: BambooSendRequest, db: Session = Depends(get_db), current_user: User = Depends(ensure_policy_acknowledged)):
     msg_id = make_id("bam")
-    anon_name = "Một người vô danh"
+    anon_name = make_anon_name(payload.topic, payload.tone)
     record = BambooMessage(
         message_id=msg_id,
         user_id=current_user.user_id,
@@ -124,7 +124,7 @@ def reply_letter(payload: BambooReplyRequest, db: Session = Depends(get_db), cur
     reply = BambooMessage(
         message_id=rid,
         user_id=current_user.user_id,
-        anonymous_name="Một người vô danh",
+        anonymous_name=make_anon_name(payload.topic or target.topic, None),
         content=payload.content,
         topic=payload.topic or target.topic,
         tone=None,
