@@ -28,4 +28,6 @@ export const ROUTE_PATHS = {
     admin: '/admin',
     adminLogin: '/admin/login',
     adminDashboard: '/admin/dashboard',
+    adminCrisisLogs: '/admin/crisis-logs',
+    adminResources: '/admin/resources',
 } as const
