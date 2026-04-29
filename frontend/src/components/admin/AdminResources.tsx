@@ -182,7 +182,7 @@ export default function AdminResources() {
                         className="rounded-lg border border-serene-primary/20 p-2 text-sm"
                     />
                     <input
-                        value={form.storage_key}
+                        value={form.storage_key || ''}
                         onChange={(event) => setForm((prev) => ({ ...prev, storage_key: event.target.value }))}
                         placeholder="storage_key (optional nếu có external_url)"
                         className="rounded-lg border border-serene-primary/20 p-2 text-sm md:col-span-2"

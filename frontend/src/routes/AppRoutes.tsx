@@ -8,7 +8,7 @@ import Connect from '../components/pages/Connect.tsx'
 
 import Landing from '../components/pages/Landing.tsx'
 import Reflect from '../components/pages/Reflect.tsx'
-import Resources from '../components/pages/Resources.tsx'
+import Resources from '../components/pages/resource/Resources.tsx'
 import Nutrition from '../components/pages/Nutrition.tsx'
 import { CheckinFlow } from '../components/pages/CheckinFlow'
 import { SafetyCheck } from '../components/pages/SafetyCheck'
