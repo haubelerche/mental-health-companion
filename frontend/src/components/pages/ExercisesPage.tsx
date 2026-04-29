@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Pause, Play, Settings, Waves, X } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import ocean from '../../assets/forest.png'
+import ocean from '../../assets/bg-reflect.png'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { exerciseService, FALLBACK_EXERCISES, findFallbackExercise, type ExerciseItem } from '../../services/exerciseService'
 
@@ -122,13 +122,12 @@ export function ExercisesPage() {
   }
 
   return (
-    <div className="h-screen overflow-hidden rounded-xl text-serene-ink sm:-m-8 lg:-m-12">
-      <div className="absolute inset-0">
-        <img src={ocean} alt="" className="h-full w-full object-cover" />
-      <div className='absolute inset-0 bg-linear-to-t from-black/10 to-black/20'/>
-        
+    <div className="rounded-xl text-serene-ink sm:-m-8 lg:-m-12">
+      <div className="fixed inset-0">
+        <img src={ocean} alt="Background" className="h-full w-full object-cover" />
+        <div className='absolute inset-0 bg-linear-to-t from-black/10 to-black/20' />
       </div>
-      <div className="relative h-full overflow-y-auto mx-auto w-full max-w-5xl px-4 py-6 md:px-8 md:py-8">
+      <div className="relative mx-auto w-full max-w-5xl px-4 py-6 md:px-8 md:py-8">
         {isHubMode ? (
           <section className="rounded-4xl border border-white/40 bg-serene-bg/75 p-5 shadow-md backdrop-blur-xl md:p-8">
             <header className="mb-8 flex items-center justify-between">

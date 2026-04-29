@@ -17,6 +17,12 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import quotesJson from '../../../famous-quotes.json'
+import beachMessageBg from '../../assets/beach-message-bg.avif'
+import reflectBgImg from '../../assets/bg-reflect.png'
+import exerciseImg from '../../assets/exercise.png'
+import forestImg from '../../assets/forest.png'
+import healingImg from '../../assets/healing.jpg'
+import nutritionImg from '../../assets/nutrition-a1.jpg'
 import { useNavigate } from 'react-router-dom'
 import { homeService } from '../../services/homeService'
 import { httpClient } from '../../api/httpClient'
@@ -286,7 +292,9 @@ export default function Home() {
     const [quoteIndex, setQuoteIndex] = useState(0)
     const currentHour = new Date().getHours()
     const currentSlot = useMemo<TimeSlot>(() => getCurrentTimeSlot(currentHour), [currentHour])
+
     const currentReminders = useMemo(() => SLOT_REMINDERS[currentSlot], [currentSlot])
+    const [selectedReminderId, setSelectedReminderId] = useState<string>(currentReminders[0]?.id ?? '')
     const [detailReminderId, setDetailReminderId] = useState<string | null>(null)
     const detailReminder = useMemo(
         () => currentReminders.find((item) => item.id === detailReminderId) ?? null,
@@ -377,9 +385,10 @@ export default function Home() {
         return () => window.clearInterval(timer)
     }, [quotes.length])
 
-    const activeReminderId = detailReminderId && currentReminders.some((item) => item.id === detailReminderId)
-        ? detailReminderId
-        : currentReminders[0]?.id ?? ''
+    useEffect(() => {
+        if (currentReminders.some((item) => item.id === selectedReminderId)) return
+        setSelectedReminderId(currentReminders[0]?.id ?? '')
+    }, [currentReminders, selectedReminderId])
 
     const displayName = user?.displayName || 'bạn'
 
@@ -410,69 +419,80 @@ export default function Home() {
             </header>
 
             {/* ── Today's plan + streak ── */}
-            <section className="rounded-[28px] border border-white/40 bg-[linear-gradient(135deg,rgba(255,255,255,0.85),rgba(250,247,242,0.92))] p-6 shadow-[0_12px_32px_rgba(72,78,90,0.12)] backdrop-blur-xl">
-                <div className="mb-4 flex items-center justify-between">
-                    <h2 className="font-display text-[1.6rem] text-serene-ink">Hôm nay của bạn</h2>
-                    <span className="rounded-full bg-linear-to-r from-serene-primary/20 to-serene-primary/10 px-3 py-1 text-xs font-semibold text-serene-primary border border-serene-primary/30">
-                        {TIME_SLOT_META[currentSlot].label} · {TIME_SLOT_META[currentSlot].range}
-                    </span>
-                </div>
-                <p className="mb-5 text-sm text-serene-muted">{TIME_SLOT_META[currentSlot].intro}</p>
+            <section className="rounded-[28px] border border-white/35 bg-white/45 p-6 backdrop-blur-xl">
+                <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
+                    <div>
+                        <div className="mb-4 flex items-center justify-between gap-4">
+                            <h2 className="font-display text-[1.6rem] text-serene-ink">Hôm nay của bạn</h2>
+                            <span className="rounded-full bg-serene-primary/10 px-3 py-1 text-xs font-semibold text-serene-primary">
+                                {TIME_SLOT_META[currentSlot].label} · {TIME_SLOT_META[currentSlot].range}
+                            </span>
+                        </div>
+                        <p className="mb-4 text-sm text-serene-muted">{TIME_SLOT_META[currentSlot].intro}</p>
 
-                <div className="space-y-2.5">
-                    {currentReminders.map((item, idx) => {
-                        const active = activeReminderId === item.id
-                        const gradients = [
-                            'from-blue-200/80 to-cyan-200/40',
-                            'from-emerald-200/80 to-teal-200/40',
-                            'from-amber-200/60 to-orange-200/40',
-                            'from-rose-200/60 to-pink-200/40',
-                        ]
-                        const bgGradient = gradients[idx % gradients.length]
-                        return (
-                            <motion.button
-                                key={item.id}
-                                type="button"
-                                onClick={() => setDetailReminderId(item.id)}
+                        <div className="space-y-3">
+                            {currentReminders.map((item) => {
+                                const active = selectedReminderId === item.id
+                                return (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedReminderId(item.id)
+                                            setDetailReminderId(item.id)
+                                        }}
+                                        className={[
+                                            'flex w-full items-center gap-3 rounded-2xl p-4 text-left transition active:scale-[0.98]',
+                                            active
+                                                ? 'border border-serene-primary/30 bg-serene-primary/10'
+                                                : 'border border-transparent bg-white/60 hover:bg-white/80',
+                                        ].join(' ')}
+                                    >
+                                        <Info className={`h-5 w-5 shrink-0 ${active ? 'text-serene-primary' : 'text-serene-outline'}`} />
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-semibold text-serene-ink">{item.title}</p>
+                                            <p className="mt-0.5 text-xs text-serene-muted">{item.summary}</p>
+                                        </div>
+                                        <ChevronRight className={`h-4 w-4 ${active ? 'text-serene-primary' : 'text-serene-muted'}`} />
+                                    </button>
+                                )
+                            })}
+                        </div>
 
-                                className={`flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-all duration-200 ${active
-                                    ? 'border border-serene-primary/50 bg-linear-to-r from-serene-primary/15 to-serene-primary/8 shadow-[0_8px_24px_rgba(111,164,180,0.15)] ring-1 ring-serene-primary/30'
-                                    : `border border-white/40 bg-linear-to-r ${bgGradient} shadow-[0_4px_12px_rgba(255,255,255,0.5)] hover:shadow-[0_8px_20px_rgba(72,78,90,0.1)]`
-                                    }`}
-                            >
-                                <div className="relative">
-                                    <Info className={`h-5 w-5 shrink-0 transition-all duration-300 ${active ? 'text-serene-primary scale-110' : 'text-serene-primary/60'}`} />
+                        <div className="mt-5 border-t border-serene-outline/20 pt-5">
+                            <p className="mb-3 text-xs uppercase tracking-[0.22em] text-serene-muted">
+                                Chuỗi tuần này
+                            </p>
+                            <StreakBar streak={streak} />
+                        </div>
+                    </div>
 
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <p className={`text-sm font-semibold transition-colors ${active ? 'text-serene-primary' : 'text-serene-ink'}`}>
-                                        {item.title}
-                                    </p>
-                                    <p className="mt-0.5 text-xs text-serene-muted">{item.summary}</p>
-                                </div>
-                                <motion.div
-                                    animate={{ x: active ? 4 : 0 }}
-                                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                                >
-                                    <ChevronRight className={`h-4 w-4 transition-colors ${active ? 'text-serene-primary' : 'text-serene-muted/50'}`} />
-                                </motion.div>
-                            </motion.button>
-                        )
-                    })}
-                </div>
-
-                <div className="mt-6 border-t border-serene-outline/20 pt-5">
-                    <p className="mb-3 text-xs uppercase tracking-[0.22em] text-serene-muted">
-                        Chuỗi tuần này
-                    </p>
-                    <StreakBar streak={streak} />
+                    <div className="relative overflow-hidden rounded-[26px] border border-white/40 min-h-[280px] shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+                        <img
+                            src={forestImg}
+                            alt="Khung cảnh thiên nhiên dịu nhẹ cho phần nhịp hôm nay"
+                            className="absolute inset-0 h-full w-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-serene-ink/70 via-serene-ink/25 to-transparent" />
+                        <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+                            <p className="text-xs uppercase tracking-[0.22em] text-white/75">Nhịp hôm nay</p>
+                            <p className="mt-2 text-lg font-semibold">{TIME_SLOT_META[currentSlot].label}</p>
+                            <p className="mt-1 max-w-sm text-sm leading-relaxed text-white/85">{TIME_SLOT_META[currentSlot].intro}</p>
+                        </div>
+                    </div>
                 </div>
             </section>
 
             {/* ── Dành cho bạn ── */}
             <section className='bg-serene-bg/75 p-4 border border-white/35 rounded-3xl backdrop-blur-xl'>
-                <div className="mb-4 flex items-center justify-between">
-                    <h2 className="font-display text-3xl text-serene-ink">Dành cho bạn</h2>
+
+                <div className="flex items-center justify-between gap-4">
+                    <div>
+                        <h2 className="font-display text-3xl text-serene-ink">Dành cho bạn</h2>
+                        <p className="mt-2 max-w-xl text-sm text-serene-muted">
+                            Chọn một lối vào ngắn, nhẹ và đúng nhu cầu hiện tại để bạn bắt đầu nhanh hơn.
+                        </p>
+                    </div>
                     <button
                         type="button"
                         onClick={() => navigate(ROUTE_PATHS.exercises)}
@@ -481,14 +501,28 @@ export default function Home() {
                         Xem tất cả
                     </button>
                 </div>
-                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+
+                <div className="relative overflow-hidden rounded-[24px] border border-white/40 min-h-[300px] shadow-lg mt-5">
+                    <img
+                        src={exerciseImg}
+                        alt="Một hình minh họa cho các gợi ý bắt đầu nhanh"
+                        className="absolute inset-0 h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-tr from-serene-ink/65 via-serene-ink/18 to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/75">Khởi động nhẹ</p>
+                        <p className="mt-1 text-sm font-semibold">Một chạm là có thể bắt đầu ngay</p>
+                    </div>
+                </div>
+
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide mt-5">
                     {RECO_CARDS.map((card) => {
                         return (
                             <button
                                 key={card.label}
                                 type="button"
                                 onClick={() => navigate(card.route)}
-                                className="flex min-w-37 shrink-0 flex-col gap-3 rounded-[22px] border border-white/35 bg-white/50 p-4 text-left backdrop-blur-xl transition hover:bg-white/70 active:scale-[0.97]"
+                                className="flex min-w-37 shrink-0 flex-col gap-3 rounded-[22px] border border-gray-400 bg-white/70 p-4 text-left backdrop-blur-xl transition-colors hover:bg-serene-on-primary active:scale-[0.97]"
                             >
                                 <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl text-xl ${card.accentClass}`}>
                                     {card.emoji}
@@ -504,34 +538,27 @@ export default function Home() {
             </section>
 
             <section className="rounded-[28px] border border-white/35 bg-serene-bg/65 p-6 backdrop-blur-xl">
-                <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+                <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
                     <div>
                         <p className="font-semibold uppercase tracking-[0.2em] text-serene-muted">Tâm trạng hôm nay?</p>
                         <p className="mt-2 max-w-xl text-sm leading-relaxed text-serene-muted/80">
                             Chọn 1-3 từ mô tả điều đang diễn ra bên trong bạn. Những từ nhỏ cũng đủ giúp bạn nhìn rõ mình hơn.
                         </p>
 
-                        <div className="p-4 mt-3">
-                            <div className="mb-4">
-                                <MoodWordChips selected={homeMoodWords} onChange={setHomeMoodWords} />
+                        <div className="mt-4">
+                            <div className="relative h-full overflow-hidden rounded-[22px] border border-white/50 min-h-[190px]">
+                                <img
+                                    src={healingImg}
+                                    alt="Không gian chữa lành dịu nhẹ cho phần chọn từ mô tả tâm trạng"
+                                    className="absolute inset-0 h-full w-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-tr from-serene-ink/60 via-serene-ink/15 to-transparent" />
+                                <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                                    <p className="text-xs uppercase tracking-[0.22em] text-white/75">Lắng dịu</p>
+                                    <p className="mt-1 text-sm font-semibold">Nhìn vào ảnh, rồi gọi tên cảm xúc của mình</p>
+                                </div>
                             </div>
-                            {homeMoodWords.length > 0 && (
-                                <motion.button
-                                    type="button"
-                                    onClick={() =>
-                                        navigate(ROUTE_PATHS.checkin, { state: { moodWords: homeMoodWords } })
-                                    }
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                                    className="mt-4 inline-flex items-center gap-2 rounded-full bg-linear-to-r from-serene-primary/60 to-serene-primary/15 px-5 py-2.5 text-sm font-semibold text-serene-primary border border-serene-primary/40 transition duration-200 ease-in-out hover:from-serene-primary/25 hover:to-serene-primary/20 ]"
-                                >
-                                    Ghi chép thêm
-                                    <motion.div animate={{ x: [0, 3, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
-                                        <ArrowRight className="h-4 w-4" />
-                                    </motion.div>
-                                </motion.button>
-                            )}
+
                         </div>
                     </div>
 
@@ -539,7 +566,6 @@ export default function Home() {
                         <div className="mb-4 flex items-center justify-between gap-4">
                             <div>
                                 <h3 className=" uppercase tracking-[0.2em] font-display">Một câu nhắc dịu dàng</h3>
-
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
@@ -561,7 +587,13 @@ export default function Home() {
                             </div>
                         </div>
 
-                        <div className="min-h-55 rounded-3xl border border-serene-outline/10 bg-[linear-gradient(135deg,rgba(111,164,180,0.42),rgba(255,255,255,0.96))] p-5 sm:p-6">
+                        <div className="relative min-h-55 overflow-hidden rounded-3xl border border-serene-outline/10 bg-[linear-gradient(135deg,rgba(111,174,180,0.82),rgba(255,255,255,0.96))] p-5 sm:p-6">
+                            <img
+                                src={beachMessageBg}
+                                alt="Nền sóng biển dịu để làm nổi bật câu nhắc"
+                                className="absolute inset-0 h-full w-full object-cover opacity-18"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/35 to-white/75" />
 
                             <AnimatePresence mode="wait">
                                 <motion.div
@@ -569,8 +601,8 @@ export default function Home() {
                                     initial={{ opacity: 0, x: 20, filter: 'blur(6px)' }}
                                     animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
                                     exit={{ opacity: 0, x: -20, filter: 'blur(6px)' }}
-                                    transition={{ duration: 0.55, ease: 'easeOut' }}
-                                    className="flex h-full flex-col justify-between"
+                                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                                    className="relative flex h-full flex-col justify-between"
                                 >
                                     <blockquote className="font-display text-[1.15rem] italic leading-8 text-serene-ink sm:text-[1.35rem]">
                                         {quoteContent}
@@ -595,6 +627,30 @@ export default function Home() {
                             </AnimatePresence>
                         </div>
                     </div>
+
+                </div>
+
+                <div className="mt-4">
+                    <div className="mb-4">
+                        <MoodWordChips selected={homeMoodWords} onChange={setHomeMoodWords} />
+                    </div>
+                    {homeMoodWords.length > 0 && (
+                        <motion.button
+                            type="button"
+                            onClick={() =>
+                                navigate(ROUTE_PATHS.checkin, { state: { moodWords: homeMoodWords } })
+                            }
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                            className="mt-4 inline-flex items-center gap-2 rounded-full bg-linear-to-r from-serene-primary/60 to-serene-primary/15 px-5 py-2.5 text-sm font-semibold text-serene-primary border border-serene-primary/40 transition duration-200 ease-in-out hover:from-serene-primary/25 hover:to-serene-primary/20 ]"
+                        >
+                            Ghi chép thêm
+                            <motion.div animate={{ x: [0, 3, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
+                                <ArrowRight className="h-4 w-4" />
+                            </motion.div>
+                        </motion.button>
+                    )}
                 </div>
             </section>
 
@@ -603,9 +659,22 @@ export default function Home() {
                 onClick={() => navigate(ROUTE_PATHS.nutrition)}
                 whileHover={{ y: -4 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                className="group w-full rounded-[28px] border border-white/40 bg-gradient-to-br from-white/85 via-white/75 to-amber-50/60 p-7 text-left backdrop-blur-xl shadow-[0_8px_24px_rgba(251,191,36,0.08)] transition-all hover:shadow-[0_12px_32px_rgba(251,191,36,0.12)] active:scale-[0.98]"
+                className="group w-full rounded-[28px] border border-white/40 bg-linear-to-br from-white/85 via-white/75 to-amber-50/60 p-7 text-left backdrop-blur-xl shadow-[0_8px_24px_rgba(251,191,36,0.08)] transition-all hover:shadow-[0_12px_32px_rgba(251,191,36,0.12)] active:scale-[0.98]"
             >
-                <div className="flex items-start justify-between gap-4">
+                <div className="grid gap-5 lg:grid-cols-[220px_1fr_auto] lg:items-center">
+                    <div className="relative overflow-hidden rounded-[24px] border border-white/60 min-h-[170px] shadow-[0_12px_26px_rgba(251,191,36,0.12)]">
+                        <img
+                            src={nutritionImg}
+                            alt="Món ăn gợi ý cho phần dinh dưỡng"
+                            className="absolute inset-0 h-full w-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-tr from-serene-ink/55 via-serene-ink/10 to-transparent" />
+                        <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                            <p className="text-xs uppercase tracking-[0.22em] text-white/75">Nạp lại năng lượng</p>
+                            <p className="mt-1 text-sm font-semibold">Ăn đủ để mood cũng được nâng lên</p>
+                        </div>
+                    </div>
+
                     <div className="flex-1">
                         <p className="text-xs uppercase tracking-[0.22em] font-semibold text-serene-muted/80">Gợi ý dinh dưỡng</p>
                         <h2 className="mt-2.5 font-display text-2xl text-serene-ink group-hover:text-amber-700 transition-colors">
@@ -615,30 +684,30 @@ export default function Home() {
                             {nutritionTip?.benefit || 'Bữa ăn đủ đạm và chất xơ giúp ổn định mood, giảm cảm giác tụt năng lượng.'}
                         </p>
                     </div>
-                    <motion.div
-                        animate={{ rotate: [0, 10, 0] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="text-3xl shrink-0"
-                    >
-                        🍎
-                    </motion.div>
+                    <ArrowRight className="h-5 w-5 text-serene-ink/70 transition group-hover:translate-x-1" />
                 </div>
             </motion.button>
 
             {/* ── Quick action grid 2×2 ── */}
-            <section>
-                <h2 className="mb-4 font-display text-3xl text-white">Bắt đầu từ đây</h2>
+            <section className='p-6 bg-serene-on-primary/75 backdrop-blur-2xl rounded-4xl'>
+                <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_220px] lg:items-center">
+                    <div>
+                        <h2 className="font-display text-3xl text-serene-ink">Bắt đầu từ đây</h2>
+                        <p className="mt-2 max-w-2xl text-sm text-serene-muted">
+                            Các lối vào ngắn để bạn chuyển nhanh từ cảm nhận sang hành động.
+                        </p>
+                    </div>
+                
+                </div>
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                     {QUICK_ACTIONS.map((action) => {
                         const Icon = action.icon
                         return (
-                            <motion.button
+                            <button
                                 key={action.label}
                                 type="button"
-                                onClick={() => navigate(action.route)}
-                                whileHover={{ scale: 1.02 }}
-                                transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-                                className="group flex flex-col gap-4 rounded-[22px] border border-white/40 bg-gradient-to-br from-white/80 to-white/50 p-6 text-left backdrop-blur-xl shadow-[0_6px_16px_rgba(255,255,255,0.4)] hover:shadow-[0_12px_28px_rgba(72,78,90,0.12)] transition-all"
+
+                                className="group flex flex-col gap-4 rounded-[22px] border bg-white/80 p-6 text-left backdrop-blur-xl shadow-md hover:scale-105 duration-500 transition-all"
                             >
                                 <motion.div
                                     className={`inline-flex h-12 w-12 items-center justify-center rounded-xl ${action.bgClass} ${action.iconClass}`}
@@ -651,7 +720,7 @@ export default function Home() {
                                     <p className="text-sm font-bold text-serene-ink leading-tight">{action.label}</p>
                                     <p className="mt-1 text-xs text-serene-muted/80">{action.desc}</p>
                                 </div>
-                            </motion.button>
+                            </button>
                         )
                     })}
                 </div>
@@ -663,8 +732,14 @@ export default function Home() {
                 onClick={() => navigate(ROUTE_PATHS.reflect)}
                 whileHover={{ y: -4 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                className="group w-full rounded-3xl border border-serene-primary/40 bg-gradient-to-br from-serene-primary/90 via-serene-primary/85 to-serene-primary/75 p-7 text-left backdrop-blur-xl shadow-[0_10px_32px_rgba(111,164,180,0.2)] hover:shadow-[0_14px_40px_rgba(111,164,180,0.28)] transition-all"
+                className="group relative w-full overflow-hidden rounded-3xl border border-serene-primary/40 bg-gradient-to-br from-serene-primary/90 via-serene-primary/85 to-serene-primary/75 p-7 text-left backdrop-blur-xl shadow-[0_10px_32px_rgba(111,164,180,0.2)] hover:shadow-[0_14px_40px_rgba(111,164,180,0.28)] transition-all"
             >
+                <img
+                    src={reflectBgImg}
+                    alt="Nền minh họa cho phần nhìn lại tiến trình"
+                    className="absolute inset-0 h-full w-full object-cover opacity-15"
+                />
+                <div className="absolute inset-0 bg-gradient-to-br from-serene-primary/10 via-transparent to-serene-primary/25" />
                 <div className="flex items-center justify-between gap-5">
                     <div className="flex-1">
                         <motion.p
@@ -687,7 +762,7 @@ export default function Home() {
                             <ArrowRight className="h-5 w-5 text-serene-on-primary/70 transition group-hover:translate-x-1" />
                         </motion.div>
                     </div>
-                    <div className="shrink-0">
+                    <div className="relative shrink-0">
                         {wellnessScores ? (
                             <motion.div
                                 initial={{ scale: 0.8, opacity: 0 }}
