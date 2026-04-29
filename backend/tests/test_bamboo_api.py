@@ -13,6 +13,8 @@ from app.main import app
 from app.api.v1.routers import bamboo as bamboo_router
 from app.api.deps import ensure_policy_acknowledged, get_admin_claims, enforce_admin_ip
 from app.db.session import Base, get_db
+from app.db.models import User
+from datetime import datetime
 
 
 @pytest.fixture
@@ -40,6 +42,32 @@ def client_user(monkeypatch):
     )
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, class_=Session)
     Base.metadata.create_all(bind=engine)
+
+    # seed two users: the sender and an alternate recipient
+    sess = SessionLocal()
+    try:
+        u1 = User(
+            user_id="usr_test",
+            display_name="Test User",
+            email="usr_test@example.com",
+            password_hash="x",
+            disclaimer_accepted=True,
+            is_active=True,
+            policy_acknowledged_at=datetime.utcnow(),
+        )
+        u2 = User(
+            user_id="other_user",
+            display_name="Other User",
+            email="other@example.com",
+            password_hash="x",
+            disclaimer_accepted=True,
+            is_active=True,
+            policy_acknowledged_at=datetime.utcnow(),
+        )
+        sess.add_all([u1, u2])
+        sess.commit()
+    finally:
+        sess.close()
 
     def override_db():
         db = SessionLocal()
@@ -107,10 +135,14 @@ def test_send_and_approve_flow(client_user, client_admin):
     assert patch.status_code == 200
     assert patch.json()["data"]["status"] == "approved"
 
-    # inbox should now contain the message
+    # storage should still include the message for owner; moderation should indicate recipient assignment
     inbox = client_user.get("/v1/bamboo/inbox")
     assert inbox.status_code == 200
-    assert any(m["message_id"] == msg_id for m in inbox.json()["data"]["messages"]) 
+    patch_data = patch.json()["data"]
+    assert "recipient_id" in patch_data
+    # owner storage still shows the message
+    st2 = client_user.get("/v1/bamboo/storage")
+    assert any(item["message_id"] == msg_id for item in st2.json()["data"]["letters"]) 
 
 
 def test_reply_and_pass(client_user, client_admin):
