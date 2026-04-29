@@ -560,8 +560,6 @@ Xóa phiên chat. Mặc định là soft delete — nội dung ẩn với user, 
 
 **Summary được giữ lại chỉ bao gồm:** thống kê ẩn danh (số turn, tone cảm xúc tổng quát) — không bao gồm nội dung hội thoại, tên, hay bất kỳ thông tin có thể định danh.
 
----
-
 ## 3. Home
 
 ### `POST /mood/checkin`
@@ -1178,6 +1176,7 @@ Xảy ra ở middleware FastAPI **trước khi** request vào LangGraph. FE khô
 FE **phải** kiểm tra `sos_triggered` trước khi render `reply` như tin nhắn thường. Khi `sos_triggered = true`:
 1. Render **`assistant_text`** và các khối **`hotline_cards`**, **`micro_actions`**, **`grounding_actions`** (nếu có), **`referral_options`** theo `conversation_mode: de_escalation`.
 2. Tôn trọng **`assistant_strategy`**: nếu `avoid_hard_stop` — ưu tiên UI **dual-focus** (chat an toàn + hotline + micro-actions), không ép một pattern “chỉ fullscreen / chỉ số điện thoại” (`BACKEND_PLAN.md` §7.5–§7.7).
+
 3. Hiển thị nút gọi hotline / liên hệ hỗ trợ; map `followup_priority` nếu có màn hình follow-up.
 4. Đọc **`distress_score`**, **`safety_tier`**, **`voice_session_offered`** / **`voice_hint`**; nếu `emergency_actions` khác `null`, hiển thị trạng thái “đã kích hoạt luồng” (không hiển thị PII người tin cậy) — xem bảng mục **`POST /chat/message`**.
 
@@ -1212,8 +1211,6 @@ MVP dùng REST sync. Nếu latency P95 > 5s ở Phase 2, nâng cấp lên endpoi
 ### Admin Auth
 Endpoint `/admin/*` yêu cầu token từ luồng `POST /admin/auth/login` (MFA bắt buộc, TTL 15 phút, không có refresh). Middleware kiểm tra đồng thời: JWT claim `role: "admin" + scope: "admin_only"` và IP request có trong `ADMIN_ALLOWED_IPS`. Thiếu một trong hai → 403. Mọi request được ghi vào `admin_audit_log` không thể tắt.
 
----
-
 ## Đối chiếu `BACKEND_PLAN.md` và `SEQUENCE_DIAGRAMS.md`
 
 Tài liệu mục trên mô tả **MVP API**; backend hiện mount thêm các nhóm dưới tiền tố `/v1` (xem `backend/app/api/v1/api.py`). Bảng sau phản ánh **trạng thái triển khai** (cập nhật theo code), không chỉ nội dung cũ của chính file spec này:
@@ -1235,3 +1232,348 @@ Tài liệu mục trên mô tả **MVP API**; backend hiện mount thêm các nh
 **Ghi chú nhỏ:** Trong `BACKEND_PLAN` §5.5, câu “Quy trình theo Diagram 1” cho chat nên hiểu là **diagram chat / pipeline message** trong `SEQUENCE_DIAGRAMS` (Diagram 2 — Chat message), không phải Diagram 1 (guest-first).
 
 **Khuyến nghị tiếp:** (1) Bổ sung trong spec các section riêng cho `/guest/*`, `/intake/*`, `/policies/*`, `/screenings/*`, `/checkin/*`, `/dashboard/*`, `/safety/*` (hoặc gộp bảng tóm tắt OpenAPI); (2) quyết định giữ hay deprecate mood path cũ so với `/checkin/quick`; (3) mô tả rõ legal gate và quy trình vận hành cho `POST /safety/escalate` trước khi bật outbound thật.
+
+---
+
+## 8. Bamboo / Thư ẩn danh
+
+### Tổng quan
+
+Feature Thư là luồng user-facing riêng cho gửi thư ẩn danh, nhận thư cộng đồng và hồi âm. Khác với chat, bamboo không có hội thoại realtime, không có LLM response, và chỉ cho user đã đăng nhập dùng.
+
+**Auth / CSRF**
+- Mọi endpoint dưới `/bamboo/*` yêu cầu cookie `access_token` hợp lệ.
+- Mọi request thay đổi state (`POST`, `PATCH`, `DELETE`) phải kèm `X-CSRF-Token` khớp cookie `csrf_token`.
+- Nếu user chưa xác nhận policy hiện tại: trả `POLICY_NOT_ACKNOWLEDGED` (403).
+
+**Moderation model**
+- Sync filter nhẹ ở lúc gửi để chặn nội dung rõ ràng vi phạm.
+- Async queue cho duyệt chính thức, trạng thái đi theo `pending` → `approved` / `rejected`.
+- Nội dung bị từ chối vẫn giữ log nội bộ nhưng không xuất hiện trong inbox công cộng.
+
+**Topic / tone**
+- Optional metadata nhẹ.
+- Không bắt user phải chọn khi viết thư.
+- Dùng để lọc inbox, hỗ trợ moderation, và cải thiện đề xuất thư.
+
+**Rate limit đề xuất**
+- Send: 10 thư / giờ / user.
+- Reply: 20 hồi âm / giờ / user.
+- Inbox refresh: 60 lần / giờ / user.
+
+---
+
+### `POST /bamboo/send`
+Gửi một lá thư ẩn danh mới.
+
+```json
+// Request
+{
+  "content": "Hôm nay mình hơi đuối, muốn để lại vài dòng cho ai đó...",
+  "topic": "encouragement",
+  "tone": "gentle"
+}
+
+// Response 201
+{
+  "success": true,
+  "data": {
+    "message_id": "bam_123",
+    "status": "pending",
+    "sent_at": "2026-04-29T10:00:00Z",
+    "moderation_mode": "hybrid",
+    "anonymous_name": "Một người vô danh"
+  },
+  "error": null
+}
+```
+
+**Validation**
+- `content` bắt buộc, 1–2,000 ký tự.
+- `topic` optional, nếu có chỉ nhận các giá trị đã định nghĩa.
+- `tone` optional, ví dụ: `gentle`, `uplifting`, `reflective`.
+- Nội dung có email / số điện thoại / link lộ PII nên bị mask hoặc chặn theo policy.
+
+**Error chính**
+- `AUTH_INVALID_TOKEN` (401)
+- `POLICY_NOT_ACKNOWLEDGED` (403)
+- `CSRF_TOKEN_INVALID` (403)
+- `PAYLOAD_TOO_LARGE` (422)
+- `INVALID_PARAMETER` (400)
+- `BAMBOO_CONTENT_REJECTED` (400 hoặc 422, theo policy moderation)
+- `RATE_LIMIT_EXCEEDED` (429)
+
+---
+
+### `GET /bamboo/inbox`
+Lấy danh sách thư công cộng/được ghép theo feed cho user.
+
+```json
+// Response 200
+{
+  "success": true,
+  "data": {
+    "messages": [
+      {
+        "message_id": "bam_pub_001",
+        "anonymous_name": "Người lữ hành",
+        "content": "Bạn không cần phải ổn ngay hôm nay...",
+        "topic": "encouragement",
+        "tone": "gentle",
+        "received_at": "2026-04-29T09:30:00Z",
+        "pass_count": 2,
+        "reply_count": 1
+      }
+    ],
+    "total": 1,
+    "has_more": false
+  },
+  "error": null
+}
+```
+
+**Ghi chú**
+- Endpoint này chỉ trả thư đã `approved`.
+- Feed có thể ưu tiên thư cùng topic nhưng không bắt buộc.
+
+**Error chính**
+- `AUTH_INVALID_TOKEN` (401)
+- `POLICY_NOT_ACKNOWLEDGED` (403)
+- `RATE_LIMIT_EXCEEDED` (429)
+
+---
+
+### `GET /bamboo/storage`
+Lấy lịch sử thư đã gửi và thư đã nhận của user hiện tại.
+
+```json
+// Response 200
+{
+  "success": true,
+  "data": {
+    "letters": [
+      {
+        "message_id": "bam_123",
+        "direction": "sent",
+        "status": "pending",
+        "content": "Hôm nay mình hơi đuối...",
+        "topic": "encouragement",
+        "tone": "gentle",
+        "created_at": "2026-04-29T10:00:00Z"
+      },
+      {
+        "message_id": "bam_pub_001",
+        "direction": "received",
+        "status": "approved",
+        "content": "Bạn không cần phải ổn ngay hôm nay...",
+        "topic": "encouragement",
+        "tone": "gentle",
+        "created_at": "2026-04-29T09:30:00Z"
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+**Ghi chú**
+- Dùng cho kho thư cá nhân.
+- Trả cả thư do user gửi và thư user đã mở/nhận.
+
+---
+
+### `GET /bamboo/letters/{message_id}`
+Lấy chi tiết một lá thư cụ thể khi user mở thư từ inbox hoặc kho cá nhân.
+
+```json
+// Response 200
+{
+  "success": true,
+  "data": {
+    "message_id": "bam_pub_001",
+    "anonymous_name": "Người lữ hành",
+    "content": "Bạn không cần phải ổn ngay hôm nay...",
+    "topic": "encouragement",
+    "tone": "gentle",
+    "direction": "received",
+    "status": "approved",
+    "received_at": "2026-04-29T09:30:00Z",
+    "reply_count": 1,
+    "pass_count": 2
+  },
+  "error": null
+}
+```
+
+**Error chính**
+- `AUTH_INVALID_TOKEN` (401)
+- `POLICY_NOT_ACKNOWLEDGED` (403)
+- `BAMBOO_MESSAGE_NOT_FOUND` (404)
+
+---
+
+### `POST /bamboo/reply`
+Hồi âm một lá thư đã đọc.
+
+```json
+// Request
+{
+  "message_id": "bam_pub_001",
+  "content": "Mình đọc xong thấy nhẹ hơn một chút. Cảm ơn bạn đã viết ra điều này.",
+  "topic": "encouragement"
+}
+
+// Response 201
+{
+  "success": true,
+  "data": {
+    "reply_id": "bam_r_900",
+    "message_id": "bam_pub_001",
+    "status": "pending",
+    "sent_at": "2026-04-29T10:05:00Z"
+  },
+  "error": null
+}
+```
+
+**Validation**
+- `message_id` phải tồn tại và thuộc inbox / kho thư hợp lệ của user.
+- `content` 1–1,000 ký tự.
+
+**Error chính**
+- `AUTH_INVALID_TOKEN` (401)
+- `POLICY_NOT_ACKNOWLEDGED` (403)
+- `CSRF_TOKEN_INVALID` (403)
+- `BAMBOO_MESSAGE_NOT_FOUND` (404)
+- `INVALID_PARAMETER` (400)
+- `RATE_LIMIT_EXCEEDED` (429)
+
+---
+
+### `POST /bamboo/pass`
+Đẩy một lá thư sang bước chuyền tiếp / lan truyền tiếp trong cộng đồng.
+
+```json
+// Request
+{
+  "message_id": "bam_pub_001"
+}
+
+// Response 200
+{
+  "success": true,
+  "data": {
+    "message_id": "bam_pub_001",
+    "pass_count": 3,
+    "passed_at": "2026-04-29T10:06:00Z"
+  },
+  "error": null
+}
+```
+
+**Ghi chú**
+- Thao tác này có thể chỉ tăng `pass_count` và đưa thư vào batch reselection.
+- Không bắt buộc phải tạo bản sao thư mới.
+
+**Error chính**
+- `AUTH_INVALID_TOKEN` (401)
+- `POLICY_NOT_ACKNOWLEDGED` (403)
+- `CSRF_TOKEN_INVALID` (403)
+- `BAMBOO_MESSAGE_NOT_FOUND` (404)
+- `INVALID_PARAMETER` (400)
+- `RATE_LIMIT_EXCEEDED` (429)
+
+---
+
+### `GET /bamboo/moderation/queue`
+Lấy hàng đợi moderation nội bộ cho admin / reviewer.
+
+```json
+// Response 200
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "message_id": "bam_123",
+        "status": "pending",
+        "submitted_at": "2026-04-29T10:00:00Z",
+        "topic": "encouragement",
+        "tone": "gentle",
+        "flag_count": 0
+      }
+    ],
+    "total": 1,
+    "has_more": false
+  },
+  "error": null
+}
+```
+
+**Ghi chú**
+- Endpoint này chỉ dành cho admin/reviewer.
+- Không trả raw PII đã bị mask nếu policy yêu cầu.
+
+**Error chính**
+- `ADMIN_FORBIDDEN` (403)
+- `INVALID_PARAMETER` (400)
+
+---
+
+### `PATCH /bamboo/moderation/{message_id}`
+Duyệt hoặc từ chối một lá thư.
+
+```json
+// Request
+{
+  "status": "approved",
+  "reason": null
+}
+
+// Response 200
+{
+  "success": true,
+  "data": {
+    "message_id": "bam_123",
+    "status": "approved",
+    "reviewed_at": "2026-04-29T10:10:00Z"
+  },
+  "error": null
+}
+```
+
+**Giá trị hợp lệ**
+- `status`: `approved` | `rejected` | `archived`
+- `reason`: optional, bắt buộc nếu `rejected`
+
+**Error chính**
+- `ADMIN_FORBIDDEN` (403)
+- `INVALID_PARAMETER` (400)
+- `BAMBOO_MESSAGE_NOT_FOUND` (404)
+
+---
+
+### Data model khuyến nghị
+
+Mỗi lá thư nên lưu tối thiểu:
+
+- `message_id`
+- `user_id`
+- `anonymous_name`
+- `content`
+- `topic`
+- `tone`
+- `direction` = `sent` | `received` | `reply`
+- `status` = `pending` | `approved` | `rejected` | `archived`
+- `created_at`
+- `reviewed_at`
+- `pass_count`
+- `reply_count`
+- `moderation_reason`
+
+### Ghi chú triển khai FE
+
+- `topic` nên là optional metadata nhẹ, không bắt user chọn.
+- `GET /bamboo/inbox` chỉ trả thư approved để UI không phải tự lọc.
+- `GET /bamboo/storage` dùng cho kho thư cá nhân.
+- `GET /bamboo/moderation/queue` và `PATCH /bamboo/moderation/{message_id}` dành cho admin/reviewer, không đưa vào user nav.
