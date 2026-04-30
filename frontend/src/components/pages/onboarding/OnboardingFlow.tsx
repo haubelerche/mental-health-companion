@@ -13,7 +13,7 @@ import {
 } from '../../../services/onboardingService'
 import { useAuth } from '../../../hooks/useAuth'
 import bgGradient from '../../../assets//bg-gradient.png'
-import { AGE_OPTIONS, EMOTIONAL_OPTIONS, PRACTICE_OPTIONS, PRIMARY_CONCERN_OPTIONS, STRESS_LABELS, SUPPORT_OPTIONS, type OnboardingDraft } from './onboard'
+import { AGE_OPTIONS, EMOTIONAL_OPTIONS, PRACTICE_OPTIONS, PRIMARY_CONCERN_OPTIONS, STRESS_LABELS, SUPPORT_OPTIONS, type OnboardingDraft } from './onboard.option'
 
 
 const slideVariants = {
