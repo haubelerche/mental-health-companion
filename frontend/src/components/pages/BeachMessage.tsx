@@ -734,13 +734,11 @@ function InboxComposer({
   inboxId,
   displayName,
   onSent,
-  onClose,
   dark,
 }: {
   inboxId: string;
   displayName: string;
   onSent: () => void;
-  onClose: () => void;
   dark: boolean;
 }) {
   const [text, setText] = useState("");
@@ -750,78 +748,62 @@ function InboxComposer({
   const ui = getUi(dark);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm">
-      <div
-        className={`${ui.glassLight} border rounded-3xl shadow-2xl w-full max-w-lg h-[480px] flex flex-col overflow-hidden`}
-        style={{ animation: "letterOpen 0.35s cubic-bezier(0.22,1,0.36,1) both" }}
-      >
-        <div className={`border-b ${ui.glassBorder} px-6 py-4 flex items-center justify-between`}> 
-          <div>
-            <p className={`${ui.textSubtle} font-display text-lg font-semibold`}>Gửi thư trong inbox</p>
-            <p className={`${ui.textSubtler} text-xs`}>Đến {displayName}</p>
-          </div>
+    <div className={`${ui.glassLight} border rounded-2xl shadow-xl overflow-hidden`}>
+      <div className={`border-b ${ui.glassBorder} px-4 py-3 flex items-center justify-between gap-3`}>
+        <div className="min-w-0">
+          <p className={`${ui.textSubtle} font-display text-sm font-semibold truncate`}>Gửi thư trong inbox</p>
+          <p className={`${ui.textSubtler} text-xs truncate`}>Đến {displayName}</p>
+        </div>
+        <div className="min-h-[20px] shrink-0">
+          {error && <p className="text-xs text-rose-400">{error}</p>}
+          {sent && <p className="text-xs text-emerald-400">Đã gửi</p>}
+        </div>
+      </div>
+
+      <div className="px-4 py-4 flex flex-col gap-3">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={6}
+          placeholder="Viết tin nhắn..."
+          className="w-full rounded-2xl p-4 resize-none outline-none"
+          style={{
+            backgroundColor: dark ? "rgba(242,235,224,0.05)" : "rgb(255,255,255)",
+            border: `1px solid ${dark ? "rgba(242,235,224,0.13)" : "rgba(18,30,40,0.18)"}`,
+            color: dark ? "rgb(255,255,255)" : "rgb(15,23,42)",
+          }}
+          disabled={busy || sent}
+        />
+
+        <div className="flex justify-end">
           <button
             type="button"
-            onClick={onClose}
-            className="px-3 py-1 rounded-lg text-sm border"
+            onClick={async () => {
+              if (!text.trim() || busy) return;
+              setBusy(true);
+              setError(null);
+              try {
+                await anonymousShareService.sendToInbox(inboxId, { content: text.trim() });
+                setSent(true);
+                setText("");
+                onSent();
+                setTimeout(() => setSent(false), 2200);
+              } catch {
+                setError("Gửi thất bại, vui lòng thử lại.");
+              } finally {
+                setBusy(false);
+              }
+            }}
+            disabled={!text.trim() || busy || sent}
+            className="px-5 py-2.5 rounded-xl text-white font-semibold min-w-28"
             style={{
-              borderColor: dark ? "rgba(242,235,224,0.12)" : "rgba(18,30,40,0.12)",
-              color: dark ? "rgba(242,235,224,0.92)" : "rgba(20,26,33,0.92)",
+              background: !text.trim() || busy || sent
+                ? "rgba(148,163,184,0.5)"
+                : "linear-gradient(135deg,#5fd0be 0%,#4f9dcb 100%)",
             }}
           >
-            Đóng
+            {busy ? "Đang gửi..." : sent ? "Đã gửi" : "Gửi"}
           </button>
-        </div>
-
-        <div className="flex-1 px-6 py-4 flex flex-col gap-3 min-h-0">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={10}
-            placeholder="Viết tin nhắn..."
-            className="w-full flex-1 min-h-0 rounded-2xl p-4 resize-none outline-none"
-            style={{
-              backgroundColor: dark ? "rgba(242,235,224,0.05)" : "rgb(255,255,255)",
-              border: `1px solid ${dark ? "rgba(242,235,224,0.13)" : "rgba(18,30,40,0.18)"}`,
-              color: dark ? "rgb(255,255,255)" : "rgb(15,23,42)",
-            }}
-            disabled={busy || sent}
-          />
-
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-h-[20px]">
-              {error && <p className="text-xs text-rose-400">{error}</p>}
-              {sent && <p className="text-xs text-emerald-400">Đã gửi</p>}
-            </div>
-            <button
-              type="button"
-              onClick={async () => {
-                if (!text.trim() || busy) return;
-                setBusy(true);
-                setError(null);
-                try {
-                  await anonymousShareService.sendToInbox(inboxId, { content: text.trim() });
-                  setSent(true);
-                  setText("");
-                  onSent();
-                  setTimeout(() => setSent(false), 2200);
-                } catch {
-                  setError("Gửi thất bại, vui lòng thử lại.");
-                } finally {
-                  setBusy(false);
-                }
-              }}
-              disabled={!text.trim() || busy || sent}
-              className="px-5 py-2.5 rounded-xl text-white font-semibold min-w-28"
-              style={{
-                background: !text.trim() || busy || sent
-                  ? "rgba(148,163,184,0.5)"
-                  : "linear-gradient(135deg,#5fd0be 0%,#4f9dcb 100%)",
-              }}
-            >
-              {busy ? "Đang gửi..." : sent ? "Đã gửi" : "Gửi"}
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -848,7 +830,6 @@ function InboxThreadDialog({
   onSent: () => void;
 }) {
   const ui = getUi(dark);
-  const [showComposer, setShowComposer] = useState(false);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/55 backdrop-blur-sm">
@@ -860,13 +841,16 @@ function InboxThreadDialog({
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-2 rounded-xl border text-sm font-semibold"
+            className="inline-flex items-center justify-center h-10 w-10 rounded-xl border"
             style={{
               borderColor: dark ? "rgba(242,235,224,0.12)" : "rgba(18,30,40,0.12)",
               color: dark ? "rgba(242,235,224,0.92)" : "rgba(20,26,33,0.92)",
             }}
+            aria-label="Quay lại"
           >
-            ← Quay lại
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
           </button>
 
           <div className="min-w-0 flex-1 text-center px-2">
@@ -933,43 +917,15 @@ function InboxThreadDialog({
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => setShowComposer((value) => !value)}
-              className="px-4 py-2 rounded-xl border text-sm font-semibold"
-              style={{
-                borderColor: dark ? "rgba(242,235,224,0.12)" : "rgba(18,30,40,0.12)",
-                color: dark ? "rgba(242,235,224,0.92)" : "rgba(20,26,33,0.92)",
-              }}
-            >
-              {showComposer ? "Đóng soạn thư" : "Gửi thư"}
-            </button>
-            <button
-              type="button"
-              onClick={onRefresh}
-              className="px-4 py-2 rounded-xl border text-sm font-semibold"
-              style={{
-                borderColor: dark ? "rgba(242,235,224,0.12)" : "rgba(18,30,40,0.12)",
-                color: dark ? "rgba(242,235,224,0.92)" : "rgba(20,26,33,0.92)",
-              }}
-            >
-              Làm mới hội thoại
-            </button>
-          </div>
-
-          {showComposer && (
-            <InboxComposer
-              inboxId={inboxId}
-              displayName={displayName}
-              onSent={() => {
-                onSent();
-                onRefresh();
-              }}
-              onClose={() => setShowComposer(false)}
-              dark={dark}
-            />
-          )}
+          <InboxComposer
+            inboxId={inboxId}
+            displayName={displayName}
+            onSent={() => {
+              onSent();
+              onRefresh();
+            }}
+            dark={dark}
+          />
         </div>
       </div>
     </div>
