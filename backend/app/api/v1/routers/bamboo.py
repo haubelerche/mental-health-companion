@@ -10,8 +10,27 @@ from app.db.models import User, BambooMessage
 from app.db.session import get_db
 import random
 from datetime import datetime
+import hashlib
 
 router = APIRouter(prefix="/bamboo", tags=["bamboo"])
+
+
+def _to_iso_z(dt: datetime) -> str:
+    return dt.isoformat() + "Z"
+
+
+def _inbox_id_for_pair(user_a_id: str, user_b_id: str) -> str:
+    pair_key = "::".join(sorted([user_a_id, user_b_id]))
+    digest = hashlib.sha256(pair_key.encode("utf-8")).hexdigest()[:24]
+    return f"inb_{digest}"
+
+
+def _resolve_partner_id(row: BambooMessage, *, current_user_id: str) -> str | None:
+    if row.user_id == current_user_id:
+        return row.recipient_id
+    if row.recipient_id == current_user_id:
+        return row.user_id
+    return None
 
 
 def _pick_recipient(
@@ -107,6 +126,129 @@ def get_inbox(db: Session = Depends(get_db), current_user: User = Depends(ensure
         for r in rows
     ]
     return ok({"messages": items, "total": len(items), "has_more": False})
+
+
+@router.get("/inboxes")
+def get_inboxes(db: Session = Depends(get_db), current_user: User = Depends(ensure_policy_acknowledged)):
+    rows = (
+        db.query(BambooMessage)
+        .filter(
+            (BambooMessage.user_id == current_user.user_id)
+            | (BambooMessage.recipient_id == current_user.user_id)
+        )
+        .order_by(BambooMessage.created_at.desc())
+        .all()
+    )
+
+    grouped: dict[str, list[BambooMessage]] = {}
+    for row in rows:
+        partner_id = _resolve_partner_id(row, current_user_id=current_user.user_id)
+        if not partner_id:
+            continue
+        grouped.setdefault(partner_id, []).append(row)
+
+    if not grouped:
+        return ok({"inboxes": [], "total": 0, "has_more": False})
+
+    partner_names = {
+        u.user_id: u.display_name
+        for u in db.query(User).filter(User.user_id.in_(list(grouped.keys()))).all()
+    }
+
+    items = []
+    for partner_id, partner_rows in grouped.items():
+        latest = max(partner_rows, key=lambda r: r.created_at)
+        unread_count = sum(
+            1
+            for r in partner_rows
+            if r.recipient_id == current_user.user_id
+            and r.opened_at is None
+            and r.status == "approved"
+        )
+
+        items.append(
+            {
+                "inbox_id": _inbox_id_for_pair(current_user.user_id, partner_id),
+                "display_name": partner_names.get(partner_id, "Người dùng ẩn danh"),
+                "last_message_preview": latest.content,
+                "last_message_at": _to_iso_z(latest.created_at),
+                "last_direction": "sent" if latest.user_id == current_user.user_id else "received",
+                "unread_count": unread_count,
+                "message_count": len(partner_rows),
+            }
+        )
+
+    items.sort(key=lambda i: i["last_message_at"], reverse=True)
+    return ok({"inboxes": items, "total": len(items), "has_more": False})
+
+
+@router.get("/inboxes/{inbox_id}/messages")
+def get_inbox_messages(inbox_id: str, db: Session = Depends(get_db), current_user: User = Depends(ensure_policy_acknowledged)):
+    rows = (
+        db.query(BambooMessage)
+        .filter(
+            (BambooMessage.user_id == current_user.user_id)
+            | (BambooMessage.recipient_id == current_user.user_id)
+        )
+        .order_by(BambooMessage.created_at.asc())
+        .all()
+    )
+
+    inbox_rows: list[BambooMessage] = []
+    partner_id: str | None = None
+    for row in rows:
+        candidate_partner_id = _resolve_partner_id(row, current_user_id=current_user.user_id)
+        if not candidate_partner_id:
+            continue
+        candidate_inbox_id = _inbox_id_for_pair(current_user.user_id, candidate_partner_id)
+        if candidate_inbox_id == inbox_id:
+            inbox_rows.append(row)
+            partner_id = candidate_partner_id
+
+    if not inbox_rows or not partner_id:
+        raise AppError("BAMBOO_INBOX_NOT_FOUND", "Không tìm thấy hộp thư", 404)
+
+    partner = db.get(User, partner_id)
+
+    pending_open_updates = []
+    messages = []
+    for row in inbox_rows:
+        is_received = row.recipient_id == current_user.user_id
+        if is_received and row.opened_at is None and row.status == "approved":
+            row.opened_at = datetime.utcnow()
+            pending_open_updates.append(row)
+
+        messages.append(
+            {
+                "message_id": row.message_id,
+                "anonymous_name": row.anonymous_name,
+                "content": row.content,
+                "topic": row.topic,
+                "tone": row.tone,
+                "sent_at": _to_iso_z(row.created_at),
+                "status": row.status,
+                "direction": "sent" if row.user_id == current_user.user_id else "received",
+                "reply_to_message_id": row.reply_to_message_id,
+                "reply_count": row.reply_count,
+                "pass_count": row.pass_count,
+            }
+        )
+
+    if pending_open_updates:
+        db.add_all(pending_open_updates)
+        db.commit()
+
+    return ok(
+        {
+            "inbox": {
+                "inbox_id": inbox_id,
+                "display_name": partner.display_name if partner else "Người dùng ẩn danh",
+            },
+            "messages": messages,
+            "total": len(messages),
+            "has_more": False,
+        }
+    )
 
 
 @router.get("/storage")
@@ -221,7 +363,7 @@ def pass_letter(payload: BambooPassRequest, db: Session = Depends(get_db), curre
     target.recipient_id = new_recipient
     db.add(target)
     db.commit()
-    return ok({"message_id": payload.message_id, "pass_count": target.pass_count, "new_recipient": new_recipient, "passed_at": utc_now().isoformat() + "Z"})
+    return ok({"message_id": payload.message_id, "pass_count": target.pass_count, "reassigned": bool(new_recipient), "passed_at": utc_now().isoformat() + "Z"})
 
 
 # Moderation endpoints (admin only)
