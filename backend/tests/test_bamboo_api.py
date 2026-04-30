@@ -151,6 +151,11 @@ def test_reply_and_pass(client_user, client_admin):
     msg_id = s.json()["data"]["message_id"]
     client_admin.patch(f"/v1/bamboo/moderation/{msg_id}", json={"status": "approved"})
 
+    # switch auth context to the assigned recipient for recipient-only actions
+    app.dependency_overrides[ensure_policy_acknowledged] = lambda: SimpleNamespace(
+        user_id="other_user", policy_acknowledged_at="2026-04-29T00:00:00Z"
+    )
+
     # reply
     r = client_user.post("/v1/bamboo/reply", json={"message_id": msg_id, "content": "Thanks!"})
     assert r.status_code == 201
@@ -160,3 +165,33 @@ def test_reply_and_pass(client_user, client_admin):
     p = client_user.post("/v1/bamboo/pass", json={"message_id": msg_id})
     assert p.status_code == 200
     assert p.json()["data"]["message_id"] == msg_id
+    assert "new_recipient" not in p.json()["data"]
+
+
+def test_grouped_inboxes_and_thread_messages(client_user, client_admin):
+    first = client_user.post("/v1/bamboo/send", json={"content": "Hello inbox A"})
+    second = client_user.post("/v1/bamboo/send", json={"content": "Hello inbox B"})
+    first_id = first.json()["data"]["message_id"]
+    second_id = second.json()["data"]["message_id"]
+
+    client_admin.patch(f"/v1/bamboo/moderation/{first_id}", json={"status": "approved"})
+    client_admin.patch(f"/v1/bamboo/moderation/{second_id}", json={"status": "approved"})
+
+    inboxes_resp = client_user.get("/v1/bamboo/inboxes")
+    assert inboxes_resp.status_code == 200
+    payload = inboxes_resp.json()["data"]
+    assert payload["total"] >= 1
+    first_inbox = payload["inboxes"][0]
+    assert "inbox_id" in first_inbox
+    assert "message_count" in first_inbox
+    assert "display_name" in first_inbox
+    assert "user_id" not in first_inbox
+    assert "recipient_id" not in first_inbox
+
+    thread_resp = client_user.get(f"/v1/bamboo/inboxes/{first_inbox['inbox_id']}/messages")
+    assert thread_resp.status_code == 200
+    thread_payload = thread_resp.json()["data"]
+    assert thread_payload["inbox"]["inbox_id"] == first_inbox["inbox_id"]
+    assert isinstance(thread_payload["messages"], list)
+    if thread_payload["messages"]:
+        assert "direction" in thread_payload["messages"][0]
