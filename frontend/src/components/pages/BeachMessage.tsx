@@ -760,11 +760,22 @@ function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boolean })
   );
 }
 
-function InboxComposer({ inboxId, displayName, onSent }: { inboxId: string; displayName: string; onSent: () => void }) {
+function InboxComposer({
+  inboxId,
+  displayName,
+  onSent,
+  dark,
+}: {
+  inboxId: string;
+  displayName: string;
+  onSent: () => void;
+  dark: boolean;
+}) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
-  const ui = getUi(readAppSettings().mode === "dark");
+  const [error, setError] = useState<string | null>(null);
+  const ui = getUi(dark);
 
   return (
     <div className={`${ui.glassLight} border rounded-xl p-3`}>
@@ -783,13 +794,16 @@ function InboxComposer({ inboxId, displayName, onSent }: { inboxId: string; disp
           onClick={async () => {
             if (!text.trim() || busy) return;
             setBusy(true);
+            setError(null);
             try {
               await anonymousShareService.sendToInbox(inboxId, { content: text.trim() });
               setSent(true);
               setText("");
               onSent();
+              // auto-clear success after a short delay
+              setTimeout(() => setSent(false), 2200);
             } catch {
-              // ignore
+              setError("Gửi thất bại, vui lòng thử lại.");
             } finally {
               setBusy(false);
             }
@@ -797,9 +811,10 @@ function InboxComposer({ inboxId, displayName, onSent }: { inboxId: string; disp
           disabled={!text.trim() || busy || sent}
           className="px-4 py-2 rounded-lg bg-cyan-400 text-white"
         >
-          Gửi
+          {sent ? 'Đã gửi' : 'Gửi'}
         </button>
       </div>
+      {error && <p className="mt-2 text-xs text-rose-400">{error}</p>}
     </div>
   );
 }
@@ -1181,12 +1196,11 @@ export default function BeachMessage() {
                     onSent={() => {
                       refreshInbox();
                     }}
+                    dark={dark}
                   />
                 </div>
               )}
-              ) : (
-                <p className={`${ui.textSubtler} text-sm`}>Inbox chưa có thư hiển thị.</p>
-              )}
+            
             </div>
           </div>
 
