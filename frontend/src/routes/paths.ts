@@ -12,6 +12,7 @@ export const ROUTE_PATHS = {
     resources: '/serene/resources',
     nutrition: '/serene/nutrition',
     connect: '/serene/connect',
+    profile: '/serene/profile',
     setting: '/serene/setting',
 
     // onboarding & flows
