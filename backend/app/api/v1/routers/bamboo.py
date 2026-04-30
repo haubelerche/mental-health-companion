@@ -6,7 +6,7 @@ from app.core.errors import AppError
 from app.services.utils import make_id, utc_now, make_anon_name
 from app.api.deps import ensure_policy_acknowledged, get_admin_claims, enforce_admin_ip
 from app.schemas.payloads import BambooSendRequest, BambooReplyRequest, BambooPassRequest
-from app.db.models import User, BambooMessage
+from app.db.models import User, BambooMessage, Inbox
 from app.db.session import get_db
 import random
 from datetime import datetime
@@ -150,10 +150,9 @@ def get_inboxes(db: Session = Depends(get_db), current_user: User = Depends(ensu
     if not grouped:
         return ok({"inboxes": [], "total": 0, "has_more": False})
 
-    partner_names = {
-        u.user_id: u.display_name
-        for u in db.query(User).filter(User.user_id.in_(list(grouped.keys()))).all()
-    }
+    # fetch inbox rows to get per-conversation anonymous names
+    inbox_ids = [_inbox_id_for_pair(current_user.user_id, pid) for pid in grouped.keys()]
+    inbox_map = {i.inbox_id: i for i in db.query(Inbox).filter(Inbox.inbox_id.in_(inbox_ids)).all()}
 
     items = []
     for partner_id, partner_rows in grouped.items():
@@ -166,10 +165,20 @@ def get_inboxes(db: Session = Depends(get_db), current_user: User = Depends(ensu
             and r.status == "approved"
         )
 
+        inbox_id = _inbox_id_for_pair(current_user.user_id, partner_id)
+        inbox = inbox_map.get(inbox_id)
+        if inbox:
+            if inbox.user_a_id == current_user.user_id:
+                partner_anon = inbox.anon_name_b
+            else:
+                partner_anon = inbox.anon_name_a
+        else:
+            partner_anon = "Người dùng ẩn danh"
+
         items.append(
             {
-                "inbox_id": _inbox_id_for_pair(current_user.user_id, partner_id),
-                "display_name": partner_names.get(partner_id, "Người dùng ẩn danh"),
+                "inbox_id": inbox_id,
+                "display_name": partner_anon,
                 "last_message_preview": latest.content,
                 "last_message_at": _to_iso_z(latest.created_at),
                 "last_direction": "sent" if latest.user_id == current_user.user_id else "received",
@@ -209,6 +218,7 @@ def get_inbox_messages(inbox_id: str, db: Session = Depends(get_db), current_use
         raise AppError("BAMBOO_INBOX_NOT_FOUND", "Không tìm thấy hộp thư", 404)
 
     partner = db.get(User, partner_id)
+    inbox = db.get(Inbox, inbox_id)
 
     pending_open_updates = []
     messages = []
@@ -217,11 +227,18 @@ def get_inbox_messages(inbox_id: str, db: Session = Depends(get_db), current_use
         if is_received and row.opened_at is None and row.status == "approved":
             row.opened_at = datetime.utcnow()
             pending_open_updates.append(row)
+        # determine anonymous name per-inbox if available
+        anon_name = row.anonymous_name
+        if inbox and row.inbox_id == inbox.inbox_id:
+            if row.user_id == inbox.user_a_id:
+                anon_name = inbox.anon_name_a
+            else:
+                anon_name = inbox.anon_name_b
 
         messages.append(
             {
                 "message_id": row.message_id,
-                "anonymous_name": row.anonymous_name,
+                "anonymous_name": anon_name,
                 "content": row.content,
                 "topic": row.topic,
                 "tone": row.tone,
@@ -318,10 +335,31 @@ def reply_letter(payload: BambooReplyRequest, db: Session = Depends(get_db), cur
     if target.recipient_id != current_user.user_id:
         raise AppError("BAMBOO_MESSAGE_NOT_FOUND", "Không tìm thấy thư", 404)
     rid = make_id("bam_r")
+    # ensure an Inbox exists for this pair and generate per-inbox anonymous names
+    inbox_id = _inbox_id_for_pair(current_user.user_id, target.user_id)
+    inbox = db.get(Inbox, inbox_id)
+    # create inbox if not exists
+    if not inbox:
+        # determine ordered users for storage
+        a, b = sorted([current_user.user_id, target.user_id])
+        # generate two distinct anonymous names
+        anon_a = make_anon_name(payload.topic or target.topic, None)
+        anon_b = make_anon_name(payload.topic or target.topic, None)
+        if anon_a == anon_b:
+            anon_b = make_anon_name((payload.topic or target.topic) or "", None)
+        inbox = Inbox(inbox_id=inbox_id, user_a_id=a, user_b_id=b, anon_name_a=anon_a, anon_name_b=anon_b)
+        db.add(inbox)
+
+    # choose sender anon name from inbox
+    if inbox.user_a_id == current_user.user_id:
+        sender_anon = inbox.anon_name_a
+    else:
+        sender_anon = inbox.anon_name_b
+
     reply = BambooMessage(
         message_id=rid,
         user_id=current_user.user_id,
-        anonymous_name=make_anon_name(payload.topic or target.topic, None),
+        anonymous_name=sender_anon,
         content=payload.content,
         topic=payload.topic or target.topic,
         tone=None,
@@ -329,6 +367,7 @@ def reply_letter(payload: BambooReplyRequest, db: Session = Depends(get_db), cur
         status="pending",
         recipient_id=target.user_id,
         reply_to_message_id=target.message_id,
+        inbox_id=inbox.inbox_id,
     )
     db.add(reply)
     # increment reply_count for target
