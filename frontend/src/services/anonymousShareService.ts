@@ -227,6 +227,11 @@ export const anonymousShareService = {
     await httpClient.postWithCsrf('/bamboo/reply', { message_id: messageId, content })
   },
 
+  async sendToInbox(inboxId: string, payload: SendBambooPayload): Promise<SendBambooResponse> {
+    const res = await httpClient.postWithCsrf<SendBambooResponse>(`/bamboo/inboxes/${encodeURIComponent(inboxId)}/messages`, payload)
+    return res
+  },
+
   async passItOn(messageId: string): Promise<void> {
     await httpClient.postWithCsrf('/bamboo/pass', { message_id: messageId })
   },
