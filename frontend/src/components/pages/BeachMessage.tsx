@@ -863,7 +863,8 @@ export default function BeachMessage() {
           if (current && groupedInboxData.inboxes.some((item) => item.id === current)) {
             return current;
           }
-          return groupedInboxData.inboxes[0]?.id ?? null;
+          // Do not auto-open any inbox by default; require user click to open
+          return null;
         });
       } catch {
         if (!active) return;
@@ -912,8 +913,18 @@ export default function BeachMessage() {
     setRipple(true);
     setTimeout(() => {
       setRipple(false);
-      setOpenLetter(pendingLetter);
-      setPendingLetter(null);
+      // fetch the full letter from server which will mark it opened
+      void (async () => {
+        try {
+          const fetched = await anonymousShareService.getLetter(pendingLetter.id);
+          setOpenLetter(toLetter(fetched));
+        } catch {
+          // fallback to local data if fetch fails
+          setOpenLetter(pendingLetter);
+        } finally {
+          setPendingLetter(null);
+        }
+      })();
     }, 700);
   };
 
@@ -1115,9 +1126,30 @@ export default function BeachMessage() {
             )}
 
             <div className="mt-4 border-t pt-4" style={{ borderColor: dark ? "rgba(242,235,224,0.2)" : "rgba(18,30,40,0.18)" }}>
-              <p className={`${ui.textSubtle} text-sm mb-2`}>
-                {selectedInbox ? `Đoạn thư với ${selectedInbox.display_name}` : "Chọn một inbox để xem hội thoại"}
-              </p>
+              {/* Back button + title for opened inbox */}
+              {selectedInboxId ? (
+                <div className="flex items-center justify-between mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedInboxId(null)}
+                    className="text-sm font-display px-3 py-1 rounded-lg border"
+                    style={{
+                      borderColor: dark ? "rgba(242,235,224,0.12)" : "rgba(18,30,40,0.12)",
+                      background: dark ? "rgba(255,255,255,0.02)" : "transparent",
+                      color: dark ? "rgba(242,235,224,0.9)" : "rgba(20,26,33,0.9)",
+                    }}
+                  >
+                    ← Quay lại
+                  </button>
+                  <p className={`${ui.textSubtle} text-sm font-semibold`}>
+                    {selectedInbox ? `Đoạn thư với ${selectedInbox.display_name}` : "Hội thoại"}
+                  </p>
+                </div>
+              ) : (
+                <p className={`${ui.textSubtle} text-sm mb-2`}>
+                  Chọn một inbox để xem hội thoại
+                </p>
+              )}
 
               {loadingInboxMessages ? (
                 <p className={`${ui.textSubtler} text-sm`}>Đang tải hội thoại...</p>
