@@ -105,11 +105,14 @@ def send_letter(payload: BambooSendRequest, db: Session = Depends(get_db), curre
 
 @router.get("/inbox")
 def get_inbox(db: Session = Depends(get_db), current_user: User = Depends(ensure_policy_acknowledged)):
+    # Only return unread messages for the beach (bottle) view so opened letters
+    # are not repeatedly shown. Messages are considered unread when `opened_at` is null.
     rows = (
         db.query(BambooMessage)
         .filter(
             BambooMessage.recipient_id == current_user.user_id,
             BambooMessage.status.in_(["approved", "pending"]),
+            BambooMessage.opened_at.is_(None),
         )
         .order_by(BambooMessage.created_at.desc())
         .all()
@@ -126,6 +129,7 @@ def get_inbox(db: Session = Depends(get_db), current_user: User = Depends(ensure
             "reply_to_message_id": r.reply_to_message_id,
             "pass_count": r.pass_count,
             "reply_count": r.reply_count,
+            "opened_at": r.opened_at.isoformat() + "Z" if r.opened_at else None,
         }
         for r in rows
     ]
