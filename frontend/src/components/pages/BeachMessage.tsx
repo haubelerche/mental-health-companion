@@ -5,6 +5,8 @@ import beachBackgroundImage from "../../assets/beach-message-bg.avif";
 import {
   anonymousShareService,
   type BambooMessage as BambooInboxItem,
+  type BambooInboxSummary,
+  type BambooInboxThreadMessage,
   type StoredLetter as BambooStoredItem,
 } from "../../services/anonymousShareService";
 import {
@@ -121,6 +123,20 @@ function toStoredLetter(letter: BambooStoredItem): Letter {
     replyToMessageId: letter.reply_to_message_id ?? null,
     topic: letter.topic,
     tone: letter.tone,
+  };
+}
+
+function toThreadLetter(message: BambooInboxThreadMessage, displayName: string): Letter {
+  return {
+    id: message.id,
+    from: message.direction === "sent" ? "Bạn" : displayName,
+    time: formatRelativeTime(message.sent_at),
+    body: message.content,
+    direction: message.direction,
+    status: message.status,
+    replyToMessageId: message.reply_to_message_id ?? null,
+    topic: message.topic,
+    tone: message.tone,
   };
 }
 
@@ -774,6 +790,11 @@ export default function BeachMessage() {
   const [openLetter, setOpenLetter] = useState<Letter | null>(null);
   const [showWrite, setShowWrite] = useState(false);
   const [loadingInbox, setLoadingInbox] = useState(false);
+  const [loadingInboxes, setLoadingInboxes] = useState(false);
+  const [loadingInboxMessages, setLoadingInboxMessages] = useState(false);
+  const [inboxes, setInboxes] = useState<BambooInboxSummary[]>([]);
+  const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
+  const [selectedInboxMessages, setSelectedInboxMessages] = useState<BambooInboxThreadMessage[]>([]);
   const [refreshSeed, setRefreshSeed] = useState(0);
   const hasBottle = Boolean(pendingLetter);
 
@@ -800,6 +821,25 @@ export default function BeachMessage() {
         if (!active) return;
         setStorageLetters([]);
       }
+
+      setLoadingInboxes(true);
+      try {
+        const groupedInboxData = await anonymousShareService.getInboxes();
+        if (!active) return;
+        setInboxes(groupedInboxData.inboxes);
+        setSelectedInboxId((current) => {
+          if (current && groupedInboxData.inboxes.some((item) => item.id === current)) {
+            return current;
+          }
+          return groupedInboxData.inboxes[0]?.id ?? null;
+        });
+      } catch {
+        if (!active) return;
+        setInboxes([]);
+        setSelectedInboxId(null);
+      } finally {
+        if (active) setLoadingInboxes(false);
+      }
     };
 
     void loadLetters();
@@ -807,6 +847,33 @@ export default function BeachMessage() {
       active = false;
     };
   }, [refreshSeed]);
+
+  useEffect(() => {
+    let active = true;
+    const loadInboxMessages = async () => {
+      if (!selectedInboxId) {
+        setSelectedInboxMessages([]);
+        return;
+      }
+
+      setLoadingInboxMessages(true);
+      try {
+        const threadData = await anonymousShareService.getInboxMessages(selectedInboxId);
+        if (!active) return;
+        setSelectedInboxMessages(threadData.messages);
+      } catch {
+        if (!active) return;
+        setSelectedInboxMessages([]);
+      } finally {
+        if (active) setLoadingInboxMessages(false);
+      }
+    };
+
+    void loadInboxMessages();
+    return () => {
+      active = false;
+    };
+  }, [selectedInboxId, refreshSeed]);
 
   const handleBottle = () => {
     if (!pendingLetter) return;
@@ -831,6 +898,7 @@ export default function BeachMessage() {
     if (storageFilter === "all") return true;
     return letter.direction === storageFilter;
   });
+  const selectedInbox = inboxes.find((item) => item.id === selectedInboxId) ?? null;
 
   return (
     <div className="relative min-h-screen overflow-x-hidden overflow-y-auto">
@@ -967,6 +1035,99 @@ export default function BeachMessage() {
             >
               Kho thư cá nhân
             </h2>
+          </div>
+
+          <div className={`${ui.glassLight} border rounded-2xl p-4 mb-8`}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className={`${ui.textSubtle} font-display text-xl font-semibold`}>Inbox theo người nhận/gửi</h3>
+              {loadingInboxes && (
+                <span className={`${ui.textSubtler} text-xs uppercase tracking-wider`}>
+                  Đang tải...
+                </span>
+              )}
+            </div>
+
+            {inboxes.length > 0 ? (
+              <div className="grid grid-cols-1 gap-3">
+                {inboxes.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setSelectedInboxId(item.id)}
+                    className="text-left rounded-xl border px-4 py-3 transition-all"
+                    style={{
+                      borderColor:
+                        selectedInboxId === item.id
+                          ? "rgba(111,190,214,0.68)"
+                          : dark
+                            ? "rgba(242,235,224,0.2)"
+                            : "rgba(18,30,40,0.18)",
+                      background:
+                        selectedInboxId === item.id
+                          ? dark
+                            ? "rgba(111,190,214,0.16)"
+                            : "rgba(111,190,214,0.12)"
+                          : "transparent",
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-1">
+                      <p className={`${ui.textSubtle} font-display text-base font-semibold`}>{item.display_name}</p>
+                      <p className={`${ui.textSubtler} text-xs`}>{formatRelativeTime(item.last_message_at)}</p>
+                    </div>
+                    <p className={`${ui.textSubtler} text-sm line-clamp-1 mb-1`}>{item.last_message_preview}</p>
+                    <p className={`${ui.textSubtler} text-xs uppercase tracking-wider`}>
+                      {item.last_direction === "sent" ? "Bạn gửi gần nhất" : "Bạn nhận gần nhất"}
+                      {item.unread_count > 0 ? ` • ${item.unread_count} chưa đọc` : ""}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className={`${ui.textSubtler} text-sm`}>Chưa có inbox nào.</p>
+            )}
+
+            <div className="mt-4 border-t pt-4" style={{ borderColor: dark ? "rgba(242,235,224,0.2)" : "rgba(18,30,40,0.18)" }}>
+              <p className={`${ui.textSubtle} text-sm mb-2`}>
+                {selectedInbox ? `Đoạn thư với ${selectedInbox.display_name}` : "Chọn một inbox để xem hội thoại"}
+              </p>
+
+              {loadingInboxMessages ? (
+                <p className={`${ui.textSubtler} text-sm`}>Đang tải hội thoại...</p>
+              ) : selectedInboxMessages.length > 0 ? (
+                <div className="flex flex-col gap-2 max-h-80 overflow-y-auto s-scroll">
+                  {selectedInboxMessages.map((message) => {
+                    const isSent = message.direction === "sent";
+                    return (
+                      <button
+                        key={message.id}
+                        type="button"
+                        onClick={() => {
+                          if (!selectedInbox) return;
+                          setOpenLetter(toThreadLetter(message, selectedInbox.display_name));
+                        }}
+                        className={`max-w-[88%] rounded-2xl px-4 py-3 text-left ${isSent ? "self-end" : "self-start"}`}
+                        style={{
+                          background: isSent
+                            ? "linear-gradient(135deg,#5fd0be 0%,#4f9dcb 100%)"
+                            : dark
+                              ? "rgba(255,255,255,0.09)"
+                              : "rgba(255,255,255,0.82)",
+                          color: isSent ? "#ffffff" : dark ? "#ffffff" : "#0f172a",
+                          border: `1px solid ${isSent ? "rgba(111,190,214,0.68)" : dark ? "rgba(242,235,224,0.2)" : "rgba(18,30,40,0.18)"}`,
+                        }}
+                      >
+                        <p className="text-sm leading-relaxed line-clamp-3">{message.content}</p>
+                        <p className={`text-[11px] mt-2 ${isSent ? "text-white/80" : ui.textSubtler}`}>
+                          {formatRelativeTime(message.sent_at)}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className={`${ui.textSubtler} text-sm`}>Inbox chưa có thư hiển thị.</p>
+              )}
+            </div>
           </div>
 
           <div className="flex gap-2 mb-5">
