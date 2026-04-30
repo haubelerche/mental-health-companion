@@ -603,11 +603,11 @@ export default function Home() {
                                     transition={{ duration: 0.4, ease: 'easeOut' }}
                                     className="relative flex h-full flex-col justify-between"
                                 >
-                                    <blockquote className="font-display text-[1.15rem] italic leading-8 text-serene-ink sm:text-[1.35rem]">
+                                    <blockquote className="font-display text-[1.15rem] italic leading-8 text-serene-ink sm:text-[1.55rem]">
                                         {quoteContent}
                                     </blockquote>
                                     <div className="mt-6 flex items-center justify-between gap-4">
-                                        <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-serene-muted/75">
+                                        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-serene-muted/75">
                                             {quoteAuthor}
                                         </p>
                                         <div className="flex items-center gap-1.5">
