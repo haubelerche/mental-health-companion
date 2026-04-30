@@ -339,3 +339,17 @@ class BambooMessage(Base):
     recipient_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     reply_to_message_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     opened_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # optional inbox association when a conversation is formed between two users
+    inbox_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+
+class Inbox(Base):
+    __tablename__ = "inboxes"
+
+    inbox_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    user_a_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    user_b_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    anon_name_a: Mapped[str] = mapped_column(String(255), nullable=False)
+    anon_name_b: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
