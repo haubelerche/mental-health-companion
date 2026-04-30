@@ -1,35 +1,30 @@
 import { motion } from 'framer-motion'
-import { ArrowLeft, LogOut, Settings, Lock, Info } from 'lucide-react'
+import { ArrowLeft, Settings, Lock, Info } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
+import { onboardingService } from '../../services/onboardingService'
 
 interface OnboardingData {
     age_group?: string
-    primary_concern?: string
-    support_level?: string
+    primary_concern?: string | null
+    support_level?: string | null
 }
 
 export default function Profile() {
     const navigate = useNavigate()
-    const { user, logout } = useAuth()
+    const { user } = useAuth()
     const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null)
     const [loading, setLoading] = useState(true)
-    const [isLoggingOut, setIsLoggingOut] = useState(false)
 
     // Fetch onboarding data
     useEffect(() => {
         const fetchOnboardingData = async () => {
             try {
-                const response = await fetch('/v1/onboarding/state', {
-                    credentials: 'include',
-                })
-                if (response.ok) {
-                    const result = await response.json()
-                    if (result.success && result.data?.profile) {
-                        setOnboardingData(result.data.profile)
-                    }
+                const result = await onboardingService.getState()
+                if (result.profile) {
+                    setOnboardingData(result.profile)
                 }
             } catch (error) {
                 console.error('Failed to fetch onboarding data:', error)
@@ -41,16 +36,6 @@ export default function Profile() {
         fetchOnboardingData()
     }, [])
 
-    const handleLogout = async () => {
-        setIsLoggingOut(true)
-        try {
-            await logout()
-            navigate(ROUTE_PATHS.landing)
-        } catch (error) {
-            console.error('Logout failed:', error)
-            setIsLoggingOut(false)
-        }
-    }
 
     if (!user) return null
 
@@ -191,14 +176,7 @@ export default function Profile() {
                         <span className="font-medium">Về Serene</span>
                     </button>
 
-                    <button
-                        onClick={handleLogout}
-                        disabled={isLoggingOut}
-                        className="w-full flex items-center gap-3 rounded-2xl bg-serene-primary/10 px-4 py-3 text-serene-primary transition hover:bg-serene-primary/20 border border-serene-primary/30 disabled:opacity-60"
-                    >
-                        <LogOut size={18} />
-                        <span className="font-medium">{isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}</span>
-                    </button>
+
                 </motion.div>
             </div>
         </div>
