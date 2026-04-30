@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { onboardingService, type OnboardingProfile } from '../../services/onboardingService'
+import { EMOTIONAL_OPTIONS, PRIMARY_CONCERN_OPTIONS, SUPPORT_OPTIONS, AGE_OPTIONS, PRACTICE_OPTIONS, STRESS_LABELS } from './onboarding/onboard'
 
 export default function Profile() {
     const navigate = useNavigate()
@@ -34,26 +35,24 @@ export default function Profile() {
     if (!user) return null
 
     // Map onboarding values to display labels
-    const ageGroupLabel = onboardingData?.age_group || 'Chưa cập nhật'
-    const concernLabel = onboardingData?.primary_concern || 'Chưa cập nhật'
-    const supportLevelLabel = onboardingData?.support_level || 'Chưa cập nhật'
+    const findLabel = (list: { id: string; label: string }[] | undefined, id?: string | null) => {
+        if (!id || !list) return 'Chưa cập nhật'
+        const found = list.find((i) => i.id === id)
+        return found ? found.label : id
+    }
+
+    const ageGroupLabel = findLabel(AGE_OPTIONS, onboardingData?.age_group)
+    const concernLabel = findLabel(PRIMARY_CONCERN_OPTIONS, onboardingData?.primary_concern ?? undefined)
+    const supportLevelLabel = findLabel(SUPPORT_OPTIONS, onboardingData?.support_level ?? undefined)
     const nicknameLabel = onboardingData?.nickname || 'Chưa cập nhật'
     const emotionalStateLabel = (() => {
-        switch (onboardingData?.emotional_state) {
-            case 'difficult_recently':
-                return 'Gần đây khó khăn'
-            case 'ongoing_challenges':
-                return 'Khó khăn kéo dài'
-            case 'doing_okay':
-                return 'Ổn định'
-            default:
-                return 'Chưa cập nhật'
-        }
+        const found = EMOTIONAL_OPTIONS.find((o) => o.id === onboardingData?.emotional_state)
+        return found ? found.label : 'Chưa cập nhật'
     })()
-    const stressLevelLabel = onboardingData?.stress_level !== undefined ? String(onboardingData.stress_level) : 'Chưa cập nhật'
+    const stressLevelLabel = onboardingData?.stress_level !== undefined ? STRESS_LABELS[onboardingData.stress_level] ?? String(onboardingData.stress_level) : 'Chưa cập nhật'
     const wakeTimeLabel = onboardingData?.wake_time || 'Chưa cập nhật'
     const bedTimeLabel = onboardingData?.bed_time || 'Chưa cập nhật'
-    const practicesLabel = onboardingData?.practice_ids && onboardingData.practice_ids.length > 0 ? onboardingData.practice_ids.join(', ') : 'Chưa cập nhật'
+    const practicesLabel = onboardingData?.practice_ids && onboardingData.practice_ids.length > 0 ? onboardingData.practice_ids.map((id) => PRACTICE_OPTIONS.find((p) => p.id === id)?.label || id).join(', ') : 'Chưa cập nhật'
     const onboardingCompletedAt = onboardingData?.completed_at ? new Date(onboardingData.completed_at).toLocaleString('vi-VN') : null
 
     const createdDate = new Date().toLocaleDateString('vi-VN', {
