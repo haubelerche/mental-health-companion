@@ -7,7 +7,6 @@ import {
   type BambooMessage as BambooInboxItem,
   type BambooInboxSummary,
   type BambooInboxThreadMessage,
-  type StoredLetter as BambooStoredItem,
 } from "../../services/anonymousShareService";
 import {
   APP_SETTINGS_STORAGE_KEY,
@@ -29,7 +28,6 @@ type Letter = {
 };
 
 type TabId = "beach" | "community";
-type StorageFilter = "all" | "sent" | "received";
 
 const TOPIC_OPTIONS = [
   { value: "encouragement", label: "Khích lệ" },
@@ -109,20 +107,6 @@ function toLetter(message: BambooInboxItem): Letter {
     replyToMessageId: message.reply_to_message_id ?? null,
     topic: message.topic,
     tone: message.tone,
-  };
-}
-
-function toStoredLetter(letter: BambooStoredItem): Letter {
-  return {
-    id: letter.id,
-    from: letter.direction === "sent" ? "Bạn" : letter.anonymous_name ?? "Một người vô danh",
-    time: formatRelativeTime(letter.timestamp),
-    body: letter.content,
-    direction: letter.direction,
-    status: letter.status,
-    replyToMessageId: letter.reply_to_message_id ?? null,
-    topic: letter.topic,
-    tone: letter.tone,
   };
 }
 
@@ -842,8 +826,6 @@ export default function BeachMessage() {
   }, []);
 
   const [tab, setTab] = useState<TabId>("beach");
-  const [storageLetters, setStorageLetters] = useState<Letter[]>([]);
-  const [storageFilter, setStorageFilter] = useState<StorageFilter>("all");
   const [pendingLetter, setPendingLetter] = useState<Letter | null>(null);
   const [ripple, setRipple] = useState(false);
   const [openLetter, setOpenLetter] = useState<Letter | null>(null);
@@ -870,15 +852,6 @@ export default function BeachMessage() {
         setPendingLetter(null);
       } finally {
         if (active) setLoadingInbox(false);
-      }
-
-      try {
-        const storageData = await anonymousShareService.getStorage();
-        if (!active) return;
-        setStorageLetters(storageData.letters.map(toStoredLetter));
-      } catch {
-        if (!active) return;
-        setStorageLetters([]);
       }
 
       setLoadingInboxes(true);
@@ -953,10 +926,6 @@ export default function BeachMessage() {
     await anonymousShareService.passItOn(letterId);
     refreshInbox();
   };
-  const filteredStorageLetters = storageLetters.filter((letter) => {
-    if (storageFilter === "all") return true;
-    return letter.direction === storageFilter;
-  });
   const selectedInbox = inboxes.find((item) => item.id === selectedInboxId) ?? null;
 
   return (
@@ -1098,7 +1067,7 @@ export default function BeachMessage() {
 
           <div className={`${ui.glassLight} border rounded-2xl p-4 mb-8`}>
             <div className="flex items-center justify-between mb-3">
-              <h3 className={`${ui.textSubtle} font-display text-xl font-semibold`}>Inbox theo người nhận/gửi</h3>
+              <h3 className={`${ui.textSubtle} font-display text-xl font-semibold`}>Danh sách cuộc trò chuyện</h3>
               {loadingInboxes && (
                 <span className={`${ui.textSubtler} text-xs uppercase tracking-wider`}>
                   Đang tải...
@@ -1202,89 +1171,6 @@ export default function BeachMessage() {
               )}
             
             </div>
-          </div>
-
-          <div className="flex gap-2 mb-5">
-            {[
-              { id: "all", label: "Tất cả" },
-              { id: "sent", label: "Đã gửi" },
-              { id: "received", label: "Đã nhận" },
-            ].map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setStorageFilter(item.id as StorageFilter)}
-                className="px-3 py-1 rounded-full border text-sm"
-                style={{
-                  borderColor: dark ? "rgba(242,235,224,0.2)" : "rgba(18,30,40,0.2)",
-                  color:
-                    storageFilter === item.id
-                      ? dark
-                        ? "rgb(255,255,255)"
-                        : "rgb(15,23,42)"
-                      : dark
-                        ? "rgba(242,235,224,0.65)"
-                        : "rgba(20,26,33,0.65)",
-                  background:
-                    storageFilter === item.id
-                      ? dark
-                        ? "rgba(255,255,255,0.12)"
-                        : "rgba(255,255,255,0.7)"
-                      : "transparent",
-                }}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-col gap-4">
-            {filteredStorageLetters.length > 0 ? (
-              filteredStorageLetters.map((l, i) => (
-                <div
-                  key={l.id}
-                  onClick={() => setOpenLetter(l)}
-                  className={`${ui.glassLight} border rounded-2xl p-6 cursor-pointer transition-all hover:bg-opacity-70 hover:border-opacity-80`}
-                  style={{ animation: `fadeUpCard 0.6s ease ${i * 0.1}s both` }}
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <p className={`${ui.textSubtle} font-display text-sm font-semibold tracking-wide`}>
-                      {l.from}
-                    </p>
-                    <p className={`${ui.textSubtler}  text-xs`}>
-                      {l.time}
-                    </p>
-                  </div>
-                  <div className="mb-2 flex items-center gap-2">
-                    <span className={`${ui.textSubtler} text-xs uppercase tracking-wider`}>
-                      {l.direction === "sent" ? "Đã gửi" : "Đã nhận"}
-                    </span>
-                    {l.status && (
-                      <span className={`${ui.textSubtler} text-xs uppercase tracking-wider`}>
-                        • {l.status}
-                      </span>
-                    )}
-                  </div>
-                  {l.replyToMessageId && (
-                    <p className={`${ui.textSubtler} text-xs tracking-wide mb-2`}>
-                      Phản hồi thư: {l.replyToMessageId}
-                    </p>
-                  )}
-                  <p className={`${ui.textSubtle} font-display text-lg italic leading-relaxed mb-3 line-clamp-3`}>
-                    {l.body}
-                  </p>
-                  <p className={`${ui.textSubtler} text-xs tracking-wider `}>
-                    {l.direction === "received" ? "Nhấn để đọc & hồi âm →" : "Nhấn để xem chi tiết →"}
-                  </p>
-                </div>
-              ))
-            ) : (
-              <div className={`${ui.glassLight} border rounded-2xl p-6 text-center`}>
-                  <p className={`${ui.textSubtle} font-display text-lg italic`}>
-                    Chưa có thư phù hợp bộ lọc.
-                  </p>
-                </div>
-              )}
           </div>
         </div>
       )}
