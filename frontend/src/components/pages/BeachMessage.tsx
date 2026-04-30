@@ -760,6 +760,50 @@ function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boolean })
   );
 }
 
+function InboxComposer({ inboxId, displayName, onSent }: { inboxId: string; displayName: string; onSent: () => void }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const ui = getUi(readAppSettings().mode === "dark");
+
+  return (
+    <div className={`${ui.glassLight} border rounded-xl p-3`}>
+      <p className={`${ui.textSubtler} text-sm mb-2`}>Gửi tin nhắn đến {displayName}</p>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={3}
+        placeholder="Viết tin nhắn..."
+        className="w-full rounded-lg p-2 mb-2"
+        disabled={busy || sent}
+      />
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={async () => {
+            if (!text.trim() || busy) return;
+            setBusy(true);
+            try {
+              await anonymousShareService.sendToInbox(inboxId, { content: text.trim() });
+              setSent(true);
+              setText("");
+              onSent();
+            } catch {
+              // ignore
+            } finally {
+              setBusy(false);
+            }
+          }}
+          disabled={!text.trim() || busy || sent}
+          className="px-4 py-2 rounded-lg bg-cyan-400 text-white"
+        >
+          Gửi
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function BeachMessage() {
   const [dark, setDark] = useState(() => readAppSettings().mode === "dark");
   const ui = getUi(dark);
@@ -1124,6 +1168,22 @@ export default function BeachMessage() {
                     );
                   })}
                 </div>
+              ) : (
+                <p className={`${ui.textSubtler} text-sm`}>Inbox chưa có thư hiển thị.</p>
+              )}
+
+              {/* Composer for selected inbox */}
+              {selectedInboxId && (
+                <div className="mt-3">
+                  <InboxComposer
+                    inboxId={selectedInboxId}
+                    displayName={selectedInbox?.display_name ?? 'Người dùng ẩn danh'}
+                    onSent={() => {
+                      refreshInbox();
+                    }}
+                  />
+                </div>
+              )}
               ) : (
                 <p className={`${ui.textSubtler} text-sm`}>Inbox chưa có thư hiển thị.</p>
               )}
