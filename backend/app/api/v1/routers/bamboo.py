@@ -65,7 +65,11 @@ def _pick_recipient(
         )
         if unread_count < 5:
             eligible.append(user.user_id)
-    return random.choice(eligible) if eligible else None
+    # deterministic selection based on sender id to avoid flakiness in tests
+    if not eligible:
+        return None
+    h = int(hashlib.sha256(sender_user_id.encode("utf-8")).hexdigest(), 16)
+    return eligible[h % len(eligible)]
 
 
 @router.post("/send")
