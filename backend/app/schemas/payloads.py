@@ -121,10 +121,17 @@ class AdminResourceCreateRequest(BaseModel):
     description: str | None = None
     format: str = Field(min_length=1, max_length=20)
     duration_sec: int = Field(ge=1)
-    storage_key: str = Field(min_length=1, max_length=500)
+    storage_key: str | None = Field(default=None, max_length=500)
+    external_url: str | None = Field(default=None, max_length=500)
     thumbnail_key: str | None = Field(default=None, max_length=500)
     tags: list[str] = Field(default_factory=list)
     is_active: bool = True
+
+    @model_validator(mode="after")
+    def storage_or_external(self) -> "AdminResourceCreateRequest":
+        if not (self.storage_key or self.external_url):
+            raise ValueError("storage_key or external_url is required")
+        return self
 
 
 class AdminResourceUpdateRequest(BaseModel):
@@ -134,6 +141,7 @@ class AdminResourceUpdateRequest(BaseModel):
     format: str | None = Field(default=None, min_length=1, max_length=20)
     duration_sec: int | None = Field(default=None, ge=1)
     storage_key: str | None = Field(default=None, min_length=1, max_length=500)
+    external_url: str | None = Field(default=None, max_length=500)
     thumbnail_key: str | None = Field(default=None, max_length=500)
     tags: list[str] | None = None
     is_active: bool | None = None

@@ -200,6 +200,7 @@ class Resource(Base):
     format: Mapped[str] = mapped_column(String(20), nullable=False)
     duration_sec: Mapped[int] = mapped_column(Integer, nullable=False)
     storage_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    external_url: Mapped[str | None] = mapped_column(String(500))
     thumbnail_key: Mapped[str | None] = mapped_column(String(500))
     tags: Mapped[list[Any]] = mapped_column(JSON, default=list, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

@@ -5,10 +5,10 @@ import Register from '../components/auth/Register.tsx'
 import Chat from '../components/chat/Chat.tsx'
 import Main from '../components/layout/Main.tsx'
 import Connect from '../components/pages/Connect.tsx'
-import Home from '../components/pages/Home.tsx'
+
 import Landing from '../components/pages/Landing.tsx'
 import Reflect from '../components/pages/Reflect.tsx'
-import Resources from '../components/pages/Resources.tsx'
+import Resources from '../components/pages/resource/Resources.tsx'
 import Nutrition from '../components/pages/Nutrition.tsx'
 import { CheckinFlow } from '../components/pages/CheckinFlow'
 import { SafetyCheck } from '../components/pages/SafetyCheck'
@@ -23,7 +23,10 @@ import Setting from '../components/pages/Setting.tsx'
 import Forget from '../components/auth/Forget.tsx'
 import AdminLogin from '../components/admin/AdminLogin.tsx'
 import AdminDashboard from '../components/admin/AdminDashboard'
+import AdminCrisisLogs from '../components/admin/AdminCrisisLogs'
+import AdminResources from '../components/admin/AdminResources'
 import AdminMain from '../components/admin/layout/AdminMain.tsx'
+import Home from '../components/pages/Home.tsx'
 
 function RequireAuth({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()
@@ -53,7 +56,10 @@ export default function AppRoutes() {
             {/* admin */}
             <Route path={ROUTE_PATHS.adminLogin} element={<AdminLogin />} />
             <Route path={ROUTE_PATHS.admin} element={<AdminMain />}>
-                <Route index element={<AdminDashboard />} />
+                <Route index element={<Navigate to={ROUTE_PATHS.adminDashboard} replace />} />
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="crisis-logs" element={<AdminCrisisLogs />} />
+                <Route path="resources" element={<AdminResources />} />
             </Route>
 
             {/* user */}

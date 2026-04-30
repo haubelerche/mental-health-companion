@@ -1,5 +1,5 @@
 import { useEffect, useState, type MouseEvent } from 'react'
-import { Bell, Compass, HelpCircle, HomeIcon, Library, MessageSquare, Sailboat, Settings, Sparkles, Utensils } from 'lucide-react'
+import { Bell, Book, Compass, HelpCircle, HomeIcon, Library, MessageSquare, Sailboat, Settings, Sparkles, Utensils } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { ROUTE_PATHS } from '../../routes/paths'
 import {
@@ -8,6 +8,7 @@ import {
     readAppSettings,
     type AppSettings,
 } from '../../utils/appSettings'
+
 
 type SidebarProps = {
     isOpen: boolean
@@ -20,6 +21,7 @@ const navItems = [
     { icon: MessageSquare, label: 'Chat', route: ROUTE_PATHS.chat },
     { icon: Sparkles, label: 'Nhìn lại', route: ROUTE_PATHS.reflect },
     { icon: Library, label: 'Tài nguyên', route: ROUTE_PATHS.resources },
+    { icon: Book, label: 'Bài tập', route: ROUTE_PATHS.exercises },
     { icon: Utensils, label: 'Dinh dưỡng', route: ROUTE_PATHS.nutrition },
     { icon: Compass, label: 'Kết nối', route: ROUTE_PATHS.connect },
     { icon: Sailboat, label: 'Thư', route: ROUTE_PATHS.bamboo },

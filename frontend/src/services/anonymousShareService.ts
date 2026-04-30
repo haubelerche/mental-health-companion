@@ -47,6 +47,46 @@ export type BambooInboxResponse = {
   has_more?: boolean
 }
 
+export type BambooInboxSummary = {
+  id: string
+  display_name: string
+  last_message_preview: string
+  last_message_at: string
+  last_direction: 'sent' | 'received'
+  unread_count: number
+  message_count: number
+}
+
+export type BambooInboxThreadMessage = {
+  id: string
+  content: string
+  anonymous_name: string
+  sent_at: string
+  status?: string
+  direction: 'sent' | 'received'
+  reply_to_message_id?: string | null
+  topic?: string | null
+  tone?: string | null
+  reply_count?: number
+  pass_count?: number
+}
+
+export type BambooInboxesResponse = {
+  inboxes: BambooInboxSummary[]
+  total: number
+  has_more?: boolean
+}
+
+export type BambooInboxMessagesResponse = {
+  inbox: {
+    id: string
+    display_name: string
+  }
+  messages: BambooInboxThreadMessage[]
+  total: number
+  has_more?: boolean
+}
+
 export type BambooStorageResponse = {
   letters: StoredLetter[]
 }
@@ -81,6 +121,34 @@ function normalizeStorageLetter(letter: Record<string, unknown>): StoredLetter {
     reply_count: typeof letter.reply_count === 'number' ? letter.reply_count : 0,
     topic: (letter.topic as string | null | undefined) ?? null,
     tone: (letter.tone as string | null | undefined) ?? null,
+  }
+}
+
+function normalizeInboxSummary(inbox: Record<string, unknown>): BambooInboxSummary {
+  return {
+    id: String(inbox.inbox_id ?? inbox.id ?? `inbox_${Date.now()}`),
+    display_name: String(inbox.display_name ?? 'Người dùng ẩn danh'),
+    last_message_preview: String(inbox.last_message_preview ?? ''),
+    last_message_at: String(inbox.last_message_at ?? new Date().toISOString()),
+    last_direction: String(inbox.last_direction ?? 'received') === 'sent' ? 'sent' : 'received',
+    unread_count: typeof inbox.unread_count === 'number' ? inbox.unread_count : 0,
+    message_count: typeof inbox.message_count === 'number' ? inbox.message_count : 0,
+  }
+}
+
+function normalizeInboxThreadMessage(message: Record<string, unknown>): BambooInboxThreadMessage {
+  return {
+    id: String(message.message_id ?? message.id ?? `msg_${Date.now()}`),
+    content: String(message.content ?? ''),
+    anonymous_name: String(message.anonymous_name ?? 'Một người vô danh'),
+    sent_at: String(message.sent_at ?? message.received_at ?? new Date().toISOString()),
+    status: typeof message.status === 'string' ? message.status : 'approved',
+    direction: String(message.direction ?? 'received') === 'sent' ? 'sent' : 'received',
+    reply_to_message_id: (message.reply_to_message_id as string | null | undefined) ?? null,
+    topic: (message.topic as string | null | undefined) ?? null,
+    tone: (message.tone as string | null | undefined) ?? null,
+    reply_count: typeof message.reply_count === 'number' ? message.reply_count : 0,
+    pass_count: typeof message.pass_count === 'number' ? message.pass_count : 0,
   }
 }
 
@@ -123,6 +191,33 @@ export const anonymousShareService = {
     const data = await httpClient.get<{ messages: Record<string, unknown>[]; total: number; has_more?: boolean }>('/bamboo/inbox')
     return {
       messages: data.messages.map(normalizeInboxMessage),
+      total: data.total,
+      has_more: data.has_more,
+    }
+  },
+
+  async getInboxes(): Promise<BambooInboxesResponse> {
+    const data = await httpClient.get<{ inboxes: Record<string, unknown>[]; total: number; has_more?: boolean }>('/bamboo/inboxes')
+    return {
+      inboxes: data.inboxes.map(normalizeInboxSummary),
+      total: data.total,
+      has_more: data.has_more,
+    }
+  },
+
+  async getInboxMessages(inboxId: string): Promise<BambooInboxMessagesResponse> {
+    const data = await httpClient.get<{
+      inbox: { inbox_id?: string; id?: string; display_name?: string }
+      messages: Record<string, unknown>[]
+      total: number
+      has_more?: boolean
+    }>(`/bamboo/inboxes/${encodeURIComponent(inboxId)}/messages`)
+    return {
+      inbox: {
+        id: String(data.inbox.inbox_id ?? data.inbox.id ?? inboxId),
+        display_name: String(data.inbox.display_name ?? 'Người dùng ẩn danh'),
+      },
+      messages: data.messages.map(normalizeInboxThreadMessage),
       total: data.total,
       has_more: data.has_more,
     }
