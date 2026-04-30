@@ -748,25 +748,25 @@ function InboxComposer({
   const ui = getUi(dark);
 
   return (
-    <div className={`${ui.glassLight} border rounded-2xl shadow-xl overflow-hidden`}>
-      <div className={`border-b ${ui.glassBorder} px-4 py-3 flex items-center justify-between gap-3`}>
+    <div className={`${ui.glassLight} border rounded-2xl shadow-xl px-3 py-3`}>
+      <div className="flex items-center justify-between gap-3 mb-2 px-1">
         <div className="min-w-0">
           <p className={`${ui.textSubtle} font-display text-sm font-semibold truncate`}>Gửi thư trong inbox</p>
-          <p className={`${ui.textSubtler} text-xs truncate`}>Đến {displayName}</p>
+          <p className={`${ui.textSubtler} text-[11px] truncate`}>Đến {displayName}</p>
         </div>
-        <div className="min-h-[20px] shrink-0">
-          {error && <p className="text-xs text-rose-400">{error}</p>}
-          {sent && <p className="text-xs text-emerald-400">Đã gửi</p>}
+        <div className="min-h-[18px] shrink-0 text-right">
+          {error && <p className="text-[11px] text-rose-400">{error}</p>}
+          {sent && <p className="text-[11px] text-emerald-400">Đã gửi</p>}
         </div>
       </div>
 
-      <div className="px-4 py-4 flex flex-col gap-3">
+      <div className="flex items-end gap-3">
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          rows={6}
+          rows={1}
           placeholder="Viết tin nhắn..."
-          className="w-full rounded-2xl p-4 resize-none outline-none"
+          className="flex-1 h-12 min-h-12 max-h-12 rounded-full px-5 py-3 resize-none outline-none overflow-y-auto"
           style={{
             backgroundColor: dark ? "rgba(242,235,224,0.05)" : "rgb(255,255,255)",
             border: `1px solid ${dark ? "rgba(242,235,224,0.13)" : "rgba(18,30,40,0.18)"}`,
@@ -775,36 +775,34 @@ function InboxComposer({
           disabled={busy || sent}
         />
 
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={async () => {
-              if (!text.trim() || busy) return;
-              setBusy(true);
-              setError(null);
-              try {
-                await anonymousShareService.sendToInbox(inboxId, { content: text.trim() });
-                setSent(true);
-                setText("");
-                onSent();
-                setTimeout(() => setSent(false), 2200);
-              } catch {
-                setError("Gửi thất bại, vui lòng thử lại.");
-              } finally {
-                setBusy(false);
-              }
-            }}
-            disabled={!text.trim() || busy || sent}
-            className="px-5 py-2.5 rounded-xl text-white font-semibold min-w-28"
-            style={{
-              background: !text.trim() || busy || sent
-                ? "rgba(148,163,184,0.5)"
-                : "linear-gradient(135deg,#5fd0be 0%,#4f9dcb 100%)",
-            }}
-          >
-            {busy ? "Đang gửi..." : sent ? "Đã gửi" : "Gửi"}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={async () => {
+            if (!text.trim() || busy) return;
+            setBusy(true);
+            setError(null);
+            try {
+              await anonymousShareService.sendToInbox(inboxId, { content: text.trim() });
+              setSent(true);
+              setText("");
+              onSent();
+              setTimeout(() => setSent(false), 2200);
+            } catch {
+              setError("Gửi thất bại, vui lòng thử lại.");
+            } finally {
+              setBusy(false);
+            }
+          }}
+          disabled={!text.trim() || busy || sent}
+          className="h-12 px-5 rounded-full text-white font-semibold min-w-28 shrink-0"
+          style={{
+            background: !text.trim() || busy || sent
+              ? "rgba(148,163,184,0.5)"
+              : "linear-gradient(135deg,#5fd0be 0%,#4f9dcb 100%)",
+          }}
+        >
+          {busy ? "Đang gửi..." : sent ? "Đã gửi" : "Gửi"}
+        </button>
       </div>
     </div>
   );
