@@ -14,6 +14,7 @@ import {
   readAppSettings,
   type AppSettings,
 } from "../../utils/appSettings";
+import { ApiRequestError } from "../../api/types";
 
 type Letter = {
   id: string;
@@ -264,6 +265,8 @@ function LetterOverlay({
   const [reply, setReply] = useState("");
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<"pass" | "reply" | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const areaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -347,7 +350,10 @@ function LetterOverlay({
               <div className="mt-5 flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setReplyOpen(true)}
+                  onClick={() => {
+                    setActionError(null);
+                    setReplyOpen(true);
+                  }}
                   disabled={busy}
                   className={`flex-1 bg-none border rounded-xl py-2.5 px-0 font-display tracking-wide cursor-pointer transition-all`}
                   style={{
@@ -378,13 +384,21 @@ function LetterOverlay({
                   onClick={async () => {
                     if (busy) return;
                     setBusy(true);
+                    setBusyAction("pass");
+                    setActionError(null);
                     try {
                       await onPass();
-                    } catch {
+                      onClose();
+                    } catch (error) {
+                      if (error instanceof ApiRequestError) {
+                        setActionError(error.message);
+                      } else {
+                        setActionError("Không thể đẩy thư lúc này. Vui lòng thử lại.");
+                      }
                       return;
                     } finally {
                       setBusy(false);
-                      onClose();
+                      setBusyAction(null);
                     }
                   }}
                   disabled={busy}
@@ -410,7 +424,7 @@ function LetterOverlay({
                     e.currentTarget.style.background = "none";
                   }}
                 >
-                  Đẩy thuyền trôi đi
+                  {busy && busyAction === "pass" ? "Đang đẩy..." : "Đẩy thuyền trôi đi"}
                 </button>
               </div>
             ) : (
@@ -465,14 +479,22 @@ function LetterOverlay({
                     onClick={async () => {
                       if (!reply.trim() || busy) return;
                       setBusy(true);
+                      setBusyAction("reply");
+                      setActionError(null);
                       try {
                         await onReply(reply.trim());
                         setSent(true);
                         setTimeout(onClose, 2000);
-                      } catch {
+                      } catch (error) {
+                        if (error instanceof ApiRequestError) {
+                          setActionError(error.message);
+                        } else {
+                          setActionError("Không thể gửi hồi âm lúc này. Vui lòng thử lại.");
+                        }
                         return;
                       } finally {
                         setBusy(false);
+                        setBusyAction(null);
                       }
                     }}
                     disabled={!reply.trim() || busy}
@@ -507,9 +529,12 @@ function LetterOverlay({
                       }
                     }}
                   >
-                    Thả về biển
+                    {busy && busyAction === "reply" ? "Đang gửi..." : "Thả về biển"}
                   </button>
                 </div>
+                {actionError && (
+                  <p className="mt-2 text-xs text-rose-400">{actionError}</p>
+                )}
               </div>
             )
           ) : (
@@ -535,6 +560,7 @@ function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boolean })
   const [tone, setTone] = useState("");
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   return (
     <div
@@ -660,6 +686,7 @@ function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boolean })
                     onClick={async () => {
                       if (!text.trim() || busy) return;
                       setBusy(true);
+                      setSubmitError(null);
                       try {
                         await anonymousShareService.send({
                           content: text.trim(),
@@ -668,7 +695,12 @@ function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boolean })
                         });
                         setSent(true);
                         setTimeout(onClose, 2200);
-                      } catch {
+                      } catch (error) {
+                        if (error instanceof ApiRequestError) {
+                          setSubmitError(error.message);
+                        } else {
+                          setSubmitError("Không thể gửi thư lúc này. Vui lòng thử lại.");
+                        }
                         return;
                       } finally {
                         setBusy(false);
@@ -706,9 +738,10 @@ function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boolean })
                     }
                   }}
                 >
-                  Thả ra biển
+                  {busy ? "Đang thả..." : "Thả ra biển"}
                 </button>
               </div>
+              {submitError && <p className="mt-2 text-xs text-rose-400">{submitError}</p>}
             </>
           ) : (
             <div
