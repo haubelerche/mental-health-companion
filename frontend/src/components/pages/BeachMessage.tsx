@@ -110,20 +110,6 @@ function toLetter(message: BambooInboxItem): Letter {
   };
 }
 
-function toThreadLetter(message: BambooInboxThreadMessage, displayName: string): Letter {
-  return {
-    id: message.id,
-    from: message.direction === "sent" ? "Bạn" : displayName,
-    time: formatRelativeTime(message.sent_at),
-    body: message.content,
-    direction: message.direction,
-    status: message.status,
-    replyToMessageId: message.reply_to_message_id ?? null,
-    topic: message.topic,
-    tone: message.tone,
-  };
-}
-
 function pickRandomLetter(messages: BambooInboxItem[]): Letter | null {
   if (!messages.length) return null;
   const index = Math.floor(Math.random() * messages.length);
@@ -748,11 +734,13 @@ function InboxComposer({
   inboxId,
   displayName,
   onSent,
+  onClose,
   dark,
 }: {
   inboxId: string;
   displayName: string;
   onSent: () => void;
+  onClose: () => void;
   dark: boolean;
 }) {
   const [text, setText] = useState("");
@@ -762,43 +750,228 @@ function InboxComposer({
   const ui = getUi(dark);
 
   return (
-    <div className={`${ui.glassLight} border rounded-xl p-3`}>
-      <p className={`${ui.textSubtler} text-sm mb-2`}>Gửi tin nhắn đến {displayName}</p>
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={3}
-        placeholder="Viết tin nhắn..."
-        className="w-full rounded-lg p-2 mb-2"
-        disabled={busy || sent}
-      />
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={async () => {
-            if (!text.trim() || busy) return;
-            setBusy(true);
-            setError(null);
-            try {
-              await anonymousShareService.sendToInbox(inboxId, { content: text.trim() });
-              setSent(true);
-              setText("");
-              onSent();
-              // auto-clear success after a short delay
-              setTimeout(() => setSent(false), 2200);
-            } catch {
-              setError("Gửi thất bại, vui lòng thử lại.");
-            } finally {
-              setBusy(false);
-            }
-          }}
-          disabled={!text.trim() || busy || sent}
-          className="px-4 py-2 rounded-lg bg-cyan-400 text-white"
-        >
-          {sent ? 'Đã gửi' : 'Gửi'}
-        </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm">
+      <div
+        className={`${ui.glassLight} border rounded-3xl shadow-2xl w-full max-w-lg h-[480px] flex flex-col overflow-hidden`}
+        style={{ animation: "letterOpen 0.35s cubic-bezier(0.22,1,0.36,1) both" }}
+      >
+        <div className={`border-b ${ui.glassBorder} px-6 py-4 flex items-center justify-between`}> 
+          <div>
+            <p className={`${ui.textSubtle} font-display text-lg font-semibold`}>Gửi thư trong inbox</p>
+            <p className={`${ui.textSubtler} text-xs`}>Đến {displayName}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1 rounded-lg text-sm border"
+            style={{
+              borderColor: dark ? "rgba(242,235,224,0.12)" : "rgba(18,30,40,0.12)",
+              color: dark ? "rgba(242,235,224,0.92)" : "rgba(20,26,33,0.92)",
+            }}
+          >
+            Đóng
+          </button>
+        </div>
+
+        <div className="flex-1 px-6 py-4 flex flex-col gap-3 min-h-0">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={10}
+            placeholder="Viết tin nhắn..."
+            className="w-full flex-1 min-h-0 rounded-2xl p-4 resize-none outline-none"
+            style={{
+              backgroundColor: dark ? "rgba(242,235,224,0.05)" : "rgb(255,255,255)",
+              border: `1px solid ${dark ? "rgba(242,235,224,0.13)" : "rgba(18,30,40,0.18)"}`,
+              color: dark ? "rgb(255,255,255)" : "rgb(15,23,42)",
+            }}
+            disabled={busy || sent}
+          />
+
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-h-[20px]">
+              {error && <p className="text-xs text-rose-400">{error}</p>}
+              {sent && <p className="text-xs text-emerald-400">Đã gửi</p>}
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!text.trim() || busy) return;
+                setBusy(true);
+                setError(null);
+                try {
+                  await anonymousShareService.sendToInbox(inboxId, { content: text.trim() });
+                  setSent(true);
+                  setText("");
+                  onSent();
+                  setTimeout(() => setSent(false), 2200);
+                } catch {
+                  setError("Gửi thất bại, vui lòng thử lại.");
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              disabled={!text.trim() || busy || sent}
+              className="px-5 py-2.5 rounded-xl text-white font-semibold min-w-28"
+              style={{
+                background: !text.trim() || busy || sent
+                  ? "rgba(148,163,184,0.5)"
+                  : "linear-gradient(135deg,#5fd0be 0%,#4f9dcb 100%)",
+              }}
+            >
+              {busy ? "Đang gửi..." : sent ? "Đã gửi" : "Gửi"}
+            </button>
+          </div>
+        </div>
       </div>
-      {error && <p className="mt-2 text-xs text-rose-400">{error}</p>}
+    </div>
+  );
+}
+
+function InboxThreadDialog({
+  inboxId,
+  displayName,
+  messages,
+  loading,
+  dark,
+  onClose,
+  onRefresh,
+  onSent,
+}: {
+  inboxId: string;
+  displayName: string;
+  messages: BambooInboxThreadMessage[];
+  loading: boolean;
+  dark: boolean;
+  onClose: () => void;
+  onRefresh: () => void;
+  onSent: () => void;
+}) {
+  const ui = getUi(dark);
+  const [showComposer, setShowComposer] = useState(false);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/55 backdrop-blur-sm">
+      <div
+        className={`${ui.glassLight} border rounded-3xl shadow-2xl w-full max-w-3xl h-[78vh] flex flex-col overflow-hidden`}
+        style={{ animation: "letterOpen 0.35s cubic-bezier(0.22,1,0.36,1) both" }}
+      >
+        <div className={`border-b ${ui.glassBorder} px-5 py-4 flex items-center justify-between gap-3`}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-2 rounded-xl border text-sm font-semibold"
+            style={{
+              borderColor: dark ? "rgba(242,235,224,0.12)" : "rgba(18,30,40,0.12)",
+              color: dark ? "rgba(242,235,224,0.92)" : "rgba(20,26,33,0.92)",
+            }}
+          >
+            ← Quay lại
+          </button>
+
+          <div className="min-w-0 flex-1 text-center px-2">
+            <p className={`${ui.textSubtle} font-display text-lg font-semibold truncate`}>{displayName}</p>
+            <p className={`${ui.textSubtler} text-xs`}>Hội thoại riêng tư</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onRefresh}
+            aria-label="Hot reload"
+            className="inline-flex items-center justify-center h-10 w-10 rounded-xl border"
+            style={{
+              borderColor: dark ? "rgba(242,235,224,0.12)" : "rgba(18,30,40,0.12)",
+              color: dark ? "rgba(242,235,224,0.92)" : "rgba(20,26,33,0.92)",
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+              <path d="M21 3v6h-6" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="flex-1 min-h-0 flex flex-col px-5 py-4 gap-4">
+          <div className="flex-1 min-h-0 rounded-2xl border overflow-hidden" style={{ borderColor: dark ? "rgba(242,235,224,0.14)" : "rgba(18,30,40,0.14)" }}>
+            <div className="h-full overflow-y-auto s-scroll px-4 py-4 flex flex-col gap-2">
+              {loading ? (
+                <div className="flex items-center gap-3 py-6 justify-center">
+                  <span className="inline-flex h-4 w-4 rounded-full border-2 border-cyan-300 border-t-transparent animate-spin" />
+                  <p className={`${ui.textSubtler} text-sm`}>Đang tải hội thoại...</p>
+                </div>
+              ) : messages.length > 0 ? (
+                messages.map((message) => {
+                  const isSent = message.direction === "sent";
+                  return (
+                    <button
+                      key={message.id}
+                      type="button"
+                      onClick={() => {
+                        // open thread item in the letter overlay style if needed later
+                      }}
+                      className={`max-w-[88%] rounded-2xl px-4 py-3 text-left ${isSent ? "self-end" : "self-start"}`}
+                      style={{
+                        background: isSent
+                          ? "linear-gradient(135deg,#5fd0be 0%,#4f9dcb 100%)"
+                          : dark
+                            ? "rgba(255,255,255,0.09)"
+                            : "rgba(255,255,255,0.82)",
+                        color: isSent ? "#ffffff" : dark ? "#ffffff" : "#0f172a",
+                        border: `1px solid ${isSent ? "rgba(111,190,214,0.68)" : dark ? "rgba(242,235,224,0.2)" : "rgba(18,30,40,0.18)"}`,
+                      }}
+                    >
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                      <p className={`text-[11px] mt-2 ${isSent ? "text-white/80" : ui.textSubtler}`}>
+                        {formatRelativeTime(message.sent_at)}
+                      </p>
+                    </button>
+                  );
+                })
+              ) : (
+                <p className={`${ui.textSubtler} text-sm text-center py-6`}>Inbox chưa có thư hiển thị.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setShowComposer((value) => !value)}
+              className="px-4 py-2 rounded-xl border text-sm font-semibold"
+              style={{
+                borderColor: dark ? "rgba(242,235,224,0.12)" : "rgba(18,30,40,0.12)",
+                color: dark ? "rgba(242,235,224,0.92)" : "rgba(20,26,33,0.92)",
+              }}
+            >
+              {showComposer ? "Đóng soạn thư" : "Gửi thư"}
+            </button>
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="px-4 py-2 rounded-xl border text-sm font-semibold"
+              style={{
+                borderColor: dark ? "rgba(242,235,224,0.12)" : "rgba(18,30,40,0.12)",
+                color: dark ? "rgba(242,235,224,0.92)" : "rgba(20,26,33,0.92)",
+              }}
+            >
+              Làm mới hội thoại
+            </button>
+          </div>
+
+          {showComposer && (
+            <InboxComposer
+              inboxId={inboxId}
+              displayName={displayName}
+              onSent={() => {
+                onSent();
+                onRefresh();
+              }}
+              onClose={() => setShowComposer(false)}
+              dark={dark}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -938,6 +1111,10 @@ export default function BeachMessage() {
     refreshInbox();
   };
   const selectedInbox = inboxes.find((item) => item.id === selectedInboxId) ?? null;
+  const refreshSelectedThread = () => {
+    if (!selectedInboxId) return;
+    setRefreshSeed((value) => value + 1);
+  };
 
   return (
     <div className="relative min-h-screen overflow-x-hidden overflow-y-auto">
@@ -1126,85 +1303,26 @@ export default function BeachMessage() {
             )}
 
             <div className="mt-4 border-t pt-4" style={{ borderColor: dark ? "rgba(242,235,224,0.2)" : "rgba(18,30,40,0.18)" }}>
-              {/* Back button + title for opened inbox */}
-              {selectedInboxId ? (
-                <div className="flex items-center justify-between mb-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedInboxId(null)}
-                    className="text-sm font-display px-3 py-1 rounded-lg border"
-                    style={{
-                      borderColor: dark ? "rgba(242,235,224,0.12)" : "rgba(18,30,40,0.12)",
-                      background: dark ? "rgba(255,255,255,0.02)" : "transparent",
-                      color: dark ? "rgba(242,235,224,0.9)" : "rgba(20,26,33,0.9)",
-                    }}
-                  >
-                    ← Quay lại
-                  </button>
-                  <p className={`${ui.textSubtle} text-sm font-semibold`}>
-                    {selectedInbox ? `Đoạn thư với ${selectedInbox.display_name}` : "Hội thoại"}
-                  </p>
-                </div>
-              ) : (
-                <p className={`${ui.textSubtle} text-sm mb-2`}>
-                  Chọn một inbox để xem hội thoại
-                </p>
-              )}
-
-              {loadingInboxMessages ? (
-                <p className={`${ui.textSubtler} text-sm`}>Đang tải hội thoại...</p>
-              ) : selectedInboxMessages.length > 0 ? (
-                <div className="flex flex-col gap-2 max-h-80 overflow-y-auto s-scroll">
-                  {selectedInboxMessages.map((message) => {
-                    const isSent = message.direction === "sent";
-                    return (
-                      <button
-                        key={message.id}
-                        type="button"
-                        onClick={() => {
-                          if (!selectedInbox) return;
-                          setOpenLetter(toThreadLetter(message, selectedInbox.display_name));
-                        }}
-                        className={`max-w-[88%] rounded-2xl px-4 py-3 text-left ${isSent ? "self-end" : "self-start"}`}
-                        style={{
-                          background: isSent
-                            ? "linear-gradient(135deg,#5fd0be 0%,#4f9dcb 100%)"
-                            : dark
-                              ? "rgba(255,255,255,0.09)"
-                              : "rgba(255,255,255,0.82)",
-                          color: isSent ? "#ffffff" : dark ? "#ffffff" : "#0f172a",
-                          border: `1px solid ${isSent ? "rgba(111,190,214,0.68)" : dark ? "rgba(242,235,224,0.2)" : "rgba(18,30,40,0.18)"}`,
-                        }}
-                      >
-                        <p className="text-sm leading-relaxed line-clamp-3">{message.content}</p>
-                        <p className={`text-[11px] mt-2 ${isSent ? "text-white/80" : ui.textSubtler}`}>
-                          {formatRelativeTime(message.sent_at)}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className={`${ui.textSubtler} text-sm`}>Inbox chưa có thư hiển thị.</p>
-              )}
-
-              {/* Composer for selected inbox */}
-              {selectedInboxId && (
-                <div className="mt-3">
-                  <InboxComposer
-                    inboxId={selectedInboxId}
-                    displayName={selectedInbox?.display_name ?? 'Người dùng ẩn danh'}
-                    onSent={() => {
-                      refreshInbox();
-                    }}
-                    dark={dark}
-                  />
-                </div>
-              )}
-            
+              <p className={`${ui.textSubtle} text-sm`}>Chọn một inbox để mở hội thoại trong dialog.</p>
             </div>
           </div>
         </div>
+      )}
+
+      {selectedInboxId && selectedInbox && (
+        <InboxThreadDialog
+          inboxId={selectedInboxId}
+          displayName={selectedInbox.display_name}
+          messages={selectedInboxMessages}
+          loading={loadingInboxMessages}
+          dark={dark}
+          onClose={() => setSelectedInboxId(null)}
+          onRefresh={refreshSelectedThread}
+          onSent={() => {
+            refreshInbox();
+            refreshSelectedThread();
+          }}
+        />
       )}
 
       {/* Overlays */}
