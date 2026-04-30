@@ -37,41 +37,6 @@ def _backfill_policy_versions() -> None:
         pass
 
 
-def _backfill_bamboo_messages() -> None:
-    try:
-        factory = get_session_factory()
-        db = factory()
-        try:
-            db.execute(
-                text(
-                    "CREATE TABLE IF NOT EXISTS bamboo_messages ("
-                    "message_id VARCHAR(50) PRIMARY KEY, "
-                    "user_id VARCHAR(50) NOT NULL REFERENCES users(user_id), "
-                    "anonymous_name VARCHAR(255) NOT NULL, "
-                    "content TEXT NOT NULL, "
-                    "topic VARCHAR(255), "
-                    "tone VARCHAR(50), "
-                    "direction VARCHAR(30) NOT NULL, "
-                    "status VARCHAR(30) NOT NULL DEFAULT 'pending', "
-                    "created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, "
-                    "reviewed_at TIMESTAMP NULL, "
-                    "pass_count INTEGER NOT NULL DEFAULT 0, "
-                    "reply_count INTEGER NOT NULL DEFAULT 0, "
-                    "recipient_id VARCHAR(50) NULL REFERENCES users(user_id), "
-                    "reply_to_message_id VARCHAR(50) NULL, "
-                    "opened_at TIMESTAMP NULL"
-                    ")"
-                )
-            )
-            db.execute(text("ALTER TABLE bamboo_messages ADD COLUMN IF NOT EXISTS recipient_id VARCHAR(50)"))
-            db.execute(text("ALTER TABLE bamboo_messages ADD COLUMN IF NOT EXISTS reply_to_message_id VARCHAR(50)"))
-            db.execute(text("ALTER TABLE bamboo_messages ADD COLUMN IF NOT EXISTS opened_at TIMESTAMP NULL"))
-            db.commit()
-        finally:
-            db.close()
-    except Exception:
-        pass
-
 
 def _idle_loop() -> None:
     from app.services.idle_sessions import summarize_idle_sessions
@@ -95,7 +60,6 @@ async def lifespan(_: FastAPI):
     if settings.auto_create_schema:
         init_db()
     _backfill_policy_versions()
-    _backfill_bamboo_messages()
     threading.Thread(target=_idle_loop, daemon=True).start()
     threading.Thread(target=_outbox_loop, daemon=True).start()
     yield
