@@ -196,6 +196,11 @@ export const anonymousShareService = {
     }
   },
 
+  async getLetter(messageId: string): Promise<BambooMessage> {
+    const data = await httpClient.get<Record<string, unknown>>(`/bamboo/letters/${encodeURIComponent(messageId)}`)
+    return normalizeInboxMessage(data)
+  },
+
   async getInboxes(): Promise<BambooInboxesResponse> {
     const data = await httpClient.get<{ inboxes: Record<string, unknown>[]; total: number; has_more?: boolean }>('/bamboo/inboxes')
     return {
