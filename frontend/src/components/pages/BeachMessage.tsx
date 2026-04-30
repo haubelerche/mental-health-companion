@@ -748,10 +748,10 @@ function InboxComposer({
   const ui = getUi(dark);
 
   return (
-    <div className={`${ui.glassLight} border rounded-2xl shadow-xl px-3 py-3`}>
-      <div className="flex items-center justify-between gap-3 mb-2 px-1">
+    <div className={`${ui.glassLight} border rounded-2xl shadow-xl px-2.5 py-2.5`}>
+      <div className="flex items-center justify-between gap-3 mb-1.5 px-1">
         <div className="min-w-0">
-          <p className={`${ui.textSubtle} font-display text-sm font-semibold truncate`}>Gửi thư trong inbox</p>
+          <p className={`${ui.textSubtle} font-display text-[13px] font-semibold truncate`}>Gửi thư trong inbox</p>
           <p className={`${ui.textSubtler} text-[11px] truncate`}>Đến {displayName}</p>
         </div>
         <div className="min-h-[18px] shrink-0 text-right">
@@ -766,7 +766,7 @@ function InboxComposer({
           onChange={(e) => setText(e.target.value)}
           rows={1}
           placeholder="Viết tin nhắn..."
-          className="flex-1 h-12 min-h-12 max-h-12 rounded-full px-5 py-3 resize-none outline-none overflow-y-auto"
+          className="flex-1 h-11 min-h-11 max-h-11 rounded-full px-4.5 py-2.5 resize-none outline-none overflow-y-auto"
           style={{
             backgroundColor: dark ? "rgba(242,235,224,0.05)" : "rgb(255,255,255)",
             border: `1px solid ${dark ? "rgba(242,235,224,0.13)" : "rgba(18,30,40,0.18)"}`,
@@ -794,7 +794,7 @@ function InboxComposer({
             }
           }}
           disabled={!text.trim() || busy || sent}
-          className="h-12 px-5 rounded-full text-white font-semibold min-w-28 shrink-0"
+          className="h-11 px-4.5 rounded-full text-white font-semibold min-w-24 shrink-0"
           style={{
             background: !text.trim() || busy || sent
               ? "rgba(148,163,184,0.5)"
@@ -873,9 +873,9 @@ function InboxThreadDialog({
           </button>
         </div>
 
-        <div className="flex-1 min-h-0 flex flex-col px-5 py-4 gap-4">
-          <div className="flex-1 min-h-0 rounded-2xl border overflow-hidden" style={{ borderColor: dark ? "rgba(242,235,224,0.14)" : "rgba(18,30,40,0.14)" }}>
-            <div className="h-full overflow-y-auto s-scroll px-4 py-4 flex flex-col gap-2">
+        <div className="flex-1 min-h-0 flex flex-col px-4 py-3 gap-3">
+            <div className="flex-1 min-h-0 rounded-2xl border overflow-hidden" style={{ borderColor: dark ? "rgba(242,235,224,0.14)" : "rgba(18,30,40,0.14)" }}>
+              <div className="h-full overflow-y-auto s-scroll px-3 py-3 flex flex-col gap-2">
               {loading ? (
                 <div className="flex items-center gap-3 py-6 justify-center">
                   <span className="inline-flex h-4 w-4 rounded-full border-2 border-cyan-300 border-t-transparent animate-spin" />
