@@ -4,18 +4,12 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
-import { onboardingService } from '../../services/onboardingService'
-
-interface OnboardingData {
-    age_group?: string
-    primary_concern?: string | null
-    support_level?: string | null
-}
+import { onboardingService, type OnboardingProfile } from '../../services/onboardingService'
 
 export default function Profile() {
     const navigate = useNavigate()
     const { user } = useAuth()
-    const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null)
+    const [onboardingData, setOnboardingData] = useState<OnboardingProfile | null>(null)
     const [loading, setLoading] = useState(true)
 
     // Fetch onboarding data
@@ -43,6 +37,24 @@ export default function Profile() {
     const ageGroupLabel = onboardingData?.age_group || 'Chưa cập nhật'
     const concernLabel = onboardingData?.primary_concern || 'Chưa cập nhật'
     const supportLevelLabel = onboardingData?.support_level || 'Chưa cập nhật'
+    const nicknameLabel = onboardingData?.nickname || 'Chưa cập nhật'
+    const emotionalStateLabel = (() => {
+        switch (onboardingData?.emotional_state) {
+            case 'difficult_recently':
+                return 'Gần đây khó khăn'
+            case 'ongoing_challenges':
+                return 'Khó khăn kéo dài'
+            case 'doing_okay':
+                return 'Ổn định'
+            default:
+                return 'Chưa cập nhật'
+        }
+    })()
+    const stressLevelLabel = onboardingData?.stress_level !== undefined ? String(onboardingData.stress_level) : 'Chưa cập nhật'
+    const wakeTimeLabel = onboardingData?.wake_time || 'Chưa cập nhật'
+    const bedTimeLabel = onboardingData?.bed_time || 'Chưa cập nhật'
+    const practicesLabel = onboardingData?.practice_ids && onboardingData.practice_ids.length > 0 ? onboardingData.practice_ids.join(', ') : 'Chưa cập nhật'
+    const onboardingCompletedAt = onboardingData?.completed_at ? new Date(onboardingData.completed_at).toLocaleString('vi-VN') : null
 
     const createdDate = new Date().toLocaleDateString('vi-VN', {
         year: 'numeric',
@@ -51,15 +63,15 @@ export default function Profile() {
     })
 
     return (
-        <div className="min-h-screen bg-serene-bg">
+        <div className="min-h-screen bg-white/70 backdrop-blur-xl rounded-3xl">
             {/* Header */}
             <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="sticky top-0 z-30 flex items-center gap-4 border-b border-serene-border bg-serene-bg/95 px-4 py-4 backdrop-blur-sm sm:px-6"
+                className=" flex items-center gap-4 border-b border-serene-border rounded-t-3xl bg-serene-bg/95 px-4 py-4 backdrop-blur-sm sm:px-6"
             >
                 <button
-                    onClick={() => navigate(ROUTE_PATHS.home)}
+                    onClick={() => navigate(ROUTE_PATHS.setting)}
                     className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-serene-surface transition text-serene-ink"
                     aria-label="Quay lại"
                 >
@@ -95,7 +107,7 @@ export default function Profile() {
                     transition={{ delay: 0.15 }}
                     className="mb-6 rounded-3xl bg-serene-surface-card p-6 shadow-sm"
                 >
-                    <h3 className="mb-4 font-display text-lg italic text-serene-ink">Thông tin tài khoản</h3>
+                    <h3 className="mb-4 font-display text-2xl text-serene-primary font-semibold">Thông tin tài khoản</h3>
                     <div className="space-y-4">
                         <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
                             <span className="text-sm text-serene-muted">Tên hiển thị</span>
@@ -127,19 +139,47 @@ export default function Profile() {
                         transition={{ delay: 0.2 }}
                         className="mb-6 rounded-3xl bg-serene-surface-card p-6 shadow-sm"
                     >
-                        <h3 className="mb-4 font-display text-lg italic text-serene-ink">Về bạn</h3>
+                        <h3 className="mb-4 font-display text-2xl text-serene-primary font-semibold">Về bạn</h3>
                         <div className="space-y-4">
+                            <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
+                                <span className="text-sm text-serene-muted">Nickname</span>
+                                <span className="font-medium text-serene-ink">{nicknameLabel}</span>
+                            </div>
                             <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
                                 <span className="text-sm text-serene-muted">Nhóm tuổi</span>
                                 <span className="font-medium text-serene-ink">{ageGroupLabel}</span>
                             </div>
                             <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
+                                <span className="text-sm text-serene-muted">Tâm trạng hiện tại</span>
+                                <span className="font-medium text-serene-ink">{emotionalStateLabel}</span>
+                            </div>
+                            <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
                                 <span className="text-sm text-serene-muted">Mối quan tâm chính</span>
                                 <span className="font-medium text-serene-ink">{concernLabel}</span>
                             </div>
-                            <div className="flex items-center justify-between py-2">
+                            <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
                                 <span className="text-sm text-serene-muted">Mức hỗ trợ</span>
                                 <span className="font-medium text-serene-ink">{supportLevelLabel}</span>
+                            </div>
+                            <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
+                                <span className="text-sm text-serene-muted">Mức căng thẳng (0-10)</span>
+                                <span className="font-medium text-serene-ink">{stressLevelLabel}</span>
+                            </div>
+                            <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
+                                <span className="text-sm text-serene-muted">Thời gian thức</span>
+                                <span className="font-medium text-serene-ink">{wakeTimeLabel}</span>
+                            </div>
+                            <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
+                                <span className="text-sm text-serene-muted">Thời gian ngủ</span>
+                                <span className="font-medium text-serene-ink">{bedTimeLabel}</span>
+                            </div>
+                            <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
+                                <span className="text-sm text-serene-muted">Thói quen ưu tiên</span>
+                                <span className="font-medium text-serene-ink">{practicesLabel}</span>
+                            </div>
+                            <div className="flex items-center justify-between py-2">
+                                <span className="text-sm text-serene-muted">Onboarding hoàn thành</span>
+                                <span className="font-medium text-serene-ink">{onboardingCompletedAt ?? 'Chưa hoàn thành'}</span>
                             </div>
                         </div>
                     </motion.div>
