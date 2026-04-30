@@ -1,12 +1,23 @@
 import { motion } from 'framer-motion'
-import { ArrowLeft, Settings, Lock, Info } from 'lucide-react'
+import { ArrowLeft, Settings, Lock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { onboardingService, type OnboardingProfile } from '../../services/onboardingService'
 import { EMOTIONAL_OPTIONS, PRIMARY_CONCERN_OPTIONS, SUPPORT_OPTIONS, AGE_OPTIONS, PRACTICE_OPTIONS, STRESS_LABELS } from './onboarding/onboard.option'
-
+import {
+    User,
+    Calendar,
+    HeartPulse,
+    Target,
+    LifeBuoy,
+    Activity,
+    Moon,
+    Sun,
+    Sparkles,
+    CheckCircle,
+} from 'lucide-react'
 export default function Profile() {
     const navigate = useNavigate()
     const { user } = useAuth()
@@ -112,7 +123,7 @@ export default function Profile() {
                             <span className=" text-serene-muted font-semibold">Email</span>
                             <span className=" text-serene-ink text-sm break-all">{user.email}</span>
                         </div>
-                       
+
                         <div className="flex items-center justify-between py-2">
                             <span className=" text-serene-muted font-semibold">Trạng thái</span>
                             <span className="flex items-center gap-2 font-medium text-serene-primary">
@@ -133,46 +144,89 @@ export default function Profile() {
                     >
                         <h3 className="mb-4 font-display text-3xl text-serene-primary font-semibold">Về bạn</h3>
                         <div className="space-y-4">
+
                             <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
-                                <span className=" text-serene-muted font-semibold">Nickname</span>
-                                <span className=" text-serene-ink text-sm">{nicknameLabel}</span>
+                                <div className="flex items-center gap-2 text-serene-muted font-semibold">
+                                    <User className="h-4 w-4" />
+                                    Nickname
+                                </div>
+                                <span className="text-serene-ink text-sm">{nicknameLabel}</span>
                             </div>
+
                             <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
-                                <span className=" text-serene-muted font-semibold">Nhóm tuổi</span>
-                                <span className=" text-serene-ink text-sm">{ageGroupLabel}</span>
+                                <div className="flex items-center gap-2 text-serene-muted font-semibold">
+                                    <Calendar className="h-4 w-4" />
+                                    Nhóm tuổi
+                                </div>
+                                <span className="text-serene-ink text-sm">{ageGroupLabel}</span>
                             </div>
+
                             <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
-                                <span className=" text-serene-muted font-semibold">Tâm trạng hiện tại</span>
-                                <span className=" text-serene-ink text-sm">{emotionalStateLabel}</span>
+                                <div className="flex items-center gap-2 text-serene-muted font-semibold">
+                                    <HeartPulse className="h-4 w-4" />
+                                    Tâm trạng hiện tại
+                                </div>
+                                <span className="text-serene-ink text-sm">{emotionalStateLabel}</span>
                             </div>
+
                             <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
-                                <span className=" text-serene-muted font-semibold">Mối quan tâm chính</span>
-                                <span className=" text-serene-ink text-sm">{concernLabel}</span>
+                                <div className="flex items-center gap-2 text-serene-muted font-semibold">
+                                    <Target className="h-4 w-4" />
+                                    Mối quan tâm chính
+                                </div>
+                                <span className="text-serene-ink text-sm">{concernLabel}</span>
                             </div>
+
                             <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
-                                <span className=" text-serene-muted font-semibold">Mức hỗ trợ</span>
-                                <span className=" text-serene-ink text-sm">{supportLevelLabel}</span>
+                                <div className="flex items-center gap-2 text-serene-muted font-semibold">
+                                    <LifeBuoy className="h-4 w-4" />
+                                    Mức hỗ trợ
+                                </div>
+                                <span className="text-serene-ink text-sm">{supportLevelLabel}</span>
                             </div>
+
                             <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
-                                <span className=" text-serene-muted font-semibold">Mức căng thẳng (0-10)</span>
-                                <span className=" text-serene-ink text-sm">{stressLevelLabel}</span>
+                                <div className="flex items-center gap-2 text-serene-muted font-semibold">
+                                    <Activity className="h-4 w-4" />
+                                    Mức căng thẳng (0-10)
+                                </div>
+                                <span className="text-serene-ink text-sm">{stressLevelLabel}</span>
                             </div>
+
                             <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
-                                <span className=" text-serene-muted font-semibold">Thời gian thức</span>
-                                <span className=" text-serene-ink text-sm">{wakeTimeLabel}</span>
+                                <div className="flex items-center gap-2 text-serene-muted font-semibold">
+                                    <Moon className="h-4 w-4" />
+                                    Ngủ lúc
+                                </div>
+                                <span className="text-serene-ink text-sm">{bedTimeLabel}</span>
                             </div>
+
                             <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
-                                <span className=" text-serene-muted font-semibold">Thời gian ngủ</span>
-                                <span className=" text-serene-ink text-sm">{bedTimeLabel}</span>
+                                <div className="flex items-center gap-2 text-serene-muted font-semibold">
+                                    <Sun className="h-4 w-4" />
+                                    Thức dậy lúc
+                                </div>
+                                <span className="text-serene-ink text-sm">{wakeTimeLabel}</span>
                             </div>
+
                             <div className="flex items-center justify-between py-2 border-b border-serene-border/50">
-                                <span className=" text-serene-muted font-semibold">Thói quen ưu tiên</span>
-                                <span className=" text-serene-ink text-sm">{practicesLabel}</span>
+                                <div className="flex items-center gap-2 text-serene-muted font-semibold">
+                                    <Sparkles className="h-4 w-4" />
+                                    Thói quen ưu tiên
+                                </div>
+                                <span className="text-serene-ink text-sm">{practicesLabel}</span>
                             </div>
+
                             <div className="flex items-center justify-between py-2">
-                                <span className=" text-serene-muted font-semibold">Onboarding hoàn thành</span>
-                                <span className=" text-serene-ink text-sm">{onboardingCompletedAt ?? 'Chưa hoàn thành'}</span>
+                                <div className="flex items-center gap-2 text-serene-muted font-semibold">
+                                    <CheckCircle className="h-4 w-4" />
+                                    Onboarding hoàn thành
+                                </div>
+                                <span className="text-serene-ink text-sm">
+                                    {onboardingCompletedAt ?? 'Chưa hoàn thành'}
+                                </span>
                             </div>
+
                         </div>
                     </motion.div>
                 )}
@@ -199,7 +253,7 @@ export default function Profile() {
                         <Lock size={18} />
                         <span className="font-medium">Đổi mật khẩu</span>
                     </button>
-              
+
                 </motion.div>
             </div>
         </div>
