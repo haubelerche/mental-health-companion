@@ -385,6 +385,42 @@ def reply_letter(payload: BambooReplyRequest, db: Session = Depends(get_db), cur
     )
 
 
+@router.post("/inboxes/{inbox_id}/messages")
+def send_inbox_message(inbox_id: str, payload: BambooSendRequest, db: Session = Depends(get_db), current_user: User = Depends(ensure_policy_acknowledged)):
+    inbox = db.get(Inbox, inbox_id)
+    if not inbox:
+        raise AppError("BAMBOO_INBOX_NOT_FOUND", "Không tìm thấy hộp thư", 404)
+
+    if current_user.user_id not in {inbox.user_a_id, inbox.user_b_id}:
+        raise AppError("BAMBOO_INBOX_NOT_FOUND", "Không tìm thấy hộp thư", 404)
+
+    # determine recipient and sender anon name
+    if current_user.user_id == inbox.user_a_id:
+        recipient = inbox.user_b_id
+        anon_name = inbox.anon_name_a
+    else:
+        recipient = inbox.user_a_id
+        anon_name = inbox.anon_name_b
+
+    mid = make_id("bam_m")
+    msg = BambooMessage(
+        message_id=mid,
+        user_id=current_user.user_id,
+        anonymous_name=anon_name,
+        content=payload.content,
+        topic=payload.topic,
+        tone=payload.tone,
+        direction="sent",
+        status="pending",
+        recipient_id=recipient,
+        inbox_id=inbox.inbox_id,
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+    return ok({"message_id": mid, "status": msg.status, "sent_at": msg.created_at.isoformat() + "Z"}, status_code=201)
+
+
 @router.post("/pass")
 def pass_letter(payload: BambooPassRequest, db: Session = Depends(get_db), current_user: User = Depends(ensure_policy_acknowledged)):
     target = db.get(BambooMessage, payload.message_id)
