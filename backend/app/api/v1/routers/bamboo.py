@@ -436,6 +436,9 @@ def pass_letter(payload: BambooPassRequest, db: Session = Depends(get_db), curre
         raise AppError("BAMBOO_MESSAGE_NOT_FOUND", "Không tìm thấy thư", 404)
     if target.recipient_id != current_user.user_id:
         raise AppError("BAMBOO_MESSAGE_NOT_FOUND", "Không tìm thấy thư", 404)
+    if target.status != "approved":
+        raise AppError("BAMBOO_MESSAGE_NOT_FOUND", "Không tìm thấy thư", 404)
+
     target.pass_count = (target.pass_count or 0) + 1
     # rotate recipient (exclude sender and previous recipient)
     new_recipient = _pick_recipient(
@@ -444,6 +447,9 @@ def pass_letter(payload: BambooPassRequest, db: Session = Depends(get_db), curre
         excluded_user_ids={target.recipient_id} if target.recipient_id else None,
     )
     target.recipient_id = new_recipient
+    # When re-assigned to a new recipient, mark as unread for the new owner.
+    if new_recipient:
+        target.opened_at = None
     db.add(target)
     db.commit()
     return ok({"message_id": payload.message_id, "pass_count": target.pass_count, "reassigned": bool(new_recipient), "passed_at": utc_now().isoformat() + "Z"})
