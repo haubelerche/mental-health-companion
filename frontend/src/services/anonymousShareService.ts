@@ -64,6 +64,8 @@ export type SendLetterResponse = {
   is_reported: boolean
 }
 
+export type ReportCategory = 'spam' | 'abuse' | 'inappropriate' | 'self_harm' | 'other'
+
 export type LetterInboxResponse = {
   letters: LetterInboxItem[]
   total: number
@@ -191,10 +193,17 @@ export const anonymousShareService = {
     })
   },
 
-  async reportLetter(letterId: string, reason: string): Promise<void> {
+  async reportLetter(
+    letterId: string,
+    reportCategory: ReportCategory,
+    reason?: string,
+    description?: string,
+  ): Promise<void> {
     await httpClient.postWithCsrf('/reports', {
       letter_id: letterId,
+      report_category: reportCategory,
       reason,
+      description,
     })
   },
 }
