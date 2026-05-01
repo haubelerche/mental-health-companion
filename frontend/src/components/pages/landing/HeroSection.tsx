@@ -4,7 +4,7 @@ import RevealSection from '../../../utils/RevealSection'
 
 export default function HeroSection() {
     return (
-        <RevealSection id="hero" className="flex min-h-screen items-center px-6 py-30" delay={0}>
+        <RevealSection id="hero" className="flex min-h-screen items-center px-6 py-30" variant='fade-up'>
             <div className="mx-auto w-full max-w-5xl text-center">
                 <h2 className="font-display text-5xl italic leading-tight text-white drop-shadow-2xl sm:text-7xl lg:text-8xl">
                     Tìm lại sự bình yên

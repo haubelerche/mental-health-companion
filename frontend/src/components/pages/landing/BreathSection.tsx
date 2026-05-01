@@ -3,7 +3,7 @@ import RevealSection from '../../../utils/RevealSection'
 
 export default function BreathSection() {
     return (
-        <RevealSection className="px-6 py-30" id="breath-space" delay={0.2}>
+        <RevealSection className="px-6 py-30" id="breath-space" variant="blur">
             <div className="max-w-4xl mx-auto text-center space-y-15 px-6">
                 <div className="space-y-4">
                     <h2 className="text-4xl lg:text-6xl font-display text-white italic">Hãy để tâm trí được nghỉ ngơi</h2>
