@@ -256,12 +256,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 
 **Mô tả**: Chuyển tiếp thư đến người nhận khác
 
-**Request**:
-```json
-{
-  "letter_id": "ltr_abc123"
-}
-```
+**Request**: Không có body
 
 **Response (200 OK)**:
 ```json
@@ -292,9 +287,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 **Request**:
 ```json
 {
-  "letter_id": "ltr_abc123",
-  "content": "Nội dung phản hồi của tôi",
-  "anonymous_name": "Bạn lạ"
+  "content": "Nội dung phản hồi của tôi"
 }
 ```
 
@@ -328,7 +321,6 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 **Request**:
 ```json
 {
-  "reply_id": "rep_xyz789",
   "reaction_type": "❤️"
 }
 ```
