@@ -63,3 +63,6 @@ backend/data/emotion_centroids.pkl
 # Local design reference / screenshots (not shipped with app; app assets live under frontend/src/assets)
 reference-images/
 
+.github/skills/
+.github/plans/
+.github/prompts/
