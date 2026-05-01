@@ -18,6 +18,7 @@ import {
     Sparkles,
     CheckCircle,
 } from 'lucide-react'
+import Loading from '../ui/Loading'
 export default function Profile() {
     const navigate = useNavigate()
     const { user } = useAuth()
@@ -44,6 +45,7 @@ export default function Profile() {
 
 
     if (!user) return null
+
 
     // Map onboarding values to display labels
     const findLabel = (list: { id: string; label: string }[] | undefined, id?: string | null) => {
@@ -135,7 +137,7 @@ export default function Profile() {
                 </motion.div>
 
                 {/* About You Card */}
-                {!loading && onboardingData && (
+                {!loading && onboardingData ? (
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -229,6 +231,10 @@ export default function Profile() {
 
                         </div>
                     </motion.div>
+                ) : (
+                    <div className='mb-6 rounded-3xl border border-white/35 bg-white/70 p-6 shadow-sm'>
+                        <Loading text="Đang tải thông tin của bạn..." />
+                    </div>
                 )}
 
                 {/* Action Buttons */}
