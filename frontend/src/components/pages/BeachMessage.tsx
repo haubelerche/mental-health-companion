@@ -13,6 +13,7 @@ import {
 import {
   CinematicBg as BeachCinematicBg,
   LetterOverlay as BeachLetterOverlay,
+  ReceivedLetterDialog as BeachReceivedLetterDialog,
   SentLetterDialog as BeachSentLetterDialog,
   WriteOverlay as BeachWriteOverlay,
 } from './letter'
@@ -64,6 +65,7 @@ export default function BeachMessage() {
   const [sentLetters, setSentLetters] = useState<SentLetterItem[]>([])
   const [replyLetters, setReplyLetters] = useState<ReplyArchiveItem[]>([])
   const [selectedSentLetter, setSelectedSentLetter] = useState<SentLetterItem | null>(null)
+  const [selectedReplyLetter, setSelectedReplyLetter] = useState<ReplyArchiveItem | null>(null)
   const [refreshSeed, setRefreshSeed] = useState(0)
 
   useEffect(() => {
@@ -153,6 +155,7 @@ export default function BeachMessage() {
           sentLetters={sentLetters}
           replyLetters={replyLetters}
           onOpenSentLetter={setSelectedSentLetter}
+          onOpenReplyLetter={setSelectedReplyLetter}
         />
       )}
 
@@ -166,6 +169,14 @@ export default function BeachMessage() {
             await anonymousShareService.reactToReply(selectedSentLetter.reply.reply_id, 'heart')
             refreshData()
           }}
+        />
+      )}
+
+      {selectedReplyLetter && (
+        <BeachReceivedLetterDialog
+          item={selectedReplyLetter}
+          dark={dark}
+          onClose={() => setSelectedReplyLetter(null)}
         />
       )}
 

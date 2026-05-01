@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { ApiRequestError } from '../../../api/types'
-import { anonymousShareService, type SentLetterItem } from '../../../services/anonymousShareService'
+import { anonymousShareService, type ReplyArchiveItem, type SentLetterItem } from '../../../services/anonymousShareService'
 import { formatRelativeTime, getUi, type Letter } from './shared'
 import { ReportLetterModal } from './ReportLetterModal.tsx'
 
@@ -391,3 +391,84 @@ export function SentLetterDialog({
     )
 }
 
+export function RecievedLetterDialog() {
+    return <div>Chi tiết thư nhận được</div>
+}
+
+export function ReceivedLetterDialog({
+    item,
+    dark,
+    onClose,
+}: {
+    item: ReplyArchiveItem
+    dark: boolean
+    onClose: () => void
+}) {
+    const ui = getUi(dark)
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/55 backdrop-blur-sm"
+            style={{ animation: 'fadeIn 0.45s ease' }}
+            onClick={(e: ReactMouseEvent<HTMLDivElement>) => e.target === e.currentTarget && onClose()}
+        >
+            <div className={`${ui.glassLight} border rounded-3xl shadow-2xl w-full max-w-3xl max-h-[86vh] overflow-hidden flex flex-col`} style={{ animation: 'letterOpen 0.35s cubic-bezier(0.22,1,0.36,1) both' }}>
+                <div className={`border-b ${ui.glassBorder} px-5 py-4 flex items-center justify-between gap-3`}>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="inline-flex items-center justify-center h-10 w-10 rounded-xl border"
+                        style={{
+                            borderColor: dark ? 'rgba(242,235,224,0.12)' : 'rgba(18,30,40,0.12)',
+                            color: dark ? 'rgba(242,235,224,0.92)' : 'rgba(20,26,33,0.92)',
+                        }}
+                        aria-label="Quay lại"
+                    >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                            <path d="M15 18l-6-6 6-6" />
+                        </svg>
+                    </button>
+
+                    <div className="min-w-0 flex-1 text-center px-2">
+                        <div className="flex items-center justify-center gap-2">
+                            <p className={`${ui.textSubtle} font-display text-lg font-semibold truncate`}>Chi tiết thư đã phản hồi</p>
+                            {item.has_reaction && (
+                                <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ backgroundColor: 'rgba(255, 120, 120, 0.15)', color: 'rgba(255, 150, 150, 0.95)' }}>
+                                    Đã được thả {item.reaction_type ?? 'cảm xúc'}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="h-10 w-10" aria-hidden="true" />
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                    <div className={`rounded-2xl border p-4 ${ui.glassLight}`}>
+                        <p className={`${ui.textSubtler} text-xs uppercase tracking-wider mb-2`}>Phản hồi của bạn</p>
+                        <p className={`${ui.textSubtle} font-display text-base leading-relaxed whitespace-pre-wrap`}>{item.content}</p>
+                        <p className={`${ui.textSubtler} text-[11px] mt-2`}>
+                            {item.anonymous_name ? `Ẩn danh: ${item.anonymous_name}` : 'Ẩn danh'} · {formatRelativeTime(item.sent_at)}
+                        </p>
+                    </div>
+
+                    <div className={`rounded-2xl border p-4 ${ui.glassLight}`}>
+                        <p className={`${ui.textSubtler} text-xs uppercase tracking-wider mb-2`}>Thư gốc</p>
+                        {item.original_content ? (
+                            <p className={`${ui.textSubtle} font-display text-base leading-relaxed whitespace-pre-wrap`}>{item.original_content}</p>
+                        ) : (
+                            <p className={`${ui.textSubtler} text-sm`}>Không có nội dung thư gốc.</p>
+                        )}
+                    </div>
+
+                    <div className={`rounded-2xl border p-4 ${ui.glassLight}`}>
+                        <p className={`${ui.textSubtler} text-xs uppercase tracking-wider mb-2`}>Trạng thái</p>
+                        <p className={`${ui.textSubtler} text-sm`}>
+                            {item.has_reaction ? `Đã được thả ${item.reaction_type ?? 'cảm xúc'}` : 'Chưa có phản ứng nào từ người gửi gốc'}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}

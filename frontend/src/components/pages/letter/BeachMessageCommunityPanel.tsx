@@ -8,12 +8,14 @@ export function BeachMessageCommunityPanel({
     sentLetters,
     replyLetters,
     onOpenSentLetter,
+    onOpenReplyLetter,
 }: {
     dark: boolean
     loadingSent: boolean
     sentLetters: SentLetterItem[]
     replyLetters: ReplyArchiveItem[]
     onOpenSentLetter: (item: SentLetterItem) => void
+    onOpenReplyLetter: (item: ReplyArchiveItem) => void
 }) {
     const ui = getUi(dark)
 
@@ -69,8 +71,10 @@ export function BeachMessageCommunityPanel({
                 {replyLetters.length > 0 ? (
                     <div className="grid grid-cols-1 gap-3">
                         {replyLetters.map((item) => (
-                            <div
+                            <button
                                 key={item.reply_id}
+                                type="button"
+                                onClick={() => onOpenReplyLetter(item)}
                                 className="text-left rounded-xl border px-4 py-3"
                                 style={{ borderColor: dark ? 'rgba(242,235,224,0.2)' : 'rgba(18,30,40,0.18)' }}
                             >
@@ -86,7 +90,7 @@ export function BeachMessageCommunityPanel({
                                 {item.original_content ? (
                                     <p className={`${ui.textSubtler} text-xs italic line-clamp-2`}>Trả lời cho: {item.original_content}</p>
                                 ) : null}
-                            </div>
+                            </button>
                         ))}
                     </div>
                 ) : loadingSent ? <Loading /> : (

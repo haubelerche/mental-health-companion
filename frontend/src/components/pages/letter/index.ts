@@ -1,5 +1,5 @@
 export { CinematicBg, FloatingBottle } from './BeachMessageScene'
-export { LetterOverlay, SentLetterDialog } from './BeachMessageDialogs'
+export { LetterOverlay, ReceivedLetterDialog, SentLetterDialog } from './BeachMessageDialogs'
 export { WriteOverlay } from './BeachMessageDialogs'
 export { ReportLetterModal } from './ReportLetterModal.tsx'
 export { BeachMessageTabs } from './BeachMessageTabs'
