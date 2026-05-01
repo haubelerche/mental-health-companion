@@ -4,7 +4,7 @@ import RevealSection from '../../../utils/RevealSection'
 
 export default function MindfulSoundSection() {
     return (
-        <RevealSection id="mindful-sound" className="relative min-h-screen px-6 py-20" delay={0.2}>
+        <RevealSection id="ocean-sound" className="relative min-h-screen px-6 py-20" delay={0.2}>
             <div className="mx-auto w-full max-w-7xl flex gap-5 flex-col lg:items-center lg:justify-between lg:flex-row">
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/75">Trở về bên trong</p>
