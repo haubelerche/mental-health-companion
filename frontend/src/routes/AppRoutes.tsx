@@ -15,11 +15,12 @@ import { SafetyCheck } from '../components/pages/SafetyCheck'
 import { ScreeningFlow } from '../components/pages/ScreeningFlow'
 import { ResultsPage } from '../components/pages/ResultsPage'
 import { ExercisesPage } from '../components/pages/ExercisesPage'
-import { OnboardingFlow } from '../components/pages/OnboardingFlow.tsx'
+import { OnboardingFlow } from '../components/pages/onboarding/OnboardingFlow.tsx'
 import LetterPage from '../components/pages/BeachMessage.tsx'
 import { useAuth } from '../hooks/useAuth'
 import { ROUTE_PATHS } from './paths'
 import Setting from '../components/pages/Setting.tsx'
+import Profile from '../components/pages/Profile.tsx'
 import Forget from '../components/auth/Forget.tsx'
 import AdminLogin from '../components/admin/AdminLogin.tsx'
 import AdminDashboard from '../components/admin/AdminDashboard'
@@ -118,6 +119,12 @@ export default function AppRoutes() {
                     path={ROUTE_PATHS.connect}
                     element={
                         <Connect />
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.profile}
+                    element={
+                        <Profile />
                     }
                 />
                 <Route

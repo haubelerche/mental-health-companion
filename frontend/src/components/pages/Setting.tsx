@@ -1,4 +1,5 @@
 import {
+  ArrowRight,
   BellRing,
   Check,
   LogOut,
@@ -8,7 +9,7 @@ import {
   User,
 } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import bg from '../../assets/bg.png'
 import bg2 from '../../assets/bg2.png'
 import bg3 from '../../assets/bg3.png'
@@ -192,12 +193,18 @@ export default function Setting() {
                 </button>
               </div>
 
-              <div className="space-y-2 text-center sm:text-left">
+              <div className="space-y-2 text-center sm:text-left flex-1">
                 <p className="font-display text-3xl italic text-serene-ink sm:text-4xl">{displayName}</p>
                 <p className="text-sm text-serene-muted sm:text-base">{email}</p>
                 <span className="rounded-full border border-serene-outline/30 bg-green-500/20 px-4 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-green-600">
                   Verified
                 </span>
+              </div>
+              <div className=''>
+                <Link to={ROUTE_PATHS.profile} className="inline-flex gap-3 items-center rounded-full bg-serene-primary px-4 py-2 text-xs font-medium uppercase tracking-[0.22em] text-serene-on-primary transition hover:brightness-105">
+                  Xem chi tiết
+                  <ArrowRight />
+                </Link>
               </div>
             </div>
           </section>

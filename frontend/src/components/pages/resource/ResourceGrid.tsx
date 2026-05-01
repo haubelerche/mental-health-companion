@@ -1,4 +1,4 @@
-import { Play, ChevronDown, ChevronUp } from 'lucide-react'
+import { Play, ChevronDown, ChevronUp, BookOpen, Volume2 } from 'lucide-react'
 import { useState } from 'react'
 import { type ResourceItem } from '../../../services/resourceService'
 
@@ -100,7 +100,9 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                                     </p>
                                 </div>
                                 <button className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-full border border-serene-primary text-serene-primary transition group-hover:bg-serene-primary group-hover:text-white">
-                                    <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
+                                    {item.format === 'article' ? <BookOpen className="ml-0.5 h-3.5 w-3.5 fill-current" />
+                                        : item.format === 'audio' ? <Volume2 className="ml-0.5 h-3.5 w-3.5 fill-current" />
+                                            : <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />}
                                 </button>
                             </div>
                         ))}
