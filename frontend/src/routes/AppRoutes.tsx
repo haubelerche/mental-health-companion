@@ -6,7 +6,7 @@ import Chat from '../components/chat/Chat.tsx'
 import Main from '../components/layout/Main.tsx'
 import Connect from '../components/pages/Connect.tsx'
 
-import Landing from '../components/pages/Landing.tsx'
+import Landing from '../components/pages/landing/Landing.tsx'
 import Reflect from '../components/pages/Reflect.tsx'
 import Resources from '../components/pages/resource/Resources.tsx'
 import Nutrition from '../components/pages/Nutrition.tsx'

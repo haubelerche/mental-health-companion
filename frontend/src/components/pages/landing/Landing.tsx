@@ -1,9 +1,9 @@
-import bg from '../../assets/bg.png'
-import HeroSection from './landing/HeroSection'
-import AboutAiSection from './landing/AboutAiSection'
-import OceanSoundSection from './landing/OceanSoundSection'
-import BreathSection from './landing/BreathSection'
-import Header from '../layout/HeaderLanding'
+import bg from '../../../assets/bg.png'
+import Header from '../../layout/HeaderLanding'
+import AboutAiSection from './AboutAiSection'
+import BreathSection from './BreathSection'
+import HeroSection from './HeroSection'
+import OceanSoundSection from './OceanSoundSection'
 
 export default function Home() {
     return (
