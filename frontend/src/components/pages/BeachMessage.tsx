@@ -166,7 +166,6 @@ export default function BeachMessage() {
             await anonymousShareService.reactToReply(selectedSentLetter.reply.reply_id, 'heart')
             refreshData()
           }}
-          onReportSuccess={refreshData}
         />
       )}
 

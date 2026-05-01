@@ -3,7 +3,6 @@ import type { MouseEvent as ReactMouseEvent } from 'react'
 import { ApiRequestError } from '../../../api/types'
 import { anonymousShareService, type SentLetterItem } from '../../../services/anonymousShareService'
 import { formatRelativeTime, getUi, type Letter } from './shared'
-import { ReportLetterModal } from './ReportLetterModal.tsx'
 
 export function LetterOverlay({
     letter,
@@ -263,19 +262,16 @@ export function SentLetterDialog({
     dark,
     onClose,
     onReact,
-    onReportSuccess,
 }: {
     item: SentLetterItem
     dark: boolean
     onClose: () => void
     onReact: () => Promise<void>
-    onReportSuccess: () => void
 }) {
     const ui = getUi(dark)
     const [busyReact, setBusyReact] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [reacted, setReacted] = useState(Boolean(item.reply?.reaction_type))
-    const [showReport, setShowReport] = useState(false)
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/55 backdrop-blur-sm">
@@ -306,18 +302,7 @@ export function SentLetterDialog({
                             )}
                         </div>
                     </div>
-
-                    <button
-                        type="button"
-                        onClick={() => setShowReport(true)}
-                        className="inline-flex items-center justify-center h-10 px-3 rounded-xl border text-xs font-semibold"
-                        style={{
-                            borderColor: dark ? 'rgba(255,120,120,0.35)' : 'rgba(190,40,40,0.35)',
-                            color: dark ? 'rgba(255,190,190,0.95)' : 'rgba(145,20,20,0.95)',
-                        }}
-                    >
-                        Report
-                    </button>
+                    <div className="h-10 w-10" aria-hidden="true" />
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -375,7 +360,6 @@ export function SentLetterDialog({
                 </div>
             </div>
 
-            {showReport && <ReportLetterModal item={item} dark={dark} onClose={() => setShowReport(false)} onSuccess={onReportSuccess} />}
         </div>
     )
 }
