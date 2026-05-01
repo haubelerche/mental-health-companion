@@ -313,7 +313,7 @@ export function SentLetterDialog({
                     </div>
 
                     <div className={`rounded-2xl border p-4 ${ui.glassLight}`}>
-                        <p className={`${ui.textSubtler} text-xs uppercase tracking-wider mb-2`}>Thư bạn nhận được</p>
+                        <p className={`${ui.textSubtler} text-xs uppercase tracking-wider mb-2`}>Hồi âm</p>
                         {item.reply ? (
                             <>
                                 <p className={`${ui.textSubtler} text-xs mb-2`}>

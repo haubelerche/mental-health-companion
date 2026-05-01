@@ -1,5 +1,6 @@
 import { formatRelativeTime, getUi } from './shared'
 import type { ReplyArchiveItem, SentLetterItem } from '../../../services/anonymousShareService'
+import Loading from '../../ui/Loading'
 
 export function BeachMessageCommunityPanel({
     dark,
@@ -30,7 +31,6 @@ export function BeachMessageCommunityPanel({
             <div className={`${ui.glassLight} border rounded-2xl p-4 mb-8`}>
                 <div className="flex items-center justify-between mb-3">
                     <h3 className={`${ui.textSubtle} font-display text-xl font-semibold`}>Thư bạn đã gửi</h3>
-                    {loadingSent && <span className={`${ui.textSubtler} text-xs uppercase tracking-wider`}>Đang tải...</span>}
                 </div>
 
                 {sentLetters.length > 0 ? (
@@ -56,7 +56,7 @@ export function BeachMessageCommunityPanel({
                             </button>
                         ))}
                     </div>
-                ) : (
+                ) : loadingSent ? <Loading /> : (
                     <p className={`${ui.textSubtler} text-sm`}>Bạn chưa gửi thư nào.</p>
                 )}
             </div>
@@ -64,7 +64,6 @@ export function BeachMessageCommunityPanel({
             <div className={`${ui.glassLight} border rounded-2xl p-4`}>
                 <div className="flex items-center justify-between mb-3">
                     <h3 className={`${ui.textSubtle} font-display text-xl font-semibold`}>Thư bạn đã phản hồi</h3>
-                    {loadingSent && <span className={`${ui.textSubtler} text-xs uppercase tracking-wider`}>Đang tải...</span>}
                 </div>
 
                 {replyLetters.length > 0 ? (
@@ -90,7 +89,7 @@ export function BeachMessageCommunityPanel({
                             </div>
                         ))}
                     </div>
-                ) : (
+                ) : loadingSent ? <Loading /> : (
                     <p className={`${ui.textSubtler} text-sm`}>Bạn chưa phản hồi thư nào.</p>
                 )}
             </div>
