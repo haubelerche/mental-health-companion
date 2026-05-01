@@ -27,7 +27,7 @@ export default function Header() {
             },
             {
                 root: null,
-                rootMargin: '-40% 0px -40% 0px',
+                rootMargin: '-20% 0px -20% 0px',
                 threshold: 0,
             }
         )
@@ -47,6 +47,19 @@ export default function Header() {
         <header className="sticky top-0 z-40 border-b border-white/10 bg-black/15 backdrop-blur-xl">
             <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
                 {/* Logo */}
+                <button
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    className="md:hidden p-2 rounded-lg hover:bg-white/10 transition"
+                    aria-label="Toggle menu"
+                >
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {mobileMenuOpen ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        )}
+                    </svg>
+                </button>
                 <a href="/" className="font-display text-2xl sm:text-3xl italic tracking-wide text-white shrink-0">
                     Serene
                 </a>
@@ -78,6 +91,8 @@ export default function Header() {
 
                 {/* Right Section: Auth & Mobile Menu Button */}
                 <div className="flex items-center gap-3 sm:gap-4">
+                    {/* Mobile Menu Button */}
+
                     {isLoading ? (
                         <span className="font-display tracking-wide italic text-sm sm:text-base hidden md:block">
                             Xin chào
@@ -97,20 +112,7 @@ export default function Header() {
                         </Link>
                     )}
 
-                    {/* Mobile Menu Button */}
-                    <button
-                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                        className="md:hidden p-2 rounded-lg hover:bg-white/10 transition"
-                        aria-label="Toggle menu"
-                    >
-                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            {mobileMenuOpen ? (
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            ) : (
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                            )}
-                        </svg>
-                    </button>
+
                 </div>
             </div>
 
