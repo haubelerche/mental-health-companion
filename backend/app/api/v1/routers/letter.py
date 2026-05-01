@@ -63,7 +63,8 @@ def _received_flow(db: Session, letter_id: str, user_id: str) -> LetterFlow | No
 
 
 def _reply_summary(db: Session, letter: Letter, *, replier_id: str | None = None) -> dict | None:
-    query = db.query(LetterReply).filter(LetterReply.letter_id == letter.letter_id)
+    query = db.query(LetterReply).filter(
+        LetterReply.letter_id == letter.letter_id)
     if replier_id:
         query = query.filter(LetterReply.replier_id == replier_id)
 
@@ -144,7 +145,8 @@ def _pick_receiver(
 
 
 def _notify_sender_reported(db: Session, sender_id: str, *, letter_id: str, report_id: str, reporter_id: str) -> None:
-    next_outbox_id = (db.query(func.max(SyncOutbox.outbox_id)).scalar() or 0) + 1
+    next_outbox_id = (
+        db.query(func.max(SyncOutbox.outbox_id)).scalar() or 0) + 1
     payload = {
         "letter_id": letter_id,
         "report_id": report_id,
@@ -163,7 +165,8 @@ def _notify_sender_reported(db: Session, sender_id: str, *, letter_id: str, repo
 
 
 def _notify_sender_replied(db: Session, sender_id: str, *, letter_id: str, reply_id: str, replier_id: str) -> None:
-    next_outbox_id = (db.query(func.max(SyncOutbox.outbox_id)).scalar() or 0) + 1
+    next_outbox_id = (
+        db.query(func.max(SyncOutbox.outbox_id)).scalar() or 0) + 1
     payload = {
         "letter_id": letter_id,
         "reply_id": reply_id,
@@ -188,11 +191,13 @@ def send_letter(
     current_user: User = Depends(ensure_policy_acknowledged),
 ):
     if not can_send_letter(db, current_user.user_id):
-        raise AppError("LETTER_SEND_DAILY_LIMIT", "Bạn đã gửi tối đa 5 thư hôm nay", 400)
+        raise AppError("LETTER_SEND_DAILY_LIMIT",
+                       "Bạn đã gửi tối đa 5 thư hôm nay", 400)
 
     receiver_id = _pick_receiver(db, sender_id=current_user.user_id)
     if receiver_id is None:
-        raise AppError("LETTER_NO_RECEIVER", "Hiện chưa có người nhận phù hợp", 400)
+        raise AppError("LETTER_NO_RECEIVER",
+                       "Hiện chưa có người nhận phù hợp", 400)
 
     letter = Letter(
         letter_id=make_id("let"),
@@ -304,7 +309,8 @@ def get_sent_letters(
         .order_by(LetterReply.created_at.desc())
         .all()
     )
-    replied_items = [_replied_archive_item(db, reply) for reply in replied_rows]
+    replied_items = [_replied_archive_item(
+        db, reply) for reply in replied_rows]
 
     return ok({"letters": items, "reply_letters": replied_items, "total": len(items) + len(replied_items), "has_more": False})
 
@@ -320,11 +326,13 @@ def forward_letter(
         raise AppError("LETTER_NOT_FOUND", "Không tìm thấy thư", 404)
 
     if letter.forward_count >= 3:
-        raise AppError("FORWARD_LIMIT_REACHED", "Thư đã đạt giới hạn chuyển tiếp", 400)
+        raise AppError("FORWARD_LIMIT_REACHED",
+                       "Thư đã đạt giới hạn chuyển tiếp", 400)
 
     latest = _latest_flow(db, letter_id)
     if not latest or latest.to_user_id != current_user.user_id or latest.action not in {"sent", "forwarded"}:
-        raise AppError("LETTER_FORWARD_NOT_ALLOWED", "Bạn không được chuyển tiếp thư này", 403)
+        raise AppError("LETTER_FORWARD_NOT_ALLOWED",
+                       "Bạn không được chuyển tiếp thư này", 403)
 
     new_receiver = _pick_receiver(
         db,
@@ -333,7 +341,8 @@ def forward_letter(
         excluded_user_ids={current_user.user_id},
     )
     if new_receiver is None:
-        raise AppError("LETTER_NO_RECEIVER", "Hiện chưa có người nhận phù hợp", 400)
+        raise AppError("LETTER_NO_RECEIVER",
+                       "Hiện chưa có người nhận phù hợp", 400)
 
     letter.forward_count += 1
     flow = LetterFlow(
@@ -374,7 +383,8 @@ def reply_letter(
 
     latest = _latest_flow(db, letter_id)
     if not latest or latest.to_user_id != current_user.user_id or latest.action not in {"sent", "forwarded"}:
-        raise AppError("LETTER_REPLY_NOT_ALLOWED", "Bạn không được phản hồi thư này", 403)
+        raise AppError("LETTER_REPLY_NOT_ALLOWED",
+                       "Bạn không được phản hồi thư này", 403)
 
     reply = LetterReply(
         reply_id=make_id("lrep"),
@@ -396,7 +406,8 @@ def reply_letter(
     db.add(reply)
     db.add(flow)
     # notify the sender that their letter received a reply
-    _notify_sender_replied(db, letter.sender_id, letter_id=letter.letter_id, reply_id=reply.reply_id, replier_id=current_user.user_id)
+    _notify_sender_replied(db, letter.sender_id, letter_id=letter.letter_id,
+                           reply_id=reply.reply_id, replier_id=current_user.user_id)
     db.add(letter)
     db.commit()
 
@@ -424,7 +435,8 @@ def react_reply(
 
     letter = db.get(Letter, reply.letter_id)
     if not letter or letter.sender_id != current_user.user_id:
-        raise AppError("LETTER_REACT_NOT_ALLOWED", "Chỉ người gửi thư mới được thả cảm xúc", 403)
+        raise AppError("LETTER_REACT_NOT_ALLOWED",
+                       "Chỉ người gửi thư mới được thả cảm xúc", 403)
 
     existing = (
         db.query(LetterReaction)
@@ -432,7 +444,8 @@ def react_reply(
         .first()
     )
     if existing:
-        raise AppError("ALREADY_REACTED", "Bạn đã thả cảm xúc cho phản hồi này", 400)
+        raise AppError("ALREADY_REACTED",
+                       "Bạn đã thả cảm xúc cho phản hồi này", 400)
 
     reaction = LetterReaction(
         reaction_id=make_id("lrea"),
@@ -463,6 +476,17 @@ def report_letter(
     if not letter:
         raise AppError("LETTER_NOT_FOUND", "Không tìm thấy thư", 404)
 
+    report_category = payload.report_category.strip().lower()
+    allowed_categories = {"spam", "abuse",
+                          "inappropriate", "self_harm", "other"}
+    if report_category not in allowed_categories:
+        raise AppError("INVALID_REPORT_CATEGORY",
+                       "Danh mục báo cáo không hợp lệ", 400)
+
+    if report_category == "other" and not (payload.reason and payload.reason.strip()):
+        raise AppError("REPORT_REASON_REQUIRED",
+                       "Vui lòng nhập lý do cho báo cáo khác", 400)
+
     was_receiver = (
         db.query(LetterFlow.flow_id)
         .filter(LetterFlow.letter_id == letter.letter_id, LetterFlow.to_user_id == current_user.user_id)
@@ -470,13 +494,25 @@ def report_letter(
         is not None
     )
     if current_user.user_id != letter.sender_id and not was_receiver:
-        raise AppError("LETTER_REPORT_NOT_ALLOWED", "Bạn không được báo cáo thư này", 403)
+        raise AppError("LETTER_REPORT_NOT_ALLOWED",
+                       "Bạn không được báo cáo thư này", 403)
+
+    existing_report = (
+        db.query(Report.report_id)
+        .filter(Report.letter_id == letter.letter_id, Report.reporter_id == current_user.user_id)
+        .first()
+    )
+    if existing_report:
+        raise AppError("ALREADY_REPORTED",
+                       "Bạn đã báo cáo thư này trước đó", 400)
 
     report = Report(
         report_id=make_id("rep"),
         reporter_id=current_user.user_id,
         letter_id=letter.letter_id,
-        reason=payload.reason,
+        reason=payload.reason or payload.description,
+        report_category=report_category,
+        report_status="pending",
     )
     letter.is_reported = True
 
@@ -495,6 +531,8 @@ def report_letter(
         {
             "report_id": report.report_id,
             "letter_id": letter.letter_id,
+            "report_category": report.report_category,
+            "report_status": report.report_status,
             "is_reported": letter.is_reported,
             "sender_notified": True,
         },
