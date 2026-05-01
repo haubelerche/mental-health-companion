@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { toast } from 'react-toastify'
 import { ApiRequestError } from '../../../api/types'
-import { anonymousShareService, type ReportCategory, type SentLetterItem } from '../../../services/anonymousShareService'
-import { formatRelativeTime, getUi, REPORT_CATEGORY_OPTIONS } from './shared'
+import { anonymousShareService, type ReportCategory } from '../../../services/anonymousShareService'
+import { getUi, REPORT_CATEGORY_OPTIONS } from './shared'
+
+type ReportTarget = {
+    id: string
+}
 
 export function ReportLetterModal({
     item,
@@ -10,7 +14,7 @@ export function ReportLetterModal({
     onClose,
     onSuccess,
 }: {
-    item: SentLetterItem
+    item: ReportTarget
     dark: boolean
     onClose: () => void
     onSuccess: () => void

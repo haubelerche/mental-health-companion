@@ -182,6 +182,7 @@ export default function BeachMessage() {
             await anonymousShareService.passItOn(openLetter.id)
             refreshData()
           }}
+          onReportSuccess={refreshData}
         />
       )}
       {showWrite && <BeachWriteOverlay onClose={() => setShowWrite(false)} dark={dark} />}

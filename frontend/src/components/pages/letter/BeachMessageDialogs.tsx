@@ -3,6 +3,7 @@ import type { MouseEvent as ReactMouseEvent } from 'react'
 import { ApiRequestError } from '../../../api/types'
 import { anonymousShareService, type SentLetterItem } from '../../../services/anonymousShareService'
 import { formatRelativeTime, getUi, type Letter } from './shared'
+import { ReportLetterModal } from './ReportLetterModal.tsx'
 
 export function LetterOverlay({
     letter,
@@ -10,12 +11,14 @@ export function LetterOverlay({
     dark,
     onReply,
     onPass,
+    onReportSuccess,
 }: {
     letter: Letter
     onClose: () => void
     dark: boolean
     onReply: (content: string) => Promise<void>
     onPass: () => Promise<void>
+    onReportSuccess: () => void
 }) {
     const ui = getUi(dark)
     const [replyOpen, setReplyOpen] = useState(false)
@@ -24,7 +27,9 @@ export function LetterOverlay({
     const [busy, setBusy] = useState(false)
     const [busyAction, setBusyAction] = useState<'pass' | 'reply' | null>(null)
     const [actionError, setActionError] = useState<string | null>(null)
+    const [showReport, setShowReport] = useState(false)
     const areaRef = useRef<HTMLTextAreaElement | null>(null)
+    const canReport = letter.direction === 'received'
 
     useEffect(() => {
         if (replyOpen) areaRef.current?.focus()
@@ -102,6 +107,20 @@ export function LetterOverlay({
                                 >
                                     {busy && busyAction === 'pass' ? 'Đang đẩy...' : 'Đẩy thuyền trôi đi'}
                                 </button>
+                                {canReport && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowReport(true)}
+                                        disabled={busy}
+                                        className="flex-1 bg-none border rounded-xl py-2.5 px-0 font-display tracking-wide cursor-pointer transition-all"
+                                        style={{
+                                            borderColor: dark ? 'rgba(255,120,120,0.35)' : 'rgba(190,40,40,0.35)',
+                                            color: dark ? 'rgba(255,190,190,0.95)' : 'rgba(145,20,20,0.95)',
+                                        }}
+                                    >
+                                        Báo cáo
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             <div className="mt-5" style={{ animation: 'fadeUpCard 0.35s ease' }}>
@@ -163,6 +182,14 @@ export function LetterOverlay({
                     )}
                 </div>
             </div>
+            {showReport && canReport && (
+                <ReportLetterModal
+                    item={{ id: letter.id }}
+                    dark={dark}
+                    onClose={() => setShowReport(false)}
+                    onSuccess={onReportSuccess}
+                />
+            )}
         </div>
     )
 }
@@ -312,6 +339,7 @@ export function SentLetterDialog({
                         <p className={`${ui.textSubtler} text-[11px] mt-2`}>{formatRelativeTime(item.sent_at)}</p>
                     </div>
 
+
                     <div className={`rounded-2xl border p-4 ${ui.glassLight}`}>
                         <p className={`${ui.textSubtler} text-xs uppercase tracking-wider mb-2`}>Hồi âm</p>
                         {item.reply ? (
@@ -359,7 +387,7 @@ export function SentLetterDialog({
                     {error && <p className="text-sm text-rose-400">{error}</p>}
                 </div>
             </div>
-
         </div>
     )
 }
+
