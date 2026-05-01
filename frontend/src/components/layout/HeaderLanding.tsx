@@ -108,7 +108,7 @@ export default function Header() {
                     ) : user ? (
                         <div className="inline-flex items-center gap-3">
                             <span className="font-display tracking-wide italic text-sm sm:text-base hidden md:block">
-                                Xin chào <strong>{user.displayName}</strong>
+                                Xin chào <strong>{user?.displayName || 'serene'}</strong>
                             </span>
                             <button className="hover:text-red-400 cursor-pointer mb-1 mr-2" onClick={handleLogout}>
                                 <LogOut className="w-5 h-5" />

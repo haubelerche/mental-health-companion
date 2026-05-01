@@ -178,7 +178,8 @@ class OnboardingCompleteRequest(BaseModel):
         pattern="^(difficult_recently|ongoing_challenges|doing_okay)$"
     )
     primary_concern: str | None = Field(default=None, max_length=64)
-    support_level: str | None = Field(default=None, pattern="^(excellent|good|limited|poor)$")
+    support_level: str | None = Field(
+        default=None, pattern="^(excellent|good|limited|poor)$")
     stress_level: int = Field(ge=0, le=4)
     wake_time: str = Field(pattern="^([01]\\d|2[0-3]):[0-5]\\d$")
     bed_time: str = Field(pattern="^([01]\\d|2[0-3]):[0-5]\\d$")
@@ -199,4 +200,6 @@ class LetterReactRequest(BaseModel):
 
 class LetterReportRequest(BaseModel):
     letter_id: str = Field(min_length=1, max_length=80)
+    report_category: str = Field(min_length=1, max_length=50)
     reason: str | None = Field(default=None, max_length=1000)
+    description: str | None = Field(default=None, max_length=2000)

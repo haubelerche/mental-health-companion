@@ -5,6 +5,7 @@
 ## 1. 🎯 Khái Niệm (Concepts)
 
 ### 1.1. Letter (Thư)
+
 - Thư là một tin nhắn **bất biến** được gửi từ một người dùng đến một người dùng khác một cách ngẫu nhiên
 - Mỗi thư có:
   - `letter_id`: Mã định danh duy nhất
@@ -16,6 +17,7 @@
   - `created_at`: Thời gian tạo
 
 ### 1.2. LetterFlow (Lịch Sử Thư)
+
 - Là một **append-only log** ghi lại mọi hành động liên quan đến thư
 - Mỗi flow bao gồm:
   - `flow_id`: Mã định danh duy nhất
@@ -28,6 +30,7 @@
 **Quy tắc quan trọng**: Flow **không bao giờ bị cập nhật**, chỉ có thể thêm mới. Người nhận hiện tại là `to_user_id` của flow mới nhất với action là `sent` hoặc `forwarded`.
 
 ### 1.3. LetterReply (Phản Hồi)
+
 - Mỗi thư chỉ có thể nhận **một phản hồi** từ người nhận cuối cùng
 - Phản hồi bao gồm:
   - `reply_id`: Mã định danh duy nhất
@@ -38,6 +41,7 @@
   - `created_at`: Thời gian phản hồi
 
 ### 1.4. LetterReaction (Phản Ứng)
+
 - Chỉ **người gửi** thư mới có thể phản ứng với phản hồi
 - Mỗi người chỉ có thể **phản ứng một lần** trên một phản hồi
 - Bao gồm:
@@ -47,12 +51,16 @@
   - `reaction_type`: Loại phản ứng (ví dụ: `❤️`, `😊`, etc.)
 
 ### 1.5. Report (Báo Cáo)
+
 - Cả người gửi và người nhận đều có thể báo cáo một thư
 - Báo cáo bao gồm:
   - `report_id`: Mã định danh duy nhất
   - `reporter_id`: Người báo cáo
   - `letter_id`: Thư bị báo cáo
-  - `reason`: Lý do báo cáo
+  - `report_category`: Loại báo cáo (spam, abuse, inappropriate, self_harm, other)
+  - `reason`: Lý do báo cáo (bắt buộc khi category = other, tối thiểu 10 ký tự)
+  - `description`: Mô tả chi tiết (tùy chọn, tối đa 2000 ký tự)
+  - `report_status`: Trạng thái xử lý (pending, reviewed, dismissed, actioned)
   - `created_at`: Thời gian báo cáo
 
 ---
@@ -60,6 +68,7 @@
 ## 2. 🔄 Luồng Hoạt Động (Workflow)
 
 ### 2.1. Gửi Thư (Send)
+
 1. Người dùng viết nội dung thư
 2. Hệ thống chọn ngẫu nhiên một người nhận (không phải chính người gửi)
 3. Thư được lưu với `forward_count = 0`, `has_reply = False`
@@ -68,6 +77,7 @@
 **Giới hạn**: Mỗi người dùng có thể gửi tối đa **5 thư/ngày**
 
 ### 2.2. Nhận Thư (Inbox)
+
 1. Người nhận thấy thư trong **Bến thư (Beach Inbox)**
 2. Chỉ hiển thị thư từ flow mới nhất (nếu action là `sent` hoặc `forwarded`)
 3. Thư sẽ **không** hiển thị nếu:
@@ -78,6 +88,7 @@
 **Giới hạn**: Mỗi người dùng có thể nhận tối đa **5 thư/ngày**
 
 ### 2.3. Chuyển Tiếp Thư (Forward)
+
 1. Người nhận có thể chọn chuyển tiếp thư đến người khác
 2. `forward_count` tăng lên 1
 3. Một flow mới với action `forwarded` được tạo
@@ -86,6 +97,7 @@
 **Giới hạn**: Thư chỉ có thể được chuyển tiếp tối đa **3 lần**
 
 ### 2.4. Phản Hồi Thư (Reply)
+
 1. Chỉ **người nhận cuối cùng** (từ flow mới nhất) mới có thể phản hồi
 2. Phản hồi chỉ có thể được tạo **một lần** trên một thư
 3. Phản hồi được giữ **ẩn danh** (tên ẩn danh do người phản hồi cung cấp)
@@ -94,12 +106,14 @@
 6. Thư **biến mất** khỏi inbox của người phản hồi
 
 ### 2.5. Phản Ứng với Phản Hồi (React)
+
 1. Chỉ **người gửi gốc** có thể phản ứng với phản hồi
 2. Phản ứng được lưu với `reaction_type` (ví dụ: `❤️`)
 3. Người phản hồi có thể thấy phản ứng của người gửi
 4. Mỗi người chỉ có thể phản ứng **một lần** trên một phản hồi
 
 ### 2.6. Báo Cáo Thư (Report)
+
 1. Cả người gửi và người nhận (receiver của flow mới nhất) đều có thể báo cáo
 2. Khi báo cáo:
    - `letter.is_reported = True`
@@ -107,9 +121,11 @@
    - Thư được đánh dấu để quản trị viên xem xét
 
 ### 2.7. Kho Thư (Archive)
+
 Người dùng có thể xem **Kho thư** gồm hai phần:
 
 **A. Thư bạn đã gửi (Sent Letters)**
+
 - Danh sách tất cả thư mà người dùng đã gửi
 - Hiển thị:
   - Nội dung thư
@@ -119,6 +135,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
   - Trạng thái: "Đã bị báo cáo" (nếu có)
 
 **B. Thư bạn đã phản hồi (Reply Archive)**
+
 - Danh sách tất cả phản hồi mà người dùng đã tạo
 - Hiển thị:
   - Tên ẩn danh của người dùng
@@ -135,6 +152,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 **Mô tả**: Gửi một thư đến một người nhận ngẫu nhiên
 
 **Request**:
+
 ```json
 {
   "content": "Nội dung thư của bạn"
@@ -142,6 +160,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 ```
 
 **Response (200 OK)**:
+
 ```json
 {
   "code": 0,
@@ -160,6 +179,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 ```
 
 **Lỗi có thể xảy ra**:
+
 - `400 - DAILY_LIMIT_EXCEEDED`: Đã gửi tối đa 5 thư hôm nay
 - `400 - NO_ELIGIBLE_RECEIVERS`: Không có người nhận hợp lệ
 
@@ -172,6 +192,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 **Request**: Không có body
 
 **Response (200 OK)**:
+
 ```json
 {
   "code": 0,
@@ -194,6 +215,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 ```
 
 **Quy tắc**:
+
 - Chỉ hiển thị thư từ flow mới nhất
 - Không hiển thị nếu người xem là sender
 - Không hiển thị nếu đã được phản hồi
@@ -208,6 +230,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 **Request**: Không có body
 
 **Response (200 OK)**:
+
 ```json
 {
   "code": 0,
@@ -259,6 +282,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 **Request**: Không có body
 
 **Response (200 OK)**:
+
 ```json
 {
   "code": 0,
@@ -273,6 +297,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 ```
 
 **Lỗi có thể xảy ra**:
+
 - `404 - LETTER_NOT_FOUND`: Thư không tồn tại
 - `403 - NOT_RECEIVER`: Người dùng không phải là receiver hiện tại
 - `400 - FORWARD_LIMIT_REACHED`: Thư đã được chuyển tiếp 3 lần
@@ -285,6 +310,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 **Mô tả**: Tạo phản hồi cho một thư
 
 **Request**:
+
 ```json
 {
   "content": "Nội dung phản hồi của tôi"
@@ -292,6 +318,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 ```
 
 **Response (200 OK)**:
+
 ```json
 {
   "code": 0,
@@ -308,6 +335,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 ```
 
 **Lỗi có thể xảy ra**:
+
 - `404 - LETTER_NOT_FOUND`: Thư không tồn tại
 - `403 - NOT_RECEIVER`: Người dùng không phải là receiver hiện tại
 - `400 - ALREADY_REPLIED`: Thư đã có phản hồi
@@ -319,6 +347,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 **Mô tả**: Người gửi phản ứng với một phản hồi
 
 **Request**:
+
 ```json
 {
   "reaction_type": "❤️"
@@ -326,6 +355,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 ```
 
 **Response (200 OK)**:
+
 ```json
 {
   "code": 0,
@@ -341,6 +371,7 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 ```
 
 **Lỗi có thể xảy ra**:
+
 - `404 - REPLY_NOT_FOUND`: Phản hồi không tồn tại
 - `403 - NOT_SENDER`: Chỉ người gửi mới có thể phản ứng
 - `400 - ALREADY_REACTED`: Đã phản ứng trước đó (có thể cập nhật)
@@ -349,17 +380,21 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 
 ### 3.7. POST /v1/reports — Báo Cáo Thư
 
-**Mô tả**: Báo cáo một thư vi phạm
+**Mô tả**: Báo cáo một thư vi phạm với loại báo cáo cụ thể
 
 **Request**:
+
 ```json
 {
   "letter_id": "ltr_abc123",
-  "reason": "Nội dung gây chói tai"
+  "report_category": "spam",
+  "reason": "Nội dung không phù hợp (bắt buộc nếu category=other)",
+  "description": "Mô tả chi tiết thêm (tùy chọn)"
 }
 ```
 
 **Response (200 OK)**:
+
 ```json
 {
   "code": 0,
@@ -368,22 +403,35 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
     "report_id": "rpt_abc123",
     "letter_id": "ltr_abc123",
     "reporter_id": "usr_002",
-    "reason": "Nội dung gây chói tai",
+    "report_category": "spam",
+    "reason": "Nội dung không phù hợp",
+    "description": "Mô tả chi tiết thêm",
+    "report_status": "pending",
     "created_at": "2026-05-01T13:00:00"
   }
 }
 ```
 
+**Validation Rules**:
+
+- `report_category`: Bắt buộc, một trong: `spam`, `abuse`, `inappropriate`, `self_harm`, `other`
+- `reason`: Bắt buộc khi `report_category = "other"`, tối thiểu 10 ký tự
+- `description`: Tùy chọn, tối đa 2000 ký tự
+
 **Lỗi có thể xảy ra**:
+
 - `404 - LETTER_NOT_FOUND`: Thư không tồn tại
 - `403 - NOT_AUTHORIZED`: Không phải sender hoặc receiver
-- `400 - ALREADY_REPORTED`: Đã báo cáo trước đó
+- `400 - ALREADY_REPORTED`: Cùng một người dùng đã báo cáo thư này trước đó
+- `400 - INVALID_REPORT_CATEGORY`: Loại báo cáo không hợp lệ
+- `400 - REPORT_REASON_REQUIRED`: Reason yêu cầu khi category=other nhưng chưa cung cấp
 
 ---
 
 ## 4. 📋 Quy Tắc Kinh Doanh (Business Rules)
 
 ### 4.1. Giới Hạn Hàng Ngày
+
 | Hành động | Giới hạn |
 |-----------|----------|
 | Gửi thư | 5 thư/ngày |
@@ -393,35 +441,45 @@ Người dùng có thể xem **Kho thư** gồm hai phần:
 | Phản ứng | 1 lần trên mỗi phản hồi |
 
 ### 4.2. Quy Tắc Hiển Thị
+
 - **Bến thư (Inbox)**: Chỉ hiển thị thư từ flow mới nhất, không hiển thị thư của chính người dùng
 - **Kho thư (Archive)**: Hiển thị cả thư đã gửi và phản hồi đã tạo
 - **Phản hồi**: Luôn ẩn danh, chỉ hiển thị tên ẩn danh do người phản hồi cung cấp
 
 ### 4.3. Quy Tắc Chuyển Tiếp
+
 - Chỉ người nhận cuối cùng mới có thể chuyển tiếp
 - Sau khi chuyển tiếp, người nhận cũ không thấy thư trong inbox
 - Thư không thể được chuyển tiếp nếu đã bị phản hồi
 
 ### 4.4. Quy Tắc Phản Hồi
+
 - Chỉ người nhận cuối cùng mới có thể phản hồi
 - Mỗi thư chỉ có một phản hồi
 - Phản hồi không thể bị xóa hoặc chỉnh sửa
 
 ### 4.5. Quy Tắc Phản Ứng
+
 - Chỉ người gửi gốc mới có thể phản ứng
 - Mỗi người chỉ phản ứng một lần trên một phản hồi
 - Có thể cập nhật phản ứng đã tạo
 
 ### 4.6. Quy Tắc Báo Cáo
+
 - Cả người gửi và người nhận (flow mới nhất) đều có thể báo cáo
-- Báo cáo đánh dấu thư với flag `is_reported = True`
-- Người gửi gốc nhận được thông báo
+- Mỗi người chỉ báo cáo một thư **một lần duy nhất**
+- Báo cáo có loại cụ thể: spam, abuse, inappropriate, self_harm, hoặc other
+- Khi category = "other", phải cung cấp reason (tối thiểu 10 ký tự)
+- Báo cáo được lưu với status `pending` ban đầu, chờ quản trị viên xử lý
+- Báo cáo có thể được đánh dấu là `reviewed`, `dismissed`, hoặc `actioned`
+- Người gửi gốc nhận được thông báo khi thư bị báo cáo
 
 ---
 
 ## 5. 📊 Mô Hình Dữ Liệu (Data Model)
 
 ### 5.1. Bảng `letters`
+
 ```sql
 CREATE TABLE letters (
   letter_id VARCHAR(50) PRIMARY KEY,
@@ -435,6 +493,7 @@ CREATE TABLE letters (
 ```
 
 ### 5.2. Bảng `letter_flows`
+
 ```sql
 CREATE TABLE letter_flows (
   flow_id VARCHAR(50) PRIMARY KEY,
@@ -448,6 +507,7 @@ CREATE TABLE letter_flows (
 ```
 
 ### 5.3. Bảng `letter_replies`
+
 ```sql
 CREATE TABLE letter_replies (
   reply_id VARCHAR(50) PRIMARY KEY,
@@ -460,6 +520,7 @@ CREATE TABLE letter_replies (
 ```
 
 ### 5.4. Bảng `letter_reactions`
+
 ```sql
 CREATE TABLE letter_reactions (
   reaction_id VARCHAR(50) PRIMARY KEY,
@@ -472,13 +533,21 @@ CREATE TABLE letter_reactions (
 ```
 
 ### 5.5. Bảng `reports`
+
 ```sql
 CREATE TABLE reports (
   report_id VARCHAR(50) PRIMARY KEY,
   reporter_id VARCHAR(50) NOT NULL REFERENCES users(user_id),
   letter_id VARCHAR(50) NOT NULL REFERENCES letters(letter_id),
+  report_category VARCHAR(50) NOT NULL DEFAULT 'other',
   reason TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  description TEXT,
+  report_status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (reporter_id, letter_id),
+  INDEX idx_report_category_status (report_category, report_status, created_at),
+  INDEX idx_report_reporter (reporter_id, created_at),
+  INDEX idx_report_letter (letter_id)
 );
 ```
 
@@ -499,17 +568,21 @@ Khi một sự kiện xảy ra, một entry được tạo trong bảng `sync_ou
 ## 7. 🛠️ Lưu Ý Kỹ Thuật
 
 ### 7.1. Append-Only Pattern
+
 - `LetterFlow` luôn được **thêm mới**, không bao giờ bị cập nhật
 - Để biết người nhận hiện tại, truy vấn flow mới nhất với action `sent` hoặc `forwarded`
 - Điều này đảm bảo tính toàn vẹn của dữ liệu và tạo ra một audit trail hoàn chỉnh
 
 ### 7.2. Chọn Receiver
+
 - Chọn ngẫu nhiên từ danh sách người dùng **chưa** nhận thư này
 - Loại trừ: người gửi gốc, những người đã nhận thư, những người vượt quá giới hạn nhận 5 thư/ngày
 - Sử dụng `random.choice()` để đảm bảo phân phối đều đặn
 
 ### 7.3. Latest Flow Query
+
 - Để kiểm tra quyền hạn và hiển thị, luôn sử dụng flow mới nhất:
+
 ```python
 latest_flow = db.query(LetterFlow).filter(
     LetterFlow.letter_id == letter_id
@@ -517,6 +590,7 @@ latest_flow = db.query(LetterFlow).filter(
 ```
 
 ### 7.4. Lọc Inbox
+
 - Inbox chỉ hiển thị thư mà người xem là `to_user_id` của flow mới nhất
 - Loại trừ thư có `has_reply = True` (đã phản hồi, thư biến mất)
 - Loại trừ thư mà `sender_id` là chính người xem (người gửi không thấy thư của mình)
@@ -525,8 +599,24 @@ latest_flow = db.query(LetterFlow).filter(
 
 ## 8. ✅ Tình Trạng Triển Khai
 
+### Phase 1: Core Letter System
+
 - ✅ Backend API đầy đủ (7 endpoints)
 - ✅ Frontend UI (Bến thư + Kho thư)
 - ✅ Production Postgres schema đã được kiểm tra
 - ✅ Integration tests: 5 tests, tất cả passing
 - ✅ Notification queuing (SyncOutbox)
+
+### Phase 1.5: Report Enhancement (Latest)
+
+- ✅ Database migration (report_category, report_status columns + indexes)
+- ✅ Backend enums (ReportCategory: spam, abuse, inappropriate, self_harm, other; ReportStatus: pending, reviewed, dismissed, actioned)
+- ✅ Report model enhanced (report_category, report_status fields)
+- ✅ LetterReportRequest schema updated (report_category, optional description)
+- ✅ POST /v1/reports endpoint enhanced with:
+  - Category validation (5 allowed values)
+  - Conditional reason requirement (mandatory when category=other, min 10 chars)
+  - Duplicate prevention (same reporter, same letter)
+  - Response includes report_category and report_status
+- ✅ Frontend ReportLetterModal component (5 category buttons, conditional textarea, optional description)
+- ⏳ Admin endpoints (Step 4): GET /admin/reports, PATCH /admin/reports/{id} — In Progress
