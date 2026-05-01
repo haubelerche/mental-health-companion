@@ -183,3 +183,20 @@ class OnboardingCompleteRequest(BaseModel):
     wake_time: str = Field(pattern="^([01]\\d|2[0-3]):[0-5]\\d$")
     bed_time: str = Field(pattern="^([01]\\d|2[0-3]):[0-5]\\d$")
     practice_ids: list[str] = Field(default_factory=list, max_length=8)
+
+
+class LetterSendRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=2000)
+
+
+class LetterReplyRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=1000)
+
+
+class LetterReactRequest(BaseModel):
+    reaction_type: str = Field(min_length=1, max_length=20)
+
+
+class LetterReportRequest(BaseModel):
+    letter_id: str = Field(min_length=1, max_length=80)
+    reason: str | None = Field(default=None, max_length=1000)

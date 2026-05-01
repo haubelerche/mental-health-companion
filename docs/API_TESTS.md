@@ -660,3 +660,59 @@ pm.test("status is expected", function () {
 ```sql
 select email, created_at from users order by created_at desc;
 ```
+
+## 9. Bamboo API (Thư ẩn danh) - Test Spec
+
+Base path: `{{baseUrl}}/v1/bamboo`
+
+Auth: cookie `access_token` + header `X-CSRF-Token: {{csrfToken}}`. User phải `policy_acknowledged`.
+
+### POST /v1/bamboo/send
+- Body: `content` (1-2000 chars), optional `topic`, `tone`.
+- Expected: HTTP 201, data includes `message_id`, `status` = `pending`, `sent_at`.
+- Note: backend pre-assign recipient ngẫu nhiên nội bộ ngay lúc gửi (không trả trực tiếp recipient trong response).
+
+Example request:
+```json
+{
+  "content": "Hôm nay mình muốn gửi một lời chúc...",
+  "topic": "encouragement",
+  "tone": "gentle"
+}
+```
+
+### GET /v1/bamboo/inbox
+- Returns letters assigned to current user (`recipient_id == current_user`) with status `pending` or `approved`.
+- Expected: HTTP 200, `data.messages` array with `message_id`, `anonymous_name`, `content`, `topic`, `tone`, `received_at`, `status`, `reply_to_message_id`, `pass_count`, `reply_count`.
+
+### GET /v1/bamboo/storage
+- Returns user-owned sent letters + letters assigned to current user.
+- Expected: HTTP 200, `data.letters` array with `message_id`, `direction`, `status`, `content`, `topic`, `tone`, `reply_to_message_id`, `created_at`.
+
+### GET /v1/bamboo/letters/{message_id}
+- Returns details for a letter. Owner và recipient đều xem được thư đã assign; user khác chỉ xem thư approved.
+- Expected: HTTP 200, detailed letter object.
+
+### POST /v1/bamboo/reply
+- Body: `message_id`, `content`, optional `topic`.
+- Creates a reply (treated as a new pending message) and routes it back to original sender of target letter. Expected: HTTP 201, `reply_id`, `message_id`, `reply_to_message_id`, `status` = `pending`.
+- Only current recipient of the target letter can reply.
+
+### POST /v1/bamboo/pass
+- Body: `message_id`.
+- Increments `pass_count` for an approved message. Expected: HTTP 200 with updated `pass_count` and `passed_at`.
+- Only current recipient of the target letter can pass.
+
+### GET /v1/bamboo/moderation/queue (admin)
+- Admin-only. Expected: HTTP 200, `items` list of pending items.
+
+### PATCH /v1/bamboo/moderation/{message_id} (admin)
+- Body: `{ "status": "approved" | "rejected" | "archived", "reason": null|str }`.
+- Expected: HTTP 200 and message `status` updated, response includes `recipient_id` when approved.
+
+Negative tests to include:
+- Send without auth -> 401 `AUTH_INVALID_TOKEN`.
+- Send with missing CSRF -> 403 `CSRF_TOKEN_INVALID`.
+- Send content exceeding max length -> 422 `PAYLOAD_TOO_LARGE`.
+- Reply to non-existent or non-approved message -> 404 `BAMBOO_MESSAGE_NOT_FOUND`.
+- Admin moderation without admin token/IP -> 403 `ADMIN_FORBIDDEN`.
