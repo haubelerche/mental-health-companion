@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
+import { toast } from 'react-toastify'
 import paperBoatImage from '../../assets/thuyen.png'
 import beachBackgroundImage from '../../assets/beach-message-bg.avif'
 import {
@@ -465,7 +466,20 @@ function SentLetterDialog({
           </button>
 
           <div className="min-w-0 flex-1 text-center px-2">
-            <p className={`${ui.textSubtle} font-display text-lg font-semibold truncate`}>Chi tiết thư</p>
+            <div className="flex items-center justify-center gap-2">
+              <p className={`${ui.textSubtle} font-display text-lg font-semibold truncate`}>Chi tiết thư</p>
+              {item.is_reported && (
+                <span
+                  className="text-xs font-semibold px-2 py-1 rounded-full"
+                  style={{
+                    backgroundColor: 'rgba(255, 120, 120, 0.15)',
+                    color: 'rgba(255, 150, 150, 0.95)',
+                  }}
+                >
+                  Đã báo cáo
+                </span>
+              )}
+            </div>
           </div>
 
           <button
@@ -805,8 +819,13 @@ export default function BeachMessage() {
             refreshData()
           }}
           onReport={async () => {
-            await anonymousShareService.reportLetter(selectedSentLetter.id, 'reported from sent-letter dialog')
-            refreshData()
+            try {
+              await anonymousShareService.reportLetter(selectedSentLetter.id, 'reported from sent-letter dialog')
+              toast.success('Báo cáo thành công. Cảm ơn bạn đã giúp chúng tôi cải thiện cộng đồng.')
+              refreshData()
+            } catch (e) {
+              toast.error('Không thể gửi báo cáo. Vui lòng thử lại sau.')
+            }
           }}
         />
       )}

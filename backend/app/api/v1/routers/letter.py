@@ -234,6 +234,8 @@ def get_inbox(
     for letter in letters:
         if letter.sender_id == current_user.user_id:
             continue
+        if letter.is_reported:
+            continue
         latest = _latest_flow(db, letter.letter_id)
         if not latest or latest.to_user_id != current_user.user_id or latest.action not in {"sent", "forwarded"}:
             continue
