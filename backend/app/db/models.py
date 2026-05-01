@@ -12,6 +12,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -321,35 +322,57 @@ class SyncOutbox(Base):
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
-class BambooMessage(Base):
-    __tablename__ = "bamboo_messages"
+class Letter(Base):
+    __tablename__ = "letters"
 
-    message_id: Mapped[str] = mapped_column(String(50), primary_key=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    letter_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    sender_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    forward_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    has_reply: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_reported: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class LetterFlow(Base):
+    __tablename__ = "letter_flows"
+    __table_args__ = (Index("idx_letter_flow_letter", "letter_id"),)
+
+    flow_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    letter_id: Mapped[str] = mapped_column(ForeignKey("letters.letter_id"), nullable=False)
+    from_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.user_id"), nullable=True)
+    to_user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class LetterReply(Base):
+    __tablename__ = "letter_replies"
+    __table_args__ = (UniqueConstraint("letter_id", name="uq_letter_reply_once"),)
+
+    reply_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    letter_id: Mapped[str] = mapped_column(ForeignKey("letters.letter_id"), nullable=False)
+    replier_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
     anonymous_name: Mapped[str] = mapped_column(String(255), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    topic: Mapped[str | None] = mapped_column(String(255))
-    tone: Mapped[str | None] = mapped_column(String(50))
-    direction: Mapped[str] = mapped_column(String(30), nullable=False)
-    status: Mapped[str] = mapped_column(String(30), nullable=False, default="pending")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
-    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    pass_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    reply_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    recipient_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    reply_to_message_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    opened_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-
-    # optional inbox association when a conversation is formed between two users
-    inbox_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
 
-class Inbox(Base):
-    __tablename__ = "inboxes"
+class LetterReaction(Base):
+    __tablename__ = "letter_reactions"
+    __table_args__ = (UniqueConstraint("reply_id", "user_id", name="uq_letter_reaction_once"),)
 
-    inbox_id: Mapped[str] = mapped_column(String(50), primary_key=True)
-    user_a_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
-    user_b_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
-    anon_name_a: Mapped[str] = mapped_column(String(255), nullable=False)
-    anon_name_b: Mapped[str] = mapped_column(String(255), nullable=False)
+    reaction_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    reply_id: Mapped[str] = mapped_column(ForeignKey("letter_replies.reply_id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    reaction_type: Mapped[str] = mapped_column(String(20), nullable=False)
+
+
+class Report(Base):
+    __tablename__ = "reports"
+
+    report_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    reporter_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    letter_id: Mapped[str] = mapped_column(ForeignKey("letters.letter_id"), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

@@ -185,17 +185,18 @@ class OnboardingCompleteRequest(BaseModel):
     practice_ids: list[str] = Field(default_factory=list, max_length=8)
 
 
-class BambooSendRequest(BaseModel):
+class LetterSendRequest(BaseModel):
     content: str = Field(min_length=1, max_length=2000)
-    topic: str | None = Field(default=None, max_length=50)
-    tone: str | None = Field(default=None, max_length=50)
 
 
-class BambooReplyRequest(BaseModel):
-    message_id: str = Field(min_length=1, max_length=80)
+class LetterReplyRequest(BaseModel):
     content: str = Field(min_length=1, max_length=1000)
-    topic: str | None = Field(default=None, max_length=50)
 
 
-class BambooPassRequest(BaseModel):
-    message_id: str = Field(min_length=1, max_length=80)
+class LetterReactRequest(BaseModel):
+    reaction_type: str = Field(min_length=1, max_length=20)
+
+
+class LetterReportRequest(BaseModel):
+    letter_id: str = Field(min_length=1, max_length=80)
+    reason: str | None = Field(default=None, max_length=1000)
