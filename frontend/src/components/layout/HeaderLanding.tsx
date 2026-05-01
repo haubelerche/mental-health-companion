@@ -3,6 +3,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LogOut } from "lucide-react";
+import { toast } from "react-toastify";
 const navItems = [
     { label: 'Bình yên', id: 'hero' },
     { label: 'Về chúng tôi', id: 'about-ai' },
@@ -10,7 +11,7 @@ const navItems = [
     { label: 'Hít thở', id: 'breath-space' },
 ]
 export default function Header() {
-    const { user, isLoading } = useAuth()
+    const { user, isLoading, logout } = useAuth()
     const [activeSection, setActiveSection] = useState('')
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -36,12 +37,19 @@ export default function Header() {
 
         return () => observer.disconnect()
     }, [])
+
     const scrollToSection = (id: string) => {
         const el = document.getElementById(id)
         if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'start' })
         }
         setMobileMenuOpen(false)
+    }
+
+    const handleLogout = async () => {
+        await logout()
+        setMobileMenuOpen(false)
+        toast.success('Đăng xuất thành công')
     }
     return (
         <header className="sticky top-0 z-40 border-b border-white/10 bg-black/15 backdrop-blur-xl">
@@ -60,7 +68,7 @@ export default function Header() {
                         )}
                     </svg>
                 </button>
-                <a href="/" className="font-display text-2xl sm:text-3xl italic tracking-wide text-white shrink-0">
+                <a href="/" className="font-display text-3xl italic tracking-wide text-white shrink-0">
                     Serene
                 </a>
 
@@ -102,7 +110,7 @@ export default function Header() {
                             <span className="font-display tracking-wide italic text-sm sm:text-base hidden md:block">
                                 Xin chào <strong>{user.displayName}</strong>
                             </span>
-                            <button className="hover:text-red-400 cursor-pointer mb-1">
+                            <button className="hover:text-red-400 cursor-pointer mb-1 mr-2" onClick={handleLogout}>
                                 <LogOut className="w-5 h-5" />
                             </button>
                         </div>
@@ -124,7 +132,7 @@ export default function Header() {
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
                         transition={{ duration: 0.2 }}
-                        className="md:hidden border-t border-white/10 bg-black/40 backdrop-blur-md overflow-hidden"
+                        className="md:hidden border-t border-white/10 bg-gray-700 overflow-hidden absolute top-full left-0 right-0 z-10"
                     >
                         <div className="px-4 py-3 space-y-2">
                             {navItems.map((item) => (

@@ -135,7 +135,7 @@
     }
 
     .backdrop {
-        @apply bg-white/10 backdrop-blur-xl transition hover:bg-white/15;
+        @apply bg-white/20 backdrop-blur-xl transition hover:bg-white/15;
     }
 
 }
