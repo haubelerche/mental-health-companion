@@ -199,7 +199,7 @@ export default function Setting() {
               <div className="space-y-2 text-center sm:text-left flex-1">
                 <p className="font-display text-3xl italic text-theme-text-primary sm:text-4xl">{displayName}</p>
                 <p className="text-sm text-theme-text-secondary sm:text-base">{email}</p>
-                <span className="rounded-full border border-theme-border/30 bg-green-500/10 px-4 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-green-600/80">
+                <span className={`rounded-full border px-4 py-1 text-[10px] font-bold uppercase tracking-[0.22em] ${isDark ? 'border-green-400/30 bg-green-400/10 text-green-400' : 'border-theme-border/30 bg-green-500/10 text-green-600/80'}`}>
                   Verified
                 </span>
               </div>
@@ -301,10 +301,10 @@ export default function Setting() {
 
           <section className={`my-12`}>
             <div className="mb-6 flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600/20 text-red-600">
+              <div className={`flex h-12 w-12 items-center justify-center rounded-full ${isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-600/20 text-red-600'}`}>
                 <TriangleAlert className="h-6 w-6" />
               </div>
-              <h2 className="font-display text-2xl text-red-600">Trợ giúp Khẩn cấp</h2>
+              <h2 className={`font-display text-2xl ${isDark ? 'text-red-400' : 'text-red-600'}`}>Trợ giúp Khẩn cấp</h2>
             </div>
 
             <ToggleRow
