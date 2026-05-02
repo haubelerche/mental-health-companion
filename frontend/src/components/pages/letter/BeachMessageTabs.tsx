@@ -10,7 +10,7 @@ export function BeachMessageTabs({
     onChange: (tab: TabId) => void
 }) {
     return (
-        <nav className={`relative z-10 flex items-center justify-center px-8 py-4.5 border-b ${dark ? 'border-white/10' : 'border-stone-950/18'} backdrop-blur-md`}>
+        <nav className={`relative z-10 flex items-center justify-center px-8 py-4.5 backdrop-blur-md`}>
             <div className="flex gap-24">
                 {[
                     { id: 'beach', label: 'Bến thư' },

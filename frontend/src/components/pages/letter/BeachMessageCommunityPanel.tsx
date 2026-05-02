@@ -31,7 +31,7 @@ export function BeachMessageCommunityPanel({
                 </h2>
             </div>
 
-            <div className={`${ui.glassLight} border rounded-2xl p-4 mb-8`}>
+            <div className={`${ui.glassLight} bg-theme-surface border rounded-2xl p-4 mb-8`}>
                 <div className="flex items-center justify-between mb-3">
                     <h3 className={`${ui.textSubtle} font-display text-xl font-semibold`}>Thư bạn đã gửi</h3>
                 </div>
@@ -64,7 +64,7 @@ export function BeachMessageCommunityPanel({
                 )}
             </div>
 
-            <div className={`${ui.glassLight} border rounded-2xl p-4`}>
+            <div className={`${ui.glassLight} bg-theme-surface border rounded-2xl p-5`}>
                 <div className="flex items-center justify-between mb-3">
                     <h3 className={`${ui.textSubtle} font-display text-xl font-semibold`}>Thư bạn đã phản hồi</h3>
                 </div>
