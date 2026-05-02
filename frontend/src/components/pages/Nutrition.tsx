@@ -3,13 +3,6 @@ import { Search, Sparkles, X } from 'lucide-react'
 import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
 import a1 from '../../assets/nutrition-a1.jpg'
 import a2 from '../../assets/nutrition-a2.jpg'
-import {
-    APP_SETTINGS_STORAGE_KEY,
-    APP_SETTINGS_UPDATED_EVENT,
-    readAppSettings,
-    type AppSettings,
-} from '../../utils/appSettings'
-
 // ─── Static pools (randomised each mount) ──────────────────────────────────────
 
 const DAILY_FACTS = [
@@ -54,34 +47,8 @@ const TAGS = ['Buổi sáng', 'Chay', 'Tăng năng lượng', 'Trị lo âu', 'N
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 export default function Nutrition() {
-    const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
-
-    useEffect(() => {
-        const syncThemeMode = (settings: AppSettings) => {
-            setIsDark(settings.mode === 'dark')
-        }
-
-        const handleSettingsUpdated = (event: Event) => {
-            const customEvent = event as CustomEvent<AppSettings>
-            if (customEvent.detail) {
-                syncThemeMode(customEvent.detail)
-            }
-        }
-
-        const handleStorageUpdated = (event: StorageEvent) => {
-            if (event.key !== APP_SETTINGS_STORAGE_KEY) {
-                return
-            }
-            syncThemeMode(readAppSettings())
-        }
-
-        window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-        window.addEventListener('storage', handleStorageUpdated)
-        return () => {
-            window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-            window.removeEventListener('storage', handleStorageUpdated)
-        }
-    }, [])
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
 
     const [dailyTip, setDailyTip] = useState<NutritionDailyTip | null>(null)
     const [query, setQuery] = useState('')

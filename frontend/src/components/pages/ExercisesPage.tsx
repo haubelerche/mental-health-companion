@@ -5,13 +5,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import ocean from '../../assets/bg-reflect.png'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { exerciseService, FALLBACK_EXERCISES, findFallbackExercise, type ExerciseItem } from '../../services/exerciseService'
-import {
-    APP_SETTINGS_STORAGE_KEY,
-    APP_SETTINGS_UPDATED_EVENT,
-    readAppSettings,
-    type AppSettings,
-} from '../../utils/appSettings'
-
 function formatTime(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
@@ -57,34 +50,8 @@ function getBreathPhase(exercise: ExerciseItem, elapsed: number) {
 export function ExercisesPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
-
-  useEffect(() => {
-      const syncThemeMode = (settings: AppSettings) => {
-          setIsDark(settings.mode === 'dark')
-      }
-
-      const handleSettingsUpdated = (event: Event) => {
-          const customEvent = event as CustomEvent<AppSettings>
-          if (customEvent.detail) {
-              syncThemeMode(customEvent.detail)
-          }
-      }
-
-      const handleStorageUpdated = (event: StorageEvent) => {
-          if (event.key !== APP_SETTINGS_STORAGE_KEY) {
-              return
-          }
-          syncThemeMode(readAppSettings())
-      }
-
-      window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-      window.addEventListener('storage', handleStorageUpdated)
-      return () => {
-          window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-          window.removeEventListener('storage', handleStorageUpdated)
-      }
-  }, [])
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
 
   const [exercises, setExercises] = useState<ExerciseItem[]>(FALLBACK_EXERCISES)
   const [selectedId, setSelectedId] = useState(FALLBACK_EXERCISES[0].id)

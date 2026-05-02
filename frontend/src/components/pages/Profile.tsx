@@ -6,12 +6,6 @@ import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { onboardingService, type OnboardingProfile } from '../../services/onboardingService'
 import { EMOTIONAL_OPTIONS, PRIMARY_CONCERN_OPTIONS, SUPPORT_OPTIONS, AGE_OPTIONS, PRACTICE_OPTIONS, STRESS_LABELS } from './onboarding/onboard.option'
-import {
-    APP_SETTINGS_STORAGE_KEY,
-    APP_SETTINGS_UPDATED_EVENT,
-    readAppSettings,
-    type AppSettings,
-} from '../../utils/appSettings'
 import Loading from '../ui/Loading'
 import avatar from '../../assets/avatar.png'
 
@@ -31,34 +25,8 @@ const STATS: UserStats[] = [
 export default function Profile() {
     const navigate = useNavigate()
     const { user } = useAuth()
-    const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
-
-    useEffect(() => {
-        const syncThemeMode = (settings: AppSettings) => {
-            setIsDark(settings.mode === 'dark')
-        }
-
-        const handleSettingsUpdated = (event: Event) => {
-            const customEvent = event as CustomEvent<AppSettings>
-            if (customEvent.detail) {
-                syncThemeMode(customEvent.detail)
-            }
-        }
-
-        const handleStorageUpdated = (event: StorageEvent) => {
-            if (event.key !== APP_SETTINGS_STORAGE_KEY) {
-                return
-            }
-            syncThemeMode(readAppSettings())
-        }
-
-        window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-        window.addEventListener('storage', handleStorageUpdated)
-        return () => {
-            window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-            window.removeEventListener('storage', handleStorageUpdated)
-        }
-    }, [])
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
 
     const [onboardingData, setOnboardingData] = useState<OnboardingProfile | null>(null)
     const [loading, setLoading] = useState(true)

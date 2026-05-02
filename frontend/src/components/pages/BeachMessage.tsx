@@ -15,13 +15,6 @@ import { BeachMessageBeachPanel } from './letter/BeachMessageBeachPanel'
 import { BeachMessageCommunityPanel } from './letter/BeachMessageCommunityPanel'
 import { BeachMessageTabs } from './letter/BeachMessageTabs'
 import { type Letter, type TabId, pickRandomLetter } from './letter/shared'
-import {
-    APP_SETTINGS_STORAGE_KEY,
-    APP_SETTINGS_UPDATED_EVENT,
-    readAppSettings,
-    type AppSettings,
-} from '../../utils/appSettings'
-
 const FontLink = () => (
   <link
     href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400;1,500&family=Inter:wght@300;400;500&display=swap"
@@ -53,34 +46,8 @@ const ANIMATIONS_CSS = `
 `
 
 export default function BeachMessage() {
-  const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
-
-  useEffect(() => {
-      const syncThemeMode = (settings: AppSettings) => {
-          setIsDark(settings.mode === 'dark')
-      }
-
-      const handleSettingsUpdated = (event: Event) => {
-          const customEvent = event as CustomEvent<AppSettings>
-          if (customEvent.detail) {
-              syncThemeMode(customEvent.detail)
-          }
-      }
-
-      const handleStorageUpdated = (event: StorageEvent) => {
-          if (event.key !== APP_SETTINGS_STORAGE_KEY) {
-              return
-          }
-          syncThemeMode(readAppSettings())
-      }
-
-      window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-      window.addEventListener('storage', handleStorageUpdated)
-      return () => {
-          window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-          window.removeEventListener('storage', handleStorageUpdated)
-      }
-  }, [])
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
 
   const [tab, setTab] = useState<TabId>('beach')
   const [pendingLetter, setPendingLetter] = useState<Letter | null>(null)

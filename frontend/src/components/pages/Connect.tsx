@@ -5,13 +5,6 @@ import healing from '../../assets/healing.jpg'
 import { connectService, type ClinicItem, type HotlineItem } from '../../services/connectService'
 import { safetyService } from '../../services/safetyService'
 import type { ReferralOption } from '../../services/safetyService'
-import {
-    APP_SETTINGS_STORAGE_KEY,
-    APP_SETTINGS_UPDATED_EVENT,
-    readAppSettings,
-    type AppSettings,
-} from '../../utils/appSettings'
-
 const DEFAULT_HOTLINES: HotlineItem[] = [
     { name: 'Hotline 24/7', number: '1800-599-920', description: 'Hỗ trợ khẩn cấp và lắng nghe ngay lập tức' },
     { name: 'Cấp cứu y tế', number: '115', description: 'Gọi cấp cứu trong tình huống nguy hiểm' },
@@ -31,34 +24,8 @@ const REFERRAL_META: Record<string, { label: string; sub: string; icon: typeof U
 }
 
 export default function Connect() {
-    const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
-
-    useEffect(() => {
-        const syncThemeMode = (settings: AppSettings) => {
-            setIsDark(settings.mode === 'dark')
-        }
-
-        const handleSettingsUpdated = (event: Event) => {
-            const customEvent = event as CustomEvent<AppSettings>
-            if (customEvent.detail) {
-                syncThemeMode(customEvent.detail)
-            }
-        }
-
-        const handleStorageUpdated = (event: StorageEvent) => {
-            if (event.key !== APP_SETTINGS_STORAGE_KEY) {
-                return
-            }
-            syncThemeMode(readAppSettings())
-        }
-
-        window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-        window.addEventListener('storage', handleStorageUpdated)
-        return () => {
-            window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-            window.removeEventListener('storage', handleStorageUpdated)
-        }
-    }, [])
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
 
     const [searchParams] = useSearchParams()
     const [hotlines, setHotlines] = useState<HotlineItem[]>(DEFAULT_HOTLINES)

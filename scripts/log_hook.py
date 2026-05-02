@@ -41,7 +41,7 @@ def detect_tool(data: dict) -> str:
     return "unknown"
 
 
-def normalize(data: dict, tool: str):
+def normalize(data: dict, tool: str) -> dict | None:
     """Normalize tool-specific payload to common log entry."""
     event = data.get("hook_event_name") or data.get("event", "")
     ts = datetime.now(VN_TZ).isoformat()
