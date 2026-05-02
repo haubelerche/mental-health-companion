@@ -57,6 +57,17 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
         }
     }, [])
 
+    const sidebarContainerClass = isDark
+        ? 'border-white/20 bg-black/30 text-white'
+        : 'border-black/15 bg-white/55 text-serene-ink'
+    const secondaryTextClass = isDark ? 'text-white/75' : 'text-serene-muted/85'
+    const hoverTextClass = isDark ? 'hover:bg-white/15 hover:text-white' : 'hover:bg-white/65 hover:text-serene-ink'
+    const activeNavClass = isDark
+        ? 'bg-white/20 text-white shadow-[0_4px_16px_rgba(0,0,0,0.35)]'
+        : 'bg-serene-primary/90 text-serene-on-primary shadow-[0_4px_16px_rgba(77,99,89,0.3)]'
+    const defaultNavClass = isDark ? `text-white/75 ${hoverTextClass}` : `text-serene-muted ${hoverTextClass}`
+    const iconBadgeClass = isDark ? 'bg-white/15 group-hover:bg-white/25' : 'bg-serene-primary/8 group-hover:bg-white/60'
+
     const handleSidebarBlankClick = (event: MouseEvent<HTMLElement>) => {
         const target = event.target as HTMLElement
         if (target.closest('a, button')) {
@@ -73,14 +84,14 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                 onClick={handleSidebarBlankClick}
                 className={[
                     'fixed left-0 top-0 z-40 hidden h-full w-60 flex-col border-r p-6 backdrop-blur-3xl transition-transform duration-300 lg:flex',
-                    'border-theme-border bg-theme-bg-primary text-theme-text-primary',
+                    sidebarContainerClass,
                     isOpen ? 'translate-x-0' : '-translate-x-full',
                 ].join(' ')}
             >
                 {/* Brand */}
                 <div className="mb-7">
                     <h1 className="font-display text-4xl italic">Serene</h1>
-                    <p className="mt-2 text-xs uppercase tracking-[0.24em] text-theme-text-secondary">
+                    <p className={`mt-2 text-xs uppercase tracking-[0.24em] ${secondaryTextClass}`}>
                         Digital Sanctuary
                     </p>
                 </div>
@@ -98,8 +109,8 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                                     [
                                         'group flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-left transition-all duration-200',
                                         isActive
-                                            ? 'bg-theme-accent/25 text-theme-accent shadow-[0_4px_16px_rgba(0,0,0,0.35)]'
-                                            : 'text-theme-text-secondary hover:bg-theme-accent/10 hover:text-theme-text-primary',
+                                            ? activeNavClass
+                                            : defaultNavClass,
                                     ].join(' ')
                                 }
                             >
@@ -108,7 +119,7 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                                         <span
                                             className={[
                                                 'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl transition-colors',
-                                                isActive ? 'bg-theme-accent/20' : 'bg-theme-accent/10 group-hover:bg-theme-accent/15',
+                                                isActive ? 'bg-white/20' : iconBadgeClass,
                                             ].join(' ')}
                                         >
                                             <Icon className="h-3.5 w-3.5" />
@@ -122,24 +133,24 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                 </nav>
 
                 {/* Bottom links */}
-                <div className="mt-4 space-y-1 border-t border-theme-border/50 pt-4 text-base text-theme-text-secondary">
+                <div className={`mt-4 space-y-1 border-t pt-4 text-base ${isDark ? 'border-white/20 text-white/75' : 'border-black/10 text-serene-muted'}`}>
                     <button
                         type="button"
-                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-theme-accent/10 hover:text-theme-text-primary"
+                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${hoverTextClass}`}
                     >
                         <Bell className="h-4 w-4" aria-hidden="true" />
                         <span>Thông báo</span>
                     </button>
                     <NavLink
                         to={ROUTE_PATHS.setting}
-                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-theme-accent/10 hover:text-theme-text-primary"
+                        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition ${hoverTextClass}`}
                     >
                         <Settings className="h-4 w-4" aria-hidden="true" />
                         <span>Cài đặt</span>
                     </NavLink>
                     <NavLink
                         to={ROUTE_PATHS.connect}
-                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-theme-accent/10 hover:text-theme-text-primary"
+                        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition ${hoverTextClass}`}
                     >
                         <HelpCircle className="h-4 w-4" />
                         <span>Hỗ trợ</span>
@@ -156,7 +167,7 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
             )}
 
             {/* ── Mobile bottom nav ── */}
-            <nav className="fixed bottom-4 left-1/2 z-50 flex w-[min(94vw,520px)] -translate-x-1/2 items-center justify-between rounded-3xl border px-3 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.1)] backdrop-blur-xl border-theme-border bg-theme-bg-secondary/95 lg:hidden">
+            <nav className={`fixed bottom-4 left-1/2 z-50 flex w-[min(94vw,520px)] -translate-x-1/2 items-center justify-between rounded-3xl border px-3 py-2 shadow-[0_8px_32px_rgba(47,52,46,0.14)] backdrop-blur-xl lg:hidden ${isDark ? 'border-white/25 bg-black/55' : 'border-white/45 bg-white/75'}`}>
                 {navItems.slice(0, 5).map((item) => {
                     const Icon = item.icon
                     return (
@@ -168,8 +179,8 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                                 [
                                     'flex flex-1 flex-col items-center gap-1 rounded-2xl px-1 py-2 text-[12px] font-medium transition',
                                     isActive
-                                        ? 'bg-theme-accent/15 text-theme-accent'
-                                        : 'text-theme-text-secondary hover:text-theme-text-primary',
+                                        ? (isDark ? 'bg-white/20 text-white' : 'bg-serene-primary/10 text-serene-primary')
+                                        : (isDark ? 'text-white/75 hover:text-white' : 'text-serene-muted/70 hover:text-serene-ink'),
                                 ].join(' ')
                             }
                         >

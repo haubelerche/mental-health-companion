@@ -31,6 +31,19 @@
     --color-lua-bg: #fdf3e3;
     --color-la-ban-bg: #f2eff9;
     --color-guong-bg: #f8f4ed;
+
+    /* Semantic theme colors linked to CSS variables */
+    --color-theme-bg-primary: var(--theme-bg-primary);
+    --color-theme-bg-secondary: var(--theme-bg-secondary);
+    --color-theme-surface: var(--theme-surface);
+    --color-theme-surface-alt: var(--theme-surface-alt);
+    --color-theme-text-primary: var(--theme-text-primary);
+    --color-theme-text-secondary: var(--theme-text-secondary);
+    --color-theme-text-tertiary: var(--theme-text-tertiary);
+    --color-theme-border: var(--theme-border);
+    --color-theme-accent: var(--theme-accent);
+    --color-theme-accent-dim: var(--theme-accent-dim);
+    --color-theme-accent-light: var(--theme-accent-light);
 }
 
 @layer base {
