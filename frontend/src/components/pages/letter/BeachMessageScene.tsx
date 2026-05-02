@@ -5,7 +5,7 @@ export function CinematicBg({ dark }: { dark: boolean }) {
     return (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div
-                className={`absolute inset-0 transition-all duration-500 ${dark ? 'brightness-60 saturate-95' : 'brightness-92 saturate-105'}`}
+                className={`fixed inset-0 transition-all duration-500 ${dark ? 'brightness-60 saturate-95' : 'brightness-92 saturate-105'}`}
                 style={{
                     backgroundImage: `url(${beachBackgroundImage})`,
                     backgroundSize: 'cover',

@@ -10,21 +10,22 @@ export function BeachMessageCommunityPanel({
     onOpenSentLetter,
     onOpenReplyLetter,
 }: {
-    dark: boolean
+    dark?: boolean
     loadingSent: boolean
     sentLetters: SentLetterItem[]
     replyLetters: ReplyArchiveItem[]
     onOpenSentLetter: (item: SentLetterItem) => void
     onOpenReplyLetter: (item: ReplyArchiveItem) => void
 }) {
-    const ui = getUi(dark)
+    const isDark = Boolean(dark)
+    const ui = getUi(isDark)
 
     return (
         <div className="relative z-10 max-w-2xl mx-auto px-6 py-16 pb-24" style={{ animation: 'fadeUp 0.8s ease both' }}>
             <div className="mb-10">
                 <h2
                     className={`${ui.textPrimary} font-display text-4xl italic font-normal`}
-                    style={{ textShadow: dark ? '0 2px 16px rgba(0,0,0,0.36)' : '0 2px 10px rgba(255,255,255,0.35)' }}
+                    style={{ textShadow: isDark ? '0 2px 16px rgba(0,0,0,0.36)' : '0 2px 10px rgba(255,255,255,0.35)' }}
                 >
                     Kho thư cá nhân
                 </h2>
@@ -43,7 +44,7 @@ export function BeachMessageCommunityPanel({
                                 type="button"
                                 onClick={() => onOpenSentLetter(item)}
                                 className="text-left rounded-xl border px-4 py-3 transition-all"
-                                style={{ borderColor: dark ? 'rgba(242,235,224,0.2)' : 'rgba(18,30,40,0.18)' }}
+                                style={{ borderColor: isDark ? 'rgba(242,235,224,0.2)' : 'rgba(18,30,40,0.18)' }}
                             >
                                 <div className="flex items-start justify-between gap-3 mb-1">
                                     <p className={`${ui.textSubtle} font-display text-base font-semibold`}>Thư của bạn</p>
@@ -76,7 +77,7 @@ export function BeachMessageCommunityPanel({
                                 type="button"
                                 onClick={() => onOpenReplyLetter(item)}
                                 className="text-left rounded-xl border px-4 py-3"
-                                style={{ borderColor: dark ? 'rgba(242,235,224,0.2)' : 'rgba(18,30,40,0.18)' }}
+                                style={{ borderColor: isDark ? 'rgba(242,235,224,0.2)' : 'rgba(18,30,40,0.18)' }}
                             >
                                 <div className="flex items-start justify-between gap-3 mb-1">
                                     <p className={`${ui.textSubtle} font-display text-base font-semibold`}>Phản hồi của bạn</p>

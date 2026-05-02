@@ -1,6 +1,12 @@
 import { ArrowRight, ChevronRight, Leaf, Sparkles, Wind } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import {
+    APP_SETTINGS_STORAGE_KEY,
+    APP_SETTINGS_UPDATED_EVENT,
+    readAppSettings,
+    type AppSettings,
+} from '../../utils/appSettings'
+import {
     Area,
     AreaChart,
     CartesianGrid,
@@ -118,6 +124,35 @@ function normalizeTag(tag: string): string {
 
 export default function Reflect() {
     const { user } = useAuth()
+    const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
+
+    useEffect(() => {
+        const syncThemeMode = (settings: AppSettings) => {
+            setIsDark(settings.mode === 'dark')
+        }
+
+        const handleSettingsUpdated = (event: Event) => {
+            const customEvent = event as CustomEvent<AppSettings>
+            if (customEvent.detail) {
+                syncThemeMode(customEvent.detail)
+            }
+        }
+
+        const handleStorageUpdated = (event: StorageEvent) => {
+            if (event.key !== APP_SETTINGS_STORAGE_KEY) {
+                return
+            }
+            syncThemeMode(readAppSettings())
+        }
+
+        window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
+        window.addEventListener('storage', handleStorageUpdated)
+        return () => {
+            window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
+            window.removeEventListener('storage', handleStorageUpdated)
+        }
+    }, [])
+
     const [summary, setSummary] = useState<MentalHealthSummary | null>(null)
     const [weeklyNote, setWeeklyNote] = useState<WeeklyNotePayload | null>(null)
     const [moodTrend, setMoodTrend] = useState<MoodTrendPayload | null>(null)
@@ -201,7 +236,7 @@ export default function Reflect() {
     const displayName = user?.displayName || 'bạn'
 
     return (
-        <div className="relative min-h-screen overflow-hidden text-serene-ink ">
+        <div className={`relative min-h-screen overflow-hidden ${isDark ? 'text-white' : 'text-serene-ink'}`}>
 
             {/* DayDetailSheet rendered outside stacking context */}
             <DayDetailSheet detail={selectedDay} onClose={() => setSelectedDay(null)} />
@@ -209,15 +244,15 @@ export default function Reflect() {
             <div className="flex-1">
 
                 <div className="mx-auto flex w-full max-w-5xl flex-col items-center">
-                    <section className="w-full rounded-4xl border border-white/35 bg-serene-bg/70 p-4 shadow-md backdrop-blur-xl md:p-7 lg:p-8">
+                    <section className={`w-full rounded-4xl border ${isDark ? 'border-white/10 bg-black/40' : 'border-white/35 bg-serene-bg/70'} p-4 shadow-md backdrop-blur-xl md:p-7 lg:p-8`}>
                         <div className="text-center">
-                            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.28em] text-serene-primary/70">
+                            <p className={`mb-3 text-xs font-semibold uppercase tracking-[0.28em] ${isDark ? 'text-white/60' : 'text-serene-primary/70'}`}>
                                 Nhìn Lại
                             </p>
-                            <h1 className="font-display text-4xl font-light leading-tight text-[#2F342E] md:text-5xl lg:text-6xl">
-                                Chào <span className="italic text-primary font-medium">{displayName}</span>
+                            <h1 className={`font-display text-4xl font-light leading-tight ${isDark ? 'text-white' : 'text-[#2F342E]'} md:text-5xl lg:text-6xl`}>
+                                Chào <span className={`italic font-medium ${isDark ? 'text-theme-accent' : 'text-primary'}`}>{displayName}</span>
                             </h1>
-                            <p className="mx-auto mt-3 max-w-2xl text-xs italic leading-relaxed text-serene-primary/80 md:text-sm">
+                            <p className={`mx-auto mt-3 max-w-2xl text-xs italic leading-relaxed ${isDark ? 'text-white/70' : 'text-serene-primary/80'} md:text-sm`}>
                                 Dữ liệu cảm xúc của bạn đang được cập nhật liên tục từ những phiên trò chuyện cùng Serene.
                             </p>
                         </div>
@@ -243,13 +278,13 @@ export default function Reflect() {
 
                         {/* ── Wellness Radar — Hero Section ── */}
                         {wellnessScores && (
-                            <section className="mt-6 rounded-[1.75rem] border border-white/25 bg-white/30 p-4 backdrop-blur-md md:p-6">
+                            <section className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-white/10 bg-black/20' : 'border-white/25 bg-white/30'} p-4 backdrop-blur-md md:p-6`}>
                                 <div className="mb-1 flex items-end justify-between gap-4">
                                     <div>
-                                        <p className="text-[10px] uppercase tracking-[0.3em] text-serene-primary/70">Wellness Radar</p>
-                                        <h2 className="mt-1 font-display text-xl text-serene-ink md:text-2xl">6 chiều sức khoẻ</h2>
+                                        <p className={`text-[10px] uppercase tracking-[0.3em] ${isDark ? 'text-white/50' : 'text-serene-primary/70'}`}>Wellness Radar</p>
+                                        <h2 className={`mt-1 font-display text-xl ${isDark ? 'text-white' : 'text-serene-ink'} md:text-2xl`}>6 chiều sức khoẻ</h2>
                                     </div>
-                                    <p className="text-right text-[10px] text-serene-muted/60 max-w-[120px] leading-relaxed">
+                                    <p className={`text-right text-[10px] ${isDark ? 'text-white/40' : 'text-serene-muted/60'} max-w-[120px] leading-relaxed`}>
                                         Ước tính từ dữ liệu của bạn
                                     </p>
                                 </div>
@@ -267,9 +302,9 @@ export default function Reflect() {
                                             { label: 'Phát triển', value: wellnessScores.growth },
                                         ] as const
                                     ).map(({ label, value }) => (
-                                        <div key={label} className="rounded-2xl bg-white/50 px-2.5 py-2 text-center">
-                                            <p className="text-[11px] font-semibold text-serene-ink">{value}%</p>
-                                            <p className="mt-0.5 text-[9px] text-serene-muted/70">{label}</p>
+                                        <div key={label} className={`rounded-2xl ${isDark ? 'bg-white/5' : 'bg-white/50'} px-2.5 py-2 text-center`}>
+                                            <p className={`text-[11px] font-semibold ${isDark ? 'text-white' : 'text-serene-ink'}`}>{value}%</p>
+                                            <p className={`mt-0.5 text-[9px] ${isDark ? 'text-white/50' : 'text-serene-muted/70'}`}>{label}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -277,11 +312,11 @@ export default function Reflect() {
                         )}
 
                         <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-5">
-                            <div className="rounded-[1.75rem] border border-white/25 bg-white/30 p-4 text-center backdrop-blur-md md:p-6">
-                                <p className="mb-4 text-[10px] uppercase tracking-[0.3em] text-primary">Peace Score</p>
+                            <div className={`rounded-[1.75rem] border ${isDark ? 'border-white/10 bg-black/20' : 'border-white/25 bg-white/30'} p-4 text-center backdrop-blur-md md:p-6`}>
+                                <p className={`mb-4 text-[10px] uppercase tracking-[0.3em] ${isDark ? 'text-theme-accent' : 'text-primary'}`}>Peace Score</p>
                                 <div className="relative mx-auto flex h-40 w-40 items-center justify-center md:h-48 md:w-48">
                                     <svg viewBox="0 0 224 224" className="h-full w-full -rotate-90 transform">
-                                        <circle cx="112" cy="112" r="82" fill="transparent" className="text-white/40" stroke="currentColor" strokeWidth="12" />
+                                        <circle cx="112" cy="112" r="82" fill="transparent" className={isDark ? "text-white/5" : "text-white/40"} stroke="currentColor" strokeWidth="12" />
                                         <circle
                                             cx="112"
                                             cy="112"
@@ -295,40 +330,40 @@ export default function Reflect() {
                                         />
                                         <defs>
                                             <linearGradient id="peaceGradient" x1="0%" x2="100%" y1="0%" y2="100%">
-                                                <stop offset="0%" style={{ stopColor: '#4d6359', stopOpacity: 1 }} />
-                                                <stop offset="100%" style={{ stopColor: '#c2dacd', stopOpacity: 1 }} />
+                                                <stop offset="0%" style={{ stopColor: isDark ? '#58a6ff' : '#4d6359', stopOpacity: 1 }} />
+                                                <stop offset="100%" style={{ stopColor: isDark ? '#1f6feb' : '#c2dacd', stopOpacity: 1 }} />
                                             </linearGradient>
                                         </defs>
                                     </svg>
 
                                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                        <span className="font-display text-4xl font-light text-serene-primary md:text-5xl">
+                                        <span className={`font-display text-4xl font-light ${isDark ? 'text-white' : 'text-serene-primary'} md:text-5xl`}>
                                             {loading ? '--' : peaceScore}
                                             <span className="text-lg opacity-40 md:text-xl">%</span>
                                         </span>
-                                        <span className="mt-2 text-[10px] uppercase tracking-[0.3em] text-serene-primary-dim">
+                                        <span className={`mt-2 text-[10px] uppercase tracking-[0.3em] ${isDark ? 'text-white/60' : 'text-serene-primary-dim'}`}>
                                             {loading ? 'Đang cập nhật' : summary?.wellness_label || 'Đang cập nhật'}
                                         </span>
                                     </div>
                                 </div>
-                                <p className="mx-auto mt-4 max-w-sm text-xs leading-relaxed md:text-sm">
+                                <p className={`mx-auto mt-4 max-w-sm text-xs leading-relaxed ${isDark ? 'text-white/60' : ''} md:text-sm`}>
                                     {loading
                                         ? 'Đang tổng hợp dữ liệu từ mood check-in và các phiên trò chuyện...'
                                         : `Bạn đã có ${summary?.session_stats.total_sessions || 0} phiên, chuỗi duy trì hiện tại là ${summary?.session_stats.streak_days || 0} ngày.`}
                                 </p>
                             </div>
 
-                            <div className="rounded-[1.75rem] border border-white/25 bg-white/30 p-4 backdrop-blur-md md:p-6">
+                            <div className={`rounded-[1.75rem] border ${isDark ? 'border-white/10 bg-black/20' : 'border-white/25 bg-white/30'} p-4 backdrop-blur-md md:p-6`}>
                                 <div className="mb-4 flex items-end justify-between gap-4">
                                     <div>
-                                        <h2 className="font-display text-xl text-serene-primary md:text-2xl">Biểu đồ cảm xúc</h2>
-                                        <p className="text-[10px] uppercase tracking-[0.28em] text-serene-primary/60">
+                                        <h2 className={`font-display text-xl ${isDark ? 'text-white' : 'text-serene-primary'} md:text-2xl`}>Biểu đồ cảm xúc</h2>
+                                        <p className={`text-[10px] uppercase tracking-[0.28em] ${isDark ? 'text-white/50' : 'text-serene-primary/60'}`}>
                                             7 ngày qua
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-                                        <span className="h-2.5 w-2.5 rounded-full bg-white/50" />
+                                        <span className={`h-2.5 w-2.5 rounded-full ${isDark ? 'bg-theme-accent' : 'bg-primary'}`} />
+                                        <span className={`h-2.5 w-2.5 rounded-full ${isDark ? 'bg-white/10' : 'bg-white/50'}`} />
                                     </div>
                                 </div>
 
@@ -342,12 +377,12 @@ export default function Reflect() {
                                                         <stop offset="95%" stopColor="#4d6359" stopOpacity={0.04} />
                                                     </linearGradient>
                                                 </defs>
-                                                <CartesianGrid stroke="rgba(47, 52, 46, 0.08)" strokeDasharray="4 10" vertical={false} />
+                                                <CartesianGrid stroke={isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(47, 52, 46, 0.08)"} strokeDasharray="4 10" vertical={false} />
                                                 <XAxis
                                                     dataKey="day"
                                                     axisLine={false}
                                                     tickLine={false}
-                                                    tick={{ fill: '#5c605a', fontSize: 11 }}
+                                                    tick={{ fill: isDark ? '#b0b9c3' : '#5c605a', fontSize: 11 }}
                                                 />
                                                 <YAxis hide domain={[0, 100]} />
                                                 <Tooltip
@@ -393,13 +428,13 @@ export default function Reflect() {
 
                         {/* ── Mood Calendar — 28 ngày ── */}
                         {moodTrend && moodTrend.points.length > 0 && (
-                            <section className="mt-6 rounded-[1.75rem] border border-white/25 bg-white/30 p-4 backdrop-blur-md md:p-6">
+                            <section className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-white/10 bg-black/20' : 'border-white/25 bg-white/30'} p-4 backdrop-blur-md md:p-6`}>
                                 <div className="mb-4 flex items-end justify-between gap-4">
                                     <div>
-                                        <p className="text-[10px] uppercase tracking-[0.3em] text-serene-primary/70">Lịch tâm trạng</p>
-                                        <h2 className="mt-1 font-display text-xl text-serene-ink md:text-2xl">28 ngày qua</h2>
+                                        <p className={`text-[10px] uppercase tracking-[0.3em] ${isDark ? 'text-white/50' : 'text-serene-primary/70'}`}>Lịch tâm trạng</p>
+                                        <h2 className={`mt-1 font-display text-xl ${isDark ? 'text-white' : 'text-serene-ink'} md:text-2xl`}>28 ngày qua</h2>
                                     </div>
-                                    <div className="flex items-center gap-2 text-[9px] text-serene-muted/60 md:text-[10px]">
+                                    <div className={`flex items-center gap-2 text-[9px] ${isDark ? 'text-white/40' : 'text-serene-muted/60'} md:text-[10px]`}>
                                         <span>😊 Tốt</span>
                                         <span>😌 Ổn</span>
                                         <span>😐 Bình</span>
@@ -420,7 +455,7 @@ export default function Reflect() {
                                 {milestones.map((m) => (
                                     <div
                                         key={m.label}
-                                        className="flex-shrink-0 flex items-center gap-1.5 bg-[var(--color-guong-bg)] rounded-full px-3 py-1.5 text-xs font-medium text-[var(--color-serene-ink)]"
+                                        className={`flex-shrink-0 flex items-center gap-1.5 ${isDark ? 'bg-white/10' : 'bg-[var(--color-guong-bg)]'} rounded-full px-3 py-1.5 text-xs font-medium ${isDark ? 'text-white' : 'text-[var(--color-serene-ink)]'}`}
                                     >
                                         <span aria-hidden="true">{m.emoji}</span>
                                         <span>{m.label}</span>
@@ -431,10 +466,10 @@ export default function Reflect() {
 
                         {/* ── Progress Stats ── */}
                         {summary && (
-                            <section className="mt-6 rounded-[1.75rem] border border-white/25 bg-white/30 p-4 backdrop-blur-md md:p-6">
+                            <section className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-white/10 bg-black/20' : 'border-white/25 bg-white/30'} p-4 backdrop-blur-md md:p-6`}>
                                 <div className="mb-4">
-                                    <p className="text-[10px] uppercase tracking-[0.3em] text-serene-primary/70">Tiến trình</p>
-                                    <h2 className="mt-1 font-display text-xl text-serene-ink md:text-2xl">Thống kê của bạn</h2>
+                                    <p className={`text-[10px] uppercase tracking-[0.3em] ${isDark ? 'text-white/50' : 'text-serene-primary/70'}`}>Tiến trình</p>
+                                    <h2 className={`mt-1 font-display text-xl ${isDark ? 'text-white' : 'text-serene-ink'} md:text-2xl`}>Thống kê của bạn</h2>
                                 </div>
                                 <ProgressStats
                                     data={{
@@ -451,16 +486,16 @@ export default function Reflect() {
                             </section>
                         )}
 
-                        <section className="mt-6 rounded-3xl border-l-4 border-serene-primary bg-serene-primary/5 p-4 md:p-6">
+                        <section className={`mt-6 rounded-3xl border-l-4 ${isDark ? 'border-theme-accent bg-theme-accent/10' : 'border-serene-primary bg-serene-primary/5'} p-4 md:p-6`}>
                             <div className="mb-4 flex items-center gap-3">
-                                <div className="rounded-full bg-primary/10 p-2.5 text-primary">
+                                <div className={`rounded-full ${isDark ? 'bg-theme-accent/20 text-theme-accent' : 'bg-primary/10 p-2.5 text-primary'} p-2.5`}>
                                     <Sparkles className="h-5 w-5" />
                                 </div>
-                                <h2 className="font-display text-xl italic text-emerald-900 md:text-2xl">
+                                <h2 className={`font-display text-xl italic ${isDark ? 'text-white' : 'text-emerald-900'} md:text-2xl`}>
                                     Lời nhắn tuần từ Serene
                                 </h2>
                             </div>
-                            <p className="text-sm leading-relaxed text-serene-ink/90 md:text-base">
+                            <p className={`text-sm leading-relaxed ${isDark ? 'text-white/80' : 'text-serene-ink/90'} md:text-base`}>
                                 {loading
                                     ? 'Serene đang phân tích dữ liệu tuần của bạn...'
                                     : `“${weeklyNote?.content || 'Bạn đang duy trì nỗ lực rất tốt. Hãy tiếp tục giữ nhịp nghỉ ngơi và chăm sóc bản thân.'}”`}
@@ -468,20 +503,20 @@ export default function Reflect() {
                         </section>
 
                         <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-5">
-                            <div className="rounded-3xl border border-white/25 bg-white/10 p-4 backdrop-blur-md lg:col-span-2 md:p-6">
+                            <div className={`rounded-3xl border ${isDark ? 'border-white/10 bg-black/20' : 'border-white/25 bg-white/10'} p-4 backdrop-blur-md lg:col-span-2 md:p-6`}>
                                 <div className="mb-5 flex items-center justify-between gap-4">
                                     <div className="flex items-center gap-3">
-                                        <Leaf className="h-4 w-4 text-primary" />
-                                        <h3 className="font-display text-xl text-serene-primary">Nhật ký gần đây</h3>
+                                        <Leaf className={`h-4 w-4 ${isDark ? 'text-theme-accent' : 'text-primary'}`} />
+                                        <h3 className={`font-display text-xl ${isDark ? 'text-white' : 'text-serene-primary'}`}>Nhật ký gần đây</h3>
                                     </div>
-                                    <span className="text-[10px] uppercase tracking-widest text-serene-primary/50">
+                                    <span className={`text-[10px] uppercase tracking-widest ${isDark ? 'text-white/40' : 'text-serene-primary/50'}`}>
                                         {recentJournal?.created_at
                                             ? new Date(recentJournal.created_at).toLocaleDateString('vi-VN')
                                             : 'Chưa có'}
                                     </span>
                                 </div>
 
-                                <blockquote className="mb-5 font-display text-lg italic leading-relaxed text-serene-primary-dim md:text-2xl">
+                                <blockquote className={`mb-5 font-display text-lg italic leading-relaxed ${isDark ? 'text-white/90' : 'text-serene-primary-dim'} md:text-2xl`}>
                                     {recentJournal
                                         ? `“${recentJournal.content_preview}”`
                                         : '“Hãy viết vài dòng cảm nhận để hệ thống hiểu bạn sâu hơn.”'}
@@ -489,15 +524,15 @@ export default function Reflect() {
 
                                 <button
                                     type="button"
-                                    className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-serene-primary transition-transform hover:translate-x-0.5"
+                                    className={`inline-flex items-center gap-2 text-xs uppercase tracking-widest ${isDark ? 'text-theme-accent' : 'text-serene-primary'} transition-transform hover:translate-x-0.5`}
                                 >
                                     Đọc toàn bộ
                                     <ArrowRight className="h-4 w-4" />
                                 </button>
                             </div>
 
-                            <aside className="rounded-3xl border border-white/25 bg-white/10 p-4 backdrop-blur-md md:p-6">
-                                <h3 className="mb-5 font-display text-xl text-serene-primary">Bài tập nhanh</h3>
+                            <aside className={`rounded-3xl border ${isDark ? 'border-white/10 bg-black/20' : 'border-white/25 bg-white/10'} p-4 backdrop-blur-md md:p-6`}>
+                                <h3 className={`mb-5 font-display text-xl ${isDark ? 'text-white' : 'text-serene-primary'}`}>Bài tập nhanh</h3>
                                 <div className="space-y-3">
                                     {quickExercises.map((exercise) => {
                                         const Icon = exercise.icon
@@ -506,21 +541,21 @@ export default function Reflect() {
                                             <button
                                                 key={exercise.title}
                                                 type="button"
-                                                className="group flex w-full items-center gap-3 rounded-full bg-white p-3 text-left transition-all hover:bg-white/60"
+                                                className={`group flex w-full items-center gap-3 rounded-full ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:bg-white/60'} p-3 text-left transition-all`}
                                             >
-                                                <div className={`flex h-9 w-9 items-center justify-center rounded-full ${exercise.tone} bg-serene-on-primary `}>
+                                                <div className={`flex h-9 w-9 items-center justify-center rounded-full ${isDark ? 'bg-white/10 text-theme-accent' : exercise.tone} `}>
                                                     <Icon className="h-4 w-4" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-[13px] font-bold text-serene-primary">{exercise.title}</p>
-                                                    <p className="text-[10px] text-serene-primary">{exercise.duration}</p>
+                                                    <p className={`text-[13px] font-bold ${isDark ? 'text-white' : 'text-serene-primary'}`}>{exercise.title}</p>
+                                                    <p className={`text-[10px] ${isDark ? 'text-white/60' : 'text-serene-primary'}`}>{exercise.duration}</p>
                                                 </div>
-                                                <ChevronRight className="ml-auto h-4 w-4 text-serene-primary/30 transition-transform group-hover:translate-x-1" />
+                                                <ChevronRight className={`ml-auto h-4 w-4 ${isDark ? 'text-white/20' : 'text-serene-primary/30'} transition-transform group-hover:translate-x-1`} />
                                             </button>
                                         )
                                     })}
                                 </div>
-                                <div className="mt-4 rounded-2xl bg-white/60 p-3 text-[11px] text-serene-primary">
+                                <div className={`mt-4 rounded-2xl ${isDark ? 'bg-white/5' : 'bg-white/60'} p-3 text-[11px] ${isDark ? 'text-white/70' : 'text-serene-primary'}`}>
                                     <p>Tỷ lệ coping hiệu quả: {formatPercent(summary?.coping_stats.effective_rate)}</p>
                                     <p className="mt-2">
                                         Trigger gần đây:{' '}
@@ -532,16 +567,16 @@ export default function Reflect() {
                             </aside>
                         </section>
 
-                        {prompts.length > 0 && (
+                         {prompts.length > 0 && (
                             <section className="mt-6">
-                                <h3 className="font-semibold text-[var(--color-serene-ink)] mb-3 text-sm">
+                                <h3 className={`font-semibold ${isDark ? 'text-white/80' : 'text-[var(--color-serene-ink)]'} mb-3 text-sm`}>
                                     <span aria-hidden="true">✍️</span> Gợi ý ghi chép hôm nay
                                 </h3>
                                 <div className="flex flex-col gap-2">
                                     {prompts.slice(0, 3).map(p => (
                                         <div
                                             key={p.id}
-                                            className="bg-[var(--color-guong-bg)] rounded-2xl p-4 text-sm text-[var(--color-serene-muted)] leading-relaxed"
+                                            className={`${isDark ? 'bg-white/5 text-white/70' : 'bg-[var(--color-guong-bg)] text-[var(--color-serene-muted)]'} rounded-2xl p-4 text-sm leading-relaxed`}
                                         >
                                             {p.text}
                                         </div>
@@ -550,8 +585,8 @@ export default function Reflect() {
                             </section>
                         )}
 
-                        <div className="mt-6 border-t border-serene-primary/5 pt-7 text-center">
-                            <p className="font-display text-base italic text-serene-primary border-serene-primary/50 md:text-lg">
+                        <div className={`mt-6 border-t ${isDark ? 'border-white/10' : 'border-serene-primary/5'} pt-7 text-center`}>
+                            <p className={`font-display text-base italic ${isDark ? 'text-white/60' : 'text-serene-primary'} md:text-lg`}>
                                 “Học cách chữa lành là hành trình đẹp đẽ nhất của mỗi con người.”
                             </p>
                         </div>

@@ -4,6 +4,7 @@ import { ApiRequestError } from '../../../api/types'
 import { anonymousShareService, type ReplyArchiveItem, type SentLetterItem } from '../../../services/anonymousShareService'
 import { formatRelativeTime, getUi, type Letter } from './shared'
 import { ReportLetterModal } from './ReportLetterModal.tsx'
+import { X, CornerDownRight, Send, Heart, RotateCcw, AlertTriangle } from 'lucide-react'
 
 export function LetterOverlay({
     letter,
@@ -15,12 +16,13 @@ export function LetterOverlay({
 }: {
     letter: Letter
     onClose: () => void
-    dark: boolean
+    dark?: boolean
     onReply: (content: string) => Promise<void>
     onPass: () => Promise<void>
     onReportSuccess: () => void
 }) {
-    const ui = getUi(dark)
+    const isDark = Boolean(dark)
+    const ui = getUi(isDark)
     const [replyOpen, setReplyOpen] = useState(false)
     const [reply, setReply] = useState('')
     const [sent, setSent] = useState(false)
@@ -38,33 +40,33 @@ export function LetterOverlay({
     return (
         <div
             onClick={(e: ReactMouseEvent<HTMLDivElement>) => e.target === e.currentTarget && onClose()}
-            className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${ui.overlay} backdrop-blur-2xl`}
+            className={`fixed inset-0 z-50 flex items-center justify-center p-6 ${ui.overlay} backdrop-blur-md`}
             style={{ animation: 'fadeIn 0.45s ease' }}
         >
-            <div className={`${ui.glassLight} border w-full max-w-xl rounded-2xl backdrop-blur-2xl`} style={{ animation: 'letterOpen 0.65s cubic-bezier(0.22,1,0.36,1) both' }}>
-                <div className={`border-b ${ui.glassBorder} px-8 py-7 flex justify-between items-start`}>
+            <div className={`${ui.glassLight} w-full max-w-xl rounded-[32px] overflow-hidden shadow-2xl`} style={{ animation: 'letterOpen 0.65s cubic-bezier(0.22,1,0.36,1) both' }}>
+                <div className={`border-b ${ui.glassBorder} px-8 py-8 flex justify-between items-start bg-theme-surface/30`}>
                     <div>
-                        <p className={`${ui.textSubtler} font-display text-xs font-bold uppercase tracking-wide mb-2`}>Lá thư từ biển khơi</p>
-                        <p className={`${ui.textPrimary} font-display text-lg font-semibold`}>{letter.from}</p>
+                        <p className={`${ui.textSubtler} font-bold text-[10px] uppercase tracking-[0.3em] mb-2`}>Lá thư từ biển khơi</p>
+                        <p className={`${ui.textPrimary} font-display text-2xl font-bold italic`}>{letter.from}</p>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <span className={`${ui.textSubtler} italic text-xs`}>{letter.time}</span>
-                        <button type="button" onClick={onClose} className={`${ui.textSubtle} bg-none border-none cursor-pointer p-1 flex hover:opacity-70 transition-opacity`}>
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                <path d="M18 6L6 18M6 6l12 12" />
-                            </svg>
+                    <div className="flex items-center gap-5">
+                        <span className={`${ui.textSubtler} italic text-xs font-medium`}>{letter.time}</span>
+                        <button type="button" onClick={onClose} className="text-theme-text-secondary hover:text-theme-text-primary transition-colors">
+                            <X size={24} />
                         </button>
                     </div>
                 </div>
 
-                <div className="px-8 py-7">
-                    <p className={`${ui.textPrimary} font-display text-lg italic leading-relaxed tracking-[.5px]`}>{letter.body}</p>
+                <div className="px-10 py-12 bg-theme-surface/5">
+                    <p className={`${ui.textPrimary} font-display text-2xl italic font-medium leading-relaxed tracking-[.5px] whitespace-pre-wrap`}>
+                        "{letter.body}"
+                    </p>
                 </div>
 
-                <div className={`px-8 py-7 border-t ${ui.glassBorder}`}>
+                <div className={`px-8 py-8 border-t ${ui.glassBorder} bg-theme-surface/30`}>
                     {!sent ? (
                         !replyOpen ? (
-                            <div className="mt-5 flex gap-3">
+                            <div className="flex flex-wrap gap-3">
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -72,13 +74,10 @@ export function LetterOverlay({
                                         setReplyOpen(true)
                                     }}
                                     disabled={busy}
-                                    className="flex-1 bg-none border rounded-xl py-2.5 px-0 font-display tracking-wide cursor-pointer transition-all"
-                                    style={{
-                                        borderColor: dark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)',
-                                        color: dark ? 'rgba(242,235,224,0.45)' : 'rgba(20,26,33,0.7)',
-                                    }}
+                                    className="flex-1 min-w-[140px] flex items-center justify-center gap-2 bg-theme-accent text-white rounded-2xl py-3.5 px-4 font-bold text-sm tracking-widest uppercase transition-all hover:brightness-105 active:scale-95 shadow-lg shadow-theme-accent/20"
                                 >
-                                    Trả lời thư
+                                    <CornerDownRight size={16} />
+                                    Hồi âm
                                 </button>
                                 <button
                                     type="button"
@@ -99,48 +98,40 @@ export function LetterOverlay({
                                         }
                                     }}
                                     disabled={busy}
-                                    className="flex-1 bg-none border rounded-xl py-2.5 px-0 font-display font-semibold tracking-wide cursor-pointer transition-all"
-                                    style={{
-                                        borderColor: dark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)',
-                                        color: dark ? 'rgba(242,235,224,0.45)' : 'rgba(20,26,33,0.7)',
-                                    }}
+                                    className="flex-1 min-w-[140px] flex items-center justify-center gap-2 text-theme-text-secondary rounded-2xl py-3.5 px-4 font-bold text-sm tracking-widest uppercase transition-all hover:bg-theme-surface active:scale-95 bg-theme-surface/50"
                                 >
-                                    {busy && busyAction === 'pass' ? 'Đang đẩy...' : 'Đẩy thuyền trôi đi'}
+                                    <RotateCcw size={16} className={busyAction === 'pass' ? 'animate-spin' : ''} />
+                                    {busy && busyAction === 'pass' ? 'Đang đẩy...' : 'Để thư trôi'}
                                 </button>
                                 {canReport && (
                                     <button
                                         type="button"
                                         onClick={() => setShowReport(true)}
                                         disabled={busy}
-                                        className="flex-1 bg-none border rounded-xl py-2.5 px-0 font-display tracking-wide cursor-pointer transition-all"
-                                        style={{
-                                            borderColor: dark ? 'rgba(255,120,120,0.35)' : 'rgba(190,40,40,0.35)',
-                                            color: dark ? 'rgba(255,190,190,0.95)' : 'rgba(145,20,20,0.95)',
-                                        }}
+                                        className="flex items-center justify-center gap-2 text-red-500/80 rounded-2xl py-3.5 px-6 font-bold text-sm tracking-widest uppercase transition-all hover:bg-red-500/5 active:scale-95 bg-red-500/10"
                                     >
-                                        Báo cáo
+                                        <AlertTriangle size={16} />
                                     </button>
                                 )}
                             </div>
                         ) : (
-                            <div className="mt-5" style={{ animation: 'fadeUpCard 0.35s ease' }}>
+                            <div className="space-y-4" style={{ animation: 'fadeUpCard 0.35s ease' }}>
                                 <textarea
                                     ref={areaRef}
                                     value={reply}
                                     onChange={(e) => setReply(e.target.value)}
-                                    placeholder="Viết hồi âm của bạn..."
-                                    rows={3}
-                                    className="w-full rounded-xl p-4 font-display text-lg italic font-light leading-relaxed resize-none outline-none transition-colors"
-                                    style={{
-                                        backgroundColor: dark ? 'rgba(242,235,224,0.05)' : 'rgb(255,255,255)',
-                                        borderColor: dark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)',
-                                        color: dark ? 'rgb(255,255,255)' : 'rgb(15,23,42)',
-                                        border: `1px solid ${dark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)'}`,
-                                    }}
+                                    placeholder="Viết hồi âm chân thành của bạn..."
+                                    rows={4}
+                                    className="w-full rounded-2xl p-5 font-display text-xl italic font-medium leading-relaxed resize-none outline-none transition-all bg-theme-surface/50 text-theme-text-primary focus:ring-1 focus:ring-theme-accent/30"
                                 />
-                                <div className="flex justify-between items-center mt-2.5">
-                                    <button type="button" onClick={() => setReplyOpen(false)} disabled={busy} className="text-xs cursor-pointer tracking-wide" style={{ background: 'none', border: 'none', color: dark ? 'rgba(242,235,224,0.55)' : 'rgba(20,26,33,0.56)' }}>
-                                        Huỷ
+                                <div className="flex justify-between items-center px-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setReplyOpen(false)}
+                                        disabled={busy}
+                                        className="text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary/50 hover:text-theme-text-primary transition-colors"
+                                    >
+                                        Huỷ bỏ
                                     </button>
                                     <button
                                         type="button"
@@ -162,22 +153,18 @@ export function LetterOverlay({
                                             }
                                         }}
                                         disabled={!reply.trim() || busy}
-                                        className="px-6 py-2 rounded-lg font-display text-sm italic transition-all"
-                                        style={{
-                                            background: reply.trim() ? 'linear-gradient(135deg,#5fd0be 0%,#4f9dcb 100%)' : 'none',
-                                            border: `1px solid ${reply.trim() ? 'rgba(111,190,214,0.68)' : dark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)'}`,
-                                            color: reply.trim() ? '#ffffff' : dark ? 'rgba(242,235,224,0.45)' : 'rgba(20,26,33,0.45)',
-                                        }}
+                                        className={`flex items-center gap-2 px-8 py-3 rounded-2xl font-bold text-sm uppercase tracking-widest transition-all shadow-lg ${reply.trim() ? 'bg-theme-accent text-white shadow-theme-accent/25 hover:brightness-105' : 'bg-theme-border/20 text-theme-text-secondary/30 cursor-not-allowed'}`}
                                     >
-                                        {busy && busyAction === 'reply' ? 'Đang gửi...' : 'Thả về biển'}
+                                        <Send size={16} />
+                                        {busy && busyAction === 'reply' ? 'Đang thả...' : 'Thả về biển'}
                                     </button>
                                 </div>
-                                {actionError && <p className="mt-2 text-xs text-rose-400">{actionError}</p>}
+                                {actionError && <p className="mt-2 text-xs font-bold text-rose-500 text-center uppercase tracking-wider">{actionError}</p>}
                             </div>
                         )
                     ) : (
-                        <div className="mt-5 text-center py-3" style={{ animation: 'fadeUpCard 0.5s ease' }}>
-                            <p className={`${ui.textSubtle} font-display text-base italic font-light`}>Hồi âm đã trôi ra biển khơi...</p>
+                        <div className="text-center py-6" style={{ animation: 'fadeUpCard 0.5s ease' }}>
+                            <p className={`${ui.textSubtle} font-display text-xl italic font-bold`}>Hồi âm đã hòa cùng tiếng sóng khơi xa...</p>
                         </div>
                     )}
                 </div>
@@ -185,7 +172,7 @@ export function LetterOverlay({
             {showReport && canReport && (
                 <ReportLetterModal
                     item={{ id: letter.id }}
-                    dark={dark}
+                    dark={isDark}
                     onClose={() => setShowReport(false)}
                     onSuccess={onReportSuccess}
                 />
@@ -194,8 +181,9 @@ export function LetterOverlay({
     )
 }
 
-export function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boolean }) {
-    const ui = getUi(dark)
+export function WriteOverlay({ onClose, dark }: { onClose: () => void; dark?: boolean }) {
+    const isDark = Boolean(dark)
+    const ui = getUi(isDark)
     const [text, setText] = useState('')
     const [sent, setSent] = useState(false)
     const [busy, setBusy] = useState(false)
@@ -204,45 +192,36 @@ export function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boo
     return (
         <div
             onClick={(e: ReactMouseEvent<HTMLDivElement>) => e.target === e.currentTarget && onClose()}
-            className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${ui.overlay} backdrop-blur-2xl`}
+            className={`fixed inset-0 z-50 flex items-center justify-center p-6 ${ui.overlay} backdrop-blur-md`}
             style={{ animation: 'fadeIn 0.45s ease' }}
         >
-            <div className={`${ui.glassLight} border w-full max-w-xl rounded-2xl backdrop-blur-2xl`} style={{ animation: 'letterOpen 0.65s cubic-bezier(0.22,1,0.36,1) both' }}>
-                <div className={`border-b ${ui.glassBorder} px-8 py-7 flex justify-between items-start`}>
+            <div className={`${ui.glassLight} w-full max-w-xl rounded-[32px] overflow-hidden shadow-2xl`} style={{ animation: 'letterOpen 0.65s cubic-bezier(0.22,1,0.36,1) both' }}>
+                <div className={`border-b ${ui.glassBorder} px-8 py-8 flex justify-between items-start bg-theme-surface/30`}>
                     <div>
-                        <p className={`${ui.textSubtler} text-lg font-light uppercase tracking-wider mb-2`}>Viết lá thư của bạn</p>
-                        <p className={`${ui.textSubtle} font-display text-base italic font-light`}>Lá thư sẽ trôi đến tay một người xa lạ</p>
+                        <p className={`${ui.textSubtler} text-[10px] font-bold uppercase tracking-[0.3em] mb-2`}>Viết tâm tư gửi biển</p>
+                        <p className={`${ui.textPrimary} font-display text-xl italic font-bold`}>Lá thư sẽ tìm đến một tâm hồn đồng điệu</p>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: dark ? 'rgba(242,235,224,0.45)' : 'rgba(20,26,33,0.45)' }}
-                        className="p-1 flex hover:opacity-70 transition-opacity"
+                        className="text-theme-text-secondary hover:text-theme-text-primary transition-colors p-1"
                     >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                            <path d="M18 6L6 18M6 6l12 12" />
-                        </svg>
+                        <X size={24} />
                     </button>
                 </div>
 
-                <div className="px-8 py-7">
+                <div className="px-8 py-10 bg-theme-surface/5">
                     {!sent ? (
-                        <>
+                        <div className="space-y-6">
                             <textarea
                                 value={text}
                                 onChange={(e) => setText(e.target.value)}
-                                placeholder="Hôm nay bạn muốn chia sẻ điều gì..."
+                                placeholder="Hãy trút bỏ nỗi lòng hoặc sẻ chia niềm hạnh phúc của bạn hôm nay..."
                                 rows={6}
                                 autoFocus
-                                className="w-full rounded-3xl p-4 font-display text-lg italic font-light leading-relaxed resize-none outline-none transition-colors"
-                                style={{
-                                    backgroundColor: dark ? 'rgba(242,235,224,0.05)' : 'rgb(255,255,255)',
-                                    borderColor: dark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)',
-                                    color: dark ? 'rgb(255,255,255)' : 'rgb(15,23,42)',
-                                    border: `1px solid ${dark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)'}`,
-                                }}
+                                className="w-full rounded-[24px] p-6 font-display text-xl italic font-medium leading-relaxed resize-none outline-none transition-all bg-theme-surface/50 text-theme-text-primary focus:ring-1 focus:ring-theme-accent/30"
                             />
-                            <div className="flex justify-end mt-3.5">
+                            <div className="flex justify-end">
                                 <button
                                     type="button"
                                     onClick={async () => {
@@ -261,21 +240,18 @@ export function WriteOverlay({ onClose, dark }: { onClose: () => void; dark: boo
                                         }
                                     }}
                                     disabled={!text.trim() || busy}
-                                    className="px-8 py-2.5 rounded-3xl font-display text-base italic transition-all"
-                                    style={{
-                                        background: text.trim() ? 'linear-gradient(135deg,#5fd0be 0%,#4f9dcb 100%)' : 'none',
-                                        border: `1px solid ${text.trim() ? 'rgba(111,190,214,0.68)' : dark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)'}`,
-                                        color: text.trim() ? '#ffffff' : dark ? 'rgba(242,235,224,0.45)' : 'rgba(20,26,33,0.45)',
-                                    }}
+                                    className={`flex items-center gap-3 px-10 py-4 rounded-2xl font-bold text-sm uppercase tracking-widest transition-all shadow-xl ${text.trim() ? 'bg-theme-accent text-white shadow-theme-accent/25 hover:brightness-105 active:scale-95' : 'bg-theme-border/20 text-theme-text-secondary/30'}`}
                                 >
-                                    {busy ? 'Đang thả...' : 'Thả ra biển'}
+                                    <Send size={18} />
+                                    {busy ? 'Đang thả...' : 'Gửi ra khơi'}
                                 </button>
                             </div>
-                            {submitError && <p className="mt-2 text-xs text-rose-400">{submitError}</p>}
-                        </>
+                            {submitError && <p className="mt-2 text-xs font-bold text-rose-500 text-center uppercase tracking-wider">{submitError}</p>}
+                        </div>
                     ) : (
-                        <div className="text-center py-6" style={{ animation: 'fadeUpCard 0.6s ease' }}>
-                            <p className={`${ui.textSubtle} font-display text-lg italic font-light leading-relaxed`}>Lá thư đã trôi ra biển khơi...</p>
+                        <div className="text-center py-12" style={{ animation: 'fadeUpCard 0.6s ease' }}>
+                            <p className="text-theme-accent text-4xl mb-4">✨</p>
+                            <p className={`${ui.textPrimary} font-display text-2xl italic font-bold leading-relaxed`}>Lá thư đã trôi theo con sóng...</p>
                         </div>
                     )}
                 </div>
@@ -288,111 +264,101 @@ export function SentLetterDialog({
     item,
     dark,
     onClose,
-    onReact,
+    onReact: parentOnReact,
 }: {
     item: SentLetterItem
-    dark: boolean
+    dark?: boolean
     onClose: () => void
     onReact: () => Promise<void>
 }) {
-    const ui = getUi(dark)
+    const isDark = Boolean(dark)
+    const ui = getUi(isDark)
     const [busyReact, setBusyReact] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [reacted, setReacted] = useState(Boolean(item.reply?.reaction_type))
 
+    const handleReact = async () => {
+        if (!item.reply || reacted || busyReact) return
+        setBusyReact(true)
+        setError(null)
+        try {
+            await parentOnReact()
+            setReacted(true)
+        } catch (e) {
+            if (e instanceof ApiRequestError) setError(e.message)
+            else setError('Không thể gửi cảm ơn lúc này.')
+        } finally {
+            setBusyReact(false)
+        }
+    }
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/55 backdrop-blur-sm">
-            <div className={`${ui.glassLight} border rounded-3xl shadow-2xl w-full max-w-3xl max-h-[86vh] overflow-hidden flex flex-col`} style={{ animation: 'letterOpen 0.35s cubic-bezier(0.22,1,0.36,1) both' }}>
-                <div className={`border-b ${ui.glassBorder} px-5 py-4 flex items-center justify-between gap-3`}>
+        <div
+            onClick={(e) => e.target === e.currentTarget && onClose()}
+            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/40 backdrop-blur-md transition-all"
+        >
+            <div className={`${ui.glassLight} rounded-[32px] shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col`} style={{ animation: 'letterOpen 0.35s cubic-bezier(0.22,1,0.36,1) both' }}>
+                <div className={`border-b ${ui.glassBorder} px-8 py-5 flex items-center justify-between bg-theme-surface/30`}>
+                    <div className="flex flex-col">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-theme-text-secondary/60">Hành trình lá thư</p>
+                        <h2 className="text-xl font-bold text-theme-text-primary">Chi tiết tâm tình</h2>
+                    </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="inline-flex items-center justify-center h-10 w-10 rounded-xl border"
-                        style={{
-                            borderColor: dark ? 'rgba(242,235,224,0.12)' : 'rgba(18,30,40,0.12)',
-                            color: dark ? 'rgba(242,235,224,0.92)' : 'rgba(20,26,33,0.92)',
-                        }}
-                        aria-label="Quay lại"
+                        className="h-10 w-10 rounded-full flex items-center justify-center text-theme-text-secondary hover:bg-theme-surface/50 hover:text-theme-text-primary transition-all"
                     >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                            <path d="M15 18l-6-6 6-6" />
-                        </svg>
+                        <X size={20} />
                     </button>
+                </div>
 
-                    <div className="min-w-0 flex-1 text-center px-2">
-                        <div className="flex items-center justify-center gap-2">
-                            <p className={`${ui.textSubtle} font-display text-lg font-semibold truncate`}>Chi tiết thư</p>
-                            {item.is_reported && (
-                                <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ backgroundColor: 'rgba(255, 120, 120, 0.15)', color: 'rgba(255, 150, 150, 0.95)' }}>
-                                    Đã báo cáo
-                                </span>
+                <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-theme-surface/5 custom-scrollbar">
+                    <div className="space-y-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-theme-accent/70 px-2">Nội dung bạn gửi</p>
+                        <div className="rounded-3xl p-6 bg-theme-surface/50">
+                            <p className="text-theme-text-primary font-display text-xl italic leading-relaxed whitespace-pre-wrap">"{item.content}"</p>
+                            <p className="text-theme-text-secondary/40 text-[10px] font-bold mt-4 uppercase tracking-tighter">{formatRelativeTime(item.sent_at)}</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-500/70 px-2">Phản hồi từ phương xa</p>
+                        <div className="rounded-3xl p-6 bg-theme-surface/50">
+                            {item.reply ? (
+                                <>
+                                    <div className="flex items-center gap-2 mb-4 border-b border-theme-border/5 pb-3">
+                                        <span className="text-xl">🐚</span>
+                                        <p className="text-theme-text-primary text-[11px] font-bold uppercase tracking-widest">
+                                            {item.reply.anonymous_name ? item.reply.anonymous_name : 'Người lạ ẩn danh'}
+                                        </p>
+                                    </div>
+                                    <p className="text-theme-text-primary font-display text-xl italic leading-relaxed whitespace-pre-wrap">"{item.reply.content}"</p>
+                                    <p className="text-theme-text-secondary/40 text-[10px] font-bold mt-4 uppercase tracking-tighter">{formatRelativeTime(item.reply.received_at)}</p>
+                                    <div className="mt-6 flex justify-end">
+                                        <button
+                                            type="button"
+                                            disabled={reacted || busyReact}
+                                            onClick={handleReact}
+                                            className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all ${reacted ? 'bg-rose-400 text-white shadow-lg shadow-rose-400/20' : 'bg-theme-surface/50 text-theme-text-secondary hover:bg-theme-surface active:scale-95'}`}
+                                        >
+                                            <Heart size={14} fill={reacted ? "white" : "none"} className={reacted ? "text-white" : ""} />
+                                            {reacted ? 'Đã cảm ơn' : busyReact ? 'Đang gửi...' : 'Gửi lời cảm ơn'}
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="py-10 text-center">
+                                    <p className="text-theme-text-secondary/40 text-sm italic font-medium">Lá thư vẫn đang trôi dạt, chưa có ai nhặt được...</p>
+                                </div>
                             )}
                         </div>
                     </div>
-                    <div className="h-10 w-10" aria-hidden="true" />
-                </div>
 
-                <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                    <div className={`rounded-2xl border p-4 ${ui.glassLight}`}>
-                        <p className={`${ui.textSubtler} text-xs uppercase tracking-wider mb-2`}>Thư bạn gửi</p>
-                        <p className={`${ui.textSubtle} font-display text-base leading-relaxed whitespace-pre-wrap`}>{item.content}</p>
-                        <p className={`${ui.textSubtler} text-[11px] mt-2`}>{formatRelativeTime(item.sent_at)}</p>
-                    </div>
-
-
-                    <div className={`rounded-2xl border p-4 ${ui.glassLight}`}>
-                        <p className={`${ui.textSubtler} text-xs uppercase tracking-wider mb-2`}>Hồi âm</p>
-                        {item.reply ? (
-                            <>
-                                <p className={`${ui.textSubtler} text-xs mb-2`}>
-                                    {item.reply.anonymous_name ? `Ẩn danh: ${item.reply.anonymous_name}` : 'Người phản hồi ẩn danh'}
-                                    {item.reply.has_reaction ? ` · Đã được thả ${item.reply.reaction_type ?? 'cảm xúc'}` : ' · Chưa được phản hồi cảm xúc'}
-                                </p>
-                                <p className={`${ui.textSubtle} font-display text-base leading-relaxed whitespace-pre-wrap`}>{item.reply.content}</p>
-                                <p className={`${ui.textSubtler} text-[11px] mt-2`}>{formatRelativeTime(item.reply.received_at)}</p>
-                                <div className="mt-3 flex items-center justify-end">
-                                    <button
-                                        type="button"
-                                        disabled={reacted || busyReact}
-                                        onClick={async () => {
-                                            if (!item.reply || reacted || busyReact) return
-                                            setBusyReact(true)
-                                            setError(null)
-                                            try {
-                                                await onReact()
-                                                setReacted(true)
-                                            } catch (e) {
-                                                if (e instanceof ApiRequestError) setError(e.message)
-                                                else setError('Không thể thả tim lúc này.')
-                                            } finally {
-                                                setBusyReact(false)
-                                            }
-                                        }}
-                                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border"
-                                        style={{
-                                            borderColor: reacted ? 'rgba(245,128,160,0.7)' : dark ? 'rgba(242,235,224,0.2)' : 'rgba(18,30,40,0.18)',
-                                            color: reacted ? '#f06292' : dark ? 'rgba(242,235,224,0.85)' : 'rgba(20,26,33,0.8)',
-                                        }}
-                                    >
-                                        <span aria-hidden="true">❤</span>
-                                        <span className="text-sm">{reacted ? 'Đã thả tim' : busyReact ? 'Đang thả...' : 'Thả tim'}</span>
-                                    </button>
-                                </div>
-                            </>
-                        ) : (
-                            <p className={`${ui.textSubtler} text-sm`}>Chưa có hồi âm cho thư này.</p>
-                        )}
-                    </div>
-
-                    {error && <p className="text-sm text-rose-400">{error}</p>}
+                    {error && <p className="text-xs font-bold text-rose-500 uppercase text-center">{error}</p>}
                 </div>
             </div>
         </div>
     )
-}
-
-export function RecievedLetterDialog() {
-    return <div>Chi tiết thư nhận được</div>
 }
 
 export function ReceivedLetterDialog({
@@ -401,71 +367,64 @@ export function ReceivedLetterDialog({
     onClose,
 }: {
     item: ReplyArchiveItem
-    dark: boolean
+    dark?: boolean
     onClose: () => void
 }) {
-    const ui = getUi(dark)
+    const isDark = Boolean(dark)
+    const ui = getUi(isDark)
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/55 backdrop-blur-sm"
+            className={`fixed inset-0 z-50 flex items-center justify-center p-6 ${ui.overlay} backdrop-blur-md`}
             style={{ animation: 'fadeIn 0.45s ease' }}
             onClick={(e: ReactMouseEvent<HTMLDivElement>) => e.target === e.currentTarget && onClose()}
         >
-            <div className={`${ui.glassLight} border rounded-3xl shadow-2xl w-full max-w-3xl max-h-[86vh] overflow-hidden flex flex-col`} style={{ animation: 'letterOpen 0.35s cubic-bezier(0.22,1,0.36,1) both' }}>
-                <div className={`border-b ${ui.glassBorder} px-5 py-4 flex items-center justify-between gap-3`}>
+            <div className={`${ui.glassLight} rounded-[32px] shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col`} style={{ animation: 'letterOpen 0.35s cubic-bezier(0.22,1,0.36,1) both' }}>
+                <div className={`border-b ${ui.glassBorder} px-8 py-5 flex items-center justify-between bg-theme-surface/30`}>
+                    <div className="flex flex-col">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-theme-text-secondary/60">Lưu trữ phản hồi</p>
+                        <h2 className="text-xl font-bold text-theme-text-primary">Chi tiết hồi đáp</h2>
+                    </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="inline-flex items-center justify-center h-10 w-10 rounded-xl border"
-                        style={{
-                            borderColor: dark ? 'rgba(242,235,224,0.12)' : 'rgba(18,30,40,0.12)',
-                            color: dark ? 'rgba(242,235,224,0.92)' : 'rgba(20,26,33,0.92)',
-                        }}
-                        aria-label="Quay lại"
+                        className="h-10 w-10 rounded-full flex items-center justify-center text-theme-text-secondary hover:bg-theme-surface/50 hover:text-theme-text-primary transition-all"
                     >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                            <path d="M15 18l-6-6 6-6" />
-                        </svg>
+                        <X size={20} />
                     </button>
+                </div>
 
-                    <div className="min-w-0 flex-1 text-center px-2">
-                        <div className="flex items-center justify-center gap-2">
-                            <p className={`${ui.textSubtle} font-display text-lg font-semibold truncate`}>Chi tiết thư đã phản hồi</p>
-                            {item.has_reaction && (
-                                <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ backgroundColor: 'rgba(255, 120, 120, 0.15)', color: 'rgba(255, 150, 150, 0.95)' }}>
-                                    Đã được thả {item.reaction_type ?? 'cảm xúc'}
-                                </span>
-                            )}
+                <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-theme-surface/5 custom-scrollbar">
+                    <div className="space-y-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-theme-accent/70 px-2">Phản hồi của bạn</p>
+                        <div className="rounded-3xl p-6 bg-theme-surface/50">
+                            <div className="flex items-center gap-2 mb-4 border-b border-theme-border/5 pb-3">
+                                <p className="text-theme-text-primary text-[10px] font-bold uppercase tracking-widest">
+                                    Dưới danh nghĩa: {item.anonymous_name ? item.anonymous_name : 'Ẩn danh'}
+                                </p>
+                            </div>
+                            <p className="text-theme-text-primary font-display text-xl italic leading-relaxed whitespace-pre-wrap">"{item.content}"</p>
+                            <div className="mt-4 flex items-center justify-between">
+                                <p className="text-theme-text-secondary/40 text-[10px] font-bold uppercase tracking-tighter">{formatRelativeTime(item.sent_at)}</p>
+                                {item.has_reaction && (
+                                    <div className="flex items-center gap-1.5 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20">
+                                        <Heart size={10} fill="#f43f5e" className="text-rose-500" />
+                                        <span className="text-[10px] font-bold text-rose-500 uppercase tracking-tighter">Đã nhận ❤️</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
-                    <div className="h-10 w-10" aria-hidden="true" />
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                    <div className={`rounded-2xl border p-4 ${ui.glassLight}`}>
-                        <p className={`${ui.textSubtler} text-xs uppercase tracking-wider mb-2`}>Phản hồi của bạn</p>
-                        <p className={`${ui.textSubtle} font-display text-base leading-relaxed whitespace-pre-wrap`}>{item.content}</p>
-                        <p className={`${ui.textSubtler} text-[11px] mt-2`}>
-                            {item.anonymous_name ? `Ẩn danh: ${item.anonymous_name}` : 'Ẩn danh'} · {formatRelativeTime(item.sent_at)}
-                        </p>
-                    </div>
-
-                    <div className={`rounded-2xl border p-4 ${ui.glassLight}`}>
-                        <p className={`${ui.textSubtler} text-xs uppercase tracking-wider mb-2`}>Thư gốc</p>
-                        {item.original_content ? (
-                            <p className={`${ui.textSubtle} font-display text-base leading-relaxed whitespace-pre-wrap`}>{item.original_content}</p>
-                        ) : (
-                            <p className={`${ui.textSubtler} text-sm`}>Không có nội dung thư gốc.</p>
-                        )}
-                    </div>
-
-                    <div className={`rounded-2xl border p-4 ${ui.glassLight}`}>
-                        <p className={`${ui.textSubtler} text-xs uppercase tracking-wider mb-2`}>Trạng thái</p>
-                        <p className={`${ui.textSubtler} text-sm`}>
-                            {item.has_reaction ? `Đã được thả ${item.reaction_type ?? 'cảm xúc'}` : 'Chưa có phản ứng nào từ người gửi gốc'}
-                        </p>
+                    <div className="space-y-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary/50 px-2">Thư gốc từ người lạ</p>
+                        <div className="rounded-3xl p-6 bg-theme-surface/20">
+                            {item.original_content ? (
+                                <p className="text-theme-text-secondary/70 font-display text-lg italic leading-relaxed whitespace-pre-wrap">"{item.original_content}"</p>
+                            ) : (
+                                <p className="text-theme-text-secondary/30 text-sm italic">Nội dung thư gốc đã bị con sóng cuốn trôi...</p>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

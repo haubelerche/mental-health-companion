@@ -14,11 +14,11 @@ export type TabId = 'beach' | 'community'
 export function getUi(dark: boolean) {
     return {
         textPrimary: dark ? 'text-white' : 'text-slate-900',
-        textSubtle: dark ? 'text-white' : 'text-slate-800',
-        textSubtler: dark ? 'text-white/50' : 'text-slate-900',
-        glassLight: dark ? 'bg-slate-900/50 border-stone-50/20' : 'bg-white/86 border-stone-950/18',
-        glassBorder: dark ? 'border-stone-50/20' : 'border-stone-950/18',
-        overlay: dark ? 'bg-slate-950/74' : 'bg-slate-900/26',
+        textSubtle: dark ? 'text-white/90' : 'text-slate-800',
+        textSubtler: dark ? 'text-white/50' : 'text-slate-900/60',
+        glassLight: dark ? 'bg-black/40 border-white/10' : 'bg-white/86 border-stone-950/18',
+        glassBorder: dark ? 'border-white/10' : 'border-stone-950/18',
+        overlay: dark ? 'bg-black/75' : 'bg-slate-900/26',
     }
 }
 

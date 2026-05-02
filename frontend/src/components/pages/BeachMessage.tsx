@@ -5,12 +5,6 @@ import {
   type SentLetterItem,
 } from '../../services/anonymousShareService'
 import {
-  APP_SETTINGS_STORAGE_KEY,
-  APP_SETTINGS_UPDATED_EVENT,
-  readAppSettings,
-  type AppSettings,
-} from '../../utils/appSettings'
-import {
   CinematicBg as BeachCinematicBg,
   LetterOverlay as BeachLetterOverlay,
   ReceivedLetterDialog as BeachReceivedLetterDialog,
@@ -21,6 +15,12 @@ import { BeachMessageBeachPanel } from './letter/BeachMessageBeachPanel'
 import { BeachMessageCommunityPanel } from './letter/BeachMessageCommunityPanel'
 import { BeachMessageTabs } from './letter/BeachMessageTabs'
 import { type Letter, type TabId, pickRandomLetter } from './letter/shared'
+import {
+    APP_SETTINGS_STORAGE_KEY,
+    APP_SETTINGS_UPDATED_EVENT,
+    readAppSettings,
+    type AppSettings,
+} from '../../utils/appSettings'
 
 const FontLink = () => (
   <link
@@ -53,7 +53,34 @@ const ANIMATIONS_CSS = `
 `
 
 export default function BeachMessage() {
-  const [dark, setDark] = useState(() => readAppSettings().mode === 'dark')
+  const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
+
+  useEffect(() => {
+      const syncThemeMode = (settings: AppSettings) => {
+          setIsDark(settings.mode === 'dark')
+      }
+
+      const handleSettingsUpdated = (event: Event) => {
+          const customEvent = event as CustomEvent<AppSettings>
+          if (customEvent.detail) {
+              syncThemeMode(customEvent.detail)
+          }
+      }
+
+      const handleStorageUpdated = (event: StorageEvent) => {
+          if (event.key !== APP_SETTINGS_STORAGE_KEY) {
+              return
+          }
+          syncThemeMode(readAppSettings())
+      }
+
+      window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
+      window.addEventListener('storage', handleStorageUpdated)
+      return () => {
+          window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
+          window.removeEventListener('storage', handleStorageUpdated)
+      }
+  }, [])
 
   const [tab, setTab] = useState<TabId>('beach')
   const [pendingLetter, setPendingLetter] = useState<Letter | null>(null)
@@ -67,24 +94,6 @@ export default function BeachMessage() {
   const [selectedSentLetter, setSelectedSentLetter] = useState<SentLetterItem | null>(null)
   const [selectedReplyLetter, setSelectedReplyLetter] = useState<ReplyArchiveItem | null>(null)
   const [refreshSeed, setRefreshSeed] = useState(0)
-
-  useEffect(() => {
-    const syncDarkMode = (settings: AppSettings) => setDark(settings.mode === 'dark')
-    const onSettings = (event: Event) => {
-      const customEvent = event as CustomEvent<AppSettings>
-      if (customEvent.detail) syncDarkMode(customEvent.detail)
-    }
-    const onStorage = (event: StorageEvent) => {
-      if (event.key !== APP_SETTINGS_STORAGE_KEY) return
-      syncDarkMode(readAppSettings())
-    }
-    window.addEventListener(APP_SETTINGS_UPDATED_EVENT, onSettings as EventListener)
-    window.addEventListener('storage', onStorage)
-    return () => {
-      window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, onSettings as EventListener)
-      window.removeEventListener('storage', onStorage)
-    }
-  }, [])
 
   useEffect(() => {
     let active = true
@@ -135,13 +144,13 @@ export default function BeachMessage() {
     <div className="relative min-h-screen overflow-x-hidden overflow-y-auto">
       <style>{ANIMATIONS_CSS}</style>
       <FontLink />
-      <BeachCinematicBg dark={dark} />
+      <BeachCinematicBg dark={isDark} />
 
-      <BeachMessageTabs tab={tab} dark={dark} onChange={setTab} />
+      <BeachMessageTabs tab={tab} dark={isDark} onChange={setTab} />
 
       {tab === 'beach' ? (
         <BeachMessageBeachPanel
-          dark={dark}
+          dark={isDark}
           loadingInbox={loadingInbox}
           hasBottle={hasBottle}
           ripple={ripple}
@@ -150,7 +159,7 @@ export default function BeachMessage() {
         />
       ) : (
         <BeachMessageCommunityPanel
-          dark={dark}
+          dark={isDark}
           loadingSent={loadingSent}
           sentLetters={sentLetters}
           replyLetters={replyLetters}
@@ -162,7 +171,7 @@ export default function BeachMessage() {
       {selectedSentLetter && (
         <BeachSentLetterDialog
           item={selectedSentLetter}
-          dark={dark}
+          dark={isDark}
           onClose={() => setSelectedSentLetter(null)}
           onReact={async () => {
             if (!selectedSentLetter.reply) return
@@ -175,7 +184,7 @@ export default function BeachMessage() {
       {selectedReplyLetter && (
         <BeachReceivedLetterDialog
           item={selectedReplyLetter}
-          dark={dark}
+          dark={isDark}
           onClose={() => setSelectedReplyLetter(null)}
         />
       )}
@@ -183,8 +192,8 @@ export default function BeachMessage() {
       {openLetter && (
         <BeachLetterOverlay
           letter={openLetter}
+          dark={isDark}
           onClose={() => setOpenLetter(null)}
-          dark={dark}
           onReply={async (content) => {
             await anonymousShareService.reply(openLetter.id, content)
             refreshData()
@@ -196,7 +205,7 @@ export default function BeachMessage() {
           onReportSuccess={refreshData}
         />
       )}
-      {showWrite && <BeachWriteOverlay onClose={() => setShowWrite(false)} dark={dark} />}
+      {showWrite && <BeachWriteOverlay dark={isDark} onClose={() => setShowWrite(false)} />}
     </div>
   )
 }
