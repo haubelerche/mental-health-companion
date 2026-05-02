@@ -3,7 +3,12 @@ import { Search, Sparkles, X } from 'lucide-react'
 import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
 import a1 from '../../assets/nutrition-a1.jpg'
 import a2 from '../../assets/nutrition-a2.jpg'
-import { useThemeContext } from '../../contexts/ThemeContext'
+import {
+    APP_SETTINGS_STORAGE_KEY,
+    APP_SETTINGS_UPDATED_EVENT,
+    readAppSettings,
+    type AppSettings,
+} from '../../utils/appSettings'
 
 // ─── Static pools (randomised each mount) ──────────────────────────────────────
 
@@ -49,8 +54,35 @@ const TAGS = ['Buổi sáng', 'Chay', 'Tăng năng lượng', 'Trị lo âu', 'N
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 export default function Nutrition() {
-    const { effectiveTheme } = useThemeContext()
-    const isDark = effectiveTheme === 'dark'
+    const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
+
+    useEffect(() => {
+        const syncThemeMode = (settings: AppSettings) => {
+            setIsDark(settings.mode === 'dark')
+        }
+
+        const handleSettingsUpdated = (event: Event) => {
+            const customEvent = event as CustomEvent<AppSettings>
+            if (customEvent.detail) {
+                syncThemeMode(customEvent.detail)
+            }
+        }
+
+        const handleStorageUpdated = (event: StorageEvent) => {
+            if (event.key !== APP_SETTINGS_STORAGE_KEY) {
+                return
+            }
+            syncThemeMode(readAppSettings())
+        }
+
+        window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
+        window.addEventListener('storage', handleStorageUpdated)
+        return () => {
+            window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
+            window.removeEventListener('storage', handleStorageUpdated)
+        }
+    }, [])
+
     const [dailyTip, setDailyTip] = useState<NutritionDailyTip | null>(null)
     const [query, setQuery] = useState('')
     const [activeTag, setActiveTag] = useState<string | null>(null)
@@ -100,7 +132,7 @@ export default function Nutrition() {
             {/* ── Section 1: Content LEFT · Image RIGHT ──────────────────── */}
             <section className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
 
-                <div className="flex flex-col justify-center rounded-[28px] bg-theme-surface/45 p-7 backdrop-blur-xl lg:p-9">
+                <div className={`flex flex-col justify-center rounded-[28px] ${isDark ? 'bg-black/30' : 'bg-theme-surface/45'} p-7 backdrop-blur-xl lg:p-9`}>
                     <p className="text-[10px] uppercase tracking-[0.3em] text-theme-text-secondary/60">Khoa học nền tảng</p>
                     <h1 className="mt-3 font-display text-4xl italic leading-tight text-theme-text-primary sm:text-5xl">
                         Dinh dưỡng<br />định hình<br />tâm trí
@@ -148,7 +180,7 @@ export default function Nutrition() {
                     </div>
                 </div>
 
-                <div className="flex flex-col justify-center rounded-[28px] bg-theme-surface/45 p-7 backdrop-blur-xl lg:p-9">
+                <div className={`flex flex-col justify-center rounded-[28px] ${isDark ? 'bg-black/30' : 'bg-theme-surface/45'} p-7 backdrop-blur-xl lg:p-9`}>
                     <p className="text-[10px] uppercase tracking-[0.3em] text-theme-text-secondary/60">Tăng cường tâm trạng</p>
                     <h2 className="mt-3 font-display text-4xl italic leading-tight text-theme-text-primary sm:text-5xl">
                         Ăn gì<br />để vui hơn?
@@ -173,7 +205,7 @@ export default function Nutrition() {
             </section>
 
             {/* ── Recipe search ───────────────────────────────────────────── */}
-            <section className="rounded-[28px] bg-theme-surface/45 p-6 backdrop-blur-xl lg:p-8">
+            <section className={`rounded-[28px] ${isDark ? 'bg-black/30' : 'bg-theme-surface/45'} p-6 backdrop-blur-xl lg:p-8`}>
                 <div className="mb-5">
                     <p className="text-[10px] uppercase tracking-[0.3em] text-theme-text-secondary/60">Khám phá</p>
                     <h3 className="mt-1.5 font-display text-3xl italic text-theme-text-primary">Tra cứu công thức</h3>
@@ -187,7 +219,7 @@ export default function Nutrition() {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         placeholder="Tìm theo tên món hoặc nguyên liệu..."
-                        className="w-full rounded-2xl bg-theme-surface/70 py-3 pl-11 pr-10 text-sm text-theme-text-primary placeholder-theme-text-secondary/45 outline-none transition focus:ring-1 focus:ring-theme-accent/30"
+                        className={`w-full rounded-2xl ${isDark ? 'bg-white/5 border border-white/10' : 'bg-theme-surface/70'} py-3 pl-11 pr-10 text-sm text-theme-text-primary placeholder-theme-text-secondary/45 outline-none transition focus:ring-1 focus:ring-theme-accent/30`}
                     />
                     {query && (
                         <button
@@ -209,7 +241,7 @@ export default function Nutrition() {
                             onClick={() => setActiveTag(activeTag === tag ? null : tag)}
                             className={`rounded-full border px-3 py-1.5 text-xs transition ${activeTag === tag
                                 ? 'border-theme-accent bg-theme-accent text-white'
-                                : 'border-theme-border/30 bg-theme-surface/60 text-theme-text-secondary hover:border-theme-accent/50 hover:text-theme-text-primary'
+                                : `${isDark ? 'border-white/10 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/80' : 'border-theme-border/30 bg-theme-surface/60 text-theme-text-secondary hover:border-theme-accent/50 hover:text-theme-text-primary'}`
                                 }`}
                         >
                             {tag}
@@ -227,7 +259,7 @@ export default function Nutrition() {
                         filteredRecipes.map((recipe) => (
                             <article
                                 key={recipe.name}
-                                className="rounded-[20px] border border-theme-border/20 bg-theme-surface/65 p-4 transition hover:bg-theme-accent/10 hover:border-theme-accent/30"
+                                className={`rounded-[20px] border ${isDark ? 'border-white/10 bg-white/5' : 'border-theme-border/20 bg-theme-surface/65'} p-4 transition hover:bg-theme-accent/10 hover:border-theme-accent/30`}
                             >
                                 <div className="mb-2 flex items-start justify-between gap-2">
                                     <h4 className="text-sm font-semibold leading-snug text-theme-text-primary">{recipe.name}</h4>
