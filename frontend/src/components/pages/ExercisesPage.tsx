@@ -5,6 +5,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import ocean from '../../assets/bg-reflect.png'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { exerciseService, FALLBACK_EXERCISES, findFallbackExercise, type ExerciseItem } from '../../services/exerciseService'
+import {
+    APP_SETTINGS_STORAGE_KEY,
+    APP_SETTINGS_UPDATED_EVENT,
+    readAppSettings,
+    type AppSettings,
+} from '../../utils/appSettings'
 
 function formatTime(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60)
@@ -51,6 +57,35 @@ function getBreathPhase(exercise: ExerciseItem, elapsed: number) {
 export function ExercisesPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
+
+  useEffect(() => {
+      const syncThemeMode = (settings: AppSettings) => {
+          setIsDark(settings.mode === 'dark')
+      }
+
+      const handleSettingsUpdated = (event: Event) => {
+          const customEvent = event as CustomEvent<AppSettings>
+          if (customEvent.detail) {
+              syncThemeMode(customEvent.detail)
+          }
+      }
+
+      const handleStorageUpdated = (event: StorageEvent) => {
+          if (event.key !== APP_SETTINGS_STORAGE_KEY) {
+              return
+          }
+          syncThemeMode(readAppSettings())
+      }
+
+      window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
+      window.addEventListener('storage', handleStorageUpdated)
+      return () => {
+          window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
+          window.removeEventListener('storage', handleStorageUpdated)
+      }
+  }, [])
+
   const [exercises, setExercises] = useState<ExerciseItem[]>(FALLBACK_EXERCISES)
   const [selectedId, setSelectedId] = useState(FALLBACK_EXERCISES[0].id)
   const [elapsed, setElapsed] = useState(0)
@@ -122,28 +157,28 @@ export function ExercisesPage() {
   }
 
   return (
-    <div className="rounded-xl text-serene-ink sm:-m-8 lg:-m-12">
+    <div className={`rounded-xl ${isDark ? 'text-white' : 'text-serene-ink'} sm:-m-8 lg:-m-12`}>
       <div className="fixed inset-0">
         <img src={ocean} alt="Background" className="h-full w-full object-cover" />
         <div className='absolute inset-0 bg-linear-to-t from-black/10 to-black/20' />
       </div>
       <div className="relative mx-auto w-full max-w-5xl px-4 py-6 md:px-8 md:py-8">
         {isHubMode ? (
-          <section className="rounded-4xl border border-white/40 bg-serene-bg/75 p-5 shadow-md backdrop-blur-xl md:p-8">
+          <section className={`rounded-4xl border ${isDark ? 'border-white/10 bg-black/40' : 'border-white/40 bg-serene-bg/75'} p-5 shadow-md backdrop-blur-xl md:p-8`}>
             <header className="mb-8 flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => navigate(ROUTE_PATHS.resources)}
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/50 bg-white/70 text-serene-ink backdrop-blur-md transition duration-200 ease-in-out hover:bg-white"
+                className={`flex h-11 w-11 items-center justify-center rounded-full border ${isDark ? 'border-white/10 bg-white/5' : 'border-white/50 bg-white/70'} ${isDark ? 'text-white' : 'text-serene-ink'} backdrop-blur-md transition duration-200 ease-in-out hover:bg-white/10`}
                 aria-label="Quay lại thư viện"
               >
                 <X className="h-5 w-5" />
               </button>
-              <h1 className="font-display text-3xl text-serene-ink md:text-4xl">Các bài tập hít thở</h1>
+              <h1 className={`font-display text-3xl ${isDark ? 'text-white' : 'text-serene-ink'} md:text-4xl`}>Các bài tập hít thở</h1>
               <span className="h-11 w-11" />
             </header>
 
-            <h2 className="mb-7 font-display text-4xl leading-tight text-serene-ink md:text-2xl">
+            <h2 className={`mb-7 font-display text-4xl leading-tight ${isDark ? 'text-white' : 'text-serene-ink'} md:text-2xl`}>
               Chọn một bài tập để thực hành
             </h2>
 
@@ -156,12 +191,12 @@ export function ExercisesPage() {
                   whileHover={{ y: -4, scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
                   transition={{ duration: 0.22, ease: 'easeInOut' }}
-                  className="rounded-3xl border border-white/45 bg-white/72 p-5 text-left shadow-[0_10px_24px_rgba(72,78,90,0.12)] backdrop-blur-xl transition duration-200 ease-in-out hover:bg-white/86"
+                  className={`rounded-3xl border ${isDark ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-white/45 bg-white/72 hover:bg-white/86'} p-5 text-left shadow-[0_10px_24px_rgba(72,78,90,0.12)] backdrop-blur-xl transition duration-200 ease-in-out`}
                 >
-                  <p className="font-display text-3xl leading-none text-serene-ink">{item.title}</p>
-                  <p className="mt-2 text-2xl font-semibold text-serene-primary">{getPatternLabel(item)}</p>
-                  <p className="mt-1 text-base text-serene-muted">{getPurpose(item.id)}</p>
-                  <div className="mt-8 flex items-center justify-between text-serene-muted">
+                  <p className={`font-display text-3xl leading-none ${isDark ? 'text-white' : 'text-serene-ink'}`}>{item.title}</p>
+                  <p className={`mt-2 text-2xl font-semibold ${isDark ? 'text-theme-accent' : 'text-serene-primary'}`}>{getPatternLabel(item)}</p>
+                  <p className={`mt-1 text-base ${isDark ? 'text-white/60' : 'text-serene-muted'}`}>{getPurpose(item.id)}</p>
+                  <div className={`mt-8 flex items-center justify-between ${isDark ? 'text-white/40' : 'text-serene-muted'}`}>
                     <span className="text-xl">{Math.round(item.duration_sec / 60)} phút</span>
                     <Settings className="h-5 w-5" />
                   </div>
@@ -169,32 +204,32 @@ export function ExercisesPage() {
               ))}
             </section>
 
-            <section className="mt-6 flex items-center justify-between rounded-3xl border border-white/35 bg-white/65 p-5 backdrop-blur-xl">
+            <section className={`mt-6 flex items-center justify-between rounded-3xl border ${isDark ? 'border-white/10 bg-white/5' : 'border-white/35 bg-white/65'} p-5 backdrop-blur-xl`}>
               <div>
-                <h3 className="font-display text-2xl text-serene-ink">Khởi động</h3>
-                <p className="mt-2 max-w-md text-base text-serene-muted">
+                <h3 className={`font-display text-2xl ${isDark ? 'text-white' : 'text-serene-ink'}`}>Khởi động</h3>
+                <p className={`mt-2 max-w-md text-base ${isDark ? 'text-white/60' : 'text-serene-muted'}`}>
                   Tìm hiểu cách thức hoạt động của từng bài tập thở và nhận những lời khuyên hữu ích để thực hành.
                 </p>
               </div>
-              <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-serene-primary/15 text-3xl">🌬️</div>
+              <div className={`flex h-24 w-24 items-center justify-center rounded-3xl ${isDark ? 'bg-white/10' : 'bg-serene-primary/15'} text-3xl`}>🌬️</div>
             </section>
           </section>
         ) : (
-          <section className="flex min-h-[calc(100vh-5rem)] flex-col rounded-4xl border border-white/40 bg-serene-bg/75 p-5 shadow-md backdrop-blur-xl md:p-8">
+          <section className={`flex min-h-[calc(100vh-5rem)] flex-col rounded-4xl border ${isDark ? 'border-white/10 bg-black/40' : 'border-white/40 bg-serene-bg/75'} p-5 shadow-md backdrop-blur-xl md:p-8`}>
             <header className="flex items-center justify-between">
               <button
                 type="button"
                 onClick={backToHub}
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/50 bg-white/70 text-serene-ink backdrop-blur-md transition duration-200 ease-in-out hover:bg-white"
+                className={`flex h-11 w-11 items-center justify-center rounded-full border ${isDark ? 'border-white/10 bg-white/5' : 'border-white/50 bg-white/70'} ${isDark ? 'text-white' : 'text-serene-ink'} backdrop-blur-md transition duration-200 ease-in-out hover:bg-white/10`}
                 aria-label="Quay lại danh sách bài thở"
               >
                 <X className="h-5 w-5" />
               </button>
-              <p className="font-display text-2xl text-serene-ink md:text-3xl">{exercise.title}</p>
+              <p className={`font-display text-2xl ${isDark ? 'text-white' : 'text-serene-ink'} md:text-3xl`}>{exercise.title}</p>
               <button
                 type="button"
                 onClick={resetExercise}
-                className="rounded-full border border-white/50 bg-white/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-serene-muted transition duration-200 ease-in-out hover:bg-white"
+                className={`rounded-full border ${isDark ? 'border-white/10 bg-white/5' : 'border-white/50 bg-white/70'} px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] ${isDark ? 'text-white/60' : 'text-serene-muted'} transition duration-200 ease-in-out hover:bg-white/10`}
               >
                 Reset
               </button>
@@ -204,44 +239,44 @@ export function ExercisesPage() {
               <motion.div
                 animate={{ scale: isRunning ? phase.scale : 1 }}
                 transition={{ duration: 1.1, ease: 'easeInOut' }}
-                className="relative flex h-56 w-56 items-center justify-center rounded-full bg-white/45 shadow-[0_0_80px_rgba(111,164,180,0.28)] md:h-72 md:w-72"
+                className={`relative flex h-56 w-56 items-center justify-center rounded-full ${isDark ? 'bg-white/5' : 'bg-white/45'} shadow-[0_0_80px_rgba(111,164,180,0.28)] md:h-72 md:w-72`}
               >
-                <div className="absolute inset-8 rounded-full bg-white/55" />
-                <div className="absolute inset-16 rounded-full bg-white/75" />
-                <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-serene-primary/85">
+                <div className={`absolute inset-8 rounded-full ${isDark ? 'bg-white/5' : 'bg-white/55'}`} />
+                <div className={`absolute inset-16 rounded-full ${isDark ? 'bg-white/5' : 'bg-white/75'}`} />
+                <div className={`relative flex h-28 w-28 items-center justify-center rounded-full ${isDark ? 'bg-theme-accent' : 'bg-serene-primary/85'}`}>
                   <Waves className="h-9 w-9 text-white" />
                 </div>
               </motion.div>
 
               <div className="mt-8">
-                <p className="font-display text-3xl text-serene-ink">
+                <p className={`font-display text-3xl ${isDark ? 'text-white' : 'text-serene-ink'}`}>
                   {isDone ? 'Hoàn thành' : `${phase.label} (${phase.count})`}
                 </p>
                 <div className="mt-4 flex justify-center gap-2">
                   {exercise.steps.slice(0, 4).map((_, index) => (
                     <span
                       key={index}
-                      className={`h-2 w-2 rounded-full ${index === phase.stepIndex && !isDone ? 'bg-serene-primary' : 'bg-serene-outline/30'}`}
+                      className={`h-2 w-2 rounded-full ${index === phase.stepIndex && !isDone ? (isDark ? 'bg-theme-accent' : 'bg-serene-primary') : (isDark ? 'bg-white/10' : 'bg-serene-outline/30')}`}
                     />
                   ))}
                 </div>
               </div>
 
               <div className="mt-10 w-full max-w-2xl">
-                <div className="h-2 overflow-hidden rounded-full bg-white/65">
-                  <div className="h-full rounded-full bg-serene-primary transition-all duration-300 ease-in-out" style={{ width: `${progress}%` }} />
+                <div className={`h-2 overflow-hidden rounded-full ${isDark ? 'bg-white/5' : 'bg-white/65'}`}>
+                  <div className={`h-full rounded-full ${isDark ? 'bg-theme-accent' : 'bg-serene-primary'} transition-all duration-300 ease-in-out`} style={{ width: `${progress}%` }} />
                 </div>
-                <div className="mt-5 grid grid-cols-3 gap-4 text-serene-ink">
+                <div className={`mt-5 grid grid-cols-3 gap-4 ${isDark ? 'text-white' : 'text-serene-ink'}`}>
                   {exercise.pattern ? (
                     <>
-                      <div className="rounded-3xl border border-white/45 bg-white/78 px-5 py-4"><p className="text-xs font-bold uppercase text-serene-muted">Hít vào</p><p className="mt-1 font-display text-2xl">{exercise.pattern.inhale}s</p></div>
-                      <div className="rounded-3xl border border-white/45 bg-white/78 px-5 py-4"><p className="text-xs font-bold uppercase text-serene-muted">Giữ</p><p className="mt-1 font-display text-2xl">{exercise.pattern.hold}s</p></div>
-                      <div className="rounded-3xl border border-white/45 bg-white/78 px-5 py-4"><p className="text-xs font-bold uppercase text-serene-muted">Thở ra</p><p className="mt-1 font-display text-2xl">{exercise.pattern.exhale}s</p></div>
+                      <div className={`rounded-3xl border ${isDark ? 'border-white/10 bg-white/5' : 'border-white/45 bg-white/78'} px-5 py-4`}><p className={`text-xs font-bold uppercase ${isDark ? 'text-white/40' : 'text-serene-muted'}`}>Hít vào</p><p className="mt-1 font-display text-2xl">{exercise.pattern.inhale}s</p></div>
+                      <div className={`rounded-3xl border ${isDark ? 'border-white/10 bg-white/5' : 'border-white/45 bg-white/78'} px-5 py-4`}><p className={`text-xs font-bold uppercase ${isDark ? 'text-white/40' : 'text-serene-muted'}`}>Giữ</p><p className="mt-1 font-display text-2xl">{exercise.pattern.hold}s</p></div>
+                      <div className={`rounded-3xl border ${isDark ? 'border-white/10 bg-white/5' : 'border-white/45 bg-white/78'} px-5 py-4`}><p className={`text-xs font-bold uppercase ${isDark ? 'text-white/40' : 'text-serene-muted'}`}>Thở ra</p><p className="mt-1 font-display text-2xl">{exercise.pattern.exhale}s</p></div>
                     </>
                   ) : (
                     exercise.steps.slice(0, 3).map((step, index) => (
-                      <div key={step} className="rounded-3xl border border-white/45 bg-white/78 px-5 py-4">
-                        <p className="text-xs font-bold uppercase text-serene-muted">Bước {index + 1}</p>
+                      <div key={step} className={`rounded-3xl border ${isDark ? 'border-white/10 bg-white/5' : 'border-white/45 bg-white/78'} px-5 py-4`}>
+                        <p className={`text-xs font-bold uppercase ${isDark ? 'text-white/40' : 'text-serene-muted'}`}>Bước {index + 1}</p>
                         <p className="mt-1 text-xs leading-relaxed">{step}</p>
                       </div>
                     ))
@@ -255,13 +290,13 @@ export function ExercisesPage() {
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
                 transition={{ duration: 0.2, ease: 'easeInOut' }}
-                className="mt-9 flex h-20 w-20 items-center justify-center rounded-full bg-serene-primary text-white shadow-[0_16px_40px_rgba(111,164,180,0.35)]"
+                className={`mt-9 flex h-20 w-20 items-center justify-center rounded-full ${isDark ? 'bg-theme-accent' : 'bg-serene-primary'} text-white shadow-[0_16px_40px_rgba(111,164,180,0.35)]`}
                 aria-label={isRunning ? 'Tạm dừng' : 'Bắt đầu'}
               >
                 {isRunning ? <Pause className="h-8 w-8 fill-current" /> : <Play className="ml-1 h-9 w-9 fill-current" />}
               </motion.button>
 
-              <p className="mt-5 text-sm text-serene-muted">
+              <p className={`mt-5 text-sm ${isDark ? 'text-white/40' : 'text-serene-muted'}`}>
                 {isDone ? 'Bạn đã hoàn thành phiên này. Cơ thể có thể cần vài giây để nhận ra sự dịu lại.' : `Còn lại ${formatTime(remaining)} · ${exercise.description}`}
               </p>
             </main>
@@ -274,11 +309,13 @@ export function ExercisesPage() {
                   onClick={() => startExercise(item.id)}
                   whileHover={{ y: -2 }}
                   transition={{ duration: 0.2, ease: 'easeInOut' }}
-                  className={`rounded-3xl border px-5 py-4 text-left backdrop-blur-xl transition duration-200 ease-in-out ${item.id === exercise.id ? 'border-serene-primary/45 bg-white/82 shadow-[0_8px_18px_rgba(111,164,180,0.15)]' : 'border-white/35 bg-white/65 hover:bg-white/78'
+                  className={`rounded-3xl border px-5 py-4 text-left backdrop-blur-xl transition duration-200 ease-in-out ${item.id === exercise.id
+                      ? `${isDark ? 'border-theme-accent bg-white/10 shadow-[0_8px_18px_rgba(111,164,180,0.15)]' : 'border-serene-primary/45 bg-white/82 shadow-[0_8px_18px_rgba(111,164,180,0.15)]'}`
+                      : `${isDark ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-white/35 bg-white/65 hover:bg-white/78'}`
                     }`}
                 >
-                  <p className="font-display text-xl text-serene-ink">{item.title}</p>
-                  <p className="mt-1 text-xs text-serene-muted">{Math.round(item.duration_sec / 60)} phút · {item.type.replaceAll('_', ' ')}</p>
+                  <p className={`font-display text-xl ${isDark ? 'text-white' : 'text-serene-ink'}`}>{item.title}</p>
+                  <p className={`mt-1 text-xs ${isDark ? 'text-white/40' : 'text-serene-muted'}`}>{Math.round(item.duration_sec / 60)} phút · {item.type.replaceAll('_', ' ')}</p>
                 </motion.button>
               ))}
             </aside>
