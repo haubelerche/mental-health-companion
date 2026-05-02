@@ -4,7 +4,6 @@ import { ApiRequestError } from '../../../api/types'
 import { anonymousShareService, type ReplyArchiveItem, type SentLetterItem } from '../../../services/anonymousShareService'
 import { formatRelativeTime, getUi, type Letter } from './shared'
 import { ReportLetterModal } from './ReportLetterModal.tsx'
-import { useThemeContext } from '../../../contexts/ThemeContext'
 import { X, CornerDownRight, Send, Heart, RotateCcw, AlertTriangle } from 'lucide-react'
 
 export function LetterOverlay({
@@ -22,8 +21,7 @@ export function LetterOverlay({
     onPass: () => Promise<void>
     onReportSuccess: () => void
 }) {
-    const { effectiveTheme } = useThemeContext()
-    const isDark = typeof dark === 'boolean' ? dark : effectiveTheme === 'dark'
+    const isDark = Boolean(dark)
     const ui = getUi(isDark)
     const [replyOpen, setReplyOpen] = useState(false)
     const [reply, setReply] = useState('')
@@ -184,8 +182,7 @@ export function LetterOverlay({
 }
 
 export function WriteOverlay({ onClose, dark }: { onClose: () => void; dark?: boolean }) {
-    const { effectiveTheme } = useThemeContext()
-    const isDark = typeof dark === 'boolean' ? dark : effectiveTheme === 'dark'
+    const isDark = Boolean(dark)
     const ui = getUi(isDark)
     const [text, setText] = useState('')
     const [sent, setSent] = useState(false)
@@ -274,8 +271,7 @@ export function SentLetterDialog({
     onClose: () => void
     onReact: () => Promise<void>
 }) {
-    const { effectiveTheme } = useThemeContext()
-    const isDark = typeof dark === 'boolean' ? dark : effectiveTheme === 'dark'
+    const isDark = Boolean(dark)
     const ui = getUi(isDark)
     const [busyReact, setBusyReact] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -374,8 +370,7 @@ export function ReceivedLetterDialog({
     dark?: boolean
     onClose: () => void
 }) {
-    const { effectiveTheme } = useThemeContext()
-    const isDark = typeof dark === 'boolean' ? dark : effectiveTheme === 'dark'
+    const isDark = Boolean(dark)
     const ui = getUi(isDark)
 
     return (
