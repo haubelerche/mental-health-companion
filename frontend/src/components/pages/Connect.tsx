@@ -131,7 +131,7 @@ export default function Connect() {
                         <div className="grid gap-4 md:grid-cols-2">
                             {clinics.slice(0, 4).map((item, idx) => (
                                 <article
-                                    key={`${item.name}-${item.address}-${idx}`}
+                                    key={idx}
                                     className={`rounded-[1.75rem] ${isDark ? 'bg-white/5 border border-white/5' : 'bg-theme-surface/40'} p-5 shadow-lg backdrop-blur-md`}
                                 >
                                     <div className="flex items-start justify-between gap-3">
