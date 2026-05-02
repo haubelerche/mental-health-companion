@@ -9,6 +9,12 @@ import {
 import { ResourceGrid } from './ResourceGrid'
 import { YouTubeEmbed, isYouTubeUrl } from './YouTubeEmbed'
 import Loading from '../../ui/Loading'
+import {
+    APP_SETTINGS_STORAGE_KEY,
+    APP_SETTINGS_UPDATED_EVENT,
+    readAppSettings,
+    type AppSettings,
+} from '../../../utils/appSettings'
 
 // ── Vietnamese category labels ────────────────────────────────────────────────
 const VI_LABELS: Record<string, { label: string; icon: string }> = {
@@ -31,6 +37,35 @@ const RESOURCE_CATEGORY_IDS = ['all', 'meditate', 'sleep', 'music', 'wisdom', 'm
 export default function Resources() {
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
+    const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
+
+    useEffect(() => {
+        const syncThemeMode = (settings: AppSettings) => {
+            setIsDark(settings.mode === 'dark')
+        }
+
+        const handleSettingsUpdated = (event: Event) => {
+            const customEvent = event as CustomEvent<AppSettings>
+            if (customEvent.detail) {
+                syncThemeMode(customEvent.detail)
+            }
+        }
+
+        const handleStorageUpdated = (event: StorageEvent) => {
+            if (event.key !== APP_SETTINGS_STORAGE_KEY) {
+                return
+            }
+            syncThemeMode(readAppSettings())
+        }
+
+        window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
+        window.addEventListener('storage', handleStorageUpdated)
+        return () => {
+            window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
+            window.removeEventListener('storage', handleStorageUpdated)
+        }
+    }, [])
+
     const requestedCategory = searchParams.get('category') || 'all'
     const initialCategory = RESOURCE_CATEGORY_IDS.includes(requestedCategory) ? requestedCategory : 'sleep'
 
@@ -109,14 +144,14 @@ export default function Resources() {
     }
 
     return (
-        <section className="mx-auto max-w-6xl rounded-[2.5rem] border border-white/50 bg-[#f5eee5]/78 p-5 shadow-[0_30px_90px_rgba(47,52,46,0.18)] backdrop-blur-2xl sm:p-8 lg:p-10">
+        <section className={`mx-auto max-w-6xl rounded-[2.5rem] border ${isDark ? 'border-white/10 bg-black/40' : 'border-white/50 bg-[#f5eee5]/78'} p-5 shadow-[0_30px_90px_rgba(47,52,46,0.18)] backdrop-blur-2xl sm:p-8 lg:p-10 transition-colors duration-200`}>
 
             {/* Header */}
             <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                    <h1 className="mt-1 font-display text-4xl text-serene-ink md:text-5xl"> Thư viện tài nguyên</h1>
+                    <h1 className={`mt-1 font-display text-4xl ${isDark ? 'text-white' : 'text-serene-ink'} md:text-5xl`}> Thư viện tài nguyên</h1>
                 </div>
-                <label className="flex items-center gap-2 border border-gray-300 rounded-full bg-white px-4 py-3 text-sm text-serene-muted shadow-inner">
+                <label className={`flex items-center gap-2 border ${isDark ? 'border-white/10 bg-white/5' : 'border-gray-300 bg-white'} rounded-full px-4 py-3 text-sm ${isDark ? 'text-white/60' : 'text-serene-muted'} shadow-inner`}>
                     <Search className="h-4 w-4 shrink-0" />
                     <input
                         value={query}
@@ -139,7 +174,7 @@ export default function Resources() {
                             onClick={() => setSelectedCategory(cat.id)}
                             className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition ${isActive
                                 ? 'bg-serene-primary text-serene-on-primary shadow-[0_8px_20px_rgba(77,99,89,0.25)]'
-                                : 'bg-white/55 text-serene-muted hover:bg-white/85 hover:text-serene-ink'
+                                : `${isDark ? 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/80' : 'bg-white/55 text-serene-muted hover:bg-white/85 hover:text-serene-ink'}`
                                 }`}
                         >
                             <span>{vi.icon}</span>
@@ -182,9 +217,9 @@ export default function Resources() {
             </AnimatePresence>
 
             {/* Footer */}
-            <footer className="mt-12 flex flex-wrap items-center justify-center gap-8 border-t border-serene-ink/20 pt-7 text-xs ">
+            <footer className={`mt-12 flex flex-wrap items-center justify-center gap-8 border-t ${isDark ? 'border-white/10' : 'border-serene-ink/20'} pt-7 text-xs `}>
 
-                <p className="w-full text-center font-display text-lg italic text-serene-muted/60">
+                <p className={`w-full text-center font-display text-lg italic ${isDark ? 'text-white/40' : 'text-serene-muted/60'}`}>
                     "Học cách chữa lành là hành trình đẹp để nhớ của mỗi con người."
                 </p>
             </footer>
