@@ -123,7 +123,7 @@ export default function Profile() {
                                         className="flex flex-col items-center rounded-3xl border border-theme-border/30 bg-theme-surface/50 p-5 shadow-sm transition hover:bg-theme-surface/70 lg:items-start"
                                     >
                                         <Icon className={`h-6 w-6 ${stat.color} mb-3`} />
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary/60">
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary">
                                             {stat.label}
                                         </p>
                                         <p className="mt-1 font-display text-xl text-theme-text-primary">{stat.value}</p>
@@ -158,14 +158,14 @@ export default function Profile() {
 
                         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                             <div className="space-y-1.5">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary/50">Tên thật</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary/80">Tên thật</p>
                                 <div className="flex items-center gap-3 rounded-2xl border border-theme-border/20 bg-theme-surface/30 px-5 py-3.5">
                                     <User className="h-4 w-4 text-theme-accent/60" />
                                     <span className="text-sm font-medium">{user.displayName}</span>
                                 </div>
                             </div>
                             <div className="space-y-1.5">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary/50">Nickname Serene</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary/80">Nickname Serene</p>
                                 <div className="flex items-center gap-3 rounded-2xl border border-theme-border/20 bg-theme-surface/30 px-5 py-3.5">
                                     <Sparkles className="h-4 w-4 text-theme-accent/60" />
                                     <span className="text-sm font-medium">{nicknameLabel}</span>
@@ -201,7 +201,7 @@ export default function Profile() {
                                                 <Icon className="h-5 w-5" />
                                             </div>
                                             <div>
-                                                <p className="text-[9px] font-bold uppercase tracking-widest text-theme-text-secondary/50">{item.label}</p>
+                                                <p className="text-[9px] font-bold uppercase tracking-widest text-theme-text-secondary/80">{item.label}</p>
                                                 <p className="text-sm font-medium text-theme-text-primary line-clamp-1">{item.value}</p>
                                             </div>
                                         </div>
