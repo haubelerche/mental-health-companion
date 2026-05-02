@@ -8,6 +8,7 @@ import {
     readAppSettings,
     type AppSettings,
 } from '../../utils/appSettings'
+import { ThemeToggle } from '../common/ThemeToggle'
 
 const PAGE_NAMES: Record<string, string> = {
     [ROUTE_PATHS.home]: 'Trang chủ',
@@ -103,16 +104,19 @@ export function AppHeader() {
                     ))}
                 </nav>
 
-                {/* Top-right: settings */}
-                <NavLink
-                    to={ROUTE_PATHS.setting}
-                    aria-label="Cài đặt"
-                    className={`transition-opacity ${
-                        isDark ? 'text-white/45 hover:text-white/80' : 'text-serene-ink/40 hover:text-serene-ink/80'
-                    }`}
-                >
-                    <Settings className="h-4 w-4" />
-                </NavLink>
+                {/* Top-right: settings & theme toggle */}
+                <div className="flex items-center gap-3">
+                    <ThemeToggle />
+                    <NavLink
+                        to={ROUTE_PATHS.setting}
+                        aria-label="Cài đặt"
+                        className={`transition-opacity ${
+                            isDark ? 'text-white/45 hover:text-white/80' : 'text-serene-ink/40 hover:text-serene-ink/80'
+                        }`}
+                    >
+                        <Settings className="h-4 w-4" />
+                    </NavLink>
+                </div>
             </header>
 
             {/* ── Mobile: top bar ── */}
