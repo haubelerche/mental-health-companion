@@ -66,3 +66,5 @@ reference-images/
 .github/skills/
 .github/plans/
 .github/prompts/
+
+.agent/*
