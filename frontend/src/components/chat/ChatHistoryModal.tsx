@@ -30,19 +30,19 @@ export function ChatHistoryModal({ open, loading, sessions, onClose, onSelectSes
             shouldCloseOnEsc
             shouldCloseOnOverlayClick
             contentLabel="Lịch sử chat"
-            className="relative z-10 w-full max-w-2xl overflow-hidden rounded-[28px] border border-white/35 bg-white/96 shadow-md outline-none"
-            overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
+            className="relative z-10 w-full max-w-2xl overflow-hidden rounded-[28px] border border-theme-border/50 bg-theme-surface shadow-md outline-none"
+            overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
         >
             <div>
-                <div className="flex items-start justify-between border-b border-serene-outline/20 px-5 py-4">
+                <div className="flex items-start justify-between border-b border-theme-border/20 px-5 py-4">
                     <div>
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-serene-muted">Lịch sử chat</p>
-                        <p className="mt-1 text-sm font-semibold text-serene-ink">Các phiên trò chuyện gần đây</p>
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-theme-text-secondary">Lịch sử chat</p>
+                        <p className="mt-1 text-sm font-semibold text-theme-text-primary">Các phiên trò chuyện gần đây</p>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-full p-2 text-serene-muted transition hover:bg-serene-surface hover:text-serene-ink"
+                        className="rounded-full p-2 text-theme-text-secondary transition hover:bg-theme-bg-secondary hover:text-theme-text-primary"
                         aria-label="Đóng lịch sử chat"
                     >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -53,12 +53,12 @@ export function ChatHistoryModal({ open, loading, sessions, onClose, onSelectSes
 
                 <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
                     {loading ? (
-                        <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-serene-muted">
-                            <Loader2 className="h-6 w-6 animate-spin text-serene-primary" />
+                        <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-theme-text-secondary">
+                            <Loader2 className="h-6 w-6 animate-spin text-theme-accent" />
                             <p className="text-sm">Đang tải lịch sử chat...</p>
                         </div>
                     ) : sessions.length === 0 ? (
-                        <p className="py-8 text-center text-sm text-serene-muted/70">Chưa có phiên nào.</p>
+                        <p className="py-8 text-center text-sm text-theme-text-secondary/70">Chưa có phiên nào.</p>
                     ) : (
                         <div className="space-y-2.5">
                             {sessions.map((sess) => (
@@ -66,18 +66,18 @@ export function ChatHistoryModal({ open, loading, sessions, onClose, onSelectSes
                                     key={sess.session_id}
                                     type="button"
                                     onClick={() => onSelectSession(sess.session_id)}
-                                    className="w-full rounded-2xl border border-serene-outline/20 bg-white/70 px-4 py-3 text-left transition hover:bg-serene-accent/30 hover:border-serene-outline/35"
+                                    className="w-full rounded-2xl border border-theme-border/20 bg-theme-surface/70 px-4 py-3 text-left transition hover:bg-theme-accent/20 hover:border-theme-border/35"
                                 >
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-semibold text-serene-ink">
+                                            <p className="truncate text-sm font-semibold text-theme-text-primary">
                                                 {sess.preview || 'Phiên trò chuyện'}
                                             </p>
-                                            <p className="mt-1 text-[11px] leading-relaxed text-serene-muted">
+                                            <p className="mt-1 text-[11px] leading-relaxed text-theme-text-secondary">
                                                 {new Date(sess.last_message_at).toLocaleString('vi-VN')}
                                             </p>
                                         </div>
-                                        <span className="mt-0.5 rounded-full bg-serene-primary/10 px-2 py-1 text-[10px] font-medium text-serene-primary">
+                                        <span className="mt-0.5 rounded-full bg-theme-accent/10 px-2 py-1 text-[10px] font-medium text-theme-accent">
                                             Mở
                                         </span>
                                     </div>
