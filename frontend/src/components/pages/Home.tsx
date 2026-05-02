@@ -106,7 +106,7 @@ const QUICK_ACTIONS: QuickAction[] = [
         desc: '1–5 phút',
         route: ROUTE_PATHS.exercises,
         bgClass: 'bg-theme-accent/10',
-        iconClass: 'text-blue-500',
+        iconClass: 'text-theme-accent',
     },
     {
         icon: BookOpen,
@@ -408,13 +408,13 @@ export default function Home() {
                         {displayName}
                     </h1>
                 </div>
-                <div className={`flex items-center gap-3 rounded-full ${isDark ? 'bg-black/20' : 'bg-theme-surface/80'} px-4 py-2 backdrop-blur-sm`}>
-                    <span className="flex items-center gap-1 text-sm font-semibold text-rose-400">
+                <div className="flex items-center gap-3 rounded-full bg-theme-surface/40 px-4 py-2 backdrop-blur-sm border border-theme-border/50 shadow-sm">
+                    <span className="flex items-center gap-1 text-sm font-bold text-rose-500 dark:text-rose-400">
                         <Heart className="h-4 w-4 fill-current" />
                         {hearts}
                     </span>
                     <span className="h-4 w-px bg-theme-border" />
-                    <span className="flex items-center gap-1 text-sm font-semibold text-amber-400">
+                    <span className="flex items-center gap-1 text-sm font-bold text-amber-600 dark:text-amber-400">
                         <Flame className="h-4 w-4 fill-current" />
                         {streak}
                     </span>
@@ -422,7 +422,7 @@ export default function Home() {
             </header>
 
             {/* ── Today's plan + streak ── */}
-            <section className={`rounded-[28px] ${isDark ? 'bg-black/30' : 'bg-theme-surface/45'} p-6 backdrop-blur-xl`}>
+            <section className="rounded-[2.5rem] bg-theme-surface/40 p-6 backdrop-blur-3xl border border-theme-border/50 shadow-sm">
                 <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
                     <div>
                         <div className="mb-5 flex items-center justify-between gap-4">
@@ -445,24 +445,24 @@ export default function Home() {
                                             setDetailReminderId(item.id)
                                         }}
                                         className={[
-                                            'flex w-full items-center gap-3 rounded-2xl p-4 text-left transition active:scale-[0.98] cursor-pointer',
+                                            'flex w-full items-center gap-3 rounded-2xl p-4 text-left transition active:scale-[0.98] cursor-pointer border',
                                             active
-                                                ? 'bg-theme-accent/10'
-                                                : `${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-theme-surface/60 hover:bg-theme-accent/10'} cursor-pointer`,
+                                                ? 'bg-theme-accent/20 border-theme-accent/30'
+                                                : 'bg-theme-surface/60 hover:bg-theme-accent/10 border-theme-border/30',
                                         ].join(' ')}
                                     >
-                                        <Info className={`h-5 w-5 shrink-0 ${active ? 'text-theme-accent' : 'text-theme-text-secondary/60'}`} />
+                                        <Info className={`h-5 w-5 shrink-0 ${active ? 'text-theme-accent' : 'text-theme-text-secondary'}`} />
                                         <div className="min-w-0 flex-1">
                                             <p className="text-lg font-semibold text-theme-text-primary">{item.title}</p>
                                             <p className="mt-0.5 text-sm text-theme-text-secondary">{item.summary}</p>
                                         </div>
-                                        <ChevronRight className={`h-4 w-4 ${active ? 'text-theme-accent' : 'text-theme-text-secondary/40'}`} />
+                                        <ChevronRight className={`h-4 w-4 ${active ? 'text-theme-accent' : 'text-theme-text-secondary/60'}`} />
                                     </button>
                                 )
                             })}
                         </div>
 
-                        <div className="mt-5 border-t border-theme-border/30 pt-5">
+                        <div className="mt-5 border-t border-theme-border/50 pt-5">
                             <p className="mb-3 text-xs uppercase tracking-[0.22em] text-theme-text-secondary">
                                 Chuỗi tuần này
                             </p>
@@ -487,7 +487,7 @@ export default function Home() {
             </section>
 
             {/* ── Dành cho bạn ── */}
-            <section className={`${isDark ? 'bg-black/30' : 'bg-theme-surface/75'} p-6 rounded-3xl backdrop-blur-xl`}>
+            <section className="bg-theme-surface/40 p-6 rounded-[2rem] backdrop-blur-xl border border-theme-border/50 shadow-sm">
 
                 <div className="flex items-center justify-between gap-4">
                     <div>
@@ -525,7 +525,7 @@ export default function Home() {
                                 key={card.label}
                                 type="button"
                                 onClick={() => navigate(card.route)}
-                                className={`cursor-pointer flex min-w-[148px] shrink-0 flex-col gap-3 rounded-[22px] ${isDark ? 'bg-black/40' : 'bg-theme-surface/70'} p-4 text-left backdrop-blur-xl transition-colors hover:bg-theme-accent/10 active:scale-[0.97]`}
+                                className="cursor-pointer flex min-w-[148px] shrink-0 flex-col gap-3 rounded-[22px] bg-theme-surface/70 p-4 text-left border border-theme-border/30 backdrop-blur-xl transition-all hover:bg-theme-accent/10 active:scale-[0.97]"
                             >
                                 <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl text-xl ${card.accentClass}`}>
                                     {card.emoji}
@@ -540,11 +540,11 @@ export default function Home() {
                 </div>
             </section>
 
-            <section className={`rounded-[28px] ${isDark ? 'bg-black/30' : 'bg-theme-surface/65'} p-6 backdrop-blur-xl`}>
+            <section className="rounded-[2rem] bg-theme-surface/40 p-6 backdrop-blur-xl border border-theme-border/50 shadow-sm">
                 <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
                     <div>
-                        <p className="font-semibold uppercase tracking-[0.2em] text-theme-text-secondary">Tâm trạng hôm nay?</p>
-                        <p className="mt-2 max-w-xl text-sm leading-relaxed text-theme-text-secondary/80">
+                        <p className="font-semibold uppercase tracking-[0.2em] text-theme-text-primary">Tâm trạng hôm nay?</p>
+                        <p className="mt-2 max-w-xl text-sm leading-relaxed text-theme-text-secondary">
                             Chọn 1-3 từ mô tả điều đang diễn ra bên trong bạn. Những từ nhỏ cũng đủ giúp bạn nhìn rõ mình hơn.
                         </p>
 
@@ -568,14 +568,14 @@ export default function Home() {
                     <div className=" sm:p-6">
                         <div className="mb-4 flex items-center justify-between gap-4">
                             <div>
-                                <h3 className=" uppercase tracking-[0.2em] font-display text-theme-text-secondary">Một câu nhắc dịu dàng</h3>
+                                <h3 className=" uppercase tracking-[0.2em] font-display text-theme-text-primary">Một câu nhắc dịu dàng</h3>
                             </div>
                             <div className="mt-4 flex items-center gap-2">
                                 <button
                                     type="button"
                                     aria-label="Câu trước"
                                     onClick={() => setQuoteIndex((current) => (current - 1 + Math.max(quotes.length, 1)) % Math.max(quotes.length, 1))}
-                                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full ${isDark ? 'bg-white/10' : 'bg-theme-surface/80'} text-theme-text-secondary transition duration-200 ease-in-out hover:bg-theme-accent/10 cursor-pointer`}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-theme-surface/80 text-theme-text-primary border border-theme-border/30 shadow-sm transition duration-200 ease-in-out hover:bg-theme-accent/10 cursor-pointer"
                                 >
                                     <ChevronLeft className="h-4 w-4" />
                                 </button>
@@ -583,20 +583,20 @@ export default function Home() {
                                     type="button"
                                     aria-label="Câu sau"
                                     onClick={() => setQuoteIndex((current) => (current + 1) % Math.max(quotes.length, 1))}
-                                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full ${isDark ? 'bg-white/10' : 'bg-theme-surface/80'} text-theme-text-secondary transition duration-200 ease-in-out hover:bg-theme-accent/10 cursor-pointer`}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-theme-surface/80 text-theme-text-primary border border-theme-border/30 shadow-sm transition duration-200 ease-in-out hover:bg-theme-accent/10 cursor-pointer"
                                 >
                                     <ChevronRight className="h-4 w-4" />
                                 </button>
                             </div>
                         </div>
 
-                        <div className={`relative min-h-[212px] overflow-hidden rounded-3xl ${isDark ? 'bg-black/40' : 'bg-theme-surface/80'} p-5 sm:p-6 shadow-sm`}>
+                        <div className="relative min-h-[212px] overflow-hidden rounded-3xl bg-theme-surface/80 p-5 sm:p-6 shadow-sm border border-theme-border/30">
                             <img
                                 src={beachMessageBg}
                                 alt="Nền sóng biển dịu để làm nổi bật câu nhắc"
                                 className="absolute inset-0 h-full w-full object-cover opacity-10"
                             />
-                            <div className={`absolute inset-0 ${isDark ? 'bg-black/30' : 'bg-white/20'}`} />
+                            <div className="absolute inset-0 bg-theme-bg-primary/20" />
 
                             <AnimatePresence mode="wait">
                                 <motion.div
@@ -662,7 +662,7 @@ export default function Home() {
                 onClick={() => navigate(ROUTE_PATHS.nutrition)}
                 whileHover={{ y: -4 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                className={`group w-full rounded-[28px] ${isDark ? 'bg-black/30' : 'bg-theme-surface/75'} p-7 text-left backdrop-blur-xl shadow-sm transition-all active:scale-[0.98]`}
+                className="group w-full rounded-[2.5rem] bg-theme-surface/40 p-7 text-left backdrop-blur-xl shadow-sm border border-theme-border/50 transition-all active:scale-[0.98]"
             >
                 <div className="grid gap-5 lg:grid-cols-[220px_1fr_auto] lg:items-center cursor-pointer">
                     <div className="relative overflow-hidden rounded-[24px] min-h-[170px] shadow-sm">
@@ -687,12 +687,12 @@ export default function Home() {
                             {nutritionTip?.benefit || 'Bữa ăn đủ đạm và chất xơ giúp ổn định mood, giảm cảm giác tụt năng lượng.'}
                         </p>
                     </div>
-                    <ArrowRight className="h-5 w-5 text-theme-text-secondary/70 transition group-hover:translate-x-1" />
+                    <ArrowRight className="h-5 w-5 text-theme-text-secondary transition group-hover:translate-x-1" />
                 </div>
             </motion.button>
 
             {/* ── Quick action grid 2×2 ── */}
-            <section className={`p-6 ${isDark ? 'bg-black/30' : 'bg-theme-surface/75'} backdrop-blur-2xl rounded-4xl`}>
+            <section className="p-6 bg-theme-surface/40 backdrop-blur-3xl rounded-[2.5rem] border border-theme-border/50 shadow-sm">
                 <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_220px] lg:items-center">
                     <div>
                         <h2 className="font-display text-3xl text-theme-text-primary">Bắt đầu từ đây</h2>
@@ -709,7 +709,7 @@ export default function Home() {
                             <Link
                                 key={action.label}
                                 to={action.route}
-                                className={`group flex flex-col gap-4 rounded-[22px] ${isDark ? 'bg-black/40' : 'bg-theme-surface/80'} p-6 text-left backdrop-blur-xl shadow-sm hover:scale-105 duration-500 transition-all`}
+                                className="group flex flex-col gap-4 rounded-[22px] bg-theme-surface/80 p-6 text-left border border-theme-border/30 backdrop-blur-xl shadow-sm hover:scale-105 duration-500 transition-all"
                             >
                                 <motion.div
                                     className={`inline-flex h-12 w-12 items-center justify-center rounded-xl ${action.bgClass} ${action.iconClass}`}
@@ -731,7 +731,7 @@ export default function Home() {
             <button
                 type="button"
                 onClick={() => navigate(ROUTE_PATHS.reflect)}
-                className="group relative w-full overflow-hidden rounded-3xl bg-theme-accent p-7 text-left backdrop-blur-xl shadow-lg hover:brightness-105 transition-all"
+                className="group relative w-full overflow-hidden rounded-3xl bg-theme-bg-primary/40 p-7 text-left backdrop-blur-xl shadow-lg hover:brightness-105 transition-all"
             >
 
                 <div className="flex items-center justify-between gap-5">
@@ -770,7 +770,7 @@ export default function Home() {
                                 initial={{ scale: 0.9, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 transition={{ duration: 0.4, ease: 'easeOut' }}
-                                className={`flex h-39 w-32 items-center justify-center rounded-3xl ${isDark ? 'bg-white/5' : 'bg-theme-surface/20'} backdrop-blur-sm`}
+                                className="flex h-39 w-32 items-center justify-center rounded-3xl bg-theme-surface/20 backdrop-blur-sm border border-theme-border/20"
                             >
                                 <div className="text-center px-3">
                                     <motion.div
@@ -798,14 +798,14 @@ export default function Home() {
                     animate={{ opacity: 1 }}
                     className="fixed inset-0 z-70 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm"
                 >
-                    <article className={`w-full max-w-xl rounded-3xl ${isDark ? 'bg-[#1c2128]' : 'bg-theme-surface'} p-6 shadow-2xl relative overflow-hidden`}>
+                    <article className="w-full max-w-xl rounded-3xl bg-theme-surface p-6 shadow-2xl relative overflow-hidden border border-theme-border/50">
                         <div className="absolute top-0 left-0 w-full h-1 bg-theme-accent opacity-50" />
                         <div className="mb-5 flex items-center justify-between">
                             <h3 className="font-display text-2xl text-theme-text-primary">{detailReminder.detailTitle}</h3>
                             <button
                                 type="button"
                                 onClick={() => setDetailReminderId(null)}
-                                className={`rounded-full ${isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-theme-surface/50 hover:bg-theme-surface'} p-2 text-theme-text-secondary transition-colors`}
+                                className="rounded-full bg-theme-surface/50 hover:bg-theme-surface p-2 text-theme-text-secondary border border-theme-border/20 transition-colors"
                             >
                                 <X className="h-5 w-5" />
                             </button>
