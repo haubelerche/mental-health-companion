@@ -3,7 +3,6 @@ import { toast } from 'react-toastify'
 import { ApiRequestError } from '../../../api/types'
 import { anonymousShareService, type ReportCategory } from '../../../services/anonymousShareService'
 import { getUi, REPORT_CATEGORY_OPTIONS } from './shared'
-import { useThemeContext } from '../../../contexts/ThemeContext'
 
 type ReportTarget = {
     id: string
@@ -20,8 +19,7 @@ export function ReportLetterModal({
     onClose: () => void
     onSuccess: () => void
 }) {
-    const { effectiveTheme } = useThemeContext()
-    const isDark = typeof dark === 'boolean' ? dark : effectiveTheme === 'dark'
+    const isDark = Boolean(dark)
     const ui = getUi(isDark)
     const [category, setCategory] = useState<ReportCategory>('spam')
     const [reason, setReason] = useState('')
