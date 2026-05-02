@@ -173,7 +173,7 @@ export default function Nutrition() {
             </section>
 
             {/* ── Recipe search ───────────────────────────────────────────── */}
-            <section className={`rounded-[28px] ${isDark ? 'bg-black/30' : 'bg-theme-surface/45'} p-6 backdrop-blur-xl lg:p-8`}>
+            <section className={`rounded-[28px]  bg-theme-surface/55 p-6 backdrop-blur-xl lg:p-8`}>
                 <div className="mb-5">
                     <p className="text-[10px] uppercase tracking-[0.3em] text-theme-text-secondary/60">Khám phá</p>
                     <h3 className="mt-1.5 font-display text-3xl italic text-theme-text-primary">Tra cứu công thức</h3>
