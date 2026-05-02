@@ -13,6 +13,7 @@ import { httpClient } from '../../api/httpClient'
 import { useAuth } from '../../hooks/useAuth'
 import { WellnessRadar, type WellnessScores } from '../wellness/WellnessRadar'
 import { MoodCalendar } from '../wellness/MoodCalendar'
+import { useThemeContext } from '../../contexts/ThemeContext'
 import { DayDetailSheet, type DayDetail } from '../wellness/DayDetailSheet'
 import { ProgressStats } from '../wellness/ProgressStats'
 

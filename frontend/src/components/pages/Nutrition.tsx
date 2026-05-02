@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Search, Sparkles, X } from 'lucide-react'
 import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
+import { useThemeContext } from '../../contexts/ThemeContext'
 import a1 from '../../assets/nutrition-a1.jpg'
 import a2 from '../../assets/nutrition-a2.jpg'
 // ─── Static pools (randomised each mount) ──────────────────────────────────────

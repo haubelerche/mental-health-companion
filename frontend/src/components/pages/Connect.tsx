@@ -5,6 +5,7 @@ import healing from '../../assets/healing.jpg'
 import { connectService, type ClinicItem, type HotlineItem } from '../../services/connectService'
 import { safetyService } from '../../services/safetyService'
 import type { ReferralOption } from '../../services/safetyService'
+import { useThemeContext } from '../../contexts/ThemeContext'
 const DEFAULT_HOTLINES: HotlineItem[] = [
     { name: 'Hotline 24/7', number: '1800-599-920', description: 'Hỗ trợ khẩn cấp và lắng nghe ngay lập tức' },
     { name: 'Cấp cứu y tế', number: '115', description: 'Gọi cấp cứu trong tình huống nguy hiểm' },

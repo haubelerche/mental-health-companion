@@ -33,12 +33,6 @@ import { useAuth } from '../../hooks/useAuth'
 import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import {
-    APP_SETTINGS_STORAGE_KEY,
-    APP_SETTINGS_UPDATED_EVENT,
-    readAppSettings,
-    type AppSettings,
-} from '../../utils/appSettings'
-import {
     getRewardProgress,
     REWARD_UPDATED_EVENT,
     syncRewardStreak,
@@ -288,34 +282,9 @@ function getCurrentTimeSlot(hour: number): TimeSlot {
 export default function Home() {
     const navigate = useNavigate()
     const { user } = useAuth()
-    const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
 
-    useEffect(() => {
-        const syncThemeMode = (settings: AppSettings) => {
-            setIsDark(settings.mode === 'dark')
-        }
-
-        const handleSettingsUpdated = (event: Event) => {
-            const customEvent = event as CustomEvent<AppSettings>
-            if (customEvent.detail) {
-                syncThemeMode(customEvent.detail)
-            }
-        }
-
-        const handleStorageUpdated = (event: StorageEvent) => {
-            if (event.key !== APP_SETTINGS_STORAGE_KEY) {
-                return
-            }
-            syncThemeMode(readAppSettings())
-        }
-
-        window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-        window.addEventListener('storage', handleStorageUpdated)
-        return () => {
-            window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-            window.removeEventListener('storage', handleStorageUpdated)
-        }
-    }, [])
     const [quote, setQuote] = useState<{ text: string; author?: string | null } | null>(null)
     const [rewardProgress, setRewardProgress] = useState(() => getRewardProgress())
     const hearts = rewardProgress.hearts

@@ -15,6 +15,7 @@ import { BeachMessageBeachPanel } from './letter/BeachMessageBeachPanel'
 import { BeachMessageCommunityPanel } from './letter/BeachMessageCommunityPanel'
 import { BeachMessageTabs } from './letter/BeachMessageTabs'
 import { type Letter, type TabId, pickRandomLetter } from './letter/shared'
+import { useThemeContext } from '../../contexts/ThemeContext'
 const FontLink = () => (
   <link
     href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400;1,500&family=Inter:wght@300;400;500&display=swap"

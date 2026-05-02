@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { AirVent, Cloud, Leaf, Sparkles } from 'lucide-react'
 import { toast } from 'react-toastify'
 import { useAuth } from '../../hooks/useAuth'
+import { useThemeContext } from '../../contexts/ThemeContext'
 import { homeService, type HomeFeed } from '../../services/homeService'
 import { ROUTE_PATHS } from '../../routes/paths'
 const MOODS = [

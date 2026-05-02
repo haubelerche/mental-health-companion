@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { onboardingService, type OnboardingProfile } from '../../services/onboardingService'
 import { EMOTIONAL_OPTIONS, PRIMARY_CONCERN_OPTIONS, SUPPORT_OPTIONS, AGE_OPTIONS, PRACTICE_OPTIONS, STRESS_LABELS } from './onboarding/onboard.option'
+import { useThemeContext } from '../../contexts/ThemeContext'
 import Loading from '../ui/Loading'
 import avatar from '../../assets/avatar.png'
 

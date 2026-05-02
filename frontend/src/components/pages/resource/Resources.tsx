@@ -9,6 +9,7 @@ import {
 import { ResourceGrid } from './ResourceGrid'
 import { YouTubeEmbed, isYouTubeUrl } from './YouTubeEmbed'
 import Loading from '../../ui/Loading'
+import { useThemeContext } from '../../../contexts/ThemeContext'
 // ── Vietnamese category labels ────────────────────────────────────────────────
 const VI_LABELS: Record<string, { label: string; icon: string }> = {
     all: { label: 'Tất cả', icon: '✦' },

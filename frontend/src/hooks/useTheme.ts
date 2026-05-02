@@ -1,25 +1,25 @@
 import { useCallback, useEffect, useState } from 'react'
+import { readAppSettings, APP_SETTINGS_UPDATED_EVENT, APP_SETTINGS_STORAGE_KEY, saveAppSettings } from '../utils/appSettings'
 
 export type ThemeMode = 'light' | 'dark' | 'system'
 
-const THEME_STORAGE_KEY = 'serene:theme-mode'
 const THEME_ATTRIBUTE = 'data-theme'
 
 /**
  * Gets the effective theme based on stored preference and system fallback
  */
-function getEffectiveTheme(stored: ThemeMode): 'light' | 'dark' {
-  if (stored === 'system') {
+function getEffectiveTheme(mode: 'light' | 'dark' | 'system'): 'light' | 'dark' {
+  if (mode === 'system') {
     if (typeof window === 'undefined') return 'light'
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   }
-  return stored
+  return mode
 }
 
 /**
  * Applies theme attribute to document root and returns effective theme
  */
-function applyTheme(mode: ThemeMode): 'light' | 'dark' {
+function applyTheme(mode: 'light' | 'dark' | 'system'): 'light' | 'dark' {
   if (typeof document === 'undefined') return 'light'
   
   const effectiveTheme = getEffectiveTheme(mode)
@@ -32,29 +32,44 @@ function applyTheme(mode: ThemeMode): 'light' | 'dark' {
 }
 
 /**
- * Hook to manage theme (light/dark/system) with localStorage persistence and system fallback
+ * Hook to manage theme (light/dark/system) with appSettings synchronization
  */
 export function useTheme() {
   const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
-    if (typeof window === 'undefined') return 'system'
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode | null
-    return (stored && ['light', 'dark', 'system'].includes(stored)) ? stored : 'system'
+    return readAppSettings().mode as ThemeMode
   })
 
   const [effectiveTheme, setEffectiveTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window === 'undefined') return 'light'
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode | null
-    const mode = (stored && ['light', 'dark', 'system'].includes(stored)) ? stored : 'system'
-    return getEffectiveTheme(mode)
+    return getEffectiveTheme(readAppSettings().mode as ThemeMode)
   })
 
-  // Apply theme on mount and when themeMode changes
+  // Sync with appSettings events
   useEffect(() => {
-    const effective = applyTheme(themeMode)
-    setEffectiveTheme(effective)
-  }, [themeMode])
+    const sync = () => {
+      const mode = readAppSettings().mode as ThemeMode
+      setThemeModeState(mode)
+      const effective = applyTheme(mode)
+      setEffectiveTheme(effective)
+    }
 
-  // Listen for system theme changes (only relevant when mode === 'system')
+    const handleSettingsUpdated = () => sync()
+    const handleStorageUpdated = (event: StorageEvent) => {
+      if (event.key === APP_SETTINGS_STORAGE_KEY) sync()
+    }
+
+    window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated)
+    window.addEventListener('storage', handleStorageUpdated)
+    
+    // Initial apply
+    sync()
+
+    return () => {
+      window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated)
+      window.removeEventListener('storage', handleStorageUpdated)
+    }
+  }, [])
+
+  // Listen for system theme changes (if we ever support 'system' mode)
   useEffect(() => {
     if (themeMode !== 'system') return
 
@@ -69,8 +84,12 @@ export function useTheme() {
   }, [themeMode])
 
   const setTheme = useCallback((mode: ThemeMode) => {
-    setThemeModeState(mode)
-    window.localStorage.setItem(THEME_STORAGE_KEY, mode)
+    if (mode === 'system') {
+       // fallback to light if system is requested but not fully supported in appSettings yet
+       mode = 'light'
+    }
+    const current = readAppSettings()
+    saveAppSettings({ ...current, mode: mode as 'light' | 'dark' })
   }, [])
 
   const toggleTheme = useCallback(() => {

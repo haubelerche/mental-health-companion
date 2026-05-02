@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import ocean from '../../assets/bg-reflect.png'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { exerciseService, FALLBACK_EXERCISES, findFallbackExercise, type ExerciseItem } from '../../services/exerciseService'
+import { useThemeContext } from '../../contexts/ThemeContext'
 function formatTime(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
