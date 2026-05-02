@@ -41,7 +41,7 @@ def detect_tool(data: dict) -> str:
     return "unknown"
 
 
-def normalize(data: dict, tool: str) -> dict | None:
+def normalize(data: dict, tool: str):
     """Normalize tool-specific payload to common log entry."""
     event = data.get("hook_event_name") or data.get("event", "")
     ts = datetime.now(VN_TZ).isoformat()
@@ -118,6 +118,12 @@ def normalize(data: dict, tool: str) -> dict | None:
             "prompt": data.get("prompt", "")[:1000],
             "tool_name": data.get("toolName", ""),
             "tool_args": data.get("toolArgs"),
+        })
+
+    elif tool == "antigravity":
+        base.update({
+            "prompt": data.get("prompt", "")[:1000],
+            "turn_id": data.get("turn_id", ""),
         })
 
     # Skip empty/noise events
