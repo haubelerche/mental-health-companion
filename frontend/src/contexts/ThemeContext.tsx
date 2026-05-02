@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react'
-import { useTheme, type ThemeMode } from './useTheme'
+import { useTheme, type ThemeMode } from '../hooks/useTheme'
 
 interface ThemeContextType {
   themeMode: ThemeMode
