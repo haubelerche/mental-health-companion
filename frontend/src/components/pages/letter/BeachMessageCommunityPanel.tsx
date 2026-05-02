@@ -1,7 +1,6 @@
 import { formatRelativeTime, getUi } from './shared'
 import type { ReplyArchiveItem, SentLetterItem } from '../../../services/anonymousShareService'
 import Loading from '../../ui/Loading'
-import { useThemeContext } from '../../../contexts/ThemeContext'
 
 export function BeachMessageCommunityPanel({
     dark,
@@ -18,8 +17,7 @@ export function BeachMessageCommunityPanel({
     onOpenSentLetter: (item: SentLetterItem) => void
     onOpenReplyLetter: (item: ReplyArchiveItem) => void
 }) {
-    const { effectiveTheme } = useThemeContext()
-    const isDark = typeof dark === 'boolean' ? dark : effectiveTheme === 'dark'
+    const isDark = Boolean(dark)
     const ui = getUi(isDark)
 
     return (
