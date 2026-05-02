@@ -5,7 +5,12 @@ import healing from '../../assets/healing.jpg'
 import { connectService, type ClinicItem, type HotlineItem } from '../../services/connectService'
 import { safetyService } from '../../services/safetyService'
 import type { ReferralOption } from '../../services/safetyService'
-import { useThemeContext } from '../../contexts/ThemeContext'
+import {
+    APP_SETTINGS_STORAGE_KEY,
+    APP_SETTINGS_UPDATED_EVENT,
+    readAppSettings,
+    type AppSettings,
+} from '../../utils/appSettings'
 
 const DEFAULT_HOTLINES: HotlineItem[] = [
     { name: 'Hotline 24/7', number: '1800-599-920', description: 'Hỗ trợ khẩn cấp và lắng nghe ngay lập tức' },
@@ -26,8 +31,35 @@ const REFERRAL_META: Record<string, { label: string; sub: string; icon: typeof U
 }
 
 export default function Connect() {
-    const { effectiveTheme } = useThemeContext()
-    const isDark = effectiveTheme === 'dark'
+    const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
+
+    useEffect(() => {
+        const syncThemeMode = (settings: AppSettings) => {
+            setIsDark(settings.mode === 'dark')
+        }
+
+        const handleSettingsUpdated = (event: Event) => {
+            const customEvent = event as CustomEvent<AppSettings>
+            if (customEvent.detail) {
+                syncThemeMode(customEvent.detail)
+            }
+        }
+
+        const handleStorageUpdated = (event: StorageEvent) => {
+            if (event.key !== APP_SETTINGS_STORAGE_KEY) {
+                return
+            }
+            syncThemeMode(readAppSettings())
+        }
+
+        window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
+        window.addEventListener('storage', handleStorageUpdated)
+        return () => {
+            window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
+            window.removeEventListener('storage', handleStorageUpdated)
+        }
+    }, [])
+
     const [searchParams] = useSearchParams()
     const [hotlines, setHotlines] = useState<HotlineItem[]>(DEFAULT_HOTLINES)
     const [clinics, setClinics] = useState<ClinicItem[]>(DEFAULT_CLINICS)
@@ -74,8 +106,8 @@ export default function Connect() {
 
     return (
         <section className="mx-auto max-w-6xl text-theme-text-primary">
-            <div className="rounded-[2.75rem] bg-theme-surface/35 p-6 shadow-xl backdrop-blur-2xl md:p-10">
-                <div className="rounded-full bg-theme-surface/20 px-6 py-3 text-center text-xs font-semibold italic text-theme-text-secondary/70">
+            <div className={`rounded-[2.75rem] ${isDark ? 'bg-black/40 border border-white/10' : 'bg-theme-surface/35'} p-6 shadow-xl backdrop-blur-2xl md:p-10`}>
+                <div className={`rounded-full ${isDark ? 'bg-white/5' : 'bg-theme-surface/20'} px-6 py-3 text-center text-xs font-semibold italic ${isDark ? 'text-white/60' : 'text-theme-text-secondary/70'}`}>
                     Serene là AI, không thay thế chuyên gia
                 </div>
 
@@ -91,7 +123,7 @@ export default function Connect() {
                     </p>
                 </header>
 
-                <section className="mt-9 grid gap-6 rounded-[2rem] p-6 shadow-inner lg:grid-cols-[1fr_220px] bg-theme-surface/40">
+                <section className={`mt-9 grid gap-6 rounded-[2rem] p-6 shadow-inner lg:grid-cols-[1fr_220px] ${isDark ? 'bg-black/20 border border-white/5' : 'bg-theme-surface/40'}`}>
                     <div>
                         <div className="mb-5 flex items-center gap-3">
                             <span className="font-display text-4xl text-theme-accent">*</span>
@@ -108,7 +140,7 @@ export default function Connect() {
                                 <a
                                     key={`${item.name}-${item.number}`}
                                     href={`tel:${item.number.replace(/\s/g, '')}`}
-                                    className="flex items-center justify-between rounded-3xl bg-theme-surface/65 px-5 py-4 shadow-sm transition hover:-translate-y-0.5 hover:bg-theme-surface"
+                                    className={`flex items-center justify-between rounded-3xl ${isDark ? 'bg-white/5 border border-white/5' : 'bg-theme-surface/65'} px-5 py-4 shadow-sm transition hover:-translate-y-0.5 hover:bg-theme-surface/80`}
                                 >
                                     <div>
                                         <p className="text-[0.6rem] font-bold uppercase tracking-[0.24em] text-theme-text-secondary/70">
@@ -131,8 +163,8 @@ export default function Connect() {
                         <div className="grid gap-4 md:grid-cols-2">
                             {clinics.slice(0, 4).map((item, idx) => (
                                 <article
-                                    key={`${item.name}-${idx}`}
-                                    className="rounded-[1.75rem] bg-theme-surface/40 p-5 shadow-lg backdrop-blur-md"
+                                    key={`${item.name}-${item.number}-${idx}`}
+                                    className={`rounded-[1.75rem] ${isDark ? 'bg-white/5 border border-white/5' : 'bg-theme-surface/40'} p-5 shadow-lg backdrop-blur-md`}
                                 >
                                     <div className="flex items-start justify-between gap-3">
                                         <span className="flex h-11 w-11 items-center justify-center rounded-full bg-theme-accent/20 text-theme-accent">
@@ -158,8 +190,8 @@ export default function Connect() {
 
                     <aside>
                         <h2 className="mb-5 font-display text-2xl italic text-theme-text-primary">Phòng tham vấn tâm lý gần nhất</h2>
-                        <div className="overflow-hidden rounded-[2rem] bg-theme-surface/45 p-3 shadow-2xl backdrop-blur-xl">
-                            <form onSubmit={handleMapSearch} className="mb-3 flex items-center gap-2 rounded-full bg-theme-surface px-3 py-2 shadow-sm">
+                        <div className={`overflow-hidden rounded-[2rem] ${isDark ? 'bg-black/30 border border-white/10' : 'bg-theme-surface/45'} p-3 shadow-2xl backdrop-blur-xl`}>
+                            <form onSubmit={handleMapSearch} className={`mb-3 flex items-center gap-2 rounded-full ${isDark ? 'bg-white/5' : 'bg-theme-surface'} px-3 py-2 shadow-sm`}>
                                 <Search className="h-4 w-4 shrink-0 text-theme-accent" />
                                 <input
                                     value={mapSearch}
@@ -199,7 +231,7 @@ export default function Connect() {
                     </aside>
                 </div>
 
-                <div className="mx-auto mt-12 max-w-xl rounded-[2rem] bg-theme-surface/40 px-7 py-6 text-center shadow-lg">
+                <div className={`mx-auto mt-12 max-w-xl rounded-[2rem] ${isDark ? 'bg-black/20 border border-white/5' : 'bg-theme-surface/40'} px-7 py-6 text-center shadow-lg`}>
                     <p className="font-display text-2xl italic text-theme-text-primary">
                         "Peace is not the absence of trouble, but the presence of connection."
                     </p>
@@ -207,7 +239,7 @@ export default function Connect() {
             </div>
 
             {referrals.length > 0 && (
-                <section className="mt-6 rounded-[2rem] bg-theme-surface/45 p-5 backdrop-blur-xl">
+                <section className={`mt-6 rounded-[2rem] ${isDark ? 'bg-black/40 border border-white/10' : 'bg-theme-surface/45'} p-5 backdrop-blur-xl`}>
                     <h3 className="mb-4 font-display text-2xl text-theme-text-primary">Gợi ý hỗ trợ từ Serene</h3>
                     <div className="grid gap-3 md:grid-cols-3">
                         {referrals.map(r => {
@@ -216,7 +248,7 @@ export default function Connect() {
                             return (
                                 <div
                                     key={r.type}
-                                    className="flex items-center gap-3 rounded-2xl p-4 bg-theme-surface/50"
+                                    className={`flex items-center gap-3 rounded-2xl p-4 ${isDark ? 'bg-white/5 border border-white/5' : 'bg-theme-surface/50'}`}
                                 >
                                     <Icon className="h-5 w-5 text-theme-accent" />
                                     <div>
