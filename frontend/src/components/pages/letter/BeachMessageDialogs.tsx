@@ -195,7 +195,7 @@ export function WriteOverlay({ onClose, dark }: { onClose: () => void; dark?: bo
             className={`fixed inset-0 z-50 flex items-center justify-center p-6 ${ui.overlay} backdrop-blur-md`}
             style={{ animation: 'fadeIn 0.45s ease' }}
         >
-            <div className={`${ui.glassLight} w-full max-w-xl rounded-[32px] overflow-hidden shadow-2xl`} style={{ animation: 'letterOpen 0.65s cubic-bezier(0.22,1,0.36,1) both' }}>
+            <div className={`${ui.glassLight} w-full max-w-xl rounded-[32px] overflow-hidden shadow-2xl bg-theme-surface`} style={{ animation: 'letterOpen 0.65s cubic-bezier(0.22,1,0.36,1) both' }}>
                 <div className={`border-b ${ui.glassBorder} px-8 py-8 flex justify-between items-start bg-theme-surface/30`}>
                     <div>
                         <p className={`${ui.textSubtler} text-[10px] font-bold uppercase tracking-[0.3em] mb-2`}>Viết tâm tư gửi biển</p>
@@ -210,7 +210,7 @@ export function WriteOverlay({ onClose, dark }: { onClose: () => void; dark?: bo
                     </button>
                 </div>
 
-                <div className="px-8 py-10 bg-theme-surface/5">
+                <div className="px-8 py-10 ">
                     {!sent ? (
                         <div className="space-y-6">
                             <textarea
@@ -219,7 +219,7 @@ export function WriteOverlay({ onClose, dark }: { onClose: () => void; dark?: bo
                                 placeholder="Hãy trút bỏ nỗi lòng hoặc sẻ chia niềm hạnh phúc của bạn hôm nay..."
                                 rows={6}
                                 autoFocus
-                                className="w-full rounded-[24px] p-6 font-display text-xl italic font-medium leading-relaxed resize-none outline-none transition-all bg-theme-surface/50 text-theme-text-primary focus:ring-1 focus:ring-theme-accent/30"
+                                className="w-full rounded-[24px] p-6 font-display text-xl italic font-medium leading-relaxed resize-none outline-none transition-all bg-theme-border/5 text-theme-text-primary focus:ring-1 focus:ring-theme-accent/30"
                             />
                             <div className="flex justify-end">
                                 <button
@@ -295,10 +295,10 @@ export function SentLetterDialog({
     return (
         <div
             onClick={(e) => e.target === e.currentTarget && onClose()}
-            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/40 backdrop-blur-md transition-all"
+            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-theme-surface/40 backdrop-blur-md transition-all"
         >
-            <div className={`${ui.glassLight} rounded-[32px] shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col`} style={{ animation: 'letterOpen 0.35s cubic-bezier(0.22,1,0.36,1) both' }}>
-                <div className={`border-b ${ui.glassBorder} px-8 py-5 flex items-center justify-between bg-theme-surface/30`}>
+            <div className={`${ui.glassLight} bg-theme-surface rounded-[32px] shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col`} style={{ animation: 'letterOpen 0.35s cubic-bezier(0.22,1,0.36,1) both' }}>
+                <div className={`border-b ${ui.glassBorder} px-8 py-5 flex items-center justify-between`}>
                     <div className="flex flex-col">
                         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-theme-text-secondary/60">Hành trình lá thư</p>
                         <h2 className="text-xl font-bold text-theme-text-primary">Chi tiết tâm tình</h2>
@@ -312,10 +312,10 @@ export function SentLetterDialog({
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-theme-surface/5 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
                     <div className="space-y-3">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-theme-accent/70 px-2">Nội dung bạn gửi</p>
-                        <div className="rounded-3xl p-6 bg-theme-surface/50">
+                        <div className={`rounded-3xl p-6 ${isDark ? 'bg-white/10' : 'bg-black/10'}`}>
                             <p className="text-theme-text-primary font-display text-xl italic leading-relaxed whitespace-pre-wrap">"{item.content}"</p>
                             <p className="text-theme-text-secondary/40 text-[10px] font-bold mt-4 uppercase tracking-tighter">{formatRelativeTime(item.sent_at)}</p>
                         </div>
@@ -323,7 +323,7 @@ export function SentLetterDialog({
 
                     <div className="space-y-3">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-500/70 px-2">Phản hồi từ phương xa</p>
-                        <div className="rounded-3xl p-6 bg-theme-surface/50">
+                        <div className={`rounded-3xl p-6 ${isDark ? 'bg-white/10' : 'bg-black/10'}`}>
                             {item.reply ? (
                                 <>
                                     <div className="flex items-center gap-2 mb-4 border-b border-theme-border/5 pb-3">

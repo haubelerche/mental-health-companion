@@ -47,10 +47,10 @@ type ThemeCardProps = {
 function ToggleRow({ title, description, checked, onChange }: ToggleRowProps) {
   const isDark = readAppSettings().mode === 'dark'
   return (
-    <div className={`flex items-center justify-between rounded-3xl border ${isDark ? 'border-white/10 bg-white/30' : 'border-white/35 bg-white/30'} p-5 transition hover:bg-white/45 sm:p-6`}>
+    <div className="flex items-center justify-between rounded-3xl border border-theme-border/50 bg-theme-surface/40 p-5 transition hover:bg-theme-surface/60 sm:p-6 shadow-sm">
       <div className="pr-4">
         <p className="text-base font-semibold text-theme-text-primary sm:text-lg">{title}</p>
-        <p className="mt-1 text-sm text-theme-text-primary">{description}</p>
+        <p className="mt-1 text-sm text-theme-text-secondary">{description}</p>
       </div>
       <Switch checked={checked} onCheckedChange={onChange} aria-label={title} />
     </div>
@@ -67,8 +67,8 @@ function ThemeCard({ label, image, selected, isDark, onSelect }: ThemeCardProps)
     >
       <div
         className={[
-          'aspect-16/10 overflow-hidden rounded-3xl border-2 group-hover:scale-[1.02]',
-          selected ? 'border-serene-primary shadow-2xl border-3' : (isDark ? 'border-white/10' : 'border-transparent'),
+          'aspect-16/10 overflow-hidden rounded-3xl border-2 group-hover:scale-[1.02] transition-transform duration-300',
+          selected ? 'border-serene-primary shadow-xl border-3' : 'border-theme-border/50',
         ].join(' ')}
       >
         <img src={image} alt={label} className="h-full w-full object-cover" />
@@ -76,7 +76,7 @@ function ThemeCard({ label, image, selected, isDark, onSelect }: ThemeCardProps)
       <p
         className={[
           'mt-3 text-center text-[0.7rem] font-semibold uppercase tracking-[0.28em]',
-          selected ? 'text-serene-primary' : (isDark ? 'text-theme-text-secondary' : 'text-serene-muted'),
+          selected ? 'text-serene-primary' : 'text-theme-text-secondary',
         ].join(' ')}
       >
         {label}
@@ -162,34 +162,34 @@ export default function Setting() {
   }
 
   return (
-    <div className={`relative min-h-full text-theme-text-primary transition-colors duration-200`}>
+    <div className="relative min-h-full text-theme-text-primary transition-colors duration-200">
       <div className="mx-auto flex w-full max-w-4xl flex-col items-center px-0 pb-10 pt-2 sm:px-3 lg:pb-14 lg:pt-4">
-        <div className={`w-full rounded-4xl border ${isDark ? 'border-white/10 bg-black/40' : 'border-white/50 bg-white/50'} px-5 py-6 shadow-md backdrop-blur-2xl sm:px-8 sm:py-8 lg:px-10 lg:py-10`}>
+        <div className="w-full rounded-4xl border border-theme-border/50 bg-theme-surface/50 px-5 py-6 shadow-xl backdrop-blur-2xl sm:px-8 sm:py-8 lg:px-10 lg:py-10">
           <header className="text-center">
-            <h1 className={`font-display text-5xl font-light leading-tight ${isDark ? 'text-white' : 'text-serene-ink'} sm:text-6xl lg:text-7xl`}>
+            <h1 className="font-display text-5xl font-light leading-tight text-theme-text-primary sm:text-6xl lg:text-7xl">
               Cài đặt
             </h1>
-            <p className={`mt-3 text-[0.68rem] uppercase tracking-[0.34em] ${isDark ? 'text-white/60' : 'text-serene-muted/75'}`}>
+            <p className="mt-3 text-[0.68rem] uppercase tracking-[0.34em] text-theme-text-secondary/70">
               Digital Sanctuary Configuration
             </p>
           </header>
 
           <section id='user-profile' className="mt-10 space-y-6">
-            <div className={`flex items-center gap-2 border-b ${isDark ? 'border-white/10' : 'border-serene-ink/5'} pb-2`}>
-              <User className="h-5 w-5 text-serene-primary" />
-              <h2 className={`font-display text-2xl ${isDark ? 'text-white' : 'text-serene-ink'}`}>Hồ sơ cá nhân</h2>
+            <div className="flex items-center gap-2 border-b border-theme-border/30 pb-2">
+              <User className="h-5 w-5 text-theme-accent" />
+              <h2 className="font-display text-2xl text-theme-text-primary">Hồ sơ cá nhân</h2>
             </div>
 
-            <div className={`flex flex-col gap-6 rounded-3xl border ${isDark ? 'border-white/10 bg-white/30' : 'border-white/35 bg-white/35'} p-6 sm:flex-row sm:items-center sm:p-8`}>
+            <div className="flex flex-col gap-6 rounded-3xl border border-theme-border/50 bg-theme-surface/40 p-6 sm:flex-row sm:items-center sm:p-8">
               <div className="relative h-28 w-28 shrink-0">
                 <img
                   src={avatar}
                   alt="Ảnh hồ sơ"
-                  className="rounded-full border-2 border-white/70 object-cover"
+                  className="rounded-full border-2 border-theme-border/30 object-cover"
                 />
                 <button
                   type="button"
-                  className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-serene-primary text-serene-on-primary shadow-lg transition hover:brightness-110"
+                  className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-theme-accent text-white shadow-lg transition hover:brightness-110"
                   aria-label="Chỉnh sửa ảnh hồ sơ"
                 >
                   <Check className="h-5 w-5" />
@@ -197,14 +197,14 @@ export default function Setting() {
               </div>
 
               <div className="space-y-2 text-center sm:text-left flex-1">
-                <p className={`font-display text-3xl italic ${isDark ? 'text-white' : 'text-serene-ink'} sm:text-4xl`}>{displayName}</p>
-                <p className={`text-sm ${isDark ? 'text-theme-text-secondary' : 'text-serene-muted'} sm:text-base`}>{email}</p>
-                <span className="rounded-full border border-serene-outline/30 bg-green-500/20 px-4 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-green-600">
+                <p className="font-display text-3xl italic text-theme-text-primary sm:text-4xl">{displayName}</p>
+                <p className="text-sm text-theme-text-secondary sm:text-base">{email}</p>
+                <span className={`rounded-full border px-4 py-1 text-[10px] font-bold uppercase tracking-[0.22em] ${isDark ? 'border-green-400/30 bg-green-400/10 text-green-400' : 'border-theme-border/30 bg-green-500/10 text-green-600/80'}`}>
                   Verified
                 </span>
               </div>
               <div className=''>
-                <Link to={ROUTE_PATHS.profile} className="inline-flex gap-3 items-center rounded-full bg-serene-primary px-4 py-2 text-xs font-medium uppercase tracking-[0.22em] text-serene-on-primary transition hover:brightness-105">
+                <Link to={ROUTE_PATHS.profile} className="inline-flex gap-3 items-center rounded-full bg-theme-accent px-4 py-2 text-xs font-medium uppercase tracking-[0.22em] text-white transition hover:brightness-105">
                   Xem chi tiết
                   <ArrowRight />
                 </Link>
@@ -213,9 +213,9 @@ export default function Setting() {
           </section>
 
           <section className="mt-12 space-y-6">
-            <div className={`flex items-center gap-2 border-b ${isDark ? 'border-white/10' : 'border-serene-ink/5'} pb-2`}>
-              <Palette className="h-5 w-5 text-serene-primary" />
-              <h2 className={`font-display text-2xl ${isDark ? 'text-white' : 'text-serene-ink'}`}>Giao diện</h2>
+            <div className="flex items-center gap-2 border-b border-theme-border/30 pb-2">
+              <Palette className="h-5 w-5 text-theme-accent" />
+              <h2 className="font-display text-2xl text-theme-text-primary">Giao diện</h2>
             </div>
 
             <div className="grid gap-4">
@@ -278,9 +278,9 @@ export default function Setting() {
           </section>
 
           <section className="mt-12 space-y-6">
-            <div className={`flex items-center gap-2 border-b ${isDark ? 'border-white/10' : 'border-serene-ink/5'} pb-2`}>
-              <BellRing className="h-5 w-5 text-serene-primary" />
-              <h2 className={`font-display text-2xl ${isDark ? 'text-white' : 'text-serene-ink'}`}>Thông báo</h2>
+            <div className="flex items-center gap-2 border-b border-theme-border/30 pb-2">
+              <BellRing className="h-5 w-5 text-theme-accent" />
+              <h2 className="font-display text-2xl text-theme-text-primary">Thông báo</h2>
             </div>
 
             <div className="grid gap-4">
@@ -301,10 +301,10 @@ export default function Setting() {
 
           <section className={`my-12`}>
             <div className="mb-6 flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600/20 text-red-600">
+              <div className={`flex h-12 w-12 items-center justify-center rounded-full ${isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-600/20 text-red-600'}`}>
                 <TriangleAlert className="h-6 w-6" />
               </div>
-              <h2 className="font-display text-2xl text-red-600">Trợ giúp Khẩn cấp</h2>
+              <h2 className={`font-display text-2xl ${isDark ? 'text-red-400' : 'text-red-600'}`}>Trợ giúp Khẩn cấp</h2>
             </div>
 
             <ToggleRow
@@ -316,12 +316,12 @@ export default function Setting() {
           </section>
 
           <section className="mt-12 space-y-6 ">
-            <div className={`flex items-center gap-2 border-b ${isDark ? 'border-white/10' : 'border-serene-ink/5'} pb-2`}>
-              <Repeat className="h-5 w-5 text-serene-primary" />
-              <h2 className={`font-display text-2xl ${isDark ? 'text-white' : 'text-serene-ink'}`}>Cá nhân hóa Onboarding</h2>
+            <div className="flex items-center gap-2 border-b border-theme-border/30 pb-2">
+              <Repeat className="h-5 w-5 text-theme-accent" />
+              <h2 className="font-display text-2xl text-theme-text-primary">Cá nhân hóa Onboarding</h2>
             </div>
-            <div className={`rounded-3xl border ${isDark ? 'border-white/10 bg-white/40' : 'border-white/35 bg-white/35'} p-6 `}>
-              <p className={`text-sm ${isDark ? 'text-theme-text-secondary' : 'text-serene-muted'}`}>
+            <div className="rounded-3xl border border-theme-border/50 bg-theme-surface/40 p-6 ">
+              <p className="text-sm text-theme-text-primary">
                 Bạn có thể chạy lại onboarding để cập nhật mục tiêu, khung giờ sinh hoạt và gợi ý trong phần
                 {' '}
                 “Hôm nay của bạn”.
@@ -329,7 +329,7 @@ export default function Setting() {
               <button
                 type="button"
                 onClick={() => navigate(ROUTE_PATHS.onboarding)}
-                className="mt-4 rounded-full bg-serene-primary px-6 py-3 text-xs font-bold uppercase tracking-[0.22em] text-serene-on-primary transition hover:brightness-105"
+                className="mt-4 rounded-full bg-theme-accent px-6 py-3 text-xs font-bold uppercase tracking-[0.22em] text-white transition hover:brightness-105"
               >
                 Mở lại onboarding
               </button>
@@ -358,18 +358,18 @@ export default function Setting() {
             sosAccess !== savedSettings.sosAccess ||
             selectedMode !== savedSettings.mode ||
             selectedTheme !== savedSettings.theme) && (
-              <footer className={`mt-12 flex flex-col-reverse gap-3 border-t ${isDark ? 'border-white/10' : 'border-serene-ink/5'} pt-8 sm:flex-row sm:justify-end sm:gap-5`}>
+              <footer className="mt-12 flex flex-col-reverse gap-3 border-t border-theme-border/30 pt-8 sm:flex-row sm:justify-end sm:gap-5">
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="rounded-full px-8 py-3 text-xs font-medium uppercase tracking-[0.28em] text-serene-primary transition hover:bg-serene-primary/5"
+                  className="rounded-full px-8 py-3 text-xs font-medium uppercase tracking-[0.28em] text-theme-accent transition hover:bg-theme-accent/5"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveChanges}
-                  className="rounded-full bg-serene-primary px-10 py-4 text-xs font-bold uppercase tracking-[0.28em] text-serene-on-primary shadow-[0_18px_36px_rgba(47,52,46,0.18)] transition hover:brightness-105"
+                  className="rounded-full bg-theme-accent px-10 py-4 text-xs font-bold uppercase tracking-[0.28em] text-white shadow-lg transition hover:brightness-105"
                 >
                   Lưu thay đổi
                 </button>

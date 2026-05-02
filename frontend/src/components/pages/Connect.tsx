@@ -5,13 +5,7 @@ import healing from '../../assets/healing.jpg'
 import { connectService, type ClinicItem, type HotlineItem } from '../../services/connectService'
 import { safetyService } from '../../services/safetyService'
 import type { ReferralOption } from '../../services/safetyService'
-import {
-    APP_SETTINGS_STORAGE_KEY,
-    APP_SETTINGS_UPDATED_EVENT,
-    readAppSettings,
-    type AppSettings,
-} from '../../utils/appSettings'
-
+import { useThemeContext } from '../../contexts/ThemeContext'
 const DEFAULT_HOTLINES: HotlineItem[] = [
     { name: 'Hotline 24/7', number: '1800-599-920', description: 'Hỗ trợ khẩn cấp và lắng nghe ngay lập tức' },
     { name: 'Cấp cứu y tế', number: '115', description: 'Gọi cấp cứu trong tình huống nguy hiểm' },
@@ -31,34 +25,8 @@ const REFERRAL_META: Record<string, { label: string; sub: string; icon: typeof U
 }
 
 export default function Connect() {
-    const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
-
-    useEffect(() => {
-        const syncThemeMode = (settings: AppSettings) => {
-            setIsDark(settings.mode === 'dark')
-        }
-
-        const handleSettingsUpdated = (event: Event) => {
-            const customEvent = event as CustomEvent<AppSettings>
-            if (customEvent.detail) {
-                syncThemeMode(customEvent.detail)
-            }
-        }
-
-        const handleStorageUpdated = (event: StorageEvent) => {
-            if (event.key !== APP_SETTINGS_STORAGE_KEY) {
-                return
-            }
-            syncThemeMode(readAppSettings())
-        }
-
-        window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-        window.addEventListener('storage', handleStorageUpdated)
-        return () => {
-            window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-            window.removeEventListener('storage', handleStorageUpdated)
-        }
-    }, [])
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
 
     const [searchParams] = useSearchParams()
     const [hotlines, setHotlines] = useState<HotlineItem[]>(DEFAULT_HOTLINES)
@@ -107,7 +75,7 @@ export default function Connect() {
     return (
         <section className="mx-auto max-w-6xl text-theme-text-primary">
             <div className={`rounded-[2.75rem] ${isDark ? 'bg-black/40 border border-white/10' : 'bg-theme-surface/35'} p-6 shadow-xl backdrop-blur-2xl md:p-10`}>
-                <div className={`rounded-full ${isDark ? 'bg-white/5' : 'bg-theme-surface/20'} px-6 py-3 text-center text-xs font-semibold italic ${isDark ? 'text-white/60' : 'text-theme-text-secondary/70'}`}>
+                <div className={`rounded-full  px-6 py-3 text-center font-display tracking-wide text-xl font-semibold italic text-theme-text-secondary/70`}>
                     Serene là AI, không thay thế chuyên gia
                 </div>
 
@@ -163,7 +131,7 @@ export default function Connect() {
                         <div className="grid gap-4 md:grid-cols-2">
                             {clinics.slice(0, 4).map((item, idx) => (
                                 <article
-                                    key={`${item.name}-${item.number}-${idx}`}
+                                    key={idx}
                                     className={`rounded-[1.75rem] ${isDark ? 'bg-white/5 border border-white/5' : 'bg-theme-surface/40'} p-5 shadow-lg backdrop-blur-md`}
                                 >
                                     <div className="flex items-start justify-between gap-3">
@@ -239,16 +207,16 @@ export default function Connect() {
             </div>
 
             {referrals.length > 0 && (
-                <section className={`mt-6 rounded-[2rem] ${isDark ? 'bg-black/40 border border-white/10' : 'bg-theme-surface/45'} p-5 backdrop-blur-xl`}>
+                <section className={`mt-6 rounded-4xl bg-theme-surface/55 backdrop-blur-xl p-5 `}>
                     <h3 className="mb-4 font-display text-2xl text-theme-text-primary">Gợi ý hỗ trợ từ Serene</h3>
                     <div className="grid gap-3 md:grid-cols-3">
                         {referrals.map(r => {
                             const meta = REFERRAL_META[r.type] ?? { label: r.type, sub: '', icon: Navigation }
-                            const Icon = meta.icon
+                            const Icon = meta.icon  
                             return (
                                 <div
                                     key={r.type}
-                                    className={`flex items-center gap-3 rounded-2xl p-4 ${isDark ? 'bg-white/5 border border-white/5' : 'bg-theme-surface/50'}`}
+                                    className={`flex items-center gap-3 rounded-2xl p-4 ${isDark ? 'bg-white/10 border border-white/5' : 'bg-theme-surface/50'}`}
                                 >
                                     <Icon className="h-5 w-5 text-theme-accent" />
                                     <div>

@@ -1,15 +1,8 @@
-import { useEffect, useState, type MouseEvent } from 'react'
+import { useEffect, type MouseEvent } from 'react'
 import { Bell, Book, Compass, HelpCircle, HomeIcon, Library, MessageSquare, Sailboat, Settings, Sparkles, Utensils } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { ROUTE_PATHS } from '../../routes/paths'
-import {
-    APP_SETTINGS_STORAGE_KEY,
-    APP_SETTINGS_UPDATED_EVENT,
-    readAppSettings,
-    type AppSettings,
-} from '../../utils/appSettings'
-
-
+import { useThemeContext } from '../../contexts/ThemeContext'
 type SidebarProps = {
     isOpen: boolean
     onHide: () => void
@@ -28,34 +21,8 @@ const navItems = [
 ]
 
 export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
-    const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
-
-    useEffect(() => {
-        const syncThemeMode = (settings: AppSettings) => {
-            setIsDark(settings.mode === 'dark')
-        }
-
-        const handleSettingsUpdated = (event: Event) => {
-            const customEvent = event as CustomEvent<AppSettings>
-            if (customEvent.detail) {
-                syncThemeMode(customEvent.detail)
-            }
-        }
-
-        const handleStorageUpdated = (event: StorageEvent) => {
-            if (event.key !== APP_SETTINGS_STORAGE_KEY) {
-                return
-            }
-            syncThemeMode(readAppSettings())
-        }
-
-        window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-        window.addEventListener('storage', handleStorageUpdated)
-        return () => {
-            window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-            window.removeEventListener('storage', handleStorageUpdated)
-        }
-    }, [])
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
 
     const sidebarContainerClass = isDark
         ? 'border-white/20 bg-black/30 text-white'

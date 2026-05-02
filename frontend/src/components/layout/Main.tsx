@@ -35,21 +35,12 @@ export default function Main() {
     const isFullBleedPage = location.pathname === ROUTE_PATHS.bamboo
 
     useEffect(() => {
-        const applyMode = (mode: string) => {
-            if (mode === 'dark') {
-                document.documentElement.setAttribute('data-theme', 'dark')
-            } else {
-                document.documentElement.removeAttribute('data-theme')
-            }
-        }
-
         const handleSettingsUpdated = (event: Event) => {
             const customEvent = event as CustomEvent<AppSettings>
             const settings = customEvent.detail
             if (settings) {
                 const theme = settings.theme ?? DEFAULT_APP_SETTINGS.theme
                 setBackgroundImage(themeBackgroundMap[theme])
-                applyMode(settings.mode)
             }
         }
 
@@ -60,11 +51,7 @@ export default function Main() {
 
             const nextSettings = readAppSettings()
             setBackgroundImage(themeBackgroundMap[nextSettings.theme])
-            applyMode(nextSettings.mode)
         }
-
-        // Initial apply
-        applyMode(readAppSettings().mode)
 
         window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
         window.addEventListener('storage', handleStorageUpdated)

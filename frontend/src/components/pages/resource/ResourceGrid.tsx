@@ -1,13 +1,7 @@
 import { Play, ChevronDown, ChevronUp, BookOpen, Volume2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { type ResourceItem } from '../../../services/resourceService'
-import {
-    APP_SETTINGS_STORAGE_KEY,
-    APP_SETTINGS_UPDATED_EVENT,
-    readAppSettings,
-    type AppSettings,
-} from '../../../utils/appSettings'
-
+import { useThemeContext } from '../../../contexts/ThemeContext'
 function minutes(durationSec: number): string {
     return `${Math.max(1, Math.round(durationSec / 60))} phút`
 }
@@ -18,34 +12,8 @@ interface ResourceGridProps {
 }
 
 export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
-    const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
-
-    useEffect(() => {
-        const syncThemeMode = (settings: AppSettings) => {
-            setIsDark(settings.mode === 'dark')
-        }
-
-        const handleSettingsUpdated = (event: Event) => {
-            const customEvent = event as CustomEvent<AppSettings>
-            if (customEvent.detail) {
-                syncThemeMode(customEvent.detail)
-            }
-        }
-
-        const handleStorageUpdated = (event: StorageEvent) => {
-            if (event.key !== APP_SETTINGS_STORAGE_KEY) {
-                return
-            }
-            syncThemeMode(readAppSettings())
-        }
-
-        window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-        window.addEventListener('storage', handleStorageUpdated)
-        return () => {
-            window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-            window.removeEventListener('storage', handleStorageUpdated)
-        }
-    }, [])
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
 
     const [expandedCount, setExpandedCount] = useState(3)
 
@@ -65,7 +33,7 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
     return (
         <div className="space-y-6">
             {/* Featured */}
-            <article className={`rounded-4xl ${isDark ? 'bg-white/5 border border-white/10' : 'bg-white/52'} p-5 shadow-lg`}>
+            <article className={`rounded-4xl ${isDark ? 'bg-theme-surface/60 border border-white/10' : 'bg-white/52'} p-5 shadow-lg`}>
                 <div className="relative overflow-hidden rounded-3xl cursor-pointer" onClick={() => onOpen(featured)}>
                     {featured.thumbnail ? (
                         <div className="aspect-video relative">
@@ -119,7 +87,7 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                                 key={item.id}
 
                                 onClick={() => onOpen(item)}
-                                className={`group grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-[1.75rem] ${isDark ? 'bg-white/5 border border-white/5 hover:bg-white/10' : 'bg-white/50 hover:bg-white/75'} p-4 text-left shadow-lg transition hover:-translate-y-1`}
+                                className={`group grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-[1.75rem] bg-theme-surface/60 p-4 text-left shadow-lg transition hover:-translate-y-1`}
                             >
                                 {item.thumbnail ? (
                                     <img src={item.thumbnail} alt="" className="h-20 w-20 rounded-2xl object-cover shadow" />
@@ -155,7 +123,7 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                                         setExpandedCount(3)
                                     }
                                 }}
-                                className={`mx-auto flex items-center gap-2 rounded-full ${isDark ? 'bg-white/5 border border-white/10 hover:bg-white/10' : 'bg-white/55 hover:bg-white/85'} px-6 py-3 text-sm font-semibold ${isDark ? 'text-white/60' : 'text-serene-muted'} transition ${isDark ? 'hover:text-white' : 'hover:text-serene-ink'}`}
+                                className={`mx-auto flex items-center gap-2 rounded-full bg-theme-surface/60 px-6 py-3 text-sm font-semibold ${isDark ? 'text-white/60' : 'text-serene-muted'} transition ${isDark ? 'hover:text-white' : 'hover:text-serene-ink'}`}
                             >
                                 {hasMore ? (
                                     <>

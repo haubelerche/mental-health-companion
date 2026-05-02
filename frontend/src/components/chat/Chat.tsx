@@ -14,6 +14,7 @@ import { policyService } from '../../services/policyService'
 import { Switch } from '../ui/switch'
 import { HotlineBar } from '../crisis/HotlineBar'
 import { ChatHistoryModal } from './ChatHistoryModal'
+import { useThemeContext } from '../../contexts/ThemeContext'
 
 // ─── API response types ────────────────────────────────────────────────────────
 
@@ -112,13 +113,13 @@ function RoutingBadge({ history }: { history?: string[] }) {
     }
     return (
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
-            <span className="text-[10px] font-medium text-serene-muted/60">Luồng:</span>
+            <span className="text-[10px] font-medium text-theme-text-secondary/60">Luồng:</span>
             {history.map((node, i) => (
                 <span key={i} className="flex items-center gap-0.5">
-                    <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-medium capitalize ${nodeColors[node] ?? 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-medium capitalize ${nodeColors[node] ?? 'bg-theme-bg-secondary text-theme-text-secondary'}`}>
                         {node}
                     </span>
-                    {i < history.length - 1 && <span className="text-[10px] text-serene-muted/30">→</span>}
+                    {i < history.length - 1 && <span className="text-[10px] text-theme-text-secondary/30">→</span>}
                 </span>
             ))}
         </div>
@@ -131,11 +132,11 @@ function DistressBar({ score }: { score?: number }) {
     const color = pct < 35 ? 'bg-emerald-400' : pct < 55 ? 'bg-yellow-400' : pct < 80 ? 'bg-orange-400' : 'bg-red-500'
     return (
         <div className="mt-1 flex items-center gap-2">
-            <span className="text-[10px] text-serene-muted/60">Distress</span>
-            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-serene-outline/30">
+            <span className="text-[10px] text-theme-text-secondary/60">Distress</span>
+            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-theme-border/30">
                 <div className={`h-full transition-all ${color}`} style={{ width: `${pct}%` }} />
             </div>
-            <span className="font-mono text-[10px] text-serene-muted/60">{score.toFixed(2)}</span>
+            <span className="font-mono text-[10px] text-theme-text-secondary/60">{score.toFixed(2)}</span>
         </div>
     )
 }
@@ -155,7 +156,7 @@ function QuickReplies({ replies, onSelect }: { replies?: QuickReply[]; onSelect:
                     key={i}
                     type="button"
                     onClick={() => onSelect(q)}
-                    className="rounded-full border border-serene-outline/40 bg-white/60 px-3 py-1.5 text-xs text-serene-ink transition hover:bg-serene-accent/40 active:scale-95"
+                    className="rounded-full border border-theme-border/40 bg-theme-surface/60 px-3 py-1.5 text-xs text-theme-text-primary transition hover:bg-theme-accent/20 active:scale-95"
                 >
                     {q}
                 </button>
@@ -179,16 +180,16 @@ function AttachmentCard({ item, onOpen }: { item: TheDinhKem; onOpen: (item: The
         <button
             type="button"
             onClick={() => onOpen(item)}
-            className="mt-2 grid max-w-sm grid-cols-[40px_1fr_auto] items-center gap-3 rounded-2xl border border-serene-outline/30 bg-white/60 px-3 py-2.5 text-left transition hover:bg-serene-accent/30"
+            className="mt-2 grid max-w-sm grid-cols-[40px_1fr_auto] items-center gap-3 rounded-2xl border border-theme-border/30 bg-theme-surface/60 px-3 py-2.5 text-left transition hover:bg-theme-accent/20"
         >
             <span className="flex h-10 w-10 items-center justify-center text-lg">{icons[item.type] ?? '📎'}</span>
             <div>
-                <p className="text-xs font-semibold text-serene-ink">{item.title}</p>
-                <p className="mt-0.5 line-clamp-2 text-[10px] leading-relaxed text-serene-muted">
+                <p className="text-xs font-semibold text-theme-text-primary">{item.title}</p>
+                <p className="mt-0.5 line-clamp-2 text-[10px] leading-relaxed text-theme-text-secondary">
                     {item.description || duration}
                 </p>
             </div>
-            <span className="rounded-full bg-serene-primary/10 px-2 py-1 text-[10px] font-medium text-serene-primary">
+            <span className="rounded-full bg-theme-accent/10 px-2 py-1 text-[10px] font-medium text-theme-accent">
                 Mở
             </span>
         </button>
@@ -196,14 +197,16 @@ function AttachmentCard({ item, onOpen }: { item: TheDinhKem; onOpen: (item: The
 }
 
 function CrisisPanel({ data }: { data: ChatApiData }) {
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
     if (!data.sos_triggered) return null
     return (
-        <div className="mt-3 space-y-2.5 rounded-2xl border-2 border-red-300 bg-red-50/90 p-4">
+        <div className={`mt-3 space-y-2.5 rounded-2xl border-2 ${isDark ? 'border-red-500/30 bg-red-500/10' : 'border-red-300 bg-red-50/90'} p-4`}>
             <div className="flex items-center gap-2">
                 <span className="text-xl">🆘</span>
                 <div>
-                    <p className="text-xs font-semibold text-red-700">CHẾ ĐỘ HỖ TRỢ KHỦNG HOẢNG</p>
-                    <p className="text-[10px] text-red-500/70">
+                    <p className={`text-xs font-semibold ${isDark ? 'text-red-400' : 'text-red-700'}`}>CHẾ ĐỘ HỖ TRỢ KHỦNG HOẢNG</p>
+                    <p className={`text-[10px] ${isDark ? 'text-red-400/70' : 'text-red-500/70'}`}>
                         risk_level: {data.risk_level ?? '—'} · tier: {data.safety_tier}
                     </p>
                 </div>
@@ -211,12 +214,12 @@ function CrisisPanel({ data }: { data: ChatApiData }) {
             {data.assistant_strategy && (
                 <div className="flex flex-wrap gap-1.5">
                     {data.assistant_strategy.keep_engaged && (
-                        <span className="rounded-full border border-green-300 bg-green-50 px-2 py-0.5 text-[10px] text-green-700">
+                        <span className={`rounded-full border ${isDark ? 'border-green-500/30 bg-green-500/10 text-green-400' : 'border-green-300 bg-green-50 text-green-700'} px-2 py-0.5 text-[10px]`}>
                             ✓ Giữ kết nối
                         </span>
                     )}
                     {data.assistant_strategy.encourage_external_help && (
-                        <span className="rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[10px] text-blue-700">
+                        <span className={`rounded-full border ${isDark ? 'border-blue-500/30 bg-blue-500/10 text-blue-400' : 'border-blue-300 bg-blue-50 text-blue-700'} px-2 py-0.5 text-[10px]`}>
                             ✓ Gợi hỗ trợ ngoài
                         </span>
                     )}
@@ -225,9 +228,9 @@ function CrisisPanel({ data }: { data: ChatApiData }) {
             {data.micro_actions?.length ? (
                 <div className="space-y-1.5">
                     {data.micro_actions.map((a, i) => (
-                        <div key={i} className="flex items-start gap-2 rounded-xl border border-red-200 bg-white/60 px-3 py-2">
+                        <div key={i} className={`flex items-start gap-2 rounded-xl border ${isDark ? 'border-red-500/20 bg-theme-surface/40' : 'border-red-200 bg-white/60'} px-3 py-2`}>
                             <span className="text-sm">{a.type === 'breathing' ? '🌬️' : '👁️'}</span>
-                            <span className="text-xs text-red-700">{a.label}</span>
+                            <span className={`text-xs ${isDark ? 'text-red-400' : 'text-red-700'}`}>{a.label}</span>
                         </div>
                     ))}
                 </div>
@@ -238,10 +241,10 @@ function CrisisPanel({ data }: { data: ChatApiData }) {
                         <a
                             key={i}
                             href={`tel:${h.phone.replace(/\s/g, '')}`}
-                            className="flex items-center justify-between rounded-xl border border-red-200 bg-white/70 px-3 py-2 transition hover:bg-red-50"
+                            className={`flex items-center justify-between rounded-xl border ${isDark ? 'border-red-500/30 bg-red-500/5 hover:bg-red-500/10' : 'border-red-200 bg-white/70 hover:bg-red-50'} px-3 py-2 transition`}
                         >
-                            <span className="text-xs text-red-700">{h.label}</span>
-                            <span className="font-bold text-red-600">{h.phone}</span>
+                            <span className={`text-xs ${isDark ? 'text-red-400' : 'text-red-700'}`}>{h.label}</span>
+                            <span className={`font-bold ${isDark ? 'text-red-400' : 'text-red-600'}`}>{h.phone}</span>
                         </a>
                     ))}
                 </div>
@@ -276,10 +279,12 @@ export default function Chat() {
     const guestDeadlineRef = useRef<number | null>(null)
     const guestExpiredNotifiedRef = useRef(false)
     const [sosActive, setSosActive] = useState(false)
+    const { effectiveTheme } = useThemeContext()
     const { user } = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
     const isGuestMode = !user
+    const isDark = effectiveTheme === 'dark'
 
     useEffect(() => {
         if (!user) {
@@ -695,41 +700,41 @@ export default function Chat() {
 
     // ─── Render ────────────────────────────────────────────────────────────────
     return (
-        <div >
-            <div className="h-[92dvh] flex flex-col bg-white/70 backdrop-blur-xl rounded-4xl p-4 shadow-xl">
+        <div>
+            <div className="h-[92dvh] flex flex-col bg-theme-surface/60 backdrop-blur-3xl rounded-[2.5rem] p-4 shadow-xl border border-theme-border/50">
 
                 {/* ── Header ───────────────────────────────────────────── */}
-                <div className="flex shrink-0 items-center justify-between mb-3 border-b-2 border-black/10 px-5 py-3">
+                <div className="flex shrink-0 items-center justify-between mb-3 border-b border-theme-border/50 px-5 py-3">
                     <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-serene-primary/50 text-2xl">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-theme-accent/20 text-2xl">
                             🌿
                         </div>
                         <div>
-                            <p className="text-2xl font-display font-semibold text-serene-ink">Serene</p>
-                            <p className="text-sm text-serene-muted">Luôn ở đây cùng bạn</p>
+                            <p className="text-2xl font-display font-semibold text-theme-text-primary">Serene</p>
+                            <p className="text-sm text-theme-text-secondary">Luôn ở đây cùng bạn</p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-2" ref={optionsRef}>
                         {voiceStatus && (
-                            <span className="rounded-full bg-serene-surface px-2.5 py-1 text-[10px] text-serene-muted">
+                            <span className="rounded-full bg-theme-bg-secondary px-2.5 py-1 text-[10px] text-theme-text-secondary">
                                 {voiceStatus}
                             </span>
                         )}
                         {isGuestMode && (
-                            <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[10px] font-medium text-amber-700">
+                            <span className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium text-amber-500">
                                 {guestCountdownLabel}
                             </span>
                         )}
                         {modeLabel && (
-                            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-medium ${modeLabel.cls}`}>
+                            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-medium ${isDark ? 'border-amber-500/30 bg-amber-500/10 text-amber-500' : modeLabel.cls}`}>
                                 {modeLabel.text}
                             </span>
                         )}
                         <button
                             type="button"
                             onClick={() => void openHistory()}
-                            className="flex items-center justify-center rounded-full text-serene-muted transition  hover:text-serene-ink"
+                            className="flex items-center justify-center rounded-full text-theme-text-secondary transition hover:text-theme-text-primary"
                             aria-label="Lịch sử chat"
                         >
                             <History className="h-6 w-6" />
@@ -738,19 +743,19 @@ export default function Chat() {
                             <button
                                 type="button"
                                 onClick={() => setShowOptions((prev) => !prev)}
-                                className="flex items-center justify-center rounded-full text-serene-muted transition hover:text-serene-ink"
+                                className="flex items-center justify-center rounded-full text-theme-text-secondary transition hover:text-theme-text-primary"
                                 aria-label="Tùy chọn"
                             >
                                 <MoreVertical className="h-6 w-6" />
                             </button>
                             {showOptions && (
-                                <div className="absolute right-0 top-10 z-50 w-72 rounded-2xl border border-serene-outline/30 bg-white/95 p-3 shadow-xl backdrop-blur-xl">
-                                    <p className="mb-3 text-[10px] uppercase tracking-[0.22em] text-serene-muted">Tùy chọn</p>
+                                <div className="absolute right-0 top-10 z-50 w-72 rounded-2xl border border-theme-border/50 bg-theme-surface p-3 shadow-xl backdrop-blur-xl">
+                                    <p className="mb-3 text-[10px] uppercase tracking-[0.22em] text-theme-text-secondary">Tùy chọn</p>
                                     <div className="space-y-2">
-                                        <div className="flex items-center justify-between rounded-xl border border-serene-outline/20 bg-serene-surface/50 px-3 py-2.5">
+                                        <div className="flex items-center justify-between rounded-xl border border-theme-border/20 bg-theme-bg-secondary/50 px-3 py-2.5">
                                             <div>
-                                                <p className="text-sm font-semibold text-serene-ink">Voice hỗ trợ</p>
-                                                <p className="mt-0.5 text-[11px] text-serene-muted">Gợi ý giọng nói chủ động khi cần</p>
+                                                <p className="text-sm font-semibold text-theme-text-primary">Voice hỗ trợ</p>
+                                                <p className="mt-0.5 text-[11px] text-theme-text-secondary">Gợi ý giọng nói chủ động khi cần</p>
                                             </div>
                                             <Switch
                                                 checked={voiceConsent}
@@ -759,10 +764,10 @@ export default function Chat() {
                                                 aria-label="Voice hỗ trợ"
                                             />
                                         </div>
-                                        <div className="flex items-center justify-between rounded-xl border border-serene-outline/20 bg-serene-surface/50 px-3 py-2.5">
+                                        <div className="flex items-center justify-between rounded-xl border border-theme-border/20 bg-theme-bg-secondary/50 px-3 py-2.5">
                                             <div>
-                                                <p className="text-sm font-semibold text-serene-ink">Debug info</p>
-                                                <p className="mt-0.5 text-[11px] text-serene-muted">Distress · routing · safety</p>
+                                                <p className="text-sm font-semibold text-theme-text-primary">Debug info</p>
+                                                <p className="mt-0.5 text-[11px] text-theme-text-secondary">Distress · routing · safety</p>
                                             </div>
                                             <Switch checked={showDebug} onCheckedChange={setShowDebug} aria-label="Debug" />
                                         </div>
@@ -787,7 +792,7 @@ export default function Chat() {
                         {messages.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                                 <div className="text-4xl">🌿</div>
-                                <p className=" text-serene-muted">Chia sẻ điều bạn đang cảm thấy, mình lắng nghe.</p>
+                                <p className=" text-theme-text-secondary">Chia sẻ điều bạn đang cảm thấy, mình lắng nghe.</p>
                             </div>
                         ) : (
                             messages.map((m, idx) => {
@@ -808,12 +813,12 @@ export default function Chat() {
                                             <div className={`flex max-w-[70%] flex-col gap-2 ${isAI ? 'items-start' : 'items-end'}`}>
                                                 <article
                                                     className={[
-                                                        'rounded-2xl px-4 py-3 leading-relaxed whitespace-pre-line',
+                                                        'rounded-2xl px-4 py-3 leading-relaxed whitespace-pre-line border',
                                                         isAI
                                                             ? m.apiData?.sos_triggered
-                                                                ? 'bg-red-50 text-red-800 border border-red-200'
-                                                                : 'bg-white/80 text-serene-ink shadow-sm'
-                                                            : 'bg-serene-primary text-serene-on-primary',
+                                                                ? 'bg-red-50 text-red-800 border-red-200'
+                                                                : 'bg-theme-surface/80 text-theme-text-primary border-theme-border/30 shadow-sm'
+                                                            : 'bg-theme-accent text-white border-transparent',
                                                     ].join(' ')}
                                                 >
                                                     {m.content}
@@ -866,7 +871,7 @@ export default function Chat() {
                 {/* ── Input bar ─────────────────────────────────────────── */}
                 <form
                     onSubmit={handleSend}
-                    className="sticky bottom-15 rounded-full bg-white px-4 py-3 backdrop-blur-sm border border-white/25 shadow-2xl"
+                    className="sticky bottom-15 rounded-full bg-theme-surface px-4 py-3 backdrop-blur-sm border border-theme-border/50 shadow-2xl"
                 >
                     {/* overlay */}
 
@@ -876,12 +881,12 @@ export default function Chat() {
                             onChange={(e) => setInput(e.target.value)}
                             disabled={isGuestMode && guestSecondsLeft <= 0}
                             placeholder="Chia sẻ điều bạn đang cảm thấy..."
-                            className="flex-1 rounded-full px-4 py-3 text-md text-serene-ink focus:outline-none"
+                            className="flex-1 rounded-full bg-transparent px-4 py-3 text-md text-theme-text-primary focus:outline-none"
                         />
                         <button
                             type="submit"
                             disabled={!canSend}
-                            className="shrink-0 rounded-full bg-serene-primary px-5 py-2.5 font-medium text-serene-on-primary transition hover:bg-serene-primary-dim disabled:cursor-not-allowed disabled:opacity-40"
+                            className="shrink-0 rounded-full bg-theme-accent px-5 py-2.5 font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             {sending ? '···' : 'Gửi'}
                         </button>

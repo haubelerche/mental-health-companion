@@ -1,15 +1,9 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Search, Sparkles, X } from 'lucide-react'
 import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
+import { useThemeContext } from '../../contexts/ThemeContext'
 import a1 from '../../assets/nutrition-a1.jpg'
 import a2 from '../../assets/nutrition-a2.jpg'
-import {
-    APP_SETTINGS_STORAGE_KEY,
-    APP_SETTINGS_UPDATED_EVENT,
-    readAppSettings,
-    type AppSettings,
-} from '../../utils/appSettings'
-
 // ─── Static pools (randomised each mount) ──────────────────────────────────────
 
 const DAILY_FACTS = [
@@ -54,34 +48,8 @@ const TAGS = ['Buổi sáng', 'Chay', 'Tăng năng lượng', 'Trị lo âu', 'N
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 export default function Nutrition() {
-    const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
-
-    useEffect(() => {
-        const syncThemeMode = (settings: AppSettings) => {
-            setIsDark(settings.mode === 'dark')
-        }
-
-        const handleSettingsUpdated = (event: Event) => {
-            const customEvent = event as CustomEvent<AppSettings>
-            if (customEvent.detail) {
-                syncThemeMode(customEvent.detail)
-            }
-        }
-
-        const handleStorageUpdated = (event: StorageEvent) => {
-            if (event.key !== APP_SETTINGS_STORAGE_KEY) {
-                return
-            }
-            syncThemeMode(readAppSettings())
-        }
-
-        window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-        window.addEventListener('storage', handleStorageUpdated)
-        return () => {
-            window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-            window.removeEventListener('storage', handleStorageUpdated)
-        }
-    }, [])
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
 
     const [dailyTip, setDailyTip] = useState<NutritionDailyTip | null>(null)
     const [query, setQuery] = useState('')
@@ -205,7 +173,7 @@ export default function Nutrition() {
             </section>
 
             {/* ── Recipe search ───────────────────────────────────────────── */}
-            <section className={`rounded-[28px] ${isDark ? 'bg-black/30' : 'bg-theme-surface/45'} p-6 backdrop-blur-xl lg:p-8`}>
+            <section className={`rounded-[28px]  bg-theme-surface/55 p-6 backdrop-blur-xl lg:p-8`}>
                 <div className="mb-5">
                     <p className="text-[10px] uppercase tracking-[0.3em] text-theme-text-secondary/60">Khám phá</p>
                     <h3 className="mt-1.5 font-display text-3xl italic text-theme-text-primary">Tra cứu công thức</h3>

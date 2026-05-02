@@ -4,15 +4,9 @@ import { motion } from 'framer-motion'
 import { AirVent, Cloud, Leaf, Sparkles } from 'lucide-react'
 import { toast } from 'react-toastify'
 import { useAuth } from '../../hooks/useAuth'
+import { useThemeContext } from '../../contexts/ThemeContext'
 import { homeService, type HomeFeed } from '../../services/homeService'
 import { ROUTE_PATHS } from '../../routes/paths'
-import {
-    APP_SETTINGS_STORAGE_KEY,
-    APP_SETTINGS_UPDATED_EVENT,
-    readAppSettings,
-    type AppSettings,
-} from '../../utils/appSettings'
-
 const MOODS = [
   { icon: Leaf,     title: 'Check-in Cảm xúc', desc: 'Ghi nhận nhanh trạng thái hiện tại.', apiMood: 'neutral',     emoji: '🍃' },
   { icon: Cloud,    title: 'Ủ rũ',  desc: 'Để mọi thứ trở nên dễ chịu hơn.',  apiMood: 'melancholic', emoji: '☁️' },
@@ -53,34 +47,8 @@ const PERSONAS = [
 export function HomeToday() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
-
-  useEffect(() => {
-      const syncThemeMode = (settings: AppSettings) => {
-          setIsDark(settings.mode === 'dark')
-      }
-
-      const handleSettingsUpdated = (event: Event) => {
-          const customEvent = event as CustomEvent<AppSettings>
-          if (customEvent.detail) {
-              syncThemeMode(customEvent.detail)
-          }
-      }
-
-      const handleStorageUpdated = (event: StorageEvent) => {
-          if (event.key !== APP_SETTINGS_STORAGE_KEY) {
-              return
-          }
-          syncThemeMode(readAppSettings())
-      }
-
-      window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-      window.addEventListener('storage', handleStorageUpdated)
-      return () => {
-          window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-          window.removeEventListener('storage', handleStorageUpdated)
-      }
-  }, [])
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
 
   const [feed, setFeed] = useState<HomeFeed | null>(null)
   const [checkedInMood, setCheckedInMood] = useState<string | null>(null)

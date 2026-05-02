@@ -9,13 +9,7 @@ import {
 import { ResourceGrid } from './ResourceGrid'
 import { YouTubeEmbed, isYouTubeUrl } from './YouTubeEmbed'
 import Loading from '../../ui/Loading'
-import {
-    APP_SETTINGS_STORAGE_KEY,
-    APP_SETTINGS_UPDATED_EVENT,
-    readAppSettings,
-    type AppSettings,
-} from '../../../utils/appSettings'
-
+import { useThemeContext } from '../../../contexts/ThemeContext'
 // ── Vietnamese category labels ────────────────────────────────────────────────
 const VI_LABELS: Record<string, { label: string; icon: string }> = {
     all: { label: 'Tất cả', icon: '✦' },
@@ -37,34 +31,8 @@ const RESOURCE_CATEGORY_IDS = ['all', 'meditate', 'sleep', 'music', 'wisdom', 'm
 export default function Resources() {
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
-    const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
-
-    useEffect(() => {
-        const syncThemeMode = (settings: AppSettings) => {
-            setIsDark(settings.mode === 'dark')
-        }
-
-        const handleSettingsUpdated = (event: Event) => {
-            const customEvent = event as CustomEvent<AppSettings>
-            if (customEvent.detail) {
-                syncThemeMode(customEvent.detail)
-            }
-        }
-
-        const handleStorageUpdated = (event: StorageEvent) => {
-            if (event.key !== APP_SETTINGS_STORAGE_KEY) {
-                return
-            }
-            syncThemeMode(readAppSettings())
-        }
-
-        window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-        window.addEventListener('storage', handleStorageUpdated)
-        return () => {
-            window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
-            window.removeEventListener('storage', handleStorageUpdated)
-        }
-    }, [])
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
 
     const requestedCategory = searchParams.get('category') || 'all'
     const initialCategory = RESOURCE_CATEGORY_IDS.includes(requestedCategory) ? requestedCategory : 'sleep'
@@ -144,7 +112,7 @@ export default function Resources() {
     }
 
     return (
-        <section className={`mx-auto max-w-6xl rounded-[2.5rem] border ${isDark ? 'border-white/10 bg-black/40' : 'border-white/50 bg-[#f5eee5]/78'} p-5 shadow-[0_30px_90px_rgba(47,52,46,0.18)] backdrop-blur-2xl sm:p-8 lg:p-10 transition-colors duration-200`}>
+        <section className={`mx-auto max-w-6xl rounded-[2.5rem] border ${isDark ? 'border-white/10 bg-theme-surface/40' : 'border-white/50 bg-[#f5eee5]/78'} p-5 shadow-[0_30px_90px_rgba(47,52,46,0.18)] backdrop-blur-2xl sm:p-8 lg:p-10 transition-colors duration-200`}>
 
             {/* Header */}
             <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -219,7 +187,7 @@ export default function Resources() {
             {/* Footer */}
             <footer className={`mt-12 flex flex-wrap items-center justify-center gap-8 border-t ${isDark ? 'border-white/10' : 'border-serene-ink/20'} pt-7 text-xs `}>
 
-                <p className={`w-full text-center font-display text-lg italic ${isDark ? 'text-white/40' : 'text-serene-muted/60'}`}>
+                <p className={`w-full text-center font-display text-lg italic text-theme-text-primary`}>
                     "Học cách chữa lành là hành trình đẹp để nhớ của mỗi con người."
                 </p>
             </footer>
