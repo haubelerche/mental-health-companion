@@ -76,7 +76,7 @@ export default function Profile() {
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`relative overflow-hidden rounded-[3rem] ${isDark ? 'bg-black/40 border border-white/10' : 'bg-theme-surface/40'} p-8 shadow-2xl backdrop-blur-3xl md:p-12`}
+                className="relative overflow-hidden rounded-[3rem] border border-theme-border/50 bg-theme-surface/40 p-8 shadow-2xl backdrop-blur-3xl md:p-12"
             >
                 <div className="absolute right-0 top-0 -mr-20 -mt-20 h-64 w-64 rounded-full bg-theme-accent/10 blur-3xl" />
                 <div className="absolute bottom-0 left-0 -mb-20 -ml-20 h-64 w-64 rounded-full bg-theme-accent/5 blur-3xl" />
@@ -120,7 +120,7 @@ export default function Profile() {
                                 return (
                                     <div
                                         key={stat.label}
-                                        className={`flex flex-col items-center rounded-3xl ${isDark ? 'bg-white/5 border border-white/5' : 'bg-theme-surface/50'} p-5 shadow-sm transition hover:bg-theme-surface/70 lg:items-start`}
+                                        className="flex flex-col items-center rounded-3xl border border-theme-border/30 bg-theme-surface/50 p-5 shadow-sm transition hover:bg-theme-surface/70 lg:items-start"
                                     >
                                         <Icon className={`h-6 w-6 ${stat.color} mb-3`} />
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary/60">
@@ -143,7 +143,7 @@ export default function Profile() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
-                        className={`rounded-[2.5rem] ${isDark ? 'bg-black/30 border border-white/10' : 'bg-theme-surface/40'} p-8 shadow-xl backdrop-blur-2xl`}
+                        className="rounded-[2.5rem] border border-theme-border/50 bg-theme-surface/40 p-8 shadow-xl backdrop-blur-2xl"
                     >
                         <div className="mb-8 flex items-center justify-between">
                             <h2 className="font-display text-3xl italic text-theme-text-primary">Thông tin cá nhân</h2>
@@ -179,7 +179,7 @@ export default function Profile() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
-                        className={`rounded-[2.5rem] ${isDark ? 'bg-black/30 border border-white/10' : 'bg-theme-surface/40'} p-8 shadow-xl backdrop-blur-2xl`}
+                        className="rounded-[2.5rem] border border-theme-border/50 bg-theme-surface/40 p-8 shadow-xl backdrop-blur-2xl"
                     >
                         <h2 className="mb-8 font-display text-3xl italic text-theme-text-primary">Hành trình tâm thức</h2>
                         {loading ? (
@@ -196,7 +196,7 @@ export default function Profile() {
                                 ].map((item, idx) => {
                                     const Icon = item.icon
                                     return (
-                                        <div key={idx} className={`flex items-center gap-4 rounded-3xl ${isDark ? 'bg-white/5 border border-white/5' : 'bg-theme-surface/20'} p-4 transition hover:bg-theme-surface/40`}>
+                                        <div key={idx} className="flex items-center gap-4 rounded-3xl border border-theme-border/30 bg-theme-surface/20 p-4 transition hover:bg-theme-surface/40">
                                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-theme-accent/10 text-theme-accent">
                                                 <Icon className="h-5 w-5" />
                                             </div>
@@ -227,13 +227,13 @@ export default function Profile() {
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.3 }}
-                        className={`rounded-[2.5rem] ${isDark ? 'bg-black/30 border border-white/10' : 'bg-theme-surface/40'} p-8 shadow-xl backdrop-blur-2xl`}
+                        className="rounded-[2.5rem] border border-theme-border/50 bg-theme-surface/40 p-8 shadow-xl backdrop-blur-2xl"
                     >
                         <h2 className="mb-6 font-display text-2xl italic text-theme-text-primary">Bảo mật & Tài khoản</h2>
                         <div className="space-y-3">
                             <button
                                 onClick={() => navigate(ROUTE_PATHS.forget)}
-                                className={`flex w-full items-center justify-between rounded-2xl ${isDark ? 'bg-white/5 border border-white/5' : 'bg-theme-surface/20'} px-5 py-4 transition hover:bg-theme-surface/40`}
+                                className="flex w-full items-center justify-between rounded-2xl border border-theme-border/30 bg-theme-surface/20 px-5 py-4 transition hover:bg-theme-surface/40"
                             >
                                 <div className="flex items-center gap-3">
                                     <Lock className="h-4 w-4 text-theme-text-secondary" />
@@ -242,7 +242,7 @@ export default function Profile() {
                             </button>
                             <button
                                 onClick={() => navigate(ROUTE_PATHS.setting)}
-                                className={`flex w-full items-center justify-between rounded-2xl ${isDark ? 'bg-white/5 border border-white/5' : 'bg-theme-surface/20'} px-5 py-4 transition hover:bg-theme-surface/40`}
+                                className="flex w-full items-center justify-between rounded-2xl border border-theme-border/30 bg-theme-surface/20 px-5 py-4 transition hover:bg-theme-surface/40"
                             >
                                 <div className="flex items-center gap-3">
                                     <Settings className="h-4 w-4 text-theme-text-secondary" />
