@@ -731,7 +731,7 @@ export default function Home() {
             <button
                 type="button"
                 onClick={() => navigate(ROUTE_PATHS.reflect)}
-                className="group relative w-full overflow-hidden rounded-3xl bg-theme-bg-primary/40 p-7 text-left backdrop-blur-xl shadow-lg hover:brightness-105 transition-all"
+                className="group relative w-full overflow-hidden rounded-3xl bg-theme-surface/50 p-7 text-left backdrop-blur-xl shadow-lg hover:brightness-105 transition-all"
             >
 
                 <div className="flex items-center justify-between gap-5">
@@ -740,11 +740,11 @@ export default function Home() {
                             initial={{ opacity: 0.8 }}
                             animate={{ opacity: 1 }}
                             transition={{ duration: 1.5, repeat: Infinity }}
-                            className="text-xs uppercase tracking-[0.22em] font-semibold text-white/90"
+                            className="text-xs uppercase tracking-[0.22em] font-semibold text-theme-text-primary/90"
                         >
                             ✨ Nhìn Lại · Tiến trình tuần này
                         </motion.p>
-                        <h3 className="mt-2 font-display text-2xl text-white">
+                        <h3 className="mt-2 font-display text-2xl text-theme-text-primary">
                             6 chiều sức khoẻ
                         </h3>
 
@@ -753,7 +753,7 @@ export default function Home() {
                             transition={{ duration: 1.2, repeat: Infinity }}
                             className="mt-3"
                         >
-                            <ArrowRight className="h-5 w-5 text-white/70 transition group-hover:translate-x-1" />
+                            <ArrowRight className="h-5 w-5 text-theme-text-primary/70 transition group-hover:translate-x-1" />
                         </motion.div>
                     </div>
                     <div className="relative shrink-0">
