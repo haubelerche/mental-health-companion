@@ -3,6 +3,7 @@ import { toast } from 'react-toastify'
 import { ApiRequestError } from '../../../api/types'
 import { anonymousShareService, type ReportCategory } from '../../../services/anonymousShareService'
 import { getUi, REPORT_CATEGORY_OPTIONS } from './shared'
+import { useThemeContext } from '../../../contexts/ThemeContext'
 
 type ReportTarget = {
     id: string
@@ -15,11 +16,13 @@ export function ReportLetterModal({
     onSuccess,
 }: {
     item: ReportTarget
-    dark: boolean
+    dark?: boolean
     onClose: () => void
     onSuccess: () => void
 }) {
-    const ui = getUi(dark)
+    const { effectiveTheme } = useThemeContext()
+    const isDark = typeof dark === 'boolean' ? dark : effectiveTheme === 'dark'
+    const ui = getUi(isDark)
     const [category, setCategory] = useState<ReportCategory>('spam')
     const [reason, setReason] = useState('')
     const [description, setDescription] = useState('')
@@ -58,8 +61,8 @@ export function ReportLetterModal({
                                 }}
                                 className="text-left rounded-2xl border px-4 py-3 transition-all"
                                 style={{
-                                    borderColor: category === option.value ? (dark ? 'rgba(95,208,190,0.7)' : 'rgba(79,157,203,0.7)') : dark ? 'rgba(242,235,224,0.16)' : 'rgba(18,30,40,0.16)',
-                                    backgroundColor: category === option.value ? (dark ? 'rgba(95,208,190,0.08)' : 'rgba(79,157,203,0.08)') : 'transparent',
+                                    borderColor: category === option.value ? (isDark ? 'rgba(95,208,190,0.7)' : 'rgba(79,157,203,0.7)') : isDark ? 'rgba(242,235,224,0.16)' : 'rgba(18,30,40,0.16)',
+                                    backgroundColor: category === option.value ? (isDark ? 'rgba(95,208,190,0.08)' : 'rgba(79,157,203,0.08)') : 'transparent',
                                 }}
                             >
                                 <p className={`${ui.textSubtle} font-display text-sm font-semibold`}>{option.label}</p>
@@ -76,10 +79,10 @@ export function ReportLetterModal({
                             rows={4}
                             className="w-full rounded-2xl p-4 font-display text-base italic leading-relaxed resize-none outline-none transition-colors"
                             style={{
-                                backgroundColor: dark ? 'rgba(242,235,224,0.05)' : 'rgb(255,255,255)',
-                                borderColor: dark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)',
-                                color: dark ? 'rgb(255,255,255)' : 'rgb(15,23,42)',
-                                border: `1px solid ${dark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)'}`,
+                                backgroundColor: isDark ? 'rgba(242,235,224,0.05)' : 'rgb(255,255,255)',
+                                borderColor: isDark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)',
+                                color: isDark ? 'rgb(255,255,255)' : 'rgb(15,23,42)',
+                                border: `1px solid ${isDark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)'}`,
                             }}
                         />
                     )}
@@ -91,10 +94,10 @@ export function ReportLetterModal({
                         rows={3}
                         className="w-full rounded-2xl p-4 font-display text-sm italic leading-relaxed resize-none outline-none transition-colors"
                         style={{
-                            backgroundColor: dark ? 'rgba(242,235,224,0.05)' : 'rgb(255,255,255)',
-                            borderColor: dark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)',
-                            color: dark ? 'rgb(255,255,255)' : 'rgb(15,23,42)',
-                            border: `1px solid ${dark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)'}`,
+                            backgroundColor: isDark ? 'rgba(242,235,224,0.05)' : 'rgb(255,255,255)',
+                            borderColor: isDark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)',
+                            color: isDark ? 'rgb(255,255,255)' : 'rgb(15,23,42)',
+                            border: `1px solid ${isDark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)'}`,
                         }}
                     />
 
@@ -105,7 +108,7 @@ export function ReportLetterModal({
                                 type="button"
                                 onClick={onClose}
                                 className="px-4 py-2 rounded-xl border text-sm font-semibold"
-                                style={{ borderColor: dark ? 'rgba(242,235,224,0.16)' : 'rgba(18,30,40,0.16)', color: dark ? 'rgba(242,235,224,0.8)' : 'rgba(20,26,33,0.8)' }}
+                                style={{ borderColor: isDark ? 'rgba(242,235,224,0.16)' : 'rgba(18,30,40,0.16)', color: isDark ? 'rgba(242,235,224,0.8)' : 'rgba(20,26,33,0.8)' }}
                             >
                                 Hủy
                             </button>
@@ -136,8 +139,8 @@ export function ReportLetterModal({
                                 className="px-5 py-2 rounded-xl font-semibold text-sm transition-all"
                                 style={{
                                     background: canSubmit ? 'linear-gradient(135deg,#5fd0be 0%,#4f9dcb 100%)' : 'none',
-                                    border: `1px solid ${canSubmit ? 'rgba(111,190,214,0.68)' : dark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)'}`,
-                                    color: canSubmit ? '#ffffff' : dark ? 'rgba(242,235,224,0.45)' : 'rgba(20,26,33,0.45)',
+                                    border: `1px solid ${canSubmit ? 'rgba(111,190,214,0.68)' : isDark ? 'rgba(242,235,224,0.13)' : 'rgba(18,30,40,0.18)'}`,
+                                    color: canSubmit ? '#ffffff' : isDark ? 'rgba(242,235,224,0.45)' : 'rgba(20,26,33,0.45)',
                                 }}
                             >
                                 {busy ? 'Đang gửi...' : 'Gửi báo cáo'}
