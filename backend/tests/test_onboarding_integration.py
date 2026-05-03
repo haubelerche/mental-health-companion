@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_current_user
-from app.db.models import User, UserProfile
-from app.db.session import Base, get_db
+from app.services.db.models import User, UserProfile
+from app.services.db.session import Base, get_db
 from app.main import app
 
 

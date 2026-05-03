@@ -125,12 +125,30 @@ def test_enqueue_voice_job_auto_process_uses_settings(monkeypatch):
     assert result["tts_job_id"] == "tts_1"
 
 
-def test_render_tts_audio_uses_blaze_provider(monkeypatch):
+def test_render_tts_audio_routed_via_renderer(monkeypatch):
+    """TTS path uses shared render_tts_audio (ElevenLabs); Blaze-specific helper removed."""
+    called: dict[str, object] = {}
+
+    def _fake_render(provider, script, job_key, *args, **kwargs):
+        called["provider"] = provider
+        called["script"] = script
+        called["job_key"] = job_key
+        return {
+            "audio_path": "/tmp/fake.mp3",
+            "provider": provider,
+            "duration": 1.0,
+            "chars": len(script),
+            "success": True,
+            "fallback": False,
+        }
+
+    monkeypatch.setattr(proactive_voice, "render_tts_audio", _fake_render)
     monkeypatch.setattr(
         proactive_voice,
         "get_settings",
-        lambda: SimpleNamespace(tts_provider="blaze"),
+        lambda: SimpleNamespace(tts_provider="elevenlabs"),
     )
-    monkeypatch.setattr(proactive_voice, "_render_blaze_audio", lambda *_args, **_kwargs: "ok.mp3")
-    out = proactive_voice._render_tts_audio(12, "xin chao")
-    assert out == "ok.mp3"
+    out = proactive_voice.render_tts_audio("elevenlabs", "xin chao", "tts_12", None, None, user_id="u1")
+    assert out["success"] is True
+    assert called["provider"] == "elevenlabs"
+    assert called["script"] == "xin chao"

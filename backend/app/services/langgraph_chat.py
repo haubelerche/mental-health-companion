@@ -457,7 +457,7 @@ def _build_mentalchat_examples(
 
         if not examples:
             return ""
-        lines = ["--- VÃ­ dá»¥ tham kháº£o tá»« chuyÃªn gia tÃ¢m lÃ½ ---"]
+        lines = ["--- Ví dụ tham khảo từ chuyên gia tâm lý ---"]
         for i, ex in enumerate(examples, 1):
             instr = str(ex.get("instruction") or "").strip()[:300]
             resp = str(ex.get("response") or "").strip()[:400]
@@ -501,18 +501,18 @@ def _build_friend_context(state: ChatGraphState, distress_score: float | None = 
             if content:
                 # Truncate long turns to keep context tight
                 transcript_lines.append(f"{role}: {content[:200]}")
-        transcript = "\n".join(transcript_lines) if transcript_lines else "(chÆ°a cÃ³ lá»‹ch sá»­)"
+        transcript = "\n".join(transcript_lines) if transcript_lines else "(chưa có lịch sử)"
         traits = dict(state.get("user_traits") or {})
-        tone_hint = str(traits.get("preferred_tone") or "").strip() or "dá»‹u dÃ ng"
+        tone_hint = str(traits.get("preferred_tone") or "").strip() or "dịu dàng"
         parts = [f"Distress: {d:.2f}"]
         if mood_line:
             parts.append(mood_line)
         parts.append(f"Tone: {tone_hint}")
         if is_recall_turn and mem0_blob:
-            parts.append(f"KÃ½ á»©c liÃªn quan:\n{mem0_blob}")
+            parts.append(f"Ký ức liên quan:\n{mem0_blob}")
         if is_recall_turn and memory_blob:
-            parts.append(f"TÃ³m táº¯t session gáº§n:\n{memory_blob}")
-        parts.append(f"Lá»‹ch sá»­ (3 lÆ°á»£t):\n{transcript}")
+            parts.append(f"Tóm tắt session gần:\n{memory_blob}")
+        parts.append(f"Lịch sử (3 lượt):\n{transcript}")
         if analyst_hint:
             parts.append(f"Analyst: {analyst_hint[:400]}")
         return "\n".join(parts)
@@ -524,13 +524,13 @@ def _build_friend_context(state: ChatGraphState, distress_score: float | None = 
         content = str(turn.get("content", "")).strip()
         if content:
             transcript_lines_full.append(f"{role}: {content}")
-    transcript_full = "\n".join(transcript_lines_full) if transcript_lines_full else "(chÆ°a cÃ³ lá»‹ch sá»­)"
+    transcript_full = "\n".join(transcript_lines_full) if transcript_lines_full else "(chưa có lịch sử)"
 
     top_triggers = [str(item or "").strip() for item in (state.get("top_triggers") or []) if str(item or "").strip()]
     coping = [str(item or "").strip() for item in (state.get("effective_coping") or []) if str(item or "").strip()]
     goals = [str(item or "").strip() for item in (state.get("active_goals") or []) if str(item or "").strip()]
     traits_full = dict(state.get("user_traits") or {})
-    preferred_tone = str(traits_full.get("preferred_tone") or "").strip() or "(chÆ°a rÃµ)"
+    preferred_tone = str(traits_full.get("preferred_tone") or "").strip() or "(chưa rõ)"
     communication_style = str(traits_full.get("communication_style") or "").strip() or ""
     trajectory = str(state.get("clinical_trajectory") or "").strip()
 
@@ -539,21 +539,21 @@ def _build_friend_context(state: ChatGraphState, distress_score: float | None = 
         sections.append(mood_line)
     profile_parts = [f"Tone: {preferred_tone}"]
     if communication_style:
-        profile_parts.append(f"Phong cÃ¡ch: {communication_style}")
+        profile_parts.append(f"Phong cách: {communication_style}")
     if top_triggers:
         profile_parts.append(f"Trigger: {', '.join(top_triggers[:3])}")
     if coping:
         profile_parts.append(f"Coping: {', '.join(coping[:3])}")
     if goals:
-        profile_parts.append(f"Má»¥c tiÃªu: {'; '.join(goals[:2])}")
+        profile_parts.append(f"Mục tiêu: {'; '.join(goals[:2])}")
     if trajectory:
-        profile_parts.append(f"HÃ nh trÃ¬nh: {trajectory}")
+        profile_parts.append(f"Hành trình: {trajectory}")
     sections.append(" | ".join(profile_parts))
     if mem0_blob:
-        sections.append(f"KÃ½ á»©c liÃªn quan:\n{mem0_blob}")
+        sections.append(f"Ký ức liên quan:\n{mem0_blob}")
     if memory_blob:
-        sections.append(f"TÃ³m táº¯t session gáº§n:\n{memory_blob}")
-    sections.append(f"Lá»‹ch sá»­:\n{transcript_full}")
+        sections.append(f"Tóm tắt session gần:\n{memory_blob}")
+    sections.append(f"Lịch sử:\n{transcript_full}")
     if analyst_hint:
         sections.append(f"Analyst: {analyst_hint[:800]}")
     return "\n".join(sections)
@@ -563,8 +563,8 @@ def _build_personality_hint(state: ChatGraphState) -> str:
     traits = dict(state.get("user_traits") or {})
     preferred_tone = str(traits.get("preferred_tone") or "").strip()
     top_triggers = [str(item or "").strip() for item in (state.get("top_triggers") or []) if str(item or "").strip()]
-    trigger_hint = ", ".join(top_triggers[:2]) if top_triggers else "chÆ°a rÃµ trigger"
-    tone_hint = preferred_tone or "dá»‹u dÃ ng"
+    trigger_hint = ", ".join(top_triggers[:2]) if top_triggers else "chưa rõ trigger"
+    tone_hint = preferred_tone or "dịu dàng"
     return f"[User profile: tone={tone_hint}; hay gáº·p={trigger_hint}]"
 
 
@@ -859,6 +859,15 @@ def distress_router(state: ChatGraphState) -> dict[str, Any]:
         "route_decision": route,
         "route_reason": reason,
         "use_fast_friend_model": use_fast,
+    }
+
+
+def supervisor_node(state: ChatGraphState) -> dict[str, Any]:
+    """Compatibility shim for golden eval tests; delegates to distress_router."""
+    routed = distress_router(state)
+    return {
+        "supervisor_route": routed.get("route_decision"),
+        "routing_history": list(routed.get("routing_history") or []),
     }
 
 
