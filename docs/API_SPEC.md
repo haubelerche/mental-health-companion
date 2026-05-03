@@ -1,8 +1,7 @@
 # API Spec (v1.0)
 
 **Thông tin dự án:** Multi-Agent Therapist Sàng Lọc và Hỗ Trợ Sức Khỏe Tinh Thần
-**Stack:** React.js + FastAPI + LangGraph + PostgreSQL + Redis + pgvector + Neo4j (Celery/outbox theo `docs/PRD.md`)
-**Naming runtime roles:** theo `docs/PRD.md` và `docs/GLOSSARY_RUNTIME.md`.
+**Stack:** React.js + FastAPI + LangGraph + PostgreSQL + Redis + pgvector + Neo4j (Celery/outbox theo `BACKEND_PLAN.md`)
 
 ---
 
@@ -249,9 +248,7 @@ Thu hồi refresh token và xóa cookie auth.
 ### `POST /chat/message`
 Gửi 1 tin nhắn, nhận phản hồi agent. Path triển khai theo blueprint: **`POST /v1/chat/message`** (document này bỏ tiền tố `/v1` trong heading cho gọn; mọi path dưới đây hiểu là dưới `$BASE_URL/v1`).
 
-Endpoint chạy pipeline đã chốt cho Sprint A: Middleware (SosGate) → `distress_router` → `analyst_node` (nếu cần) → `friend_node` (bao gồm sanitizer/quality checks nội bộ); nhánh crisis → **SOS Handler (rule-based)** bypass LangGraph.
-
-> **Execution note:** `persona_router` và subsystem personas được defer sang Sprint B sau khi core refactor ổn định production.
+Endpoint chạy LangGraph: Middleware → Supervisor → Analyst (nếu cần) → Friend → Output Guardrails; nhánh crisis → **SOS Handler (rule-based)** theo `SEQUENCE_DIAGRAMS` Diagram 4 và `BACKEND_PLAN.md` §6.3 / §7.
 
 ```json
 // Request
@@ -328,7 +325,7 @@ Endpoint chạy pipeline đã chốt cho Sprint A: Middleware (SosGate) → `dis
     "safety_tier": "voice_recommended",
     "voice_session_offered": true,
     "suggest_voice": true,
-    "voice_hint": "Bạn có thể bấm gọi để nói chuyện trực tiếp với Friend / tổng đài — mình vẫn ở đây trong lúc bạn cân nhắc.",
+    "voice_hint": "Bạn có thể bấm gọi để nói chuyện trực tiếp với Mây / tổng đài — mình vẫn ở đây trong lúc bạn cân nhắc.",
     "emergency_actions": null,
     "reply": "…",
     "sos_triggered": false
@@ -356,7 +353,7 @@ Endpoint chạy pipeline đã chốt cho Sprint A: Middleware (SosGate) → `dis
       "user_alert_sent": true
     },
     "risk_level": 5,
-    "agent_display_name": "Friend",
+    "agent_display_name": "Mây",
     "reply": null,
     "assistant_text": "Mình đang ở đây với bạn. Mình muốn giúp bạn an toàn ngay lúc này — nếu được, mình muốn bạn thử một việc nhỏ cùng mình trong lúc bạn cân nhắc thêm bước tiếp theo.",
     "assistant_strategy": {
@@ -398,11 +395,11 @@ Endpoint chạy pipeline đã chốt cho Sprint A: Middleware (SosGate) → `dis
 | Field | Kiểu | Ý nghĩa |
 |---|---|---|
 | `distress_score` | `number` | Điểm nghiêm trọng tình huống **0.0–1.0** (từ khóa + classifier theo policy). Luôn có khi backend đã bật scoring. |
-| `safety_tier` | `string` | Bậc điều phối UI / agent: `"normal"` (A), `"elevated"` (B), `"voice_recommended"` (C — voice intervention tự động khi đạt threshold), `"critical"` (D — khẩn, thường `> 0.9` + gói SOS). |
-| `voice_session_offered` | `boolean` | Legacy/optional flag cho live voice session UI; proactive TTS không phụ thuộc consent và không cần flag này để enqueue. |
-| `suggest_voice` | `boolean` | Legacy/A-B test label; không phải consent gate. |
-| `voice_hint` | `string \| null` | Deprecated for proactive TTS; không dùng meta copy như “sẽ gửi voice”. |
-| `emergency_actions` | `object \| null` | Chỉ bậc **critical** / khi job nền được enqueue: `outbound_call_to_user_queued`, `trusted_contact_notification_queued`, `user_alert_sent` (tin hotline/khẩn tới user). Giá trị `false` nếu chưa tích hợp — **không** coi `true` là đã gọi xong; chỉ “đã xếp hàng / đã kích hoạt luồng”. |
+| `safety_tier` | `string` | Bậc điều phối UI / agent: `"normal"` (A), `"elevated"` (B), `"voice_recommended"` (C — gợi thoại, thường `distress_score >= 0.8`), `"critical"` (D — khẩn, thường `> 0.9` + gói SOS). |
+| `voice_session_offered` | `boolean` | Backend gợi hiển thị CTA **gọi thoại / WebRTC / nhận cuộc gọi lại** (bậc C trở lên hoặc policy). |
+| `suggest_voice` | `boolean` | Trùng ý với `voice_session_offered` (có thể luôn bằng nhau); giữ để tương thích client cũ / A-B test label. |
+| `voice_hint` | `string \| null` | Một dòng copy gợi ý thoại (tuỳ chọn); không thay `assistant_text` khi SOS. |
+| `emergency_actions` | `object \| null` | Chỉ bậc **critical** / khi job nền được enqueue: `outbound_call_to_user_queued`, `trusted_contact_notification_queued`, `user_alert_sent` (tin hotline/khẩn tới user). Giá trị `false` nếu user chưa consent hoặc chưa tích hợp — **không** coi `true` là đã gọi xong; chỉ “đã xếp hàng / đã kích hoạt luồng”. |
 | `conversation_mode` | `string` | Mở rộng: `"normal"` \| `"supportive"` (khuyên nhủ, chưa SOS) \| `"de_escalation"` |
 | `intervention` | `object \| null` | Can thiệp chủ động ngoài reply chính. MVP hiện có `type = "proactive_voice"` khi safety layer kích hoạt voice async. |
 
@@ -421,13 +418,14 @@ Endpoint chạy pipeline đã chốt cho Sprint A: Middleware (SosGate) → `dis
   },
   "cooldown": { "active": false, "seconds_remaining": 0 },
   "voice": {
-    "provider": "elevenlabs",
+    "provider": "blaze",
     "tts_job_id": "tts_123",
     "audio_url": null,
     "status": "queued",
-    "model_id": "eleven_multilingual_v2"
+    "model_id": "blaze-tts-1"
   },
   "voice_script": "Mình đang ở đây với cậu...",
+  "copy_ngan": "Mình gửi cậu một lời nhắn thoại ngắn để đồng hành ngay lúc này.",
   "crisis_footer": {
     "show_once": true,
     "text": "Nếu cậu đang có ý định tự hại ngay lúc này, hãy bấm để kết nối hỗ trợ khẩn cấp.",
@@ -446,7 +444,7 @@ Endpoint chạy pipeline đã chốt cho Sprint A: Middleware (SosGate) → `dis
 - Response bình thường có thể thêm `conversation_mode: "normal"` (optional) để FE thống nhất component.
 
 **Lưu ý cho FE:**
-- Theo **`safety_tier`**: `normal` → UI chat thường; `elevated` → tone hỗ trợ / khuyên nhủ; `voice_recommended` → render `intervention.proactive_voice` nếu có; `critical` → §7.2 + `emergency_actions` (và không giả định mọi cờ đều `true` nếu backend chưa tích hợp luồng tương ứng).
+- Theo **`safety_tier`**: `normal` → UI chat thường; `elevated` → tone hỗ trợ / khuyên nhủ; `voice_recommended` → hiển thị CTA thoại nếu `voice_session_offered`; `critical` → §7.2 + `emergency_actions` (và không giả định mọi cờ đều `true` nếu chưa consent).
 - Kiểm tra `sos_triggered` **trước** khi render `reply` như chat thường; khi `true`, ưu tiên **`assistant_text`** + block crisis (hotline, `micro_actions`, `referral_options`).
 - Khi `assistant_strategy.avoid_hard_stop === true` (mặc định crisis): **không** coi “fullscreen duy nhất + ẩn input vĩnh viễn” là bắt buộc — ưu tiên **dual-focus**: vừa hiển thị nội dung an toàn, vừa luôn có hotline + hành động nhỏ (`BACKEND_PLAN.md` §7.6). Có thể hạn chế input (ví dụ chỉ quick-replies an toàn) thay vì khóa hoàn toàn, trừ policy sản phẩm bắt buộc khác.
 - `tone_cam_xuc` (khi không SOS): `"ho_tro"`, `"xac_nhan"`, `"vui_tuoi"`, `"lam_diu"`.
@@ -561,8 +559,6 @@ Xóa phiên chat. Mặc định là soft delete — nội dung ẩn với user, 
 > **GDPR / PDPA Right to Erasure:** User có quyền yêu cầu xóa vĩnh viễn ngay lập tức qua `DELETE /chat/sessions/{session_id}?hard=true`. Hard delete xóa cả summary, không giữ lại gì. Chính sách lưu trữ phải được hiển thị rõ trong phần Privacy Policy khi signup.
 
 **Summary được giữ lại chỉ bao gồm:** thống kê ẩn danh (số turn, tone cảm xúc tổng quát) — không bao gồm nội dung hội thoại, tên, hay bất kỳ thông tin có thể định danh.
-
----
 
 ## 3. Home
 
@@ -1180,6 +1176,7 @@ Xảy ra ở middleware FastAPI **trước khi** request vào LangGraph. FE khô
 FE **phải** kiểm tra `sos_triggered` trước khi render `reply` như tin nhắn thường. Khi `sos_triggered = true`:
 1. Render **`assistant_text`** và các khối **`hotline_cards`**, **`micro_actions`**, **`grounding_actions`** (nếu có), **`referral_options`** theo `conversation_mode: de_escalation`.
 2. Tôn trọng **`assistant_strategy`**: nếu `avoid_hard_stop` — ưu tiên UI **dual-focus** (chat an toàn + hotline + micro-actions), không ép một pattern “chỉ fullscreen / chỉ số điện thoại” (`BACKEND_PLAN.md` §7.5–§7.7).
+
 3. Hiển thị nút gọi hotline / liên hệ hỗ trợ; map `followup_priority` nếu có màn hình follow-up.
 4. Đọc **`distress_score`**, **`safety_tier`**, **`voice_session_offered`** / **`voice_hint`**; nếu `emergency_actions` khác `null`, hiển thị trạng thái “đã kích hoạt luồng” (không hiển thị PII người tin cậy) — xem bảng mục **`POST /chat/message`**.
 
@@ -1189,7 +1186,7 @@ FE **phải** kiểm tra `sos_triggered` trước khi render `reply` như tin nh
   - `queued`/`processing`/`ready`/`failed`.
   - FE có thể poll `GET /chat/voice-jobs/{tts_job_id}` hoặc nghe SSE từ `GET /chat/voice-jobs/{tts_job_id}/events`.
   - Khi `ready`, phát từ `GET /chat/voice-jobs/{tts_job_id}/audio`.
-- Nếu TTS fail, chat response chính vẫn thành công; FE hiển thị `voice_script` (assistant/Friend reply text) làm text fallback.
+- Nếu TTS fail, chat response chính vẫn thành công; FE dùng `voice_script`/`copy_ngan` fallback.
 
 ### Trusted contact outbound (legal-dependent)
 - Quản lý danh bạ:
@@ -1214,8 +1211,6 @@ MVP dùng REST sync. Nếu latency P95 > 5s ở Phase 2, nâng cấp lên endpoi
 ### Admin Auth
 Endpoint `/admin/*` yêu cầu token từ luồng `POST /admin/auth/login` (MFA bắt buộc, TTL 15 phút, không có refresh). Middleware kiểm tra đồng thời: JWT claim `role: "admin" + scope: "admin_only"` và IP request có trong `ADMIN_ALLOWED_IPS`. Thiếu một trong hai → 403. Mọi request được ghi vào `admin_audit_log` không thể tắt.
 
----
-
 ## Đối chiếu `BACKEND_PLAN.md` và `SEQUENCE_DIAGRAMS.md`
 
 Tài liệu mục trên mô tả **MVP API**; backend hiện mount thêm các nhóm dưới tiền tố `/v1` (xem `backend/app/api/v1/api.py`). Bảng sau phản ánh **trạng thái triển khai** (cập nhật theo code), không chỉ nội dung cũ của chính file spec này:
@@ -1226,14 +1221,369 @@ Tài liệu mục trên mô tả **MVP API**; backend hiện mount thêm các nh
 | Safety gate (intake) | `POST .../intake/safety-check` | `POST /intake/safety-check` | **Có** — trả `risk_score`, `risk_level`, `should_route_crisis`, `recommended_next_step` |
 | Policy gate | `GET .../policies/current`, `POST .../policies/acknowledge` | `GET /policies/current`, `POST /policies/acknowledge` + dependency `ensure_policy_acknowledged` trên một số route | **Có** — cần mở rộng mục chi tiết trong spec nếu muốn FE-only đọc một chỗ |
 | Screening | `GET .../screenings/catalog`, `POST .../screenings/submit` | `GET /screenings/catalog`, `POST /screenings/submit` (PHQ-9 / GAD-7 demo) | **Có** |
-| Check-in nhanh / mood | `POST .../checkin/quick` và/hoặc mood legacy | `POST /checkin/quick` **và** các route `/mood/*` trong spec (home) | **Song song** — FE chọn contract; nên mô tả rõ trong mục Home/Check-in khi refactor |
+| Check-in “An” / mood | `POST .../checkin/quick` và/hoặc mood legacy | `POST /checkin/quick` **và** các route `/mood/*` trong spec (home) | **Song song** — FE chọn contract; nên mô tả rõ trong mục Home/Check-in khi refactor |
 | Chat path | `POST .../chat/message` | `POST /chat/message` | **Khớp** (cùng base `/v1`) |
 | Crisis / SOS trong chat | §7.2 + ladder §7.9 | Như mục Chat trong spec | **Khớp tinh thần** — kiểm chứng field từng bản build |
 | Hotline / referral (REST tách) | `GET .../safety/hotlines`, `.../referrals/options` | `GET /safety/hotlines`, `GET /safety/referrals/options` **và** `GET /connect/hotlines`, `POST /connect/clinics` | **Trùng ý, hai nhóm path** — có thể chuẩn hoá tên sau |
-| Dashboard tiến triển | `overview`, `mood-trend`, `history`, `follow-up` | `GET /dashboard/overview`, `/dashboard/mood-trend`, `/dashboard/history`, `/dashboard/follow-up` | **Có** — `follow-up` hiện trả danh sách rỗng (stub) |
+| Dashboard “Gương” | `overview`, `mood-trend`, `history`, `follow-up` | `GET /dashboard/overview`, `/dashboard/mood-trend`, `/dashboard/history`, `/dashboard/follow-up` | **Có** — `follow-up` hiện trả danh sách rỗng (stub) |
 | Nội bộ an toàn | `POST .../safety/escalate` (internal) | `POST /safety/escalate` | **Có route** — hiện bị chặn bởi legal gate (`trusted_contact_outbound_enabled`) + user opt-in |
 | `user_id` | Plan: `usr_` + hex | DB: `make_id("usr")` → `usr_` + 10 ký tự an toàn | **Khớp code/DB** — ví dụ JSON cũ trong spec nên dần thay bằng `usr_...` |
 
 **Ghi chú nhỏ:** Trong `BACKEND_PLAN` §5.5, câu “Quy trình theo Diagram 1” cho chat nên hiểu là **diagram chat / pipeline message** trong `SEQUENCE_DIAGRAMS` (Diagram 2 — Chat message), không phải Diagram 1 (guest-first).
 
 **Khuyến nghị tiếp:** (1) Bổ sung trong spec các section riêng cho `/guest/*`, `/intake/*`, `/policies/*`, `/screenings/*`, `/checkin/*`, `/dashboard/*`, `/safety/*` (hoặc gộp bảng tóm tắt OpenAPI); (2) quyết định giữ hay deprecate mood path cũ so với `/checkin/quick`; (3) mô tả rõ legal gate và quy trình vận hành cho `POST /safety/escalate` trước khi bật outbound thật.
+
+---
+
+## 8. Bamboo / Thư ẩn danh
+
+### Tổng quan
+
+Feature Thư là luồng user-facing riêng cho gửi thư ẩn danh, nhận thư cộng đồng và hồi âm. Khác với chat, bamboo không có hội thoại realtime, không có LLM response, và chỉ cho user đã đăng nhập dùng.
+
+**Auth / CSRF**
+- Mọi endpoint dưới `/bamboo/*` yêu cầu cookie `access_token` hợp lệ.
+- Mọi request thay đổi state (`POST`, `PATCH`, `DELETE`) phải kèm `X-CSRF-Token` khớp cookie `csrf_token`.
+- Nếu user chưa xác nhận policy hiện tại: trả `POLICY_NOT_ACKNOWLEDGED` (403).
+
+**Moderation model**
+- Sync filter nhẹ ở lúc gửi để chặn nội dung rõ ràng vi phạm.
+- Async queue cho duyệt chính thức, trạng thái đi theo `pending` → `approved` / `rejected`.
+- Nội dung bị từ chối vẫn giữ log nội bộ nhưng không xuất hiện trong inbox công cộng.
+
+**Topic / tone**
+- Optional metadata nhẹ.
+- Không bắt user phải chọn khi viết thư.
+- Dùng để lọc inbox, hỗ trợ moderation, và cải thiện đề xuất thư.
+
+**Rate limit đề xuất**
+- Send: 10 thư / giờ / user.
+- Reply: 20 hồi âm / giờ / user.
+- Inbox refresh: 60 lần / giờ / user.
+
+---
+
+### `POST /bamboo/send`
+Gửi một lá thư ẩn danh mới.
+
+```json
+// Request
+{
+  "content": "Hôm nay mình hơi đuối, muốn để lại vài dòng cho ai đó...",
+  "topic": "encouragement",
+  "tone": "gentle"
+}
+
+// Response 201
+{
+  "success": true,
+  "data": {
+    "message_id": "bam_123",
+    "status": "pending",
+    "sent_at": "2026-04-29T10:00:00Z",
+    "moderation_mode": "hybrid",
+    "anonymous_name": "Một người vô danh"
+  },
+  "error": null
+}
+```
+
+**Validation**
+- `content` bắt buộc, 1–2,000 ký tự.
+- `topic` optional, nếu có chỉ nhận các giá trị đã định nghĩa.
+- `tone` optional, ví dụ: `gentle`, `uplifting`, `reflective`.
+- Nội dung có email / số điện thoại / link lộ PII nên bị mask hoặc chặn theo policy.
+- Backend pre-assign `recipient_id` ngẫu nhiên ngay lúc gửi (không trả field này cho client), moderation giữ assignment này nếu hợp lệ.
+
+**Error chính**
+- `AUTH_INVALID_TOKEN` (401)
+- `POLICY_NOT_ACKNOWLEDGED` (403)
+- `CSRF_TOKEN_INVALID` (403)
+- `PAYLOAD_TOO_LARGE` (422)
+- `INVALID_PARAMETER` (400)
+- `BAMBOO_CONTENT_REJECTED` (400 hoặc 422, theo policy moderation)
+- `RATE_LIMIT_EXCEEDED` (429)
+
+---
+
+### `GET /bamboo/inbox`
+Lấy danh sách thư được gán cho user hiện tại (bao gồm `pending` và `approved`).
+
+```json
+// Response 200
+{
+  "success": true,
+  "data": {
+    "messages": [
+      {
+        "message_id": "bam_pub_001",
+        "anonymous_name": "Người lữ hành",
+        "content": "Bạn không cần phải ổn ngay hôm nay...",
+        "topic": "encouragement",
+        "tone": "gentle",
+        "received_at": "2026-04-29T09:30:00Z",
+        "reply_to_message_id": "bam_123",
+        "pass_count": 2,
+        "reply_count": 1
+      }
+    ],
+    "total": 1,
+    "has_more": false
+  },
+  "error": null
+}
+```
+
+**Ghi chú**
+- Endpoint này chỉ trả thư có `recipient_id == current_user`.
+- `status` mỗi item hiện có thể là `pending` hoặc `approved`.
+- FE có thể random 1 lá từ danh sách này để hiển thị "thư đang chờ".
+
+**Error chính**
+- `AUTH_INVALID_TOKEN` (401)
+- `POLICY_NOT_ACKNOWLEDGED` (403)
+- `RATE_LIMIT_EXCEEDED` (429)
+
+---
+
+### `GET /bamboo/storage`
+Lấy lịch sử thư đã gửi và thư đã nhận của user hiện tại.
+
+```json
+// Response 200
+{
+  "success": true,
+  "data": {
+    "letters": [
+      {
+        "message_id": "bam_123",
+        "direction": "sent",
+        "status": "pending",
+        "content": "Hôm nay mình hơi đuối...",
+        "topic": "encouragement",
+        "tone": "gentle",
+        "created_at": "2026-04-29T10:00:00Z"
+      },
+      {
+        "message_id": "bam_pub_001",
+        "direction": "received",
+        "status": "approved",
+        "content": "Bạn không cần phải ổn ngay hôm nay...",
+        "topic": "encouragement",
+        "tone": "gentle",
+        "created_at": "2026-04-29T09:30:00Z"
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+**Ghi chú**
+- Dùng cho kho thư cá nhân.
+- Trả thư do user gửi (`user_id == current_user`) và thư được gán cho user (`recipient_id == current_user`).
+
+---
+
+### `GET /bamboo/letters/{message_id}`
+Lấy chi tiết một lá thư cụ thể khi user mở thư từ inbox hoặc kho cá nhân.
+
+```json
+// Response 200
+{
+  "success": true,
+  "data": {
+    "message_id": "bam_pub_001",
+    "anonymous_name": "Người lữ hành",
+    "content": "Bạn không cần phải ổn ngay hôm nay...",
+    "topic": "encouragement",
+    "tone": "gentle",
+    "direction": "received",
+    "status": "approved",
+    "reply_to_message_id": "bam_123",
+    "received_at": "2026-04-29T09:30:00Z",
+    "reply_count": 1,
+    "pass_count": 2
+  },
+  "error": null
+}
+```
+
+**Error chính**
+- `AUTH_INVALID_TOKEN` (401)
+- `POLICY_NOT_ACKNOWLEDGED` (403)
+- `BAMBOO_MESSAGE_NOT_FOUND` (404)
+
+---
+
+### `POST /bamboo/reply`
+Hồi âm một lá thư đã đọc.
+
+```json
+// Request
+{
+  "message_id": "bam_pub_001",
+  "content": "Mình đọc xong thấy nhẹ hơn một chút. Cảm ơn bạn đã viết ra điều này.",
+  "topic": "encouragement"
+}
+
+// Response 201
+{
+  "success": true,
+  "data": {
+    "reply_id": "bam_r_900",
+    "message_id": "bam_pub_001",
+    "reply_to_message_id": "bam_pub_001",
+    "status": "pending"
+  },
+  "error": null
+}
+```
+
+**Validation**
+- `message_id` phải tồn tại và thuộc inbox / kho thư hợp lệ của user.
+- `content` 1–1,000 ký tự.
+- Reply sẽ được route về `user_id` của thư gốc (người gửi ban đầu) qua `recipient_id`.
+- Chỉ recipient hiện tại của thư gốc mới được phép reply.
+
+**Error chính**
+- `AUTH_INVALID_TOKEN` (401)
+- `POLICY_NOT_ACKNOWLEDGED` (403)
+- `CSRF_TOKEN_INVALID` (403)
+- `BAMBOO_MESSAGE_NOT_FOUND` (404)
+- `INVALID_PARAMETER` (400)
+- `RATE_LIMIT_EXCEEDED` (429)
+
+---
+
+### `POST /bamboo/pass`
+Đẩy một lá thư sang bước chuyền tiếp / lan truyền tiếp trong cộng đồng.
+
+```json
+// Request
+{
+  "message_id": "bam_pub_001"
+}
+
+// Response 200
+{
+  "success": true,
+  "data": {
+    "message_id": "bam_pub_001",
+    "pass_count": 3,
+    "new_recipient": "usr_xxxxx",
+    "passed_at": "2026-04-29T10:06:00Z"
+  },
+  "error": null
+}
+```
+
+**Ghi chú**
+- Thao tác này có thể chỉ tăng `pass_count` và đưa thư vào batch reselection.
+- Không bắt buộc phải tạo bản sao thư mới.
+- Chỉ recipient hiện tại của thư mới được phép pass.
+
+**Error chính**
+- `AUTH_INVALID_TOKEN` (401)
+- `POLICY_NOT_ACKNOWLEDGED` (403)
+- `CSRF_TOKEN_INVALID` (403)
+- `BAMBOO_MESSAGE_NOT_FOUND` (404)
+- `INVALID_PARAMETER` (400)
+- `RATE_LIMIT_EXCEEDED` (429)
+
+---
+
+### `GET /bamboo/moderation/queue`
+Lấy hàng đợi moderation nội bộ cho admin / reviewer.
+
+```json
+// Response 200
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "message_id": "bam_123",
+        "status": "pending",
+        "submitted_at": "2026-04-29T10:00:00Z",
+        "topic": "encouragement",
+        "tone": "gentle",
+        "flag_count": 0
+      }
+    ],
+    "total": 1,
+    "has_more": false
+  },
+  "error": null
+}
+```
+
+**Ghi chú**
+- Endpoint này chỉ dành cho admin/reviewer.
+- Không trả raw PII đã bị mask nếu policy yêu cầu.
+
+**Error chính**
+- `ADMIN_FORBIDDEN` (403)
+- `INVALID_PARAMETER` (400)
+
+---
+
+### `PATCH /bamboo/moderation/{message_id}`
+Duyệt hoặc từ chối một lá thư.
+
+```json
+// Request
+{
+  "status": "approved",
+  "reason": null
+}
+
+// Response 200
+{
+  "success": true,
+  "data": {
+    "message_id": "bam_123",
+    "status": "approved",
+    "recipient_id": "usr_xxxxx",
+    "reviewed_at": "2026-04-29T10:10:00Z"
+  },
+  "error": null
+}
+```
+
+**Giá trị hợp lệ**
+- `status`: `approved` | `rejected` | `archived`
+- `reason`: optional, bắt buộc nếu `rejected`
+
+**Error chính**
+- `ADMIN_FORBIDDEN` (403)
+- `INVALID_PARAMETER` (400)
+- `BAMBOO_MESSAGE_NOT_FOUND` (404)
+
+---
+
+### Data model khuyến nghị
+
+Mỗi lá thư nên lưu tối thiểu:
+
+- `message_id`
+- `user_id`
+- `anonymous_name`
+- `content`
+- `topic`
+- `tone`
+- `direction` = `sent` | `received` | `reply`
+- `status` = `pending` | `approved` | `rejected` | `archived`
+- `created_at`
+- `reviewed_at`
+- `pass_count`
+- `reply_count`
+- `reply_to_message_id` (nullable, dùng để biểu diễn thư phản hồi thuộc thư gốc nào)
+- `moderation_reason`
+
+### Ghi chú triển khai FE
+
+- `topic` nên là optional metadata nhẹ, không bắt user chọn.
+- `GET /bamboo/inbox` trả thư assign cho current user (pending/approved).
+- `GET /bamboo/storage` dùng cho kho thư cá nhân.
+- `GET /bamboo/moderation/queue` và `PATCH /bamboo/moderation/{message_id}` dành cho admin/reviewer, không đưa vào user nav.
