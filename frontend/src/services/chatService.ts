@@ -15,16 +15,8 @@ export type VoiceJobResponse = {
     tts_job_id: string
     status: string
     audio_url: string | null
-    /** Base64 data URI embedded in the job record — preferred over audio_url because it
-     *  is instance-independent (no Cloud Run filesystem isolation issue). */
-    audio_data_uri?: string | null
     error_code?: string | null
     error_message?: string | null
-    /** Filled after synthesis: elevenlabs */
-    actual_tts_provider?: string | null
-    requested_tts_provider?: string | null
-    tts_chars?: number | null
-    tts_fallback?: boolean | null
 }
 
 export type GuestSessionStartResponse = {

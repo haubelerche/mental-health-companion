@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentProps } from 'react'
-import { History, MoreVertical, Play, RotateCcw } from 'lucide-react'
+import { History, MoreVertical } from 'lucide-react'
+import { TypingIndicator } from './TypingIndicator'
 import { DateDivider } from './DateDivider'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'react-toastify'
@@ -9,9 +10,11 @@ import { ApiRequestError } from '../../api/types'
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { chatService } from '../../services/chatService'
-import type { PersonaId } from '../../services/authService'
+import { policyService } from '../../services/policyService'
 import { Switch } from '../ui/switch'
 import { HotlineBar } from '../crisis/HotlineBar'
+import { ChatHistoryModal } from './ChatHistoryModal'
+import { useThemeContext } from '../../contexts/ThemeContext'
 
 // ─── API response types ────────────────────────────────────────────────────────
 
@@ -38,7 +41,7 @@ type ProactiveVoiceIntervention = {
     type: string
     trigger_reason?: string
     cooldown?: { active: boolean; seconds_remaining: number }
-    voice?: { status?: string; tts_job_id?: string | null; audio_url?: string | null; error_code?: string | null }
+    voice?: { status?: string; tts_job_id?: string | null; audio_url?: string | null }
     voice_script?: string
     copy_ngan?: string
     crisis_footer?: { show_once: boolean; text: string; hotline_cta: { label: string; action: string } }
@@ -80,23 +83,7 @@ type UiMessage = {
     content: string
     timestamp?: number
     apiData?: ChatApiData
-    voice?: { src: string; jobId: string }
 }
-
-function isFriendNodeProcessingStage(stage: string): boolean {
-    // model_stream_start is the current backend marker before/at friend node token streaming.
-    return stage === 'model_stream_start' || stage.startsWith('friend_node')
-}
-
-const PERSONA_OPTIONS: Array<{ id: PersonaId; title: string; subtitle: string }> = [
-    { id: 'ban_than', title: 'Bạn Thân', subtitle: 'Am ap, gan gui, khong phan xet' },
-    { id: 'nguoi_yeu', title: 'Crush', subtitle: 'Tender support, co ranh gioi an toan' },
-    { id: 'nguoi_thay', title: 'Người Thầy', subtitle: 'Goi mo suy nghi, dinh huong nhe' },
-    { id: 'nguoi_la', title: 'Người Lạ', subtitle: 'Lich su, nhe nhang cho session dau' },
-    { id: 'nguoi_than', title: 'Người Thân', subtitle: 'Bao boc thuc te, khong ly thuyet' },
-    { id: 'cun', title: 'Cún cưng', subtitle: 'Playful, nang luong tich cuc' },
-    { id: 'meo', title: 'Mèo méo', subtitle: 'Tinh te, binh yen, noi it chat' },
-]
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
@@ -126,13 +113,13 @@ function RoutingBadge({ history }: { history?: string[] }) {
     }
     return (
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
-            <span className="text-[10px] font-medium text-serene-muted/60">Luồng:</span>
+            <span className="text-[10px] font-medium text-theme-text-secondary/60">Luồng:</span>
             {history.map((node, i) => (
                 <span key={i} className="flex items-center gap-0.5">
-                    <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-medium capitalize ${nodeColors[node] ?? 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-medium capitalize ${nodeColors[node] ?? 'bg-theme-bg-secondary text-theme-text-secondary'}`}>
                         {node}
                     </span>
-                    {i < history.length - 1 && <span className="text-[10px] text-serene-muted/30">→</span>}
+                    {i < history.length - 1 && <span className="text-[10px] text-theme-text-secondary/30">→</span>}
                 </span>
             ))}
         </div>
@@ -145,11 +132,11 @@ function DistressBar({ score }: { score?: number }) {
     const color = pct < 35 ? 'bg-emerald-400' : pct < 55 ? 'bg-yellow-400' : pct < 80 ? 'bg-orange-400' : 'bg-red-500'
     return (
         <div className="mt-1 flex items-center gap-2">
-            <span className="text-[10px] text-serene-muted/60">Distress</span>
-            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-serene-outline/30">
+            <span className="text-[10px] text-theme-text-secondary/60">Distress</span>
+            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-theme-border/30">
                 <div className={`h-full transition-all ${color}`} style={{ width: `${pct}%` }} />
             </div>
-            <span className="font-mono text-[10px] text-serene-muted/60">{score.toFixed(2)}</span>
+            <span className="font-mono text-[10px] text-theme-text-secondary/60">{score.toFixed(2)}</span>
         </div>
     )
 }
@@ -169,7 +156,7 @@ function QuickReplies({ replies, onSelect }: { replies?: QuickReply[]; onSelect:
                     key={i}
                     type="button"
                     onClick={() => onSelect(q)}
-                    className="rounded-full border border-serene-outline/40 bg-white/60 px-3 py-1.5 text-xs text-serene-ink transition hover:bg-serene-accent/40 active:scale-95"
+                    className="rounded-full border border-theme-border/40 bg-theme-surface/60 px-3 py-1.5 text-xs text-theme-text-primary transition hover:bg-theme-accent/20 active:scale-95"
                 >
                     {q}
                 </button>
@@ -193,62 +180,33 @@ function AttachmentCard({ item, onOpen }: { item: TheDinhKem; onOpen: (item: The
         <button
             type="button"
             onClick={() => onOpen(item)}
-            className="mt-2 grid max-w-sm grid-cols-[40px_1fr_auto] items-center gap-3 rounded-2xl border border-serene-outline/30 bg-white/60 px-3 py-2.5 text-left transition hover:bg-serene-accent/30"
+            className="mt-2 grid max-w-sm grid-cols-[40px_1fr_auto] items-center gap-3 rounded-2xl border border-theme-border/30 bg-theme-surface/60 px-3 py-2.5 text-left transition hover:bg-theme-accent/20"
         >
             <span className="flex h-10 w-10 items-center justify-center text-lg">{icons[item.type] ?? '📎'}</span>
             <div>
-                <p className="text-xs font-semibold text-serene-ink">{item.title}</p>
-                <p className="mt-0.5 line-clamp-2 text-[10px] leading-relaxed text-serene-muted">
+                <p className="text-xs font-semibold text-theme-text-primary">{item.title}</p>
+                <p className="mt-0.5 line-clamp-2 text-[10px] leading-relaxed text-theme-text-secondary">
                     {item.description || duration}
                 </p>
             </div>
-            <span className="rounded-full bg-serene-primary/10 px-2 py-1 text-[10px] font-medium text-serene-primary">
+            <span className="rounded-full bg-theme-accent/10 px-2 py-1 text-[10px] font-medium text-theme-accent">
                 Mở
             </span>
         </button>
     )
 }
 
-function VoiceMessageCard({ jobId, onPlay }: { jobId: string; onPlay: () => void }) {
-    return (
-        <div className="mt-2 flex w-full max-w-sm items-center gap-3 rounded-2xl border border-teal-200/70 bg-white/80 px-3 py-2.5 shadow-sm">
-            <button
-                type="button"
-                onClick={onPlay}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-serene-primary text-white shadow-sm transition hover:bg-serene-primary/85 active:scale-95"
-                aria-label="Phát tin nhắn thoại"
-            >
-                <Play className="ml-0.5 h-4 w-4 fill-current" />
-            </button>
-            <div className="min-w-0 flex-1">
-                <div className="flex items-end gap-0.5" aria-hidden="true">
-                    {Array.from({ length: 18 }).map((_, i) => (
-                        <span
-                            key={i}
-                            className="w-1 rounded-full bg-serene-primary/60"
-                            style={{ height: `${8 + ((i * 7) % 18)}px` }}
-                        />
-                    ))}
-                </div>
-                <p className="mt-1 text-[10px] font-medium text-serene-muted">
-                    Tin nhắn thoại · bấm để nghe lại
-                </p>
-            </div>
-            <RotateCcw className="h-3.5 w-3.5 shrink-0 text-serene-muted/60" aria-hidden="true" />
-            <span className="sr-only">Voice job {jobId}</span>
-        </div>
-    )
-}
-
 function CrisisPanel({ data }: { data: ChatApiData }) {
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
     if (!data.sos_triggered) return null
     return (
-        <div className="mt-3 space-y-2.5 rounded-2xl border-2 border-red-300 bg-red-50/90 p-4">
+        <div className={`mt-3 space-y-2.5 rounded-2xl border-2 ${isDark ? 'border-red-500/30 bg-red-500/10' : 'border-red-300 bg-red-50/90'} p-4`}>
             <div className="flex items-center gap-2">
                 <span className="text-xl">🆘</span>
                 <div>
-                    <p className="text-xs font-semibold text-red-700">CHẾ ĐỘ HỖ TRỢ KHỦNG HOẢNG</p>
-                    <p className="text-[10px] text-red-500/70">
+                    <p className={`text-xs font-semibold ${isDark ? 'text-red-400' : 'text-red-700'}`}>CHẾ ĐỘ HỖ TRỢ KHỦNG HOẢNG</p>
+                    <p className={`text-[10px] ${isDark ? 'text-red-400/70' : 'text-red-500/70'}`}>
                         risk_level: {data.risk_level ?? '—'} · tier: {data.safety_tier}
                     </p>
                 </div>
@@ -256,12 +214,12 @@ function CrisisPanel({ data }: { data: ChatApiData }) {
             {data.assistant_strategy && (
                 <div className="flex flex-wrap gap-1.5">
                     {data.assistant_strategy.keep_engaged && (
-                        <span className="rounded-full border border-green-300 bg-green-50 px-2 py-0.5 text-[10px] text-green-700">
+                        <span className={`rounded-full border ${isDark ? 'border-green-500/30 bg-green-500/10 text-green-400' : 'border-green-300 bg-green-50 text-green-700'} px-2 py-0.5 text-[10px]`}>
                             ✓ Giữ kết nối
                         </span>
                     )}
                     {data.assistant_strategy.encourage_external_help && (
-                        <span className="rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[10px] text-blue-700">
+                        <span className={`rounded-full border ${isDark ? 'border-blue-500/30 bg-blue-500/10 text-blue-400' : 'border-blue-300 bg-blue-50 text-blue-700'} px-2 py-0.5 text-[10px]`}>
                             ✓ Gợi hỗ trợ ngoài
                         </span>
                     )}
@@ -270,9 +228,9 @@ function CrisisPanel({ data }: { data: ChatApiData }) {
             {data.micro_actions?.length ? (
                 <div className="space-y-1.5">
                     {data.micro_actions.map((a, i) => (
-                        <div key={i} className="flex items-start gap-2 rounded-xl border border-red-200 bg-white/60 px-3 py-2">
+                        <div key={i} className={`flex items-start gap-2 rounded-xl border ${isDark ? 'border-red-500/20 bg-theme-surface/40' : 'border-red-200 bg-white/60'} px-3 py-2`}>
                             <span className="text-sm">{a.type === 'breathing' ? '🌬️' : '👁️'}</span>
-                            <span className="text-xs text-red-700">{a.label}</span>
+                            <span className={`text-xs ${isDark ? 'text-red-400' : 'text-red-700'}`}>{a.label}</span>
                         </div>
                     ))}
                 </div>
@@ -283,10 +241,10 @@ function CrisisPanel({ data }: { data: ChatApiData }) {
                         <a
                             key={i}
                             href={`tel:${h.phone.replace(/\s/g, '')}`}
-                            className="flex items-center justify-between rounded-xl border border-red-200 bg-white/70 px-3 py-2 transition hover:bg-red-50"
+                            className={`flex items-center justify-between rounded-xl border ${isDark ? 'border-red-500/30 bg-red-500/5 hover:bg-red-500/10' : 'border-red-200 bg-white/70 hover:bg-red-50'} px-3 py-2 transition`}
                         >
-                            <span className="text-xs text-red-700">{h.label}</span>
-                            <span className="font-bold text-red-600">{h.phone}</span>
+                            <span className={`text-xs ${isDark ? 'text-red-400' : 'text-red-700'}`}>{h.label}</span>
+                            <span className={`font-bold ${isDark ? 'text-red-400' : 'text-red-600'}`}>{h.phone}</span>
                         </a>
                     ))}
                 </div>
@@ -305,52 +263,44 @@ export default function Chat() {
     const [messages, setMessages] = useState<UiMessage[]>([])
     const [input, setInput] = useState('')
     const [sending, setSending] = useState(false)
+    const [voiceConsent, setVoiceConsent] = useState(false)
     const [voiceStatus, setVoiceStatus] = useState('')
     const [lastFailedText, setLastFailedText] = useState<string | null>(null)
     const [showDebug, setShowDebug] = useState(true)
     const [showOptions, setShowOptions] = useState(false)
     const [showHistory, setShowHistory] = useState(false)
+    const [historyLoading, setHistoryLoading] = useState(false)
     const [sessions, setSessions] = useState<Array<{ session_id: string; preview: string | null; last_message_at: string }>>([])
     const [guestSecondsLeft, setGuestSecondsLeft] = useState<number>(FALLBACK_GUEST_CHAT_DURATION_SECONDS)
     const [guestSessionLoading, setGuestSessionLoading] = useState(false)
-    const [pendingAudioSrc, setPendingAudioSrc] = useState<string | null>(null)
     const pollRef = useRef<number | null>(null)
     const bottomRef = useRef<HTMLDivElement | null>(null)
     const optionsRef = useRef<HTMLDivElement | null>(null)
     const guestDeadlineRef = useRef<number | null>(null)
     const guestExpiredNotifiedRef = useRef(false)
-    // Persistent AudioContext created + unlocked inside the first user-gesture handler.
-    // Subsequent poll-callback playback reuses this same context so autoplay policy
-    // is never triggered (AudioContext playback bypasses HTMLAudioElement restrictions).
-    const audioCtxRef = useRef<AudioContext | null>(null)
-    const audioUnlockedRef = useRef(false)
     const [sosActive, setSosActive] = useState(false)
-    const { user, updatePersona } = useAuth()
+    const { effectiveTheme } = useThemeContext()
+    const { user } = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
     const isGuestMode = !user
-    const [showPersonaModal, setShowPersonaModal] = useState(false)
-    const [personaSaving, setPersonaSaving] = useState(false)
+    const isDark = effectiveTheme === 'dark'
 
-    const personaErrorFallback = (personaId?: PersonaId | null) => {
-        if (personaId === 'nguoi_yeu') {
-            return 'Mình xin lỗi vì bị ngắt quãng một chút, nhưng mình vẫn ở đây với bạn nhé.'
+    useEffect(() => {
+        if (!user) {
+            setVoiceConsent(false)
+            return
         }
-        if (personaId === 'nguoi_thay') {
-            return 'Mình vừa bị ngắt quãng một chút. Nếu bạn muốn, mình sẽ cùng bạn đi tiếp từng bước.'
-        }
-        return 'Mình bị gián đoạn một chút, nhưng mình vẫn ở đây với bạn. Bạn thử lại giúp mình nhé.'
-    }
+        policyService
+            .getVoiceConsent()
+            .then((res) => setVoiceConsent(Boolean(res.voice_consent)))
+            .catch(() => undefined)
+    }, [user])
 
     useEffect(() => {
         const state = location.state as { crisisMode?: boolean } | null
         if (state?.crisisMode) setSosActive(true)
     }, [location.state])
-
-    useEffect(() => {
-        if (!user || user.personaId) return
-        setShowPersonaModal(true)
-    }, [user])
 
     useEffect(() => {
         let cancelled = false
@@ -441,82 +391,31 @@ export default function Chat() {
         return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
     }, [guestSecondsLeft])
 
-    const playAudioUrl = (src: string) => {
-        const resolvedSrc = src.startsWith('data:') ? src : resolveMediaUrl(src)
-        const ctx = audioCtxRef.current
-        if (ctx && resolvedSrc.startsWith('data:audio/')) {
-            // Decode and play via the already-unlocked AudioContext.
-            // This bypasses the HTMLAudioElement autoplay restriction that blocks
-            // play() calls from setTimeout/poll callbacks even after a prior user gesture.
-            const base64 = resolvedSrc.split(',')[1] ?? ''
-            try {
-                const binary = atob(base64)
-                const bytes = new Uint8Array(binary.length)
-                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-                void ctx.resume().then(() =>
-                    ctx.decodeAudioData(bytes.buffer.slice(0)).then((buf) => {
-                        const source = ctx.createBufferSource()
-                        source.buffer = buf
-                        source.connect(ctx.destination)
-                        source.start(0)
-                    }).catch(() => { setPendingAudioSrc(resolvedSrc) })
-                )
-            } catch {
-                setPendingAudioSrc(resolvedSrc)
-            }
-            return
-        }
-        // Fallback: HTMLAudioElement for URL-based audio or when AudioContext not ready.
-        const audio = new Audio(resolvedSrc)
-        void audio.play().catch(() => { setPendingAudioSrc(resolvedSrc) })
-    }
-
-    const attachVoiceToAssistantMessage = (ttsJobId: string, src: string) => {
-        setMessages((prev) => {
-            const idx = [...prev]
-                .reverse()
-                .findIndex((m) => m.role === 'assistant' && m.apiData?.intervention?.voice?.tts_job_id === ttsJobId)
-            const targetIdx = idx >= 0 ? prev.length - 1 - idx : [...prev].reverse().findIndex((m) => m.role === 'assistant')
-            if (targetIdx < 0) return prev
-            const actualIdx = idx >= 0 ? targetIdx : prev.length - 1 - targetIdx
-            return prev.map((m, i) => (i === actualIdx ? { ...m, voice: { src, jobId: ttsJobId } } : m))
+    const playAudioUrl = (audioUrl: string) => {
+        const audio = new Audio(resolveMediaUrl(audioUrl))
+        void audio.play().catch(() => {
+            toast.info('Trình duyệt chặn tự phát audio, hãy bấm play thủ công.')
         })
     }
 
     const pollVoiceJob = async (ttsJobId: string, fallbackScript?: string, attempts = 0) => {
-        // Max ~18s total: 3×400 + 3×800 + 6×1500 = 12.6s → safe margin for slow synthesis.
-        if (attempts > 12) {
-            console.warn('[voice] polling timeout — job never completed job_id=%s', ttsJobId)
-            setVoiceStatus('Voice: failed (timeout)')
+        if (attempts > 10) {
+            setVoiceStatus('Voice phản hồi chậm, đang dùng bản text trước.')
             if (fallbackScript) {
-                setMessages((prev) => [
-                    ...prev,
-                    { id: `vs_timeout_${Date.now()}`, role: 'assistant', content: fallbackScript },
-                ])
+                setMessages((prev) => [...prev, { id: `vs_to_${Date.now()}`, role: 'assistant', content: fallbackScript }])
             }
             return
         }
         try {
             const job = await chatService.getVoiceJob(ttsJobId)
-            console.log('[voice] poll attempt=%d status=%s error_code=%s has_data_uri=%s job_id=%s',
-                attempts, job.status, job.error_code ?? 'none',
-                job.audio_data_uri ? 'yes' : 'no', ttsJobId)
-            if (job.status === 'ready') {
-                // Prefer the base64 data URI (instance-independent) over the relative
-                // audio_url which requires the same Cloud Run instance that wrote the
-                // file to serve the request.
-                const src = job.audio_data_uri ?? job.audio_url
-                if (src) {
-                    attachVoiceToAssistantMessage(ttsJobId, src)
-                    setVoiceStatus('')
-                    return
-                }
-                // status=ready but no src — wait for next poll (race with daemon commit)
+            setVoiceStatus(`Voice: ${job.status}`)
+            if (job.status === 'ready' && job.audio_url) {
+                playAudioUrl(job.audio_url)
+                setVoiceStatus('')
+                return
             }
             if (job.status === 'failed') {
-                console.warn('[voice] job failed — error_code=%s error_message=%s',
-                    job.error_code ?? 'none', job.error_message ?? 'none')
-                setVoiceStatus(`Voice: failed${job.error_code ? ` (${job.error_code})` : ''}`)
+                setVoiceStatus(job.error_message ? `Voice lỗi: ${job.error_message}` : 'Voice lỗi, chuyển về text.')
                 if (fallbackScript) {
                     setMessages((prev) => [
                         ...prev,
@@ -525,10 +424,10 @@ export default function Chat() {
                 }
                 return
             }
-            setVoiceStatus(`Voice: ${job.status}`)
-        } catch (e) {
-            console.error('[voice] pollVoiceJob threw (attempt=%d job_id=%s):', attempts, ttsJobId, e)
-            setVoiceStatus('Voice: failed (network)')
+        } catch {
+            if (fallbackScript) {
+                setMessages((prev) => [...prev, { id: `vs_err_${Date.now()}`, role: 'assistant', content: fallbackScript }])
+            }
             return
         }
         const delay = attempts < 3 ? 400 : attempts < 6 ? 800 : 1500
@@ -537,27 +436,21 @@ export default function Chat() {
         }, delay)
     }
 
-    // alreadyDisplayedText prevents voice_script fallback from duplicating the assistant message.
-    const applyIntervention = (data: ChatApiData, alreadyDisplayedText?: string) => {
+    const applyIntervention = (data: ChatApiData) => {
         const intervention = data.intervention
         if (intervention?.type !== 'proactive_voice') return
+        if (intervention.copy_ngan) {
+            setMessages((prev) => [...prev, { id: `i_${Date.now()}`, role: 'assistant', content: intervention.copy_ngan ?? '' }])
+        }
         const ttsJobId = intervention.voice?.tts_job_id
         const audioUrl = intervention.voice?.audio_url
-        const rawScript = (intervention.voice_script ?? '').trim()
-        const shownText = (alreadyDisplayedText ?? '').trim()
-        const fallbackScript = rawScript && rawScript !== shownText ? intervention.voice_script : undefined
-        console.log('[voice] applyIntervention tts_job_id=%s audio_url=%s voice_status=%s',
-            ttsJobId ?? 'null', audioUrl ?? 'null', intervention.voice?.status ?? 'none')
         if (audioUrl) {
-            attachVoiceToAssistantMessage(ttsJobId ?? `tts_${Date.now()}`, audioUrl)
+            playAudioUrl(audioUrl)
         } else if (ttsJobId) {
-            setVoiceStatus('Voice: queued')
-            void pollVoiceJob(ttsJobId, fallbackScript)
-        } else if (fallbackScript) {
-            if (intervention.voice?.status === 'failed') {
-                setVoiceStatus(`Voice: failed${intervention.voice?.error_code ? ` (${intervention.voice.error_code})` : ''}`)
-            }
-            setMessages((prev) => [...prev, { id: `vs_${Date.now()}`, role: 'assistant', content: fallbackScript }])
+            setVoiceStatus('Đang tạo voice...')
+            void pollVoiceJob(ttsJobId, intervention.voice_script)
+        } else if (intervention.voice_script) {
+            setMessages((prev) => [...prev, { id: `vs_${Date.now()}`, role: 'assistant', content: intervention.voice_script ?? '' }])
         }
     }
 
@@ -595,20 +488,11 @@ export default function Chat() {
                     if (currentEvent === 'delta') {
                         streamedText += String(payload.text ?? '')
                         setMessages((prev) =>
-                            prev.map((m) =>
-                                m.id === pendingId ? { ...m, content: streamedText || 'Đang nhập tin nhắn...' } : m,
-                            ),
+                            prev.map((m) => (m.id === pendingId ? { ...m, content: streamedText || '...' } : m)),
                         )
                     } else if (currentEvent === 'heartbeat') {
                         const stage = String(payload.stage ?? 'pre_llm')
                         const elapsedMs = Number(payload.elapsed_ms ?? 0)
-                        if (isFriendNodeProcessingStage(stage) && !streamedText.trim()) {
-                            setMessages((prev) =>
-                                prev.map((m) =>
-                                    m.id === pendingId ? { ...m, content: 'Đang nhập tin nhắn...' } : m,
-                                ),
-                            )
-                        }
                         setVoiceStatus(`Đang xử lý (${stage}) · ${elapsedMs}ms`)
                     } else if (currentEvent === 'status') {
                         if (payload.stage === 'ready' && typeof payload.latency_ms === 'number') {
@@ -642,7 +526,7 @@ export default function Chat() {
             ),
         )
         if (finalData.sos_triggered) setSosActive(true)
-        applyIntervention(finalData, assistantText)
+        applyIntervention(finalData)
     }
 
     const doSend = async (text: string) => {
@@ -655,11 +539,10 @@ export default function Chat() {
         const pendingId = `p_${now}`
         setInput('')
         setLastFailedText(null)
-        setPendingAudioSrc(null)
         setMessages((prev) => [
             ...prev,
             { id: `u_${now}`, role: 'user', content: text, timestamp: now },
-            { id: pendingId, role: 'assistant', content: 'Đang nhập tin nhắn...', timestamp: now },
+            { id: pendingId, role: 'assistant', content: 'Mây đang lắng nghe và viết lại thật cẩn thận cho bạn...', timestamp: now },
         ])
         setSending(true)
 
@@ -689,7 +572,7 @@ export default function Chat() {
                         ),
                     )
                     if (data.sos_triggered) setSosActive(true)
-                    applyIntervention(data, assistantText)
+                    applyIntervention(data)
                     toast.info('Đường truyền stream đang lỗi, mình đã chuyển sang chế độ chat thường.')
                 }
             } else {
@@ -714,7 +597,7 @@ export default function Chat() {
                     ),
                 )
                 if (data.sos_triggered) setSosActive(true)
-                applyIntervention(data, assistantText)
+                applyIntervention(data)
             }
         } catch (err) {
             if (err instanceof ApiRequestError && err.code === 'GUEST_TRIAL_EXPIRED') {
@@ -730,7 +613,7 @@ export default function Chat() {
             setMessages((prev) =>
                 prev.map((m) =>
                     m.id === pendingId
-                        ? { id: `e_${Date.now()}`, role: 'assistant', content: personaErrorFallback(user?.personaId) }
+                        ? { id: `e_${Date.now()}`, role: 'assistant', content: 'Mình bị gián đoạn một chút, bạn thử lại giúp mình nhé.' }
                         : m,
                 ),
             )
@@ -740,17 +623,24 @@ export default function Chat() {
     }
 
     const loadHistory = async () => {
+        setHistoryLoading(true)
         try {
             const data = await chatService.getSessions()
             setSessions(data.sessions)
         } catch {
             setSessions([])
+        } finally {
+            setHistoryLoading(false)
         }
     }
 
     const openHistory = async () => {
-        setShowHistory((prev) => !prev)
-        if (!showHistory) await loadHistory()
+        if (showHistory) {
+            setShowHistory(false)
+            return
+        }
+        setShowHistory(true)
+        await loadHistory()
     }
 
     const loadSessionMessages = async (targetSessionId: string) => {
@@ -765,33 +655,9 @@ export default function Chat() {
         }
     }
 
-    const unlockAudioContext = () => {
-        if (audioUnlockedRef.current) return
-        audioUnlockedRef.current = true
-        try {
-            // Create a persistent AudioContext that lives for the session.
-            // Playing a silent 1-frame buffer inside this user-gesture handler
-            // puts the context in "running" state — subsequent decodeAudioData +
-            // AudioBufferSourceNode.start() calls from poll callbacks are then allowed.
-            const ctx = new AudioContext()
-            audioCtxRef.current = ctx
-            const buf = ctx.createBuffer(1, 1, 22050)
-            const src = ctx.createBufferSource()
-            src.buffer = buf
-            src.connect(ctx.destination)
-            src.start(0)
-            void ctx.resume()
-        } catch {
-            // AudioContext not available (SSR, restricted env) — ignore silently.
-        }
-    }
-
     const handleSend: FormSubmitHandler = async (event) => {
         event.preventDefault()
         if (!canSend) return
-        // Unlock the audio context synchronously inside this user-gesture handler so
-        // that subsequent auto-play calls from the poll loop are permitted by the browser.
-        unlockAudioContext()
         await doSend(input.trim())
     }
 
@@ -799,6 +665,17 @@ export default function Chat() {
         if (!lastFailedText || sending) return
         setInput(lastFailedText)
         setLastFailedText(null)
+    }
+
+    const handleToggleVoiceConsent = async () => {
+        const next = !voiceConsent
+        try {
+            const res = await policyService.setVoiceConsent(next)
+            setVoiceConsent(Boolean(res.voice_consent))
+            toast.success(next ? 'Đã bật hỗ trợ voice chủ động' : 'Đã tắt hỗ trợ voice chủ động')
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Không cập nhật được cài đặt voice')
+        }
     }
 
     const openAttachment = (item: TheDinhKem) => {
@@ -812,21 +689,6 @@ export default function Chat() {
         navigate(ROUTE_PATHS.resources)
     }
 
-    const selectPersona = async (personaId: PersonaId) => {
-        if (personaSaving) return
-        setPersonaSaving(true)
-        try {
-            await updatePersona(personaId)
-            setShowPersonaModal(false)
-            setShowOptions(false)
-            toast.success('Da cap nhat persona dong hanh.')
-        } catch {
-            toast.error('Khong cap nhat duoc persona, vui long thu lai.')
-        } finally {
-            setPersonaSaving(false)
-        }
-    }
-
     // Derived display values
     const lastData = [...messages].reverse().find((m) => m.role === 'assistant' && m.apiData)?.apiData
     const modeLabel =
@@ -838,94 +700,77 @@ export default function Chat() {
 
     // ─── Render ────────────────────────────────────────────────────────────────
     return (
-        <>
-            <div className="flex h-[calc(100svh-6rem)] flex-col overflow-hidden rounded-[28px] border border-white/35 bg-white/35 backdrop-blur-xl lg:h-[calc(100svh-4rem)]">
+        <div>
+            <div className="h-[92dvh] flex flex-col bg-theme-surface/60 backdrop-blur-3xl rounded-[2.5rem] p-4 shadow-xl border border-theme-border/50">
 
                 {/* ── Header ───────────────────────────────────────────── */}
-                <div className="flex shrink-0 items-center justify-between border-b border-serene-outline/20 px-5 py-3">
+                <div className="flex shrink-0 items-center justify-between mb-3 border-b border-theme-border/50 px-5 py-3">
                     <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-serene-primary/10 text-lg">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-theme-accent/20 text-2xl">
                             🌿
                         </div>
                         <div>
-                            <p className="text-sm font-semibold text-serene-ink">Serene</p>
-                            <p className="text-[11px] text-serene-muted">Luôn ở đây cùng bạn</p>
+                            <p className="text-2xl font-display font-semibold text-theme-text-primary">Serene</p>
+                            <p className="text-sm text-theme-text-secondary">Luôn ở đây cùng bạn</p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-2" ref={optionsRef}>
-                        {pendingAudioSrc && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    // This click IS a user gesture — playAudioUrl will use
-                                    // AudioContext if available, HTMLAudioElement otherwise.
-                                    playAudioUrl(pendingAudioSrc)
-                                    setPendingAudioSrc(null)
-                                }}
-                                className="animate-pulse rounded-full bg-serene-primary px-3 py-1 text-[10px] font-semibold text-white shadow-sm transition hover:bg-serene-primary/80 active:scale-95"
-                                aria-label="Nghe giọng nói của Serene"
-                            >
-                                Nghe Serene
-                            </button>
-                        )}
                         {voiceStatus && (
-                            <span className="rounded-full bg-serene-surface px-2.5 py-1 text-[10px] text-serene-muted">
+                            <span className="rounded-full bg-theme-bg-secondary px-2.5 py-1 text-[10px] text-theme-text-secondary">
                                 {voiceStatus}
                             </span>
                         )}
                         {isGuestMode && (
-                            <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[10px] font-medium text-amber-700">
+                            <span className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium text-amber-500">
                                 {guestCountdownLabel}
                             </span>
                         )}
                         {modeLabel && (
-                            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-medium ${modeLabel.cls}`}>
+                            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-medium ${isDark ? 'border-amber-500/30 bg-amber-500/10 text-amber-500' : modeLabel.cls}`}>
                                 {modeLabel.text}
                             </span>
                         )}
                         <button
                             type="button"
                             onClick={() => void openHistory()}
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-serene-muted transition hover:bg-serene-surface hover:text-serene-ink"
+                            className="flex items-center justify-center rounded-full text-theme-text-secondary transition hover:text-theme-text-primary"
                             aria-label="Lịch sử chat"
                         >
-                            <History className="h-4 w-4" />
+                            <History className="h-6 w-6" />
                         </button>
                         <div className="relative">
                             <button
                                 type="button"
                                 onClick={() => setShowOptions((prev) => !prev)}
-                                className="flex h-8 w-8 items-center justify-center rounded-full text-serene-muted transition hover:bg-serene-surface hover:text-serene-ink"
+                                className="flex items-center justify-center rounded-full text-theme-text-secondary transition hover:text-theme-text-primary"
                                 aria-label="Tùy chọn"
                             >
-                                <MoreVertical className="h-4 w-4" />
+                                <MoreVertical className="h-6 w-6" />
                             </button>
                             {showOptions && (
-                                <div className="absolute right-0 top-10 z-50 w-72 rounded-2xl border border-serene-outline/30 bg-white/95 p-3 shadow-xl backdrop-blur-xl">
-                                    <p className="mb-3 text-[10px] uppercase tracking-[0.22em] text-serene-muted">Tùy chọn</p>
+                                <div className="absolute right-0 top-10 z-50 w-72 rounded-2xl border border-theme-border/50 bg-theme-surface p-3 shadow-xl backdrop-blur-xl">
+                                    <p className="mb-3 text-[10px] uppercase tracking-[0.22em] text-theme-text-secondary">Tùy chọn</p>
                                     <div className="space-y-2">
-                                        <div className="flex items-center justify-between rounded-xl border border-serene-outline/20 bg-serene-surface/50 px-3 py-2.5">
+                                        <div className="flex items-center justify-between rounded-xl border border-theme-border/20 bg-theme-bg-secondary/50 px-3 py-2.5">
                                             <div>
-                                                <p className="text-sm font-semibold text-serene-ink">Debug info</p>
-                                                <p className="mt-0.5 text-[11px] text-serene-muted">Distress · routing · safety</p>
+                                                <p className="text-sm font-semibold text-theme-text-primary">Voice hỗ trợ</p>
+                                                <p className="mt-0.5 text-[11px] text-theme-text-secondary">Gợi ý giọng nói chủ động khi cần</p>
+                                            </div>
+                                            <Switch
+                                                checked={voiceConsent}
+                                                onCheckedChange={() => void handleToggleVoiceConsent()}
+                                                disabled={isGuestMode}
+                                                aria-label="Voice hỗ trợ"
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between rounded-xl border border-theme-border/20 bg-theme-bg-secondary/50 px-3 py-2.5">
+                                            <div>
+                                                <p className="text-sm font-semibold text-theme-text-primary">Debug info</p>
+                                                <p className="mt-0.5 text-[11px] text-theme-text-secondary">Distress · routing · safety</p>
                                             </div>
                                             <Switch checked={showDebug} onCheckedChange={setShowDebug} aria-label="Debug" />
                                         </div>
-                                        {!isGuestMode && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPersonaModal(true)}
-                                                className="flex w-full items-center justify-between rounded-xl border border-serene-outline/20 bg-serene-surface/50 px-3 py-2.5 text-left transition hover:bg-serene-accent/40"
-                                            >
-                                                <div>
-                                                    <p className="text-sm font-semibold text-serene-ink">Persona</p>
-                                                    <p className="mt-0.5 text-[11px] text-serene-muted">
-                                                        Dang dung: {user?.personaId ?? 'chua chon'}
-                                                    </p>
-                                                </div>
-                                            </button>
-                                        )}
                                     </div>
                                 </div>
                             )}
@@ -933,48 +778,21 @@ export default function Chat() {
                     </div>
                 </div>
 
-                {/* ── History panel ─────────────────────────────────────── */}
-                {showHistory && (
-                    <div className="shrink-0 border-b border-serene-outline/20 bg-serene-surface/60 px-4 py-3">
-                        <div className="mb-2 flex items-center justify-between">
-                            <p className="text-xs font-semibold text-serene-ink">Lịch sử hội thoại</p>
-                            <button
-                                type="button"
-                                onClick={() => setShowHistory(false)}
-                                className="text-xs text-serene-muted transition hover:text-serene-ink"
-                            >
-                                Đóng
-                            </button>
-                        </div>
-                        <div className="max-h-40 space-y-1.5 overflow-y-auto">
-                            {sessions.length === 0 ? (
-                                <p className="py-2 text-xs text-serene-muted/60">Chưa có phiên nào.</p>
-                            ) : (
-                                sessions.map((sess) => (
-                                    <button
-                                        key={sess.session_id}
-                                        type="button"
-                                        onClick={() => void loadSessionMessages(sess.session_id)}
-                                        className="w-full rounded-xl border border-serene-outline/20 bg-white/50 px-3 py-2 text-left transition hover:bg-serene-accent/30"
-                                    >
-                                        <p className="text-xs text-serene-ink">{sess.preview || 'Phiên trò chuyện'}</p>
-                                        <p className="mt-0.5 text-[10px] text-serene-muted">
-                                            {new Date(sess.last_message_at).toLocaleString('vi-VN')}
-                                        </p>
-                                    </button>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                )}
+                <ChatHistoryModal
+                    open={showHistory}
+                    loading={historyLoading}
+                    sessions={sessions}
+                    onClose={() => setShowHistory(false)}
+                    onSelectSession={(sessionId) => void loadSessionMessages(sessionId)}
+                />
 
                 {/* ── Message feed ──────────────────────────────────────── */}
-                <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+                <div className="flex-1 mb-8 overflow-y-auto p-4 sm:px-6">
                     <div className="flex min-h-full flex-col justify-end gap-3">
                         {messages.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                                 <div className="text-4xl">🌿</div>
-                                <p className="text-sm text-serene-muted">Chia sẻ điều bạn đang cảm thấy, mình lắng nghe.</p>
+                                <p className=" text-theme-text-secondary">Chia sẻ điều bạn đang cảm thấy, mình lắng nghe.</p>
                             </div>
                         ) : (
                             messages.map((m, idx) => {
@@ -992,25 +810,19 @@ export default function Chat() {
                                             <div className="mt-1 shrink-0 select-none text-xl leading-none" aria-hidden="true">
                                                 {isAI ? '🌿' : '🙂'}
                                             </div>
-                                            <div className={`flex max-w-[80%] flex-col gap-2 ${isAI ? 'items-start' : 'items-end'}`}>
+                                            <div className={`flex max-w-[70%] flex-col gap-2 ${isAI ? 'items-start' : 'items-end'}`}>
                                                 <article
                                                     className={[
-                                                        'rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line',
+                                                        'rounded-2xl px-4 py-3 leading-relaxed whitespace-pre-line border',
                                                         isAI
                                                             ? m.apiData?.sos_triggered
-                                                                ? 'bg-red-50 text-red-800 border border-red-200'
-                                                                : 'bg-white/80 text-serene-ink shadow-sm'
-                                                            : 'bg-serene-primary text-serene-on-primary',
+                                                                ? 'bg-red-50 text-red-800 border-red-200'
+                                                                : 'bg-theme-surface/80 text-theme-text-primary border-theme-border/30 shadow-sm'
+                                                            : 'bg-theme-accent text-white border-transparent',
                                                     ].join(' ')}
                                                 >
                                                     {m.content}
                                                 </article>
-                                                {m.voice && (
-                                                    <VoiceMessageCard
-                                                        jobId={m.voice.jobId}
-                                                        onPlay={() => playAudioUrl(m.voice?.src ?? '')}
-                                                    />
-                                                )}
                                                 {m.apiData && <CrisisPanel data={m.apiData} />}
                                                 {m.apiData?.the_dinh_kem?.map((item, i) => (
                                                     <AttachmentCard key={`${item.type}-${item.id}-${i}`} item={item} onOpen={openAttachment} />
@@ -1038,6 +850,7 @@ export default function Chat() {
                                 )
                             })
                         )}
+                        <TypingIndicator visible={sending} />
                         <div ref={bottomRef} />
                     </div>
                 </div>
@@ -1055,57 +868,32 @@ export default function Chat() {
                         </button>
                     </div>
                 )}
-
                 {/* ── Input bar ─────────────────────────────────────────── */}
                 <form
                     onSubmit={handleSend}
-                    className="shrink-0 border-t border-serene-outline/20 bg-white/40 px-4 py-3 backdrop-blur-sm"
+                    className="sticky bottom-15 rounded-full bg-theme-surface px-4 py-3 backdrop-blur-sm border border-theme-border/50 shadow-2xl"
                 >
+                    {/* overlay */}
+
                     <div className="flex items-center gap-3">
                         <input
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             disabled={isGuestMode && guestSecondsLeft <= 0}
                             placeholder="Chia sẻ điều bạn đang cảm thấy..."
-                            className="flex-1 rounded-full border border-serene-outline/30 bg-white/70 px-4 py-2.5 text-sm text-serene-ink placeholder-serene-muted/50 outline-none focus:border-serene-primary focus:ring-1 focus:ring-serene-primary/30"
+                            className="flex-1 rounded-full bg-transparent px-4 py-3 text-md text-theme-text-primary focus:outline-none"
                         />
                         <button
                             type="submit"
                             disabled={!canSend}
-                            className="shrink-0 rounded-full bg-serene-primary px-5 py-2.5 text-sm font-medium text-serene-on-primary transition hover:bg-serene-primary-dim disabled:cursor-not-allowed disabled:opacity-40"
+                            className="shrink-0 rounded-full bg-theme-accent px-5 py-2.5 font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             {sending ? '···' : 'Gửi'}
                         </button>
                     </div>
                 </form>
             </div>
-
             <HotlineBar visible={sosActive} />
-            {showPersonaModal && !isGuestMode && (
-                <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 px-4">
-                    <div className="w-full max-w-xl rounded-2xl border border-serene-outline/30 bg-white p-5 shadow-2xl">
-                        <p className="text-xs uppercase tracking-[0.2em] text-serene-muted">Persona Friend</p>
-                        <h3 className="mt-1 text-lg font-semibold text-serene-ink">Chon cach Friend dong hanh voi ban</h3>
-                        <p className="mt-1 text-sm text-serene-muted">
-                            Ban co the doi persona bat ky luc nao trong menu dau ba cham.
-                        </p>
-                        <div className="mt-4 grid gap-2">
-                            {PERSONA_OPTIONS.map((persona) => (
-                                <button
-                                    key={persona.id}
-                                    type="button"
-                                    onClick={() => void selectPersona(persona.id)}
-                                    disabled={personaSaving}
-                                    className="rounded-xl border border-serene-outline/25 px-3 py-2 text-left transition hover:bg-serene-accent/30 disabled:opacity-60"
-                                >
-                                    <p className="text-sm font-semibold text-serene-ink">{persona.title}</p>
-                                    <p className="text-xs text-serene-muted">{persona.subtitle}</p>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
-        </>
+        </div>
     )
 }

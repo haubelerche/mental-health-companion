@@ -5,22 +5,29 @@ import Register from '../components/auth/Register.tsx'
 import Chat from '../components/chat/Chat.tsx'
 import Main from '../components/layout/Main.tsx'
 import Connect from '../components/pages/Connect.tsx'
-import Home from '../components/pages/Home.tsx'
-import Landing from '../components/pages/Landing.tsx'
+
+import Landing from '../components/pages/landing/Landing.tsx'
 import Reflect from '../components/pages/Reflect.tsx'
-import Resources from '../components/pages/Resources.tsx'
+import Resources from '../components/pages/resource/Resources.tsx'
 import Nutrition from '../components/pages/Nutrition.tsx'
 import { CheckinFlow } from '../components/pages/CheckinFlow'
 import { SafetyCheck } from '../components/pages/SafetyCheck'
 import { ScreeningFlow } from '../components/pages/ScreeningFlow'
 import { ResultsPage } from '../components/pages/ResultsPage'
 import { ExercisesPage } from '../components/pages/ExercisesPage'
-import { OnboardingFlow } from '../components/pages/OnboardingFlow.tsx'
+import { OnboardingFlow } from '../components/pages/onboarding/OnboardingFlow.tsx'
 import LetterPage from '../components/pages/BeachMessage.tsx'
 import { useAuth } from '../hooks/useAuth'
 import { ROUTE_PATHS } from './paths'
 import Setting from '../components/pages/Setting.tsx'
+import Profile from '../components/pages/Profile.tsx'
 import Forget from '../components/auth/Forget.tsx'
+import AdminLogin from '../components/admin/AdminLogin.tsx'
+import AdminDashboard from '../components/admin/AdminDashboard'
+import AdminCrisisLogs from '../components/admin/AdminCrisisLogs'
+import AdminResources from '../components/admin/AdminResources'
+import AdminMain from '../components/admin/layout/AdminMain.tsx'
+import Home from '../components/pages/Home.tsx'
 
 function RequireAuth({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()
@@ -47,6 +54,16 @@ function RequireOnboarding({ children }: { children: ReactElement }) {
 export default function AppRoutes() {
     return (
         <Routes>
+            {/* admin */}
+            <Route path={ROUTE_PATHS.adminLogin} element={<AdminLogin />} />
+            <Route path={ROUTE_PATHS.admin} element={<AdminMain />}>
+                <Route index element={<Navigate to={ROUTE_PATHS.adminDashboard} replace />} />
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="crisis-logs" element={<AdminCrisisLogs />} />
+                <Route path="resources" element={<AdminResources />} />
+            </Route>
+
+            {/* user */}
             <Route path={ROUTE_PATHS.root} element={<Navigate to={ROUTE_PATHS.landing} replace />} />
             <Route path={ROUTE_PATHS.login} element={<Login />} />
             <Route path={ROUTE_PATHS.register} element={<Register />} />
@@ -102,6 +119,12 @@ export default function AppRoutes() {
                     path={ROUTE_PATHS.connect}
                     element={
                         <Connect />
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.profile}
+                    element={
+                        <Profile />
                     }
                 />
                 <Route

@@ -5,6 +5,7 @@ export type SignupPayload = {
     email: string
     password: string
     disclaimer_accepted: boolean
+    voice_consent?: boolean
 }
 
 export type SignupResponse = {
@@ -51,11 +52,7 @@ export type MeResponse = {
     display_name: string
     onboarding_completed?: boolean
     onboarding_skipped?: boolean
-    persona_id?: string | null
-    persona_selected_at?: string | null
 }
-
-export type PersonaId = 'ban_than' | 'nguoi_yeu' | 'nguoi_thay' | 'nguoi_la' | 'nguoi_than' | 'cun' | 'meo'
 export const authService = {
     signup: async (payload: SignupPayload) => {
         const startedAt = performance.now()
@@ -66,6 +63,15 @@ export const authService = {
             disclaimer_accepted: payload.disclaimer_accepted,
         })
         console.info('[auth-metrics] signup.auth_total_ms', Math.round(performance.now() - startedAt))
+        // Policy is auto-acknowledged by the server during signup.
+        // Voice consent is set in background — non-blocking.
+        if (typeof payload.voice_consent === 'boolean') {
+            void httpClient
+                .postWithCsrf<{ voice_consent: boolean }>('/policies/voice-consent', {
+                    consent: payload.voice_consent,
+                })
+                .catch(() => undefined)
+        }
         return data
     },
 
@@ -85,8 +91,4 @@ export const authService = {
     resetPassword: (payload: ResetPasswordPayload) =>
         httpClient.post<ResetPasswordResponse>('/auth/reset-password', payload),
     me: () => httpClient.get<MeResponse>('/auth/me'),
-    updatePersona: (personaId: PersonaId) =>
-        httpClient.postWithCsrf<{ persona_id: PersonaId; persona_selected_at: string }>('/auth/me/persona', {
-            persona_id: personaId,
-        }),
 }

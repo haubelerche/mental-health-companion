@@ -52,7 +52,6 @@ export function MoodGauge({ value, onChange, size = 200, readOnly = false }: Pro
 
   // Range: 180° (left) to 0° (right), mapped to value 1–10
   const startAngle = 180
-  const endAngle = 0
   const totalAngle = 180 // absolute
   const needleDeg = startAngle - ((value - 1) / 9) * totalAngle
   const fillDeg = ((value - 1) / 9) * totalAngle // degrees filled from left

@@ -37,8 +37,11 @@ export default function Main() {
     useEffect(() => {
         const handleSettingsUpdated = (event: Event) => {
             const customEvent = event as CustomEvent<AppSettings>
-            const theme = customEvent.detail?.theme ?? DEFAULT_APP_SETTINGS.theme
-            setBackgroundImage(themeBackgroundMap[theme])
+            const settings = customEvent.detail
+            if (settings) {
+                const theme = settings.theme ?? DEFAULT_APP_SETTINGS.theme
+                setBackgroundImage(themeBackgroundMap[theme])
+            }
         }
 
         const handleStorageUpdated = (event: StorageEvent) => {
