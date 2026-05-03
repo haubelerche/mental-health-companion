@@ -1,37 +1,101 @@
-# Problem Brief — AI20K030: Sàng Lọc & Hỗ Trợ Sức Khỏe Tinh Thần
 
-## 1. Bối cảnh
+##  CHỦ ĐỀ: AI20K030 - SÀNG LỌC & HỖ TRỢ SỨC KHỎE TÂM THẦN
+## DỰ ÁN: Multi-Agent Therapist Sàng Lọc và Hỗ Trợ Sức Khỏe Tinh Thần
 
-Sức khỏe tinh thần đang trở thành một vấn đề nổi bật trong nhóm người trẻ 18–24 tuổi, đặc biệt là sinh viên và người mới đi làm. Đây là nhóm thường xuyên đối mặt với áp lực học tập, định hướng nghề nghiệp, tài chính, kỳ vọng gia đình, quan hệ cá nhân và cảm giác cô đơn trong môi trường số. Tuy nhiên, nhiều người không tìm đến bác sĩ tâm lý hoặc chuyên gia tham vấn vì sĩ diện, sợ bị đánh giá, sợ gia đình hoặc bạn bè biết, hoặc chưa tin rằng vấn đề của mình “đủ nghiêm trọng” để cần hỗ trợ chuyên môn.
+## I. Bối cảnh
 
-Dự án ra đời nhằm tạo ra một điểm chạm đầu tiên, riêng tư và an toàn, giúp người trẻ dám nói ra điều khó nói, hiểu trạng thái tâm lý của mình, nhận hỗ trợ ban đầu phù hợp và được chuyển đến nguồn lực chuyên môn khi cần thiết.
+- **Pain points**
+    - **Thiếu hụt nguồn nhân lực và phòng ban Tâm thần tại các bệnh viện:** Theo số liệu của Bộ Y tế, tỷ lệ mắc 10 rối loạn tâm thần thường gặp là 14,9% dân số, nghĩa là gần 15 triệu người bị ảnh hưởng. Trong khi đó lượng bác sĩ chuyên khoa tâm thần chỉ khoảng dưới 1000 người trên cả nước, nhiều bệnh viện đa khoa chưa có khoa tâm thần gây tập trung quá lớn tại các chuyên khoa tâm thần tuyến Trung ương.
+    - **Tác động xã hội:** Tỷ lệ người lao động bị căng thẳng (stress) cao (khoảng 42%), số người tự sát có xu hướng gia tăng, báo hiệu một cuộc khủng hoảng sức khỏe tâm thần tiềm ẩn.
+    - Kỳ thị xã hội về việc đi khám sức khỏe tâm thần (”điên”, “yếu đuối”, “phí tiền”,…) khiến >60% người có triệu chứng không tìm kiếm sự hỗ trợ
+- **Lý do dự án tồn tại:**
+    - Đáp ứng nhu cầu của người trẻ trong xã hội hiện nay là cần một nơi để giãi bày, sẻ chia
+    - Chưa phải là phương pháp thay thế bác sĩ nhưng có tác dụng khuyến khích người dùng quan tâm tới sức khỏe tâm lý của mình
+    - Số hóa việc tiếp cận dịch vụ chăm sóc tâm thần để mọi người dễ tiếp cận, dễ được trợ giúp
+    
 
-## 2. Vấn đề cốt lõi
+## II. Chân dung người dùng
 
-Người dùng mục tiêu không bắt đầu bằng nhu cầu “được điều trị”. Họ thường bắt đầu bằng cảm giác mơ hồ như: “mình không ổn”, “mình không biết đang bị gì”, “mình muốn nói ra nhưng sợ bị đánh giá”, hoặc “mình chỉ cần ai đó lắng nghe”. Các giải pháp hiện tại còn phân mảnh: bài test tâm lý trực tuyến thường khô cứng, chatbot AI phổ thông thiếu cơ chế sàng lọc và an toàn, ứng dụng thiền/self-care chưa đủ cá nhân hóa, còn dịch vụ chuyên gia có rào cản về chi phí, thời gian và định kiến xã hội.
+1. **Nhân khẩu học**
+- **Nhân khẩu học: 18 - 24 tuổi**
+- Nghề nghiệp: Sinh viên, Người mới đi làm
+- **Tình trạng:** Đang đối mặt với áp lực học tập, định hướng nghề nghiệp, khurng hoảng cuộc sống hoặc các vấn đề về mối quan hệ.
 
-Bài toán cần giải quyết là: làm thế nào để xây dựng một ứng dụng AI đủ riêng tư để người trẻ dám chia sẻ, đủ thông minh để hiểu trạng thái tâm lý ban đầu, đủ thực tế để đưa ra hành động nhỏ có thể làm ngay, và đủ an toàn để chuyển người dùng đến hỗ trợ chuyên môn khi rủi ro vượt khỏi phạm vi tự hỗ trợ.
+Ví dụ
 
-## 3. Insight người dùng
+![alt text](./images/image.png)
 
-Người dùng 18–24 không tìm một “bác sĩ AI” thay thế trị liệu. Họ tìm một không gian đủ kín đáo để không phải giả vờ ổn, đủ ít phán xét để dám nói thật, đủ thấu hiểu để phản hồi đúng vấn đề, và đủ thực tế để giúp họ biết bước tiếp theo là gì.
+1. **Hành vi tâm lý**
+- **Thói quen công nghệ**: Hưởng ứng các xu hướng công nghệ hiện nay được tích hợp AI, thích trải nghiệm mới mẻ, không cần đăng ký phức tạp.
+- **Mục tiêu cá nhân:** Được lắng nghe, chia sẻ, giảm bớt lo âu, kiểm soát được cảm xúc, ngủ ngon hơn, cải thiện năng suất làm việc/học tập, duy trì mối quan hệ tốt.
+- **Rào cản:**
+    - Định kiến xã hội (“ngại nói ra”, sợ bị đồng nghiệp/phụ huynh biết).
+    - Thiếu kiến thức (“không biết mình đang bị gì”).
+    - Thời gian hạn chế (“không muốn mất 1–2 tiếng đi khám”).
+    - Nghi ngờ hiệu quả app (“chỉ là trò chuyện máy móc”).
 
-Vì vậy, trải nghiệm sản phẩm cần đi theo vòng lặp: **Talk → Understand → Act → Reflect**. Người dùng trò chuyện để giải tỏa, hệ thống phân tích cảm xúc và dấu hiệu rủi ro, đề xuất một hành động nhỏ phù hợp, sau đó giúp người dùng nhìn lại tiến triển, trigger và cách hỗ trợ từng có hiệu quả.
+## III. Phân tích đối thủ
 
-## 4. Đề xuất giải pháp
+**a. Đối thủ trực tiếp (Việt Nam):**
 
-Sản phẩm nên được định vị là **AI mental-health companion for private screening, emotional first-aid, and guided support**, không phải ứng dụng chẩn đoán hay thay thế bác sĩ. Kiến trúc multi-agent có thể gồm: Conversation Agent để lắng nghe và phản hồi không phán xét; Screener Agent để sàng lọc mức độ stress, lo âu, tâm trạng và rủi ro; Resource Agent để gợi ý self-help resources như grounding, journaling, sleep routine hoặc task breakdown; Escalation Agent để kết nối người dùng với hotline, chuyên gia hoặc cơ sở hỗ trợ khi cần; và Safety Guardrail để đảm bảo phản hồi không vượt phạm vi chuyên môn.
+1. **Vmood**: Tập trung trầm cảm, sàng lọc cảm xúc + kỹ năng tự quản lý miễn phí, kết nối chuyên gia khi nặng.
+2. **Safe and Sound**: 3 trụ cột (phát hiện sớm – kết nối chuyên gia – theo dõi dài hạn), ra mắt 2022, miễn phí tải.
+3. **MindCare Việt Nam**: Đánh giá tâm lý chuyên sâu cho cá nhân + tổ chức/trường học/doanh nghiệp, tham vấn trực tuyến/trực tiếp.
 
-MVP nên tập trung vào các tính năng: guest/anonymous mode, trò chuyện cảm xúc an toàn, check-in ngắn, sàng lọc nhẹ qua hội thoại, dashboard cá nhân, trigger map, coping history, gợi ý hành động nhỏ, xóa lịch sử, giải thích quyền riêng tư và escalation flow khi rủi ro cao.
+**b.Đối thủ gián tiếp:**
 
-## 5. Giá trị khác biệt
+- App quốc tế: Wysa (AI chatbot), Headspace/Calm (thiền định), BetterHelp/Talkspace (therapy online).
+- Công cụ web: Test DASS-21, PHQ-9 miễn phí trên các trang bệnh viện/tâm lý.
 
-Trong bối cảnh ứng dụng AI tràn ngập, lợi thế cạnh tranh không nằm ở việc “có chatbot”, mà nằm ở **niềm tin, bản địa hóa, an toàn và khả năng chăm sóc liên tục**. Sản phẩm cần hiểu tiếng Việt đời thường, cách người Việt nói vòng, nói giảm, nói đùa hoặc né tránh cảm xúc. Đồng thời, app phải nhớ người dùng “đúng cách”: ghi nhận trigger, thói quen cảm xúc và phương pháp từng giúp họ tốt hơn, nhưng vẫn cho phép xem, sửa và xóa dữ liệu cá nhân.
 
-Dashboard không nên chỉ hiển thị điểm số tâm trạng, mà cần trả lời các câu hỏi có giá trị: điều gì thường làm người dùng tụt mood, khi nào họ căng thẳng nhất, điều gì từng giúp họ ổn hơn, và khi nào họ nên tìm hỗ trợ chuyên môn.
 
-## 6. Kết luận
+**Ma trận tính năng**
+<img width="1440" height="3898" alt="image" src="https://github.com/user-attachments/assets/09df3f6f-27ee-40f6-9a40-dbd616c0f960" />
 
-Dự án không nên được xây dựng như một chatbot AI đơn thuần, mà là một lớp hỗ trợ đầu tiên trong hành trình chăm sóc sức khỏe tinh thần của người trẻ Việt Nam. Người dùng sẽ ở lại nếu app đủ riêng tư để họ dám nói thật, đủ thấu hiểu để họ cảm thấy được nhìn thấy, đủ thực tế để họ biết phải làm gì tiếp theo, và đủ an toàn để không bỏ mặc họ khi cần hỗ trợ thật.
 
-**Định vị đề xuất:** “Nơi an toàn để bạn nói thật, hiểu mình hơn, và biết bước tiếp theo.”
+## IV. Khoảng trống thị trường và Cơ hội cho dự án
+
+**1. AI phát hiện sớm và dự đoán rủi ro**
+
+Wysa có chatbot AI nhưng chủ yếu để trò chuyện, không phân tích sâu
+Cơ hội: Xây dựng AI phân tích pattern hành vi, giấc ngủ, giao tiếp để cảnh báo sớm
+
+**2. Hỗ trợ khủng hoảng tức thời**
+
+Safe & Sound và Wysa có một phần nhưng không chuyên sâu
+Cơ hội: Hotline tự động, kết nối khẩn cấp, kịch bản can thiệp theo mức độ nghiêm trọng
+
+**3. Nội dung địa phương hóa**
+
+Các app quốc tế không có nội dung tiếng Việt hoặc phù hợp văn hóa Việt
+Vmood và SnS có nhưng chưa toàn diện
+Cơ hội: CBT/DBT được điều chỉnh theo văn hóa, case study Việt Nam, âm thanh thiền định tiếng Việt
+
+**4. Quản lý chăm sóc toàn diện**
+
+Chỉ BetterHelp có hệ thống quản lý buổi tư vấn tốt
+Cơ hội: Lịch hẹn thông minh, nhắc nhở uống thuốc, theo dõi tuân thủ điều trị, kết nối với bác sĩ
+
+**5. Tích hợp sức khỏe tổng thể**
+
+Không app nào kết nối tốt với dữ liệu giấc ngủ, vận động, dinh dưỡng
+Cơ hội: Tích hợp Apple Health/Google Fit, phân tích mối liên hệ giữa thể chất và tinh thần
+
+**6. Cộng đồng an toàn**
+
+Hoàn toàn bị bỏ trống ở cả thị trường Việt Nam và quốc tế
+Cơ hội: Nhóm hỗ trợ có kiểm duyệt, chia sẻ câu chuyện ẩn danh, mentor phục hồi
+
+
+## V. Phạm vi dự án
+
+**Phạm vi (Scope):**
+
+1. **In-scope (MVP):**
+- Công cụ sàng lọc khoa học (PHQ-9, GAD-7, PSS… được validate cho VN).
+- AI nhận diện lối suy nghĩ và cảm xúc, từ đó lập hồ sơ người dùng và đưa ra lời khuyên phù hợp.
+- Dashboard cá nhân.
+- Bảo mật dữ liệu 
+
+1. **Out-of-scope (tránh scope creep):**
+- Trẩn đoán bệnh tâm thần và đưa ra lộ trình điều trị
