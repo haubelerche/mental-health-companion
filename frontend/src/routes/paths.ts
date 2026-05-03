@@ -24,6 +24,7 @@ export const ROUTE_PATHS = {
     screening: '/serene/screening',
     results: '/serene/results',
     exercises: '/serene/exercises',
+    rewards: '/serene/rewards',
 
     //admin
     admin: '/admin',
