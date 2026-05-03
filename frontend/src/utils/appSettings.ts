@@ -73,3 +73,11 @@ export function saveAppSettings(settings: AppSettings) {
         }),
     )
 }
+
+export function updateAppMode(mode: AppearanceMode) {
+    const current = readAppSettings()
+    saveAppSettings({
+        ...current,
+        mode,
+    })
+}

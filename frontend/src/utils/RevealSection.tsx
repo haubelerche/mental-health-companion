@@ -1,22 +1,63 @@
 import type { ReactNode } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useInView } from 'framer-motion'
+import { useRef } from 'react'
 
-type RevealSectionProps = {
+type VariantType = 'fade-up' | 'fade-left' | 'fade-right' | 'zoom'
+
+const variantsMap = {
+    'fade-up': {
+        hidden: { opacity: 0, y: 24 },
+        visible: { opacity: 1, y: 0 },
+    },
+    'fade-left': {
+        hidden: { opacity: 0, x: -24 },
+        visible: { opacity: 1, x: 0 },
+    },
+    'fade-right': {
+        hidden: { opacity: 0, x: 24 },
+        visible: { opacity: 1, x: 0 },
+    },
+    zoom: {
+        hidden: { opacity: 0, scale: 0.96 },
+        visible: { opacity: 1, scale: 1 },
+    },
+}
+
+export default function RevealSection({
+    id,
+    className = '',
+    delay = 0,
+    variant = 'fade-up',
+    children,
+}: {
     id?: string
     className?: string
     delay?: number
+    variant?: VariantType
     children: ReactNode
-}
+}) {
+    const ref = useRef(null)
 
-export default function RevealSection({ id, className = '', delay = 0, children }: RevealSectionProps) {
+    const isInView = useInView(ref, {
+        once: true, // 🔥 fix lag
+        amount: 0.3,
+    })
+
+    const selected = variantsMap[variant]
+
     return (
         <motion.section
+            ref={ref}
             id={id}
             className={className}
-            initial={{ opacity: 0, y: 48 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.25 }}
-            transition={{ duration: 0.5, delay, ease: 'easeOut' }}
+            initial={selected.hidden}
+            animate={isInView ? selected.visible : undefined}
+            transition={{
+                duration: 0.6,
+                delay,
+                ease: 'easeOut',
+            }}
+            style={{ willChange: 'transform, opacity' }} // 🔥 GPU
         >
             {children}
         </motion.section>

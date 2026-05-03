@@ -45,7 +45,7 @@ export function WellnessRadar({ scores, mini = false, className }: Props) {
 
     const height = mini ? 156 : 320
     const outerRadius = mini ? '62%' : '60%'
-    const tickFill = mini ? 'transparent' : 'var(--color-serene-ink)'
+    const tickFill = mini ? 'transparent' : 'var(--color-theme-primary)'
 
     return (
         <div className={className}>

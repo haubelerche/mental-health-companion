@@ -3,6 +3,7 @@
 
 @theme {
     --font-display: "Newsreader", serif;
+    --font-garamond: "Cormorant Garamond", serif;
     --font-body: "Inter", sans-serif;
 
     --color-serene-bg: #faf9f5;
@@ -30,6 +31,19 @@
     --color-lua-bg: #fdf3e3;
     --color-la-ban-bg: #f2eff9;
     --color-guong-bg: #f8f4ed;
+
+    /* Semantic theme colors linked to CSS variables */
+    --color-theme-primary: var(--theme-bg-primary);
+    --color-theme-secondary: var(--theme-bg-secondary);
+    --color-theme-surface: var(--theme-surface);
+    --color-theme-surface-alt: var(--theme-surface-alt);
+    --color-theme-primary: var(--theme-text-primary);
+    --color-theme-secondary: var(--theme-text-secondary);
+    --color-theme-tertiary: var(--theme-text-tertiary);
+    --color-theme-border: var(--theme-border);
+    --color-theme-accent: var(--theme-accent);
+    --color-theme-accent-dim: var(--theme-accent-dim);
+    --color-theme-accent-light: var(--theme-accent-light);
 }
 
 @layer base {
@@ -47,8 +61,8 @@
     body {
         margin: 0;
         font-family: var(--font-body);
-        color: var(--color-serene-ink);
-        background-color: var(--color-serene-bg);
+        color: var(--theme-text-primary);
+        background-color: var(--theme-bg-primary);
     }
 }
 
@@ -117,6 +131,10 @@
         font-family: var(--font-display);
     }
 
+    .font-garamond {
+        font-family: var(--font-garamond);
+    }
+
     .auth-disclaimer {
         @apply rounded-2xl border-l-2 border-serene-primary/30 bg-serene-accent/20 p-4;
     }
@@ -130,13 +148,53 @@
     }
 
     .backdrop {
-        @apply bg-white/10 backdrop-blur-xl transition hover:bg-white/15;
+        @apply bg-white/20 backdrop-blur-xl transition hover:bg-white/15;
     }
 
 }
 
 
 @layer base {
+    /**
+     * Theme CSS variables for light and dark modes.
+     * Light mode is default; dark mode activated via [data-theme="dark"] attribute.
+     */
+    :root {
+        /* Semantic color tokens for light theme */
+        --theme-bg-primary: #faf9f5;
+        --theme-bg-secondary: #f3f2ed;
+        --theme-surface: #ffffff;
+        --theme-surface-alt: #edeee8;
+        --theme-text-primary: #2f342e;
+        --theme-text-secondary: #5c605a;
+        --theme-text-tertiary: #9aa6b2;
+        --theme-border: #e4ece7;
+        --theme-accent: #4d6359;
+        --theme-accent-dim: #42574d;
+        --theme-accent-light: #d0e8db;
+    }
+
+    /* Dark theme (night calm - dịu, không pitch black) */
+    [data-theme="dark"] {
+        --theme-bg-primary: #0f1419;
+        --theme-bg-secondary: #1a1f25;
+        --theme-surface: #161b22;
+        --theme-surface-alt: #1c2128;
+        --theme-text-primary: #e6eef8;
+        --theme-text-secondary: #b0b9c3;
+        --theme-text-tertiary: #7f8795;
+        --theme-border: #2d333b;
+        --theme-accent: #58a6ff;
+        --theme-accent-dim: #4184e4;
+        --theme-accent-light: #1f6feb;
+    }
+
+    /**
+     * Smooth theme transitions
+     */
+    html {
+        transition: background-color 200ms ease-out, color 200ms ease-out;
+    }
 
     /* Chrome, Edge, Safari */
     ::-webkit-scrollbar {
