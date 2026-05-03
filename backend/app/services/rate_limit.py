@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass
 from functools import lru_cache
@@ -97,6 +98,10 @@ class RateLimiter:
 
 @lru_cache(maxsize=1)
 def get_rate_limiter() -> RateLimiter:
+    # backend/tests/conftest.py sets this before any route runs; avoids Redis rl:* flakes (429) on CI.
+    if os.environ.get("SERENE_BACKEND_TESTING") == "1":
+        return RateLimiter(client=None)
+
     if redis is None:
         # Fail-open: app vẫn chạy nếu environment thiếu redis package.
         return RateLimiter(client=None)

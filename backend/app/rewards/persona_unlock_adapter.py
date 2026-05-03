@@ -11,7 +11,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.personas.unlocks import mark_persona_unlocked
+from app.services.persona_unlock_persistence import mark_persona_unlocked
 
 logger = logging.getLogger(__name__)
 

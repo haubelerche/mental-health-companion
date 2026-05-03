@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -17,6 +18,15 @@ for _p in (_BACKEND_ROOT, _REPO_ROOT):
     _s = str(_p)
     if _s not in sys.path:
         sys.path.insert(0, _s)
+
+# Fail-open Redis-backed limits for the whole pytest process (see rate_limit.get_rate_limiter).
+os.environ.setdefault("SERENE_BACKEND_TESTING", "1")
+try:
+    from app.services import rate_limit as _rate_limit_mod
+
+    _rate_limit_mod.get_rate_limiter.cache_clear()
+except Exception:
+    pass
 
 # Manual wire script (imports legacy paths); not a pytest suite.
 collect_ignore = ["test_db.py"]
