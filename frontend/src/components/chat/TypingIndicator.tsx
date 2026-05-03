@@ -14,12 +14,12 @@ export function TypingIndicator({ visible, className }: Props) {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 4, scale: 0.95 }}
                     transition={{ duration: 0.2 }}
-                    className={`flex items-center gap-1.5 self-start rounded-2xl rounded-bl-sm border border-theme-border/45 bg-theme-surface/70 px-4 py-3 backdrop-blur-sm ${className ?? ''}`}
+                    className={`flex items-center gap-1.5 self-start rounded-2xl rounded-bl-sm border border-white/45 bg-white/70 px-4 py-3 backdrop-blur-sm ${className ?? ''}`}
                 >
                     {[0, 1, 2].map((i) => (
                         <motion.span
                             key={i}
-                            className="h-2 w-2 rounded-full bg-theme-text-secondary/60"
+                            className="h-2 w-2 rounded-full bg-serene-muted/60"
                             animate={{ y: [0, -5, 0] }}
                             transition={{
                                 duration: 0.75,

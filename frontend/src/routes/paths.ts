@@ -12,7 +12,6 @@ export const ROUTE_PATHS = {
     resources: '/serene/resources',
     nutrition: '/serene/nutrition',
     connect: '/serene/connect',
-    profile: '/serene/profile',
     setting: '/serene/setting',
 
     // onboarding & flows
@@ -24,11 +23,4 @@ export const ROUTE_PATHS = {
     screening: '/serene/screening',
     results: '/serene/results',
     exercises: '/serene/exercises',
-
-    //admin
-    admin: '/admin',
-    adminLogin: '/admin/login',
-    adminDashboard: '/admin/dashboard',
-    adminCrisisLogs: '/admin/crisis-logs',
-    adminResources: '/admin/resources',
 } as const

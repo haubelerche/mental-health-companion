@@ -165,6 +165,17 @@ async function postStreamWithCsrf(path: string, body?: unknown, init: RequestIni
         ...init,
         headers,
     })
+    if (response.status === 401 && typeof window !== 'undefined') {
+        const now = Date.now()
+        if (now - lastUnauthorizedAt > 1200) {
+            lastUnauthorizedAt = now
+            window.dispatchEvent(
+                new CustomEvent<{ path: string; status: number }>(HTTP_UNAUTHORIZED_EVENT, {
+                    detail: { path, status: response.status },
+                }),
+            )
+        }
+    }
     return response
 }
 
@@ -178,13 +189,6 @@ export const httpClient = {
             body: body !== undefined ? JSON.stringify(body) : undefined,
             ...init,
         }),
-    patch: <T>(path: string, body?: unknown, init?: RequestInit) =>
-        request<T>(path, {
-            method: 'PATCH',
-            body: body !== undefined ? JSON.stringify(body) : undefined,
-            ...init,
-        }),
-    delete: <T>(path: string, init?: RequestInit) => request<T>(path, { method: 'DELETE', ...init }),
     postWithCsrf,
     postStreamWithCsrf,
 }

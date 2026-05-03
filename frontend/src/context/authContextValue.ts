@@ -2,6 +2,7 @@ import { createContext } from 'react'
 import type {
     LoginPayload,
     LoginResponse,
+    PersonaId,
     SignupPayload,
     SignupResponse,
 } from '../services/authService'
@@ -12,6 +13,8 @@ export type AuthUser = {
     displayName: string
     onboardingCompleted: boolean
     onboardingSkipped: boolean
+    personaId: PersonaId | null
+    personaSelectedAt: string | null
 }
 
 export type AuthContextValue = {
@@ -21,6 +24,7 @@ export type AuthContextValue = {
     login: (payload: LoginPayload) => Promise<LoginResponse>
     logout: () => void
     refreshUser: () => Promise<void>
+    updatePersona: (personaId: PersonaId) => Promise<void>
     markOnboardingCompleted: (skipped?: boolean) => void
     guestSession: { guest_session_id: string; expiresAt: number } | null
     startGuestSession: () => Promise<void>

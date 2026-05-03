@@ -6,6 +6,7 @@ import { authService } from '../services/authService'
 import { HTTP_UNAUTHORIZED_EVENT } from '../api/httpClient'
 import type {
     LoginPayload,
+    PersonaId,
     SignupPayload,
 } from '../services/authService'
 import { chatService } from '../services/chatService'
@@ -46,6 +47,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 displayName: data.display_name,
                 onboardingCompleted: Boolean(data.onboarding_completed),
                 onboardingSkipped: Boolean(data.onboarding_skipped),
+                personaId: data.persona_id ?? null,
+                personaSelectedAt: data.persona_selected_at ?? null,
             })
         } catch {
             setUser(null)
@@ -80,6 +83,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 displayName: payload.display_name,
                 onboardingCompleted: false,
                 onboardingSkipped: false,
+                personaId: null,
+                personaSelectedAt: null,
             })
             return data
         } finally {
@@ -99,6 +104,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
                     displayName: me.display_name,
                     onboardingCompleted: Boolean(me.onboarding_completed),
                     onboardingSkipped: Boolean(me.onboarding_skipped),
+                    personaId: me.persona_id ?? null,
+                    personaSelectedAt: me.persona_selected_at ?? null,
                 })
             } else {
                 const displayNameFromEmail = payload.email.split('@')[0] || payload.email
@@ -108,6 +115,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
                     displayName: displayNameFromEmail,
                     onboardingCompleted: false,
                     onboardingSkipped: false,
+                    personaId: null,
+                    personaSelectedAt: null,
                 })
             }
 
@@ -133,6 +142,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser((prev) => (prev ? { ...prev, onboardingCompleted: true, onboardingSkipped: skipped } : prev))
     }, [])
 
+    const updatePersona = useCallback(async (personaId: PersonaId) => {
+        const data = await authService.updatePersona(personaId)
+        setUser((prev) =>
+            prev
+                ? {
+                    ...prev,
+                    personaId: data.persona_id,
+                    personaSelectedAt: data.persona_selected_at,
+                }
+                : prev,
+        )
+    }, [])
+
     const value = useMemo(
         () => ({
             user,
@@ -141,12 +163,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
             login,
             logout,
             refreshUser,
+            updatePersona,
             markOnboardingCompleted,
             guestSession,
             startGuestSession,
             clearGuestSession,
         }),
-        [user, isLoading, refreshUser, markOnboardingCompleted, guestSession, startGuestSession, clearGuestSession],
+        [user, isLoading, refreshUser, updatePersona, markOnboardingCompleted, guestSession, startGuestSession, clearGuestSession],
     )
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -4,9 +4,9 @@ import { motion } from 'framer-motion'
 import { AirVent, Cloud, Leaf, Sparkles } from 'lucide-react'
 import { toast } from 'react-toastify'
 import { useAuth } from '../../hooks/useAuth'
-import { useThemeContext } from '../../contexts/ThemeContext'
 import { homeService, type HomeFeed } from '../../services/homeService'
 import { ROUTE_PATHS } from '../../routes/paths'
+
 const MOODS = [
   { icon: Leaf,     title: 'Check-in Cảm xúc', desc: 'Ghi nhận nhanh trạng thái hiện tại.', apiMood: 'neutral',     emoji: '🍃' },
   { icon: Cloud,    title: 'Ủ rũ',  desc: 'Để mọi thứ trở nên dễ chịu hơn.',  apiMood: 'melancholic', emoji: '☁️' },
@@ -47,9 +47,6 @@ const PERSONAS = [
 export function HomeToday() {
   const { user } = useAuth()
   const navigate = useNavigate()
-    const { effectiveTheme } = useThemeContext()
-    const isDark = effectiveTheme === 'dark'
-
   const [feed, setFeed] = useState<HomeFeed | null>(null)
   const [checkedInMood, setCheckedInMood] = useState<string | null>(null)
   const [submittingMood, setSubmittingMood] = useState<string | null>(null)
@@ -92,21 +89,21 @@ export function HomeToday() {
   const firstName = user?.displayName?.split(' ').slice(-1)[0] ?? ''
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-transparent' : 'bg-[var(--color-serene-bg)]'} px-5 pt-8 pb-28`}>
+    <div className="min-h-screen bg-[var(--color-serene-bg)] px-5 pt-8 pb-28">
       {/* Greeting */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         className="mb-2"
       >
-        <p className={`${isDark ? 'text-white/60' : 'text-[var(--color-serene-muted)]'} text-sm`}>
+        <p className="text-[var(--color-serene-muted)] text-sm">
           {new Date().toLocaleDateString('vi-VN', {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
           })}
         </p>
-        <h1 className={`font-[var(--font-display)] text-3xl ${isDark ? 'text-white' : 'text-[var(--color-serene-ink)]'} mt-1 leading-snug`}>
+        <h1 className="font-[var(--font-display)] text-3xl text-[var(--color-serene-ink)] mt-1 leading-snug">
           Hôm nay bạn muốn gì{firstName ? `, ${firstName}` : ''}?
         </h1>
       </motion.div>
@@ -117,7 +114,7 @@ export function HomeToday() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.15 }}
-          className={`text-sm italic ${isDark ? 'text-white/70 border-white/20' : 'text-[var(--color-serene-muted)] border-[var(--color-serene-outline)]'} my-4 leading-relaxed border-l-2 pl-3`}
+          className="text-sm italic text-[var(--color-serene-muted)] my-4 leading-relaxed border-l-2 border-[var(--color-serene-outline)] pl-3"
         >
           "{feed.quote_of_day.text}"
           {feed.quote_of_day.author && (
@@ -145,15 +142,15 @@ export function HomeToday() {
               className={[
                 'rounded-[22px] border px-4 py-5 text-left transition-all active:scale-[0.97] disabled:opacity-60',
                 mood.active
-                  ? `${isDark ? 'border-theme-accent/50 bg-theme-accent text-white shadow-md' : 'border-[var(--color-serene-primary)]/20 bg-[var(--color-serene-primary)] text-[var(--color-serene-on-primary)] shadow-md'}`
-                  : `${isDark ? 'border-white/10 bg-black/40 hover:bg-black/60' : 'border-white/45 bg-white/70 hover:bg-white/90'}`,
+                  ? 'border-[var(--color-serene-primary)]/20 bg-[var(--color-serene-primary)] text-[var(--color-serene-on-primary)] shadow-md'
+                  : 'border-white/45 bg-white/70 hover:bg-white/90',
               ].join(' ')}
             >
-              <Icon className={['h-6 w-6', mood.active ? 'text-white' : (isDark ? 'text-theme-accent' : 'text-[var(--color-serene-primary)]')].join(' ')} aria-hidden="true" />
-              <p className={['mt-4 font-semibold text-base', mood.active ? 'text-white' : (isDark ? 'text-white' : 'text-[var(--color-serene-ink)]')].join(' ')}>
+              <Icon className={['h-6 w-6', mood.active ? 'text-[var(--color-serene-accent)]' : 'text-[var(--color-serene-primary)]'].join(' ')} aria-hidden="true" />
+              <p className={['mt-4 font-semibold text-base', mood.active ? 'text-[var(--color-serene-on-primary)]' : 'text-[var(--color-serene-ink)]'].join(' ')}>
                 {mood.title}
               </p>
-              <p className={['mt-1 text-xs leading-snug', mood.active ? 'text-white/75' : (isDark ? 'text-white/50' : 'text-[var(--color-serene-muted)]')].join(' ')}>
+              <p className={['mt-1 text-xs leading-snug', mood.active ? 'text-[var(--color-serene-on-primary)]/75' : 'text-[var(--color-serene-muted)]'].join(' ')}>
                 {mood.desc}
               </p>
             </button>
@@ -171,8 +168,8 @@ export function HomeToday() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08 + i * 0.08 }}
             onClick={() => handleChoice(p.next)}
-            className={`w-full text-left rounded-3xl p-5 flex items-center gap-4 shadow-sm hover:shadow-md active:scale-[0.98] transition-all duration-150 ${isDark ? 'border border-white/5' : ''}`}
-            style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : p.bg }}
+            className="w-full text-left rounded-3xl p-5 flex items-center gap-4 shadow-sm hover:shadow-md active:scale-[0.98] transition-all duration-150"
+            style={{ backgroundColor: p.bg }}
           >
             <div
               aria-hidden="true"
@@ -182,12 +179,12 @@ export function HomeToday() {
               {p.emoji}
             </div>
             <div className="flex-1 min-w-0">
-              <div className={`font-semibold ${isDark ? 'text-white' : 'text-[var(--color-serene-ink)]'} text-base leading-tight`}>
+              <div className="font-semibold text-[var(--color-serene-ink)] text-base leading-tight">
                 {p.label}
               </div>
-              <div className={`text-sm ${isDark ? 'text-white/60' : 'text-[var(--color-serene-muted)]'} mt-0.5`}>{p.sub}</div>
+              <div className="text-sm text-[var(--color-serene-muted)] mt-0.5">{p.sub}</div>
             </div>
-            <span aria-hidden="true" className={`${isDark ? 'text-white/20' : 'text-[var(--color-serene-muted)]'} text-xl flex-shrink-0`}>›</span>
+            <span aria-hidden="true" className="text-[var(--color-serene-muted)] text-xl flex-shrink-0">›</span>
           </motion.button>
         ))}
       </div>
@@ -198,7 +195,7 @@ export function HomeToday() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4 }}
-          className={`mt-6 p-4 ${isDark ? 'bg-white/5 text-white/70 border border-white/10' : 'bg-[var(--color-serene-surface)] text-[var(--color-serene-muted)]'} rounded-2xl text-sm leading-relaxed`}
+          className="mt-6 p-4 bg-[var(--color-serene-surface)] rounded-2xl text-sm text-[var(--color-serene-muted)] leading-relaxed"
         >
           💡 {feed.dynamic_suggestion.message}
         </motion.div>

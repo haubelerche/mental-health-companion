@@ -4,8 +4,8 @@ import RevealSection from '../../../utils/RevealSection'
 
 export default function MindfulSoundSection() {
     return (
-        <RevealSection id="ocean-sound" className="relative min-h-screen px-6 py-20" variant='zoom'>
-            <div className="mx-auto w-full max-w-6xl flex gap-5 flex-col lg:items-center lg:justify-between lg:flex-row">
+        <RevealSection id="mindful-sound" className="relative min-h-screen px-6 py-20" delay={0.2}>
+            <div className="mx-auto w-full max-w-7xl flex gap-5 flex-col lg:items-center lg:justify-between lg:flex-row">
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/75">Trở về bên trong</p>
                     <h4 className="mt-6 font-display text-4xl italic leading-tight text-white sm:text-6xl">
@@ -19,16 +19,16 @@ export default function MindfulSoundSection() {
 
                     <div className="mt-10 space-y-5">
                         <article className="flex gap-3 items-center rounded-3xl border border-white/20 backdrop p-5">
-          
-                            <Waves size={40} className="text-white" />
+                            {/* Icon Waves được hiểu là Sóng âm/Tần số */}
+                            <Waves size={40} className="text-white/50" />
                             <div>
                                 <h5 className="font-display text-2xl italic text-white">Tần số chữa lành</h5>
                                 <p className="text-white/80 mt-1">Những dao động âm thanh có chủ đích giúp đưa trạng thái não bộ từ sóng Beta căng thẳng sang sóng Alpha thư giãn.</p>
                             </div>
                         </article>
                         <article className="flex gap-3 items-center rounded-3xl border border-white/20 backdrop p-5">
-                   
-                            <Wind size={40} className="text-white" />
+                            {/* Icon Wind được hiểu là Luồng khí/Hơi thở */}
+                            <Wind size={40} className="text-white/50" />
                             <div>
                                 <h5 className="font-display text-2xl italic text-white">Dòng chảy hơi thở</h5>
                                 <p className="text-white/80 mt-1">Nhận biết sự chuyển động của không khí. Mỗi nhịp hít vào là sự kiến tạo năng lượng, mỗi nhịp thở ra là sự buông bỏ áp lực.</p>

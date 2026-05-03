@@ -1,7 +1,13 @@
+import { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { HomeIcon, Library, MessageSquare, Settings, Sparkles, Utensils } from 'lucide-react'
 import { ROUTE_PATHS } from '../../routes/paths'
-import { ThemeToggle } from '../common/ThemeToggle'
+import {
+    APP_SETTINGS_STORAGE_KEY,
+    APP_SETTINGS_UPDATED_EVENT,
+    readAppSettings,
+    type AppSettings,
+} from '../../utils/appSettings'
 
 const PAGE_NAMES: Record<string, string> = {
     [ROUTE_PATHS.home]: 'Trang chủ',
@@ -36,6 +42,23 @@ const MOBILE_NAV = [
 
 export function AppHeader() {
     const location = useLocation()
+    const [isDark, setIsDark] = useState(() => readAppSettings().theme === 'night')
+
+    useEffect(() => {
+        const onSettings = (e: Event) => {
+            const ce = e as CustomEvent<AppSettings>
+            if (ce.detail) setIsDark(ce.detail.theme === 'night')
+        }
+        const onStorage = (e: StorageEvent) => {
+            if (e.key === APP_SETTINGS_STORAGE_KEY) setIsDark(readAppSettings().theme === 'night')
+        }
+        window.addEventListener(APP_SETTINGS_UPDATED_EVENT, onSettings as EventListener)
+        window.addEventListener('storage', onStorage)
+        return () => {
+            window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, onSettings as EventListener)
+            window.removeEventListener('storage', onStorage)
+        }
+    }, [])
 
     const pageName = PAGE_NAMES[location.pathname] ?? 'Serene'
 
@@ -43,11 +66,15 @@ export function AppHeader() {
         <>
             {/* ── Desktop header ── */}
             <header
-                className="fixed left-0 right-0 top-0 z-40 hidden items-center justify-between px-8 py-5 backdrop-blur-md bg-theme-bg-secondary/40 md:flex"
+                className={`fixed left-0 right-0 top-0 z-40 hidden items-center justify-between px-8 py-5 backdrop-blur-md md:flex ${
+                    isDark ? 'bg-black/10' : 'bg-white/15'
+                }`}
             >
                 {/* Top-left: page name */}
                 <span
-                    className="font-display text-xl italic tracking-wide text-theme-text-secondary"
+                    className={`font-display text-xl italic tracking-wide ${
+                        isDark ? 'text-white/75' : 'text-serene-ink/70'
+                    }`}
                 >
                     {pageName}
                 </span>
@@ -62,8 +89,12 @@ export function AppHeader() {
                             className={({ isActive }) =>
                                 `font-display text-[15px] transition-all duration-150 ${
                                     isActive
-                                        ? 'text-theme-accent underline underline-offset-[5px] decoration-1'
-                                        : 'text-theme-text-secondary/50 hover:text-theme-text-primary'
+                                        ? isDark
+                                            ? 'text-white underline underline-offset-[5px] decoration-1'
+                                            : 'text-serene-ink underline underline-offset-[5px] decoration-1'
+                                        : isDark
+                                            ? 'text-white/45 hover:text-white/80'
+                                            : 'text-serene-ink/40 hover:text-serene-ink/80'
                                 }`
                             }
                         >
@@ -72,45 +103,45 @@ export function AppHeader() {
                     ))}
                 </nav>
 
-                {/* Top-right: settings & theme toggle */}
-                <div className="flex items-center gap-3">
-                    <ThemeToggle />
-                    <NavLink
-                        to={ROUTE_PATHS.setting}
-                        aria-label="Cài đặt"
-                        className={`transition-opacity ${
-                            isDark ? 'text-white/45 hover:text-white/80' : 'text-serene-ink/40 hover:text-serene-ink/80'
-                        }`}
-                    >
-                        <Settings className="h-4 w-4" />
-                    </NavLink>
-                </div>
+                {/* Top-right: settings */}
+                <NavLink
+                    to={ROUTE_PATHS.setting}
+                    aria-label="Cài đặt"
+                    className={`transition-opacity ${
+                        isDark ? 'text-white/45 hover:text-white/80' : 'text-serene-ink/40 hover:text-serene-ink/80'
+                    }`}
+                >
+                    <Settings className="h-4 w-4" />
+                </NavLink>
             </header>
 
             {/* ── Mobile: top bar ── */}
             <div
-                className="fixed left-0 right-0 top-0 z-40 flex items-center justify-between px-5 py-4 backdrop-blur-md md:hidden bg-theme-bg-secondary/40"
+                className={`fixed left-0 right-0 top-0 z-40 flex items-center justify-between px-5 py-4 backdrop-blur-md md:hidden ${
+                    isDark ? 'bg-black/10' : 'bg-white/15'
+                }`}
             >
                 <span
-                    className="font-display text-base italic text-theme-text-secondary"
+                    className={`font-display text-base italic ${
+                        isDark ? 'text-white/75' : 'text-serene-ink/70'
+                    }`}
                 >
                     {pageName}
                 </span>
-                <div className="flex items-center gap-3">
-                    <ThemeToggle />
-                    <NavLink
-                        to={ROUTE_PATHS.setting}
-                        aria-label="Cài đặt"
-                        className="text-theme-text-secondary/50 hover:text-theme-text-primary transition-opacity"
-                    >
-                        <Settings className="h-4 w-4" />
-                    </NavLink>
-                </div>
+                <NavLink
+                    to={ROUTE_PATHS.setting}
+                    aria-label="Cài đặt"
+                    className={isDark ? 'text-white/45 hover:text-white/75' : 'text-serene-ink/40 hover:text-serene-ink/75'}
+                >
+                    <Settings className="h-4 w-4" />
+                </NavLink>
             </div>
 
             {/* ── Mobile: bottom nav pill ── */}
             <nav
-                className="fixed bottom-4 left-1/2 z-50 flex w-[min(94vw,520px)] -translate-x-1/2 items-center justify-between rounded-3xl border px-3 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.1)] backdrop-blur-xl md:hidden border-theme-border bg-theme-bg-secondary/95"
+                className={`fixed bottom-4 left-1/2 z-50 flex w-[min(94vw,520px)] -translate-x-1/2 items-center justify-between rounded-3xl border px-3 py-2 shadow-[0_8px_32px_rgba(47,52,46,0.14)] backdrop-blur-xl md:hidden ${
+                    isDark ? 'border-white/25 bg-black/55' : 'border-white/45 bg-white/75'
+                }`}
             >
                 {MOBILE_NAV.map((item) => {
                     const Icon = item.icon
@@ -122,8 +153,12 @@ export function AppHeader() {
                             className={({ isActive }) =>
                                 `flex flex-1 flex-col items-center gap-1 rounded-2xl px-1 py-2 text-[12px] font-medium transition ${
                                     isActive
-                                        ? 'bg-theme-accent/15 text-theme-accent'
-                                        : 'text-theme-text-secondary hover:text-theme-text-primary'
+                                        ? isDark
+                                            ? 'bg-white/20 text-white'
+                                            : 'bg-serene-primary/10 text-serene-primary'
+                                        : isDark
+                                            ? 'text-white/75 hover:text-white'
+                                            : 'text-serene-muted/70 hover:text-serene-ink'
                                 }`
                             }
                         >
