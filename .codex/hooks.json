@@ -5,11 +5,9 @@
       {
         "hooks": [
           {
-            "type": "command",
             "name": "log-prompt",
-            "command": "python scripts/log_hook.py",
-            "timeout": 10,
-            "statusMessage": "Logging Codex prompt"
+            "command": "AI_TOOL_NAME=codex python scripts/log_hook.py",
+            "timeout": 10
           }
         ]
       }
@@ -18,11 +16,9 @@
       {
         "hooks": [
           {
-            "type": "command",
             "name": "log-stop",
-            "command": "python scripts/log_hook.py",
-            "timeout": 10,
-            "statusMessage": "Logging Codex stop event"
+            "command": "AI_TOOL_NAME=codex python scripts/log_hook.py",
+            "timeout": 10
           }
         ]
       }
