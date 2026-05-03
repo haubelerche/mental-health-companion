@@ -4,6 +4,154 @@
 
 ---
 
+## [Unreleased] — Merge Readiness Fixes · 2026-05-04
+
+### Fixed
+- `frontend/src/components/pages/CheckinFlow.tsx` — Removed `grantCheckinReward(10, MOCK_STREAK)` local wallet mutation; removed `MOCK_STREAK` placeholder. Now captures backend `reward` + `streak` from `checkinService.quickCheckin` response and passes them to `StreakCelebration`. Summary `+♥` badge is conditional on `reward.granted`.
+- `frontend/src/components/pages/Home.tsx` — Removed `syncRewardStreak(streak30)` localStorage mutation. Backend streak is now held in separate `backendStreakDays` state and used for display; does not mutate the local wallet.
+- `frontend/src/utils/rewardProgress.ts` — Added `@deprecated` JSDoc to `grantCheckinReward` and `syncRewardStreak`; no callers remain in production flow.
+- `frontend/src/services/checkinService.ts` — Extended `CheckinQuickResponse` with `CheckinRewardResult` and `CheckinStreakResult` types, matching the backend `/checkin/quick` response shape.
+- `backend/app/personas/router.py` — Added `boundary_accepted: bool = False` parameter to `route_persona()`; gate 5b rejects Crush activation when `boundary_accepted=False`.
+
+### Tests
+- `backend/tests/test_persona_router_integration.py` — Added `test_route_persona_crush_rejects_without_boundary_accepted` (11th test); all 11 pass.
+
+---
+
+## [Unreleased] — Plans 09–10: Frontend Integration + Testing Matrix · 2026-05-03
+
+### Added — Plan 10: Testing Matrix
+- `backend/tests/test_contract_shapes.py` — 12 contract tests: persona registry shape (5 personas, required attrs), store item fields/price bounds, wallet grant response keys, purchase result keys, `MemoryCardOut` schema fields, `TTS_TERMINAL_STATUSES`/`TTS_REUSABLE_STATUSES` stability.
+- `backend/tests/test_concurrency.py` — 5 idempotency/concurrency tests: duplicate mood check-in grant, 7-day streak double-claim, two purchase requests no double-spend, idempotent purchase same key, knowledge card completion grants Tim once.
+- `backend/tests/test_safety_regression.py` — 17 safety regression tests: SOS forces `ban_than` + `safety_override=True`, Crush/Cún/Mèo safety thresholds, dependency-signal Crush block, unlock lock reason, alias resolution, knowledge diagnosis/SOS rejection, memory guardrail diagnosis/SOS/empty/invalid-type rejection.
+
+### Added — Plan 09: Frontend Integration
+- `frontend/src/services/rewardsService.ts` — API client for `/rewards/store`, `/rewards/balance`, `/rewards/items/{id}/purchase`, `/rewards/inventory`, `/rewards/personas/progress`, Crush boundary intro/accept.
+- `frontend/src/services/personasService.ts` — API client for `/personas/state`, `/personas/select`.
+- `frontend/src/services/memoryCardsService.ts` — API client for `/chat/memory-cards` list and PATCH action (with CSRF).
+- `frontend/src/components/rewards/HeartBalanceBadge.tsx` — Backend-driven Tim balance display; auto-fetches on mount; accepts external balance override.
+- `frontend/src/components/rewards/RewardCard.tsx` — Per-item card: disables purchase on `insufficient_hearts`/`requirements_not_met`/already-owned; no forbidden Crush copy.
+- `frontend/src/components/rewards/RewardShelf.tsx` — Shelf grid rendered from backend catalog; grouped by shelf type.
+- `frontend/src/components/chat/ChatEntryCheckIn.tsx` — Daily mood check-in via `/mood/checkins`; handles `already_claimed` idempotently.
+- `frontend/src/components/chat/MemoryCardsTab.tsx` — Ký ức tab with keep/edit/delete controls; state updates optimistically on action.
+- `frontend/src/components/chat/PersonaSelector.tsx` — Shows backend-authorized unlock state; locked personas display price + affordability hint; no raw risk scores.
+- `frontend/src/components/chat/VoiceStatusBadge.tsx` — TTS job status display; exports `TTS_TERMINAL_STATUSES` set for polling-stop logic.
+- `frontend/src/components/letters/LetterComposer.tsx` — Letter composer with all 6 status states (draft, pending_review, approved, too_short, rejected_harmful, needs_review); no raw model scores shown.
+- `frontend/src/components/nutrition/MealCheckInCard.tsx` — Three-slot meal check-in via `/nutrition/meal-checkins`; per-slot idempotency.
+- `frontend/src/components/pages/RewardsPage.tsx` — Rewards page: fetches store + inventory on load; purchase updates balance + owned state; backend-sourced catalog only.
+- `frontend/src/routes/paths.ts` — Added `rewards: '/serene/rewards'`.
+- `frontend/src/routes/AppRoutes.tsx` — Registered `RewardsPage` under `/serene/rewards`.
+
+---
+
+## [Unreleased] — Plan 08: Voice/TTS Deduplication · 2026-05-03
+
+### Added
+- **Voice/TTS Dedup (Plan 08):** `backend/app/voice/` package.
+- `backend/app/voice/types.py` — `TTSStatus` Literal, `TTS_TERMINAL_STATUSES` frozenset (polling stops on terminal), `TTS_REUSABLE_STATUSES`.
+- `backend/app/voice/style_mapping.py` — Canonical persona_id → tts_style_id mapping (5 personas); `resolve_active_style()` falls back to `warm_friend` for restricted styles without ownership; `is_style_restricted()` guard.
+- `backend/app/voice/dedup.py` — `compute_event_signature()` (SHA-256 of session/style/script/provider/voice_id/locale/rate); `find_dedup_job()` (scans last-24h SyncOutbox rows, ignores failed jobs, graceful-degrades on stub DBs); `dedup_status_for()` (ready→cache_hit, others→skipped_duplicate).
+- `backend/tests/test_tts_dedup.py` — 23 tests: signature stability, uniqueness, normalization, style mapping, dedup lookup, terminal statuses.
+
+### Changed
+- `backend/app/services/proactive_voice.py` — `enqueue_voice_job()` now accepts `persona_id` + `user_owns_voice_style`; computes event signature via `compute_event_signature()`; calls `find_dedup_job()` before creating a new `SyncOutbox` row; stores `event_signature` + `voice_style_id` in job payload; returns `cache_hit`/`skipped_duplicate` with original job reference when duplicate found.
+
+---
+
+## [Unreleased] — Plan 07: Knowledge Unlocks · 2026-05-03
+
+### Added
+- **Knowledge Unlocks (Plan 07):** `KnowledgePack`, `KnowledgeCard`, `UserKnowledgeProgress` SQLAlchemy models.
+- `backend/app/knowledge/content_review.py` — Deterministic safety review: rejects diagnosis framing, SOS content, empty/oversized content. No LLM required.
+- `backend/app/knowledge/catalog.py` — 3 seeded packs (stress, sleep, social energy) with 8 total cards; ordered by `order_index`; psychoeducation-only, no diagnosis language.
+- `backend/app/knowledge/progress_service.py` — DB-backed `has_pack_access()` (free=always, paid=inventory check), `complete_card()` (+15 Tim, once per user/card, idempotent), `get_user_progress()`.
+- `backend/app/knowledge/routes.py` — `GET /knowledge/packs`, `GET /knowledge/packs/{pack_id}/cards`, `POST /knowledge/cards/{card_id}/complete`, `GET /knowledge/progress`, `POST /knowledge/admin/review-card`.
+- `backend/alembic/versions/0009_knowledge_unlocks.py` — Idempotent migration for `knowledge_packs`, `knowledge_cards`, `user_knowledge_progress` tables.
+- `backend/tests/test_knowledge_unlocks.py` — 21 tests covering content review, catalog, access control, completion reward idempotency, progress listing.
+
+### Changed
+- `backend/app/api/v1/api.py` — Registered `knowledge_router`.
+
+---
+
+## [Unreleased] — Plan 06: Memory Cards (Chat > Ký ức) · 2026-05-03
+
+### Added
+- **Memory Cards (Plan 06):** `MemoryCard`, `MemoryCardAuditEvent` SQLAlchemy models with status/safety_review_status/personalization_disabled columns and check constraints.
+- `backend/app/memory/guardrail.py` — Deterministic safety review: rejects diagnosis language, SOS content, invalid types, oversized content; no LLM required.
+- `backend/app/memory/extractor.py` — Rule-based candidate extractor with stable interface for session-end extraction; produces typed `MemoryCandidate` dicts.
+- `backend/app/memory/service.py` — `create_cards_from_candidates()`, `get_user_cards()`, `apply_user_action()` (keep/edit/delete/disable_personalization with audit events), `get_active_card_for_context()` (micro-memory rule: at most one card per response).
+- `backend/app/memory/routes.py` — `GET /chat/memory-cards`, `PATCH /chat/memory-cards/{card_id}`, `POST /chat/memory-cards/extract`, `GET /chat/memory-cards/context-card`.
+- `backend/alembic/versions/0008_memory_cards.py` — Idempotent migration: `memory_cards` + `memory_card_audit_events` tables, composite index on (user_id, status, created_at).
+- `backend/tests/test_memory_cards.py` — 26 tests covering guardrail, extractor, service CRUD, user actions, audit trail, deleted/disabled exclusion, micro-memory rule.
+
+### Changed
+- `backend/app/api/v1/api.py` — Registered `memory_router` under `/chat/memory-cards`.
+
+---
+
+## [Unreleased] — Plans 03–05: Heart Economy, Reward Store, Persona Unlock · 2026-05-03
+
+### Added
+- **Heart economy (Plan 03):** `HeartWallet`, `HeartRewardEvent`, `StreakState`, `NutritionMealCheckin`, `TherapyLetter` SQLAlchemy models.
+- `backend/app/hearts/service.py` — `grant_hearts()` with idempotency-key deduplication; lazy wallet creation; atomic flush.
+- `backend/app/hearts/streaks.py` — `update_mood_streak()`: consecutive-day streak counter; fires +20 Tim bonus per completed 7-day block (idempotent).
+- **Reward store (Plan 04):** `HeartSpendEvent`, `RewardStoreItem`, `UserInventoryItem` SQLAlchemy models.
+- `backend/app/rewards/catalog.py` — Backend-driven catalog (10 items: persona, knowledge, mood_room, micro_style shelves); `validate_catalog_item()` enforces price range and Crush copy rules.
+- `backend/app/rewards/purchase_service.py` — Atomic purchase transaction: wallet lock → balance check → inventory dedup → spend event → persona unlock.
+- `backend/app/rewards/persona_unlock_adapter.py` — Bridge from purchase to persona unlock state.
+- **Persona unlock (Plan 05):** `PersonaUnlockState` SQLAlchemy model.
+- `backend/app/personas/unlocks.py` — `is_persona_unlocked()`, `mark_persona_unlocked()`, `accept_crush_boundary()`; core personas always unlocked.
+- `backend/app/personas/progression.py` — `get_unlock_progress()` aggregating mood_checkins + boundary_accepted per persona.
+- `backend/app/personas/boundary_intro.py` — Crush boundary disclosure copy and `build_boundary_intro_response()`.
+- `backend/app/api/v1/routers/nutrition.py` — `POST /nutrition/meal-checkins`: one +5 Tim reward per slot per day, capped at 15 Tim/day.
+- `backend/app/api/v1/routers/rewards.py` — `GET /rewards/store`, `GET /rewards/balance`, `POST /rewards/items/{item_id}/purchase`, `GET /rewards/inventory`, `GET /rewards/personas/progress`, `POST /rewards/personas/crush/boundary-accept`.
+- `backend/alembic/versions/0007_heart_economy.py` — Idempotent migration for all 9 new tables.
+- `backend/tests/test_heart_economy.py`, `test_reward_store.py`, `test_persona_unlock.py` — 24 new tests (all passing).
+
+### Changed
+- `backend/app/api/v1/routers/checkin.py` — `POST /checkin/quick` now grants +10 Tim on first daily check-in (idempotent); triggers streak engine; returns `reward` and `streak` in response.
+- `backend/app/api/v1/api.py` — Registered `nutrition` and `rewards` routers.
+- `backend/app/api/v1/routers/chat.py` — `_active_persona_id()` now queries `PersonaUnlockState` and passes real `is_unlocked` to `route_persona()` instead of hardcoded `False`.
+
+### Architecture note
+Personas are unlocked via the reward store purchase flow: purchase → `HeartSpendEvent` → `UserInventoryItem` → `PersonaUnlockState(unlocked=True)`. The persona router's safety gate remains authoritative — unlock only means the persona is available, not that it will activate when distress is high.
+
+---
+
+## [Unreleased] — Batch 2: Persona router wiring in chat path · 2026-05-03
+
+### Changed
+- `backend/app/api/v1/routers/chat.py` — `_active_persona_id()` now accepts `distress: float` and calls `route_persona()` before returning; safety gate and unlock gate run deterministically before every call to `run_non_sos_turn` / `stream_non_sos_turn_events`. High-distress turns force `ban_than` fallback; locked personas are rejected.
+- `backend/app/api/v1/routers/chat.py` — Both authenticated non-SOS call sites (`send_message`, `send_message_stream`) pass `distress=distress` into `_active_persona_id()`.
+
+### Added
+- `backend/tests/test_persona_router_integration.py` — 10 tests covering: `route_persona()` keep/switch/deactivate/reject/SOS paths; `_active_persona_id()` happy path, safety gate override at high distress, DB error fallback, and no-profile fallback.
+
+### Architecture note
+SOS path already bypasses `_active_persona_id()` and `run_non_sos_turn` entirely (PRD §11). The persona router gate is only in the non-SOS path; `route_persona(sos_triggered=True)` returns `safety_override=True` and forces `ban_than` as a belt-and-suspenders safety invariant.
+
+---
+
+## [Unreleased] — Batch 1: Persona registry + 3-agent alignment · 2026-05-03
+
+### Added
+- `backend/app/personas/types.py` — `PersonaConfig`, `PersonaState`, and typed literals (`PersonaId`, `PersonaRiskClass`, `ActivationMode`, `QualityGuardProfile`) per plan §4.
+- `backend/app/personas/registry.py` — Canonical registry of 5 personas (`ban_than`, `nguoi_thay`, `cun`, `meo`, `crush`) with startup validation; `get_persona()` safe fallback, `get_persona_config()`, `validate_persona_registry()`.
+- `backend/app/personas/prompt_blocks.py` — `build_persona_block()` and `build_system_prompt()` for injecting persona style into `FriendNode` system prompt; safety override instruction always appended.
+- `backend/app/personas/aliases.py` — `resolve_alias()` / `normalize_persona_id()` for deterministic legacy alias resolution; `is_known_persona()`.
+- `backend/app/personas/gates.py` — Deterministic `check_unlock_gate()` and `check_safety_gate()` with per-persona distress ceilings; SOS always bypasses persona style (PRD §11).
+- `backend/app/personas/router.py` — `PersonaRouterDecision` and `route_persona()`: 6-gate deterministic decision pipeline (validation → unlock → safety → setup → activation); never fabricates user-facing content.
+- `backend/app/personas/__init__.py` — Package re-exports for all public symbols.
+
+### Changed
+- `backend/app/services/langgraph_chat.py` — Persona module now fully importable; `PERSONA_CONFIGS` dict, `_active_persona_config()`, `_persona_temperature()`, and `_build_persona_block()` reference the canonical registry and prompt block builder.
+
+### Architecture note
+Personas are style modes inside `FriendNode`, not separate agents (PRD §3). `SafetyGate` overrides all persona behavior during SOS; `route_persona()` returns `safety_override=True` and forces `ban_than` on any crisis trigger.
+
+---
+
 ## [Unreleased] — Sprint A Phase 5 · 2026-04-30
 
 ### Docs
