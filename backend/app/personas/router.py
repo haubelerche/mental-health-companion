@@ -51,12 +51,15 @@ def route_persona(
     distress: float,
     sos_triggered: bool,
     is_unlocked: bool = False,
+    boundary_accepted: bool = False,
     dependency_signal: bool = False,
     user_explicit: bool = False,
 ) -> PersonaRouterDecision:
     """Gate order per plan §8.2: validation -> unlock -> safety -> activation.
 
     Returns a PersonaRouterDecision; never fabricates final support content.
+    `boundary_accepted` must be True to activate the crush persona; this check
+    is separate from the progression unlock so it can be re-verified each turn.
     """
     prev = current_persona_id or DEFAULT_PERSONA_ID
     requested = requested_persona_id
@@ -123,6 +126,16 @@ def route_persona(
             reason="persona_locked_by_progression",
             blocked_reason="persona_locked_by_progression",
             unlock_requirements=requirements,
+        )
+
+    # 5b. Boundary-acceptance gate (crush only)
+    if resolved == "crush" and not boundary_accepted:
+        return PersonaRouterDecision(
+            action="reject",
+            previous_persona_id=prev,
+            target_persona_id=prev,
+            reason="crush_boundary_not_accepted",
+            blocked_reason="crush_boundary_not_accepted",
         )
 
     # 6. Safety gate on requested persona
