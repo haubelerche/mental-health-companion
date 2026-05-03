@@ -2,4 +2,4 @@
 # https://developers.openai.com/codex/config-basic
 #:schema https://developers.openai.com/codex/config-schema.json
 
-model = "gpt-4o-mini"
+model = "gpt-5.5"
