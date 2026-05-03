@@ -10,9 +10,9 @@ from app.api.deps import ensure_policy_acknowledged
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.db.models import ClinicalProfile, JournalEntry, JournalPrompt, MoodCheckin, User, UserProfile
-from app.db.session import get_db
-from app.schemas.payloads import JournalCreateRequest
+from app.services.db.models import ClinicalProfile, JournalEntry, JournalPrompt, MoodCheckin, User, UserProfile
+from app.services.db.session import get_db
+from app.services.schemas.payloads import JournalCreateRequest
 from app.services.utils import local_date_utc7, make_id, utc_now
 
 router = APIRouter(prefix="/reflect", tags=["reflect"])

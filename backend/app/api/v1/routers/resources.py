@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import ensure_policy_acknowledged
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.db.models import Bookmark, PlayEvent, Resource, User
-from app.db.session import get_db
-from app.schemas.payloads import PlayEventRequest
+from app.services.db.models import Bookmark, PlayEvent, Resource, User
+from app.services.db.session import get_db
+from app.services.schemas.payloads import PlayEventRequest
 from app.services.exercise_catalog import get_exercise, list_exercises
 from app.services.utils import make_id, now_plus, utc_now
 
@@ -47,34 +47,28 @@ def categories():
 
 @router.get("")
 def list_resources(
-    category: str | None = Query(default=None),
+    category: str = Query(...),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
-    # Normalize category
-    if category == "all":
-        category = None
-
-    if category and category not in CATEGORIES:
+    if category not in CATEGORIES:
         raise AppError("INVALID_PARAMETER", "Category không hợp lệ", 400)
 
-    # Build conditions
-    conditions = [Resource.is_active.is_(True)]
+    total = (
+        db.scalar(
+            select(func.count(Resource.resource_id)).where(
+                Resource.category == category,
+                Resource.is_active.is_(True),
+            )
+        )
+        or 0
+    )
 
-    if category:
-        conditions.append(Resource.category == category)
-
-    # Total
-    total = db.scalar(
-        select(func.count(Resource.resource_id)).where(*conditions)
-    ) or 0
-
-    # Query
     rows = db.scalars(
         select(Resource)
-        .where(*conditions)
+        .where(Resource.category == category, Resource.is_active.is_(True))
         .order_by(Resource.created_at.desc())
         .offset(offset)
         .limit(limit)
@@ -93,11 +87,10 @@ def list_resources(
                 "title": row.title,
                 "duration_sec": row.duration_sec,
                 "format": row.format,
-                "url": row.external_url or f"https://cdn.example.com/{row.storage_key}?sig=dummy",
+                "url": f"https://cdn.example.com/{row.storage_key}?sig=dummy",
                 "url_expires_at": expires_at,
-                "thumbnail": row.thumbnail_key if row.thumbnail_key else None,
+                "thumbnail": f"https://cdn.example.com/{row.thumbnail_key}" if row.thumbnail_key else None,
                 "bookmarked": bookmarked is not None,
-                "tags": row.tags,
             }
         )
 
@@ -122,7 +115,7 @@ def resource_detail(resource_id: str, current_user: User = Depends(ensure_policy
             "description": row.description,
             "duration_sec": row.duration_sec,
             "format": row.format,
-            "url": row.external_url or f"https://cdn.example.com/{row.storage_key}?sig=dummy",
+            "url": f"https://cdn.example.com/{row.storage_key}?sig=dummy",
             "url_expires_at": expires_at,
             "thumbnail": f"https://cdn.example.com/{row.thumbnail_key}" if row.thumbnail_key else None,
             "bookmarked": bookmarked is not None,

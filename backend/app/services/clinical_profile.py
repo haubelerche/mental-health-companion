@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import ClinicalProfile
+from app.services.db.models import ClinicalProfile
 from app.services.utils import make_id
 
 

@@ -7,8 +7,8 @@ Create Date: 2026-04-14 00:00:00
 
 from alembic import op
 
-from app.db import models  # noqa: F401
-from app.db.session import Base
+from app.services.db import models  # noqa: F401
+from app.services.db.session import Base
 
 # revision identifiers, used by Alembic.
 revision = "0001_init_schema"

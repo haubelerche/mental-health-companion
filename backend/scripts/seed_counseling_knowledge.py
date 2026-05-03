@@ -94,7 +94,7 @@ def _embed_batch(texts: list[str], client) -> list[list[float]]:
 
 def seed(dry_run: bool = False, limit: int | None = None) -> None:
     from app.core.config import get_settings
-    from app.db.session import get_engine, get_session_factory
+    from app.services.db.session import get_engine, get_session_factory
 
     settings = get_settings()
     if not settings.openai_api_key:

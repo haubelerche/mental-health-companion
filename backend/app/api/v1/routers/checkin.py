@@ -6,9 +6,9 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import ensure_policy_acknowledged
 from app.core.responses import ok
-from app.db.models import MoodCheckin, User
-from app.db.session import get_db
-from app.schemas.payloads import CheckinQuickRequest
+from app.services.db.models import MoodCheckin, User
+from app.services.db.session import get_db
+from app.services.schemas.payloads import CheckinQuickRequest
 from app.services.utils import local_date_utc7, make_id, utc_now
 
 router = APIRouter(prefix="/checkin", tags=["checkin"])

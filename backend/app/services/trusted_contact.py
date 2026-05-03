@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import SyncOutbox, UserProfile
+from app.services.db.models import SyncOutbox, UserProfile
 
 TRUSTED_CONTACTS_KEY = "trusted_contacts"
 OUTBOUND_OPT_IN_KEY = "trusted_contact_outbound_opt_in"

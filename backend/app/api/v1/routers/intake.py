@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from app.core.responses import ok
-from app.schemas.payloads import SafetyCheckRequest
+from app.services.schemas.payloads import SafetyCheckRequest
 from app.services.intake_keyword_risk import intake_combined_text, score_intake_keywords
 from app.services.safety_scoring import distress_to_risk_level
 

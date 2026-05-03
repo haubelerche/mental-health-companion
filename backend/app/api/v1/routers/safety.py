@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import ensure_policy_acknowledged
 from app.core.config import get_settings
 from app.core.responses import ok
-from app.db.models import User
-from app.db.session import get_db
-from app.schemas.payloads import SafetyEscalateRequest, TrustedContactRequest, VoiceConsentRequest
+from app.services.db.models import User
+from app.services.db.session import get_db
+from app.services.schemas.payloads import SafetyEscalateRequest, TrustedContactRequest, VoiceConsentRequest
 from app.services.trusted_contact import (
     add_trusted_contact,
     enqueue_trusted_contact_notification,

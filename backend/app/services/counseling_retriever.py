@@ -66,7 +66,7 @@ def get_similar_counseling_examples(
         from openai import OpenAI
         from sqlalchemy import text
 
-        from app.db.session import get_engine, get_session_factory
+        from app.services.db.session import get_engine, get_session_factory
 
         if get_engine().dialect.name != "postgresql":
             return []

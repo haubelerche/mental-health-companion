@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import ensure_policy_acknowledged
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.db.models import User
-from app.db.session import get_db
-from app.schemas.payloads import ScreeningSubmitRequest
+from app.services.db.models import User
+from app.services.db.session import get_db
+from app.services.schemas.payloads import ScreeningSubmitRequest
 from app.services.clinical_profile import get_or_create_clinical_profile
 from app.services.utils import utc_now
 

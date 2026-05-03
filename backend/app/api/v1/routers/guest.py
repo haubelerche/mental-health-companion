@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from app.core.responses import ok
-from app.schemas.payloads import GuestChoiceRequest, GuestHeartbeatRequest
+from app.services.schemas.payloads import GuestChoiceRequest, GuestHeartbeatRequest
 from app.services.guest_service import heartbeat, record_choice, start_session
 
 router = APIRouter(prefix="/guest", tags=["guest"])

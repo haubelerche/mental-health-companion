@@ -11,7 +11,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Message, MoodCheckin
+from app.services.db.models import Message, MoodCheckin
 from app.services.utils import local_date_utc7
 
 

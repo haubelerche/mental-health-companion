@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import UserProfile
+from app.services.db.models import UserProfile
 
 VOICE_CONSENT_KEY = "voice_consent"
 
