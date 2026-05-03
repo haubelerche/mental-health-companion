@@ -6,6 +6,9 @@
 
 ## [Unreleased] — Merge Readiness Fixes · 2026-05-04
 
+### Changed
+- `COMMIT_PLAYBOOK.MD` — Default multi-PR workflow when batching: **at most 3 commits per PR** (replacing the prior 5-commit cap) so teams can open more, smaller PRs to `main`; documents separate batch branches and dependency notes. Added **§3.1 competition-grade granularity**: prefer **one primary file per commit**, forbid mega-commits / blob diffs, document inseparable bundles (migration+ORM, etc.), `git add -p` for large single files; §7.2 no longer recommends `git add -A` for mixed work.
+
 ### Fixed
 - `frontend/src/components/pages/CheckinFlow.tsx` — Removed `grantCheckinReward(10, MOCK_STREAK)` local wallet mutation; removed `MOCK_STREAK` placeholder. Now captures backend `reward` + `streak` from `checkinService.quickCheckin` response and passes them to `StreakCelebration`. Summary `+♥` badge is conditional on `reward.granted`.
 - `frontend/src/components/pages/Home.tsx` — Removed `syncRewardStreak(streak30)` localStorage mutation. Backend streak is now held in separate `backendStreakDays` state and used for display; does not mutate the local wallet.
