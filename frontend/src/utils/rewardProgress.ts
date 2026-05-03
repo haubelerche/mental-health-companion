@@ -36,6 +36,10 @@ export function getRewardProgress(): RewardProgress {
     return readProgress()
 }
 
+/**
+ * @deprecated Do not call from production flows. Wallet mutations belong on the backend.
+ * Kept for legacy event listeners; do not add new callers.
+ */
 export function grantCheckinReward(heartsEarned: number, streakDays: number): RewardProgress {
     const current = readProgress()
     const next: RewardProgress = {
@@ -47,6 +51,10 @@ export function grantCheckinReward(heartsEarned: number, streakDays: number): Re
     return next
 }
 
+/**
+ * @deprecated Do not call from production flows. Streak is authoritative on the backend.
+ * Kept for legacy compatibility; do not add new callers.
+ */
 export function syncRewardStreak(streakDays: number): RewardProgress {
     const current = readProgress()
     if (streakDays <= current.streakDays) return current
