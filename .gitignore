@@ -17,9 +17,11 @@ node_modules/
 package.json
 package-lock.json
 # Loại bỏ tất cả các tệp hình ảnh
+CLAUDE.md
 
-
-
+.claude/
+.codex/
+.github/
 # Loại bỏ tất cả các tệp tài liệu PDF
 *.pdf
 # Local app config (env-backed; không đưa lên remote)
@@ -42,7 +44,8 @@ docker-compose.yml
 .cursor/hooks.json
 
 # Generated local test output
-
+DONE_CRITERIA.md
+setup_cloudrun.sh
 
 .vscode/
 .idea/
@@ -63,8 +66,3 @@ backend/data/emotion_centroids.pkl
 # Local design reference / screenshots (not shipped with app; app assets live under frontend/src/assets)
 reference-images/
 
-.github/skills/
-.github/plans/
-.github/prompts/
-
-.agent/*
