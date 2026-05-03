@@ -25,6 +25,8 @@ from app.services.confidence_router import route_for_human_review
 from app.services.guest_service import heartbeat as guest_heartbeat
 from app.services.guest_service import start_session as guest_start_session
 from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn, stream_non_sos_turn_events
+from app.personas import route_persona
+from app.personas.unlocks import is_persona_unlocked
 from app.services.longterm_memory import (
     UserMemoryContext,
     build_user_memory_context,
@@ -86,7 +88,7 @@ def _enqueue_turn_mem0(user_id: str, raw_text: str, assistant_text: str) -> None
         logger.warning("mem0 turn add failed for %s: %s", user_id, exc)
 
 
-def _active_persona_id(db: Session, user_id: str) -> str:
+def _active_persona_id(db: Session, user_id: str, *, distress: float = 0.0) -> str:
     if not hasattr(db, "scalar"):
         return DEFAULT_PERSONA_ID
     try:
@@ -96,7 +98,16 @@ def _active_persona_id(db: Session, user_id: str) -> str:
     profile_data = dict(profile_row.profile or {}) if profile_row else {}
     persona_data = dict(profile_data.get("persona") or {})
     selected = str(persona_data.get("selected") or "").strip()
-    return selected or DEFAULT_PERSONA_ID
+    requested = selected or DEFAULT_PERSONA_ID
+    unlocked = is_persona_unlocked(db, user_id=user_id, persona_id=requested) if requested != DEFAULT_PERSONA_ID else True
+    decision = route_persona(
+        current_persona_id=DEFAULT_PERSONA_ID,
+        requested_persona_id=requested if requested != DEFAULT_PERSONA_ID else None,
+        distress=distress,
+        sos_triggered=False,
+        is_unlocked=unlocked,
+    )
+    return decision.target_persona_id
 
 
 def _record_sos_side_effects(
@@ -488,7 +499,7 @@ def send_message(
                 active_goals=(memory_ctx.active_goals if memory_ctx else []),
                 effective_coping=(memory_ctx.effective_coping if memory_ctx else []),
                 clinical_trajectory=(memory_ctx.clinical_trajectory if memory_ctx else ""),
-                persona_id=_active_persona_id(db, current_user.user_id),
+                persona_id=_active_persona_id(db, current_user.user_id, distress=distress),
                 user_id=current_user.user_id,
                 session_id=session.session_id,
             )
@@ -773,7 +784,7 @@ def send_message_stream(
                     active_goals=(memory_ctx.active_goals if memory_ctx else []),
                     effective_coping=(memory_ctx.effective_coping if memory_ctx else []),
                     clinical_trajectory=(memory_ctx.clinical_trajectory if memory_ctx else ""),
-                    persona_id=_active_persona_id(db, current_user.user_id),
+                    persona_id=_active_persona_id(db, current_user.user_id, distress=distress),
                     user_id=current_user.user_id,
                     session_id=session.session_id,
                 ):
