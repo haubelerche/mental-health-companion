@@ -28,6 +28,7 @@ import AdminCrisisLogs from '../components/admin/AdminCrisisLogs'
 import AdminResources from '../components/admin/AdminResources'
 import AdminMain from '../components/admin/layout/AdminMain.tsx'
 import Home from '../components/pages/Home.tsx'
+import RewardsPage from '../components/pages/RewardsPage.tsx'
 
 function RequireAuth({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()
@@ -167,6 +168,12 @@ export default function AppRoutes() {
                     path={ROUTE_PATHS.bamboo}
                     element={
                         <LetterPage />
+                    }
+                />
+                <Route
+                    path={ROUTE_PATHS.rewards}
+                    element={
+                        <RewardsPage />
                     }
                 />
             </Route>
