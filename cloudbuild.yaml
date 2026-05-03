@@ -5,7 +5,7 @@
 #   serene-database-url, serene-openai-api-key, serene-jwt-private-key,
 #   serene-jwt-public-key, serene-csrf-origins,
 #   serene-admin-email, serene-admin-password-hash, serene-admin-totp-secret,
-#   serene-exa-api-key
+#   serene-blaze-api, serene-exa-api-key
 
 substitutions:
   _REGION: asia-southeast1
@@ -51,7 +51,7 @@ steps:
       - --memory=1Gi
       - --cpu=1
       - --timeout=120s
-      - --set-secrets=DATABASE_URL=serene-database-url:latest,OPENAI_API_KEY=serene-openai-api-key:latest,JWT_PRIVATE_KEY=serene-jwt-private-key:latest,JWT_PUBLIC_KEY=serene-jwt-public-key:latest,CSRF_TRUSTED_ORIGINS=serene-csrf-origins:latest,ADMIN_LOGIN_EMAIL=serene-admin-email:latest,ADMIN_PASSWORD_HASH=serene-admin-password-hash:latest,ADMIN_TOTP_SECRET=serene-admin-totp-secret:latest,EXA_API_KEY=serene-exa-api-key:latest
+      - --set-secrets=DATABASE_URL=serene-database-url:latest,OPENAI_API_KEY=serene-openai-api-key:latest,JWT_PRIVATE_KEY=serene-jwt-private-key:latest,JWT_PUBLIC_KEY=serene-jwt-public-key:latest,CSRF_TRUSTED_ORIGINS=serene-csrf-origins:latest,ADMIN_LOGIN_EMAIL=serene-admin-email:latest,ADMIN_PASSWORD_HASH=serene-admin-password-hash:latest,ADMIN_TOTP_SECRET=serene-admin-totp-secret:latest,BLAZE_API=serene-blaze-api:latest,EXA_API_KEY=serene-exa-api-key:latest
       - --set-env-vars=APP_NAME=Serene API,APP_VERSION=1.0.0,API_PREFIX=/v1,AUTO_CREATE_SCHEMA=false,COOKIE_SECURE=true,JWT_ALGORITHM=RS256,LOG_LEVEL=INFO,DEFAULT_MODEL=gpt-4o-mini
     waitFor: [push-backend]
 

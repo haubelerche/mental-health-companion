@@ -58,7 +58,7 @@ jobs:
         id: review
         env:
           OPENAI_API_KEY: ${{ secrets['OPENAI_API_KEY'] }}
-          OPENAI_REVIEW_MODEL: gpt-4o-mini
+          DEFAULT_MODEL: gpt-4o-mini
           MAX_DIFF_CHARS: "100000"
           CI: "true"
         run: |
@@ -138,7 +138,7 @@ jobs:
             const footer = [
               '',
               '---',
-              '*Powered by OpenAI (`OPENAI_REVIEW_MODEL=gpt-4o-mini`) via [AI Code Review](.github/workflows/review-pr.yml); independent from Codex agent runtime model.*',
+              '*Powered by OpenAI (gpt-4o-mini) via [AI Code Review](.github/workflows/review-pr.yml)*',
             ].join('\n');
             const maxTotal = 62000;
             let body = header + review + footer;

@@ -20,14 +20,6 @@ except ImportError:
     pass
 
 
-DEFAULT_REVIEW_MODEL = "gpt-4o-mini"
-
-
-def get_review_model() -> str:
-    """Return the model used only by the AI code-review workflow."""
-    return os.environ.get("OPENAI_REVIEW_MODEL") or DEFAULT_REVIEW_MODEL
-
-
 REVIEW_PROMPT = """You are an expert code reviewer. Review the following git diff and provide a structured analysis.
 
 Focus on:
@@ -192,7 +184,7 @@ def _review_anthropic(diff_truncated: str, model: str) -> str:
 
 
 def review_code(diff: str) -> str:
-    model = get_review_model()
+    model = os.environ.get("DEFAULT_MODEL", "gpt-4o-mini")
     try:
         max_diff_chars = int(os.environ.get("MAX_DIFF_CHARS", "50000"))
     except ValueError:
@@ -236,7 +228,7 @@ def main():
         print("[review] No changes found to review.")
         sys.exit(0)
 
-    model = get_review_model()
+    model = os.environ.get("DEFAULT_MODEL", "gpt-4o-mini")
     label = "OpenAI" if _model_uses_openai(model) else "Anthropic"
     print(f"[review] Diff size: {len(diff)} chars. Sending to {label} ({model})...\n")
     review = review_code(diff)
