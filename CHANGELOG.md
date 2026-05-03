@@ -9,6 +9,10 @@
 ### Changed
 - `COMMIT_PLAYBOOK.MD` — Default multi-PR workflow when batching: **at most 3 commits per PR** (replacing the prior 5-commit cap) so teams can open more, smaller PRs to `main`; documents separate batch branches and dependency notes. Added **§3.1 competition-grade granularity**: prefer **one primary file per commit**, forbid mega-commits / blob diffs, document inseparable bundles (migration+ORM, etc.), `git add -p` for large single files; §7.2 no longer recommends `git add -A` for mixed work.
 
+### Changed
+- `backend/app/services/persona_unlock_persistence.py` — New canonical module for `PersonaUnlockState` upserts and queries; rewards `persona_unlock_adapter` imports from here instead of `app.personas.unlocks` so hearts/rewards PRs are not coupled to a missing personas submodule.
+- `backend/app/personas/unlocks.py` — Thin re-export of the persistence API for existing `from app.personas.unlocks import …` call sites.
+
 ### Fixed
 - `frontend/src/components/pages/CheckinFlow.tsx` — Removed `grantCheckinReward(10, MOCK_STREAK)` local wallet mutation; removed `MOCK_STREAK` placeholder. Now captures backend `reward` + `streak` from `checkinService.quickCheckin` response and passes them to `StreakCelebration`. Summary `+♥` badge is conditional on `reward.granted`.
 - `frontend/src/components/pages/Home.tsx` — Removed `syncRewardStreak(streak30)` localStorage mutation. Backend streak is now held in separate `backendStreakDays` state and used for display; does not mutate the local wallet.
@@ -17,6 +21,7 @@
 - `backend/app/personas/router.py` — Added `boundary_accepted: bool = False` parameter to `route_persona()`; gate 5b rejects Crush activation when `boundary_accepted=False`.
 
 ### Tests
+- `backend/tests/test_auth_integration.py` — Autouse fixture stubs `get_rate_limiter` on the auth router so signup/login tests do not inherit Redis `auth:*` counters from the shared TestClient IP (flaky `429` in CI).
 - `backend/tests/test_persona_router_integration.py` — Added `test_route_persona_crush_rejects_without_boundary_accepted` (11th test); all 11 pass.
 
 ---
