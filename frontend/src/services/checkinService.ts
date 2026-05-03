@@ -12,9 +12,26 @@ export type CheckinQuickPayload = {
   note?: string | null
 }
 
+export type CheckinRewardResult = {
+  granted: boolean
+  amount: number
+  reason: string
+  balance: number
+}
+
+export type CheckinStreakResult = {
+  current: number
+  bonus_granted: boolean
+  bonus_amount: number
+}
+
 export type CheckinQuickResponse = {
   checkin_id: string
-  logged_at: string
+  logged_at?: string
+  updated?: boolean
+  summary?: string
+  reward?: CheckinRewardResult
+  streak?: CheckinStreakResult
 }
 
 export const checkinService = {
