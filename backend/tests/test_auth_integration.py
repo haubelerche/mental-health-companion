@@ -11,8 +11,8 @@ from sqlalchemy.pool import StaticPool
 
 from app.api.v1.routers import auth as auth_router
 from app.core.product_constants import CURRENT_POLICY_VERSION
-from app.db.models import User
-from app.db.session import Base
+from app.services.db.models import User
+from app.services.db.session import Base
 from app.main import app
 
 

@@ -1,46 +1,65 @@
 from __future__ import annotations
 
-import json
+import base64
 import logging
+import os
 import threading
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+_CR_INSTANCE = os.environ.get("K_REVISION", "local")
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.config import get_settings
-from app.db.models import SyncOutbox
-from app.db.session import get_session_factory
+from app.services.db.models import SyncOutbox
+from app.services.db.session import get_session_factory
+from app.services.pii_mask import mask_pii
+from app.services.tts_exceptions import PermanentTtsError
+from app.services.tts_renderer import TTS_AUDIO_OUTPUT_DIR, _normalize_audio_bytes, render_tts_audio
 
 logger = logging.getLogger(__name__)
 
 _INFLIGHT_LOCK = threading.Lock()
 _INFLIGHT_JOBS: set[int] = set()
+_INFLIGHT_STARTED_AT: dict[int, datetime] = {}
+_INFLIGHT_OWNER: dict[int, str] = {}
 _LAST_TRIGGER_AT: dict[str, datetime] = {}
 _VOICE_PROVIDER_BLOCKED_CODE: str | None = None
-_SESSION_ACTIVE_JOB: dict[str, str] = {}
-_AUDIO_DIR = Path(__file__).resolve().parents[2] / "generated_voice"
+_AUDIO_DIR = TTS_AUDIO_OUTPUT_DIR
 _AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 VOICE_JOB_EVENT_TYPE = "voice.tts_request"
 VOICE_MAX_RETRIES = 3
+VOICE_JOB_PENDING_TIMEOUT_SECONDS = 90
+VOICE_JOB_PROCESSING_STALE_SECONDS = 180
+_PROVIDER_LEVEL_BLOCK_CODES = {
+    "elevenlabs_feature_disabled",
+    "elevenlabs_credentials_missing",
+    "elevenlabs_package_missing",
+}
 
 
-class PermanentTtsError(Exception):
-    """Non-retryable TTS error (e.g. paid plan required)."""
+def _assign_payload(row: SyncOutbox, payload: dict[str, Any]) -> None:
+    """Assign JSON payload and force SQLAlchemy to persist nested JSON changes."""
+    row.payload = payload
+    try:
+        flag_modified(row, "payload")
+    except Exception:
+        # Unit-test doubles are not SQLAlchemy-instrumented; direct assignment is enough there.
+        pass
 
 
-def _normalize_audio_bytes(raw: Any) -> bytes:
-    if isinstance(raw, bytes):
-        return raw
-    if hasattr(raw, "__iter__"):
-        chunks: list[bytes] = []
-        for chunk in raw:
-            if isinstance(chunk, bytes):
-                chunks.append(chunk)
-        return b"".join(chunks)
-    return b""
+def _voice_audio_file(job_id: int) -> Path:
+    return _AUDIO_DIR / f"tts_{job_id}.mp3"
+
+
+def _normalize_voice_provider(provider: str | None) -> str:
+    p = str(provider or "elevenlabs").strip().lower()
+    return "elevenlabs" if p in {"elevenlabs", "auto"} else "elevenlabs"
 
 
 def build_voice_script(
@@ -65,10 +84,15 @@ def build_voice_script(
         )
     if distress_score >= 0.8 or safety_tier in {"critical", "voice_recommended"}:
         return (
-            "Mình nghe bạn và muốn đi cùng bạn từng bước. "
-            "Mình mời bạn thử hít vào 4 giây, thở ra 6 giây, rồi nói với mình điều khó nhất ngay lúc này."
+            "Mình nghe bạn, và muốn đi cùng bạn từng bước. ... "
+            "Mình mời bạn thử hít vào bốn giây, thở ra sáu giây, ... "
+            "rồi nói với mình điều khó nhất ngay lúc này."
         )
-    return "Mình ở đây với bạn. Mình mời bạn hít một nhịp chậm và chia sẻ điều đang làm bạn nặng lòng nhất lúc này."
+    return (
+        "Mình ở đây với bạn. ... "
+        "Mình mời bạn hít một nhịp chậm, ... "
+        "và chia sẻ điều đang làm bạn nặng lòng nhất lúc này."
+    )
 
 
 def cooldown_active(*, user_id: str, session_id: str | None) -> tuple[bool, int]:
@@ -89,6 +113,14 @@ def mark_cooldown(*, user_id: str, session_id: str | None) -> None:
     _LAST_TRIGGER_AT[key] = datetime.now(timezone.utc)
 
 
+def _model_hint_for_queue(settings: Any) -> str:
+    return str(getattr(settings, "elevenlabs_model_id", "") or "eleven_multilingual_v2")
+
+
+def _is_provider_level_block(code: str | None) -> bool:
+    return bool(code and code in _PROVIDER_LEVEL_BLOCK_CODES)
+
+
 def enqueue_voice_job(
     db: Session,
     *,
@@ -100,29 +132,29 @@ def enqueue_voice_job(
 ) -> dict[str, Any]:
     global _VOICE_PROVIDER_BLOCKED_CODE
     settings = get_settings()
-    provider = str(getattr(settings, "tts_provider", "blaze") or "blaze").lower()
+    provider = _normalize_voice_provider(getattr(settings, "tts_provider", "elevenlabs"))
     if _VOICE_PROVIDER_BLOCKED_CODE:
+        logger.warning(
+            "voice_job_disabled provider=%s reason=%s session_id=%s user_id=%s risk_level=%s tier=%s",
+            provider,
+            _VOICE_PROVIDER_BLOCKED_CODE,
+            session_id,
+            user_id,
+            (trigger_snapshot or {}).get("risk_level"),
+            (trigger_snapshot or {}).get("safety_tier"),
+        )
         return {
             "provider": provider,
             "tts_job_id": None,
             "audio_url": None,
             "status": "failed",
-            "model_id": settings.blaze_tts_model,
+            "voice_disabled": True,
+            "model_id": _model_hint_for_queue(settings),
             "error_code": _VOICE_PROVIDER_BLOCKED_CODE,
             "error_message": "Voice provider hiện không khả dụng với cấu hình hiện tại. Hiển thị script text thay thế.",
         }
-    with _INFLIGHT_LOCK:
-        existing_tts_id = _SESSION_ACTIVE_JOB.get(session_id)
-    if existing_tts_id:
-        existing_job = get_voice_job(db, existing_tts_id)
-        if existing_job and existing_job.get("status") in ("queued", "processing"):
-            return {
-                "provider": provider,
-                "tts_job_id": existing_tts_id,
-                "audio_url": None,
-                "status": existing_job["status"],
-                "model_id": settings.blaze_tts_model,
-            }
+    # Always create a fresh execution job id. Reuse belongs to result-cache layer,
+    # not job identity, to keep lifecycle deterministic in distributed environments.
     outbox = SyncOutbox(
         event_type=VOICE_JOB_EVENT_TYPE,
         payload={
@@ -131,7 +163,7 @@ def enqueue_voice_job(
             "voice_script": voice_script,
             "trigger_reason": trigger_reason,
             "trigger_snapshot": trigger_snapshot,
-            "voice": {"status": "queued", "provider": provider},
+            "voice": {"status": "queued", "requested_tts_provider": provider},
         },
         status="pending",
     )
@@ -139,9 +171,19 @@ def enqueue_voice_job(
     db.flush()
     job_id = int(outbox.outbox_id)
     db.commit()
+    logger.info(
+        "voice_job_enqueued job_id=%s session_id=%s user_id=%s trigger=%s distress=%s risk_level=%s tier=%s provider=%s auto_process=%s",
+        job_id,
+        session_id,
+        user_id,
+        trigger_reason,
+        (trigger_snapshot or {}).get("distress_score"),
+        (trigger_snapshot or {}).get("risk_level"),
+        (trigger_snapshot or {}).get("safety_tier"),
+        provider,
+        bool(settings.voice_tts_auto_process_on_enqueue),
+    )
     tts_job_id = f"tts_{job_id}"
-    with _INFLIGHT_LOCK:
-        _SESSION_ACTIVE_JOB[session_id] = tts_job_id
     if settings.voice_tts_auto_process_on_enqueue:
         _start_voice_job_worker(job_id)
     return {
@@ -149,156 +191,211 @@ def enqueue_voice_job(
         "tts_job_id": tts_job_id,
         "audio_url": None,
         "status": "queued",
-        "model_id": settings.blaze_tts_model,
+        "model_id": _model_hint_for_queue(settings),
+        "requested_tts_provider": provider,
     }
 
 
 def _start_voice_job_worker(job_id: int) -> None:
+    now = datetime.now(timezone.utc)
+    owner_token = uuid.uuid4().hex
     with _INFLIGHT_LOCK:
         if job_id in _INFLIGHT_JOBS:
-            return
+            started_at = _INFLIGHT_STARTED_AT.get(job_id)
+            if started_at and (now - started_at).total_seconds() < VOICE_JOB_PROCESSING_STALE_SECONDS:
+                return
+            # Stale in-memory lock (thread crashed/hung) — reclaim it.
+            _INFLIGHT_JOBS.discard(job_id)
+            _INFLIGHT_STARTED_AT.pop(job_id, None)
+            _INFLIGHT_OWNER.pop(job_id, None)
+            logger.warning("voice_job_reclaim_stale_inflight_lock job_id=%s", job_id)
         _INFLIGHT_JOBS.add(job_id)
-    th = threading.Thread(target=_process_job, args=(job_id,), daemon=True)
+        _INFLIGHT_STARTED_AT[job_id] = now
+        _INFLIGHT_OWNER[job_id] = owner_token
+    th = threading.Thread(target=_process_job, args=(job_id, owner_token), daemon=True)
     th.start()
 
 
-def _process_job(job_id: int) -> None:
-    factory = get_session_factory()
-    db = factory()
+def _process_job(job_id: int, owner_token: str | None = None) -> None:
+    logger.info("voice_job_thread_start job_id=%s instance=%s", job_id, _CR_INSTANCE)
     global _VOICE_PROVIDER_BLOCKED_CODE
+    retry_immediately = False
+    db = None
     try:
+        factory = get_session_factory()
+        db = factory()
         row = db.get(SyncOutbox, job_id)
         if not row or row.event_type != VOICE_JOB_EVENT_TYPE:
+            logger.warning(
+                "voice_job_row_missing job_id=%s row_found=%s event_type=%s instance=%s",
+                job_id,
+                row is not None,
+                getattr(row, "event_type", None) if row else None,
+                _CR_INSTANCE,
+            )
             return
         payload = dict(row.payload or {})
         voice_script = str(payload.get("voice_script") or "").strip()
+        logger.info("voice_job_start job_id=%s instance=%s", job_id, _CR_INSTANCE)
         row.status = "processing"
         payload.setdefault("voice", {})
         payload["voice"]["status"] = "processing"
-        row.payload = payload
+        _assign_payload(row, payload)
         db.commit()
 
+        trigger_snap = dict(payload.get("trigger_snapshot") or {})
+        tier = trigger_snap.get("safety_tier")
+        tier_s = str(tier) if tier is not None else None
+        raw_d = trigger_snap.get("distress_score")
+        distress_f: float | None
         try:
-            audio_path = _render_tts_audio(job_id, voice_script)
-            permanent_error_code = None
+            distress_f = float(raw_d) if raw_d is not None else None
+        except (TypeError, ValueError):
+            distress_f = None
+
+        # Mask PII before any external TTS.
+        safe_script = mask_pii(voice_script)
+        settings = get_settings()
+        provider = _normalize_voice_provider(getattr(settings, "tts_provider", "elevenlabs"))
+        user_id = str(payload.get("user_id") or "")
+
+        permanent_error_code: str | None = None
+        try:
+            tts_out = render_tts_audio(
+                provider,
+                safe_script,
+                f"tts_{job_id}",
+                distress_f,
+                tier_s,
+                user_id=user_id or None,
+            )
         except PermanentTtsError as exc:
-            audio_path = None
+            tts_out = {
+                "audio_path": "",
+                "provider": "elevenlabs",
+                "duration": 0.0,
+                "chars": len(safe_script),
+                "success": False,
+                "fallback": False,
+            }
             permanent_error_code = str(exc) or "tts_permanent_error"
-            _VOICE_PROVIDER_BLOCKED_CODE = permanent_error_code
+            # Only provider-level config/auth failures should block future jobs globally.
+            if _is_provider_level_block(permanent_error_code):
+                _VOICE_PROVIDER_BLOCKED_CODE = permanent_error_code
+            logger.warning(
+                "voice_job_permanent_error job_id=%s code=%s distress=%s risk_level=%s tier=%s instance=%s",
+                job_id,
+                permanent_error_code,
+                trigger_snap.get("distress_score"),
+                trigger_snap.get("risk_level"),
+                trigger_snap.get("safety_tier"),
+                _CR_INSTANCE,
+            )
+
+        audio_path_str = str(tts_out.get("audio_path") or "").strip()
+        audio_path = Path(audio_path_str) if audio_path_str else None
+
         payload = dict(row.payload or {})
         payload.setdefault("voice", {})
-        if audio_path:
+        payload["voice"]["actual_tts_provider"] = tts_out.get("provider")
+        payload["voice"]["tts_chars"] = tts_out.get("chars")
+        payload["voice"]["tts_success"] = tts_out.get("success")
+        payload["voice"]["tts_fallback"] = tts_out.get("fallback")
+
+        if audio_path and audio_path.exists():
             payload["voice"]["status"] = "ready"
             payload["voice"]["audio_path"] = str(audio_path)
             payload["voice"]["audio_url"] = f"/v1/chat/voice-jobs/tts_{job_id}/audio"
+            # Embed audio bytes directly in the DB payload so any Cloud Run instance
+            # can serve the content without touching the local filesystem of the
+            # instance that wrote the file (multi-instance isolation fix).
+            payload["voice"]["audio_data_uri"] = (
+                "data:audio/mpeg;base64,"
+                + base64.b64encode(audio_path.read_bytes()).decode("ascii")
+            )
             row.status = "done"
             row.processed_at = datetime.now(timezone.utc).replace(tzinfo=None)
-        else:
+            logger.info(
+                "voice_job_complete job_id=%s chars=%s instance=%s",
+                job_id,
+                tts_out.get("chars"),
+                _CR_INSTANCE,
+            )
+        elif permanent_error_code:
+            # Provider is permanently unavailable — mark failed immediately, no retries.
             payload["voice"]["status"] = "failed"
-            if permanent_error_code:
-                payload["voice"]["error_code"] = permanent_error_code
-                row.status = "failed"
-            else:
-                row.retry_count = int(row.retry_count or 0) + 1
-                if row.retry_count >= VOICE_MAX_RETRIES:
-                    row.status = "failed"
-                else:
-                    row.status = "pending"
-        if permanent_error_code:
+            payload["voice"]["error_code"] = permanent_error_code
             payload["voice"]["error_message"] = (
                 "Nhà cung cấp voice từ chối yêu cầu ở gói hiện tại. Hiển thị script text thay thế."
             )
             row.status = "failed"
-        elif not audio_path and row.retry_count >= VOICE_MAX_RETRIES:
-            row.status = "failed"
-        elif not audio_path:
-            row.status = "pending"
-        row.payload = payload
+            logger.warning(
+                "voice_job_failed_permanent job_id=%s code=%s instance=%s",
+                job_id,
+                permanent_error_code,
+                _CR_INSTANCE,
+            )
+        else:
+            row.retry_count = int(row.retry_count or 0) + 1
+            if row.retry_count >= VOICE_MAX_RETRIES:
+                # Exhausted retries — surface failure to frontend.
+                payload["voice"]["status"] = "failed"
+                row.status = "failed"
+                logger.warning(
+                    "voice_job_failed_retry_exhausted job_id=%s retry_count=%s instance=%s",
+                    job_id,
+                    row.retry_count,
+                    _CR_INSTANCE,
+                )
+            else:
+                # Transient failure — keep polling-friendly status so frontend waits.
+                payload["voice"]["status"] = "queued"
+                row.status = "pending"
+                if bool(getattr(settings, "voice_tts_auto_process_on_enqueue", False)):
+                    retry_immediately = True
+                logger.info(
+                    "voice_job_retry_scheduled job_id=%s retry_count=%s instance=%s",
+                    job_id,
+                    row.retry_count,
+                    _CR_INSTANCE,
+                )
+        _assign_payload(row, payload)
         db.commit()
     except Exception as exc:
-        logger.warning("voice tts job %s failed: %s", job_id, exc)
+        logger.exception("voice tts job %s failed unexpectedly", job_id)
+        try:
+            if db is None:
+                raise RuntimeError("db session was never created")
+            row = db.get(SyncOutbox, job_id)
+            if row and row.event_type == VOICE_JOB_EVENT_TYPE:
+                payload = dict(row.payload or {})
+                payload.setdefault("voice", {})
+                payload["voice"]["status"] = "failed"
+                payload["voice"]["error_code"] = "tts_worker_exception"
+                payload["voice"]["error_message"] = "Voice worker gặp lỗi nội bộ khi xử lý TTS job."
+                _assign_payload(row, payload)
+                row.status = "failed"
+                db.commit()
+        except Exception as write_exc:
+            logger.warning("voice tts job %s failed to persist failure state: %s", job_id, write_exc)
     finally:
-        db.close()
+        if db is not None:
+            db.close()
         tts_id = f"tts_{job_id}"
         with _INFLIGHT_LOCK:
-            _INFLIGHT_JOBS.discard(job_id)
-            for sid, tid in list(_SESSION_ACTIVE_JOB.items()):
-                if tid == tts_id:
-                    del _SESSION_ACTIVE_JOB[sid]
-                    break
+            active_owner = _INFLIGHT_OWNER.get(job_id)
+            if owner_token is None:
+                # Watchdog/leased execution path does not claim in-memory ownership lock.
+                # Keep ownership-aware cleanup for thread-dispatched path only.
+                pass
+            elif active_owner == owner_token:
+                _INFLIGHT_JOBS.discard(job_id)
+                _INFLIGHT_STARTED_AT.pop(job_id, None)
+                _INFLIGHT_OWNER.pop(job_id, None)
+        if retry_immediately:
+            _start_voice_job_worker(job_id)
 
 
-def _render_tts_audio(job_id: int, voice_script: str) -> Path | None:
-    settings = get_settings()
-    provider = str(getattr(settings, "tts_provider", "blaze") or "blaze").lower()
-    if provider != "blaze":
-        logger.info("tts_provider=%s is deprecated; forcing blaze", provider)
-    return _render_blaze_audio(job_id, voice_script)
-
-
-def _render_blaze_audio(job_id: int, voice_script: str) -> Path | None:
-    """Call Blaze TTS API (https://blaze.vn) and save the returned audio."""
-    settings = get_settings()
-    api_key = (settings.blaze_api_key or "").strip()
-    if not api_key:
-        logger.warning("blaze tts: BLAZE_API key is not configured")
-        return None
-
-    url = (settings.blaze_tts_url or "").strip()
-    model = (settings.blaze_tts_model or "blaze-tts-1").strip()
-    output_format = (settings.blaze_tts_output_format or "mp3").strip().lower()
-    timeout = float(getattr(settings, "tts_timeout_seconds", 4.0))
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "query": voice_script,
-        "model": model,
-    }
-
-    try:
-        import httpx
-
-        with httpx.Client(timeout=timeout) as client:
-            with client.stream("POST", url, json=payload, headers=headers) as response:
-                if response.status_code == 402:
-                    raise PermanentTtsError("blaze_paid_plan_required")
-                if response.status_code == 401:
-                    raise PermanentTtsError("blaze_unauthorized")
-                if not response.is_success:
-                    logger.warning(
-                        "blaze tts: HTTP %s — %s",
-                        response.status_code,
-                        response.read().decode(errors="replace")[:200],
-                    )
-                    return None
-
-                audio_chunks: list[bytes] = []
-                for chunk in response.iter_bytes(chunk_size=4096):
-                    if chunk:
-                        audio_chunks.append(chunk)
-
-        audio_bytes = b"".join(audio_chunks)
-        if not audio_bytes:
-            logger.warning("blaze tts: empty audio response for job %s", job_id)
-            return None
-
-        ext = "mp3" if output_format == "mp3" else output_format
-        out = _AUDIO_DIR / f"tts_{job_id}.{ext}"
-        out.write_bytes(audio_bytes)
-        logger.info("blaze tts: saved %d bytes to %s", len(audio_bytes), out)
-        return out
-
-    except PermanentTtsError:
-        raise
-    except Exception as exc:
-        message = str(exc).lower()
-        if "paid" in message or "payment" in message:
-            raise PermanentTtsError("blaze_paid_plan_required") from exc
-        logger.warning("blaze tts synthesis failed (job %s): %s", job_id, exc)
-        return None
 def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
     if not tts_job_id.startswith("tts_"):
         return None
@@ -309,16 +406,89 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
     row = db.get(SyncOutbox, outbox_id)
     if not row or row.event_type != VOICE_JOB_EVENT_TYPE:
         return None
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     payload = dict(row.payload or {})
     voice = dict(payload.get("voice") or {})
+    voice_status = str(voice.get("status") or row.status)
+    created_at = row.created_at or now
+    age_seconds = max(0, int((now - created_at).total_seconds()))
+
+    if row.status == "done" and voice_status in {"queued", "processing", "pending"}:
+        audio_path = _voice_audio_file(outbox_id)
+        if audio_path.exists():
+            voice["status"] = "ready"
+            voice["audio_path"] = str(audio_path)
+            voice["audio_url"] = f"/v1/chat/voice-jobs/tts_{outbox_id}/audio"
+            voice["audio_data_uri"] = "data:audio/mpeg;base64," + base64.b64encode(audio_path.read_bytes()).decode("ascii")
+            payload["voice"] = voice
+            _assign_payload(row, payload)
+            db.commit()
+            logger.warning(
+                "voice_job_repaired_done_payload job_id=%s previous_voice_status=%s",
+                outbox_id,
+                voice_status,
+            )
+            voice_status = "ready"
+        else:
+            voice["status"] = "failed"
+            voice["error_code"] = "voice_done_missing_audio"
+            voice["error_message"] = "Voice job marked done but generated audio was missing."
+            payload["voice"] = voice
+            _assign_payload(row, payload)
+            row.status = "failed"
+            db.commit()
+            logger.warning("voice_job_done_missing_audio job_id=%s", outbox_id)
+            voice_status = "failed"
+
+    if row.status == "processing" and age_seconds >= VOICE_JOB_PROCESSING_STALE_SECONDS:
+        row.status = "pending"
+        voice["status"] = "queued"
+        payload["voice"] = voice
+        _assign_payload(row, payload)
+        db.commit()
+        logger.warning(
+            "voice_job_requeued_stale_processing job_id=%s age_seconds=%s",
+            outbox_id,
+            age_seconds,
+        )
+        voice_status = "queued"
+
+    settings = get_settings()
+    if row.status == "pending" and voice_status == "queued":
+        if age_seconds >= VOICE_JOB_PENDING_TIMEOUT_SECONDS:
+            voice["status"] = "failed"
+            voice["error_code"] = "voice_job_timeout"
+            voice["error_message"] = "Voice job xếp hàng quá lâu, hệ thống đã hủy và chuyển fallback text."
+            payload["voice"] = voice
+            _assign_payload(row, payload)
+            row.status = "failed"
+            db.commit()
+            logger.warning(
+                "voice_job_timeout_failed job_id=%s age_seconds=%s",
+                outbox_id,
+                age_seconds,
+            )
+            voice_status = "failed"
+        elif bool(getattr(settings, "voice_tts_auto_process_on_enqueue", False)):
+            _start_voice_job_worker(outbox_id)
+            logger.info(
+                "voice_job_self_heal_kick job_id=%s age_seconds=%s",
+                outbox_id,
+                age_seconds,
+            )
     return {
         "tts_job_id": tts_job_id,
         "user_id": payload.get("user_id"),
-        "status": str(voice.get("status") or row.status),
+        "status": str(voice.get("status") or voice_status or row.status),
         "audio_url": voice.get("audio_url"),
+        "audio_data_uri": voice.get("audio_data_uri"),
         "trigger_reason": payload.get("trigger_reason"),
         "error_code": voice.get("error_code"),
         "error_message": voice.get("error_message"),
+        "actual_tts_provider": voice.get("actual_tts_provider"),
+        "requested_tts_provider": voice.get("requested_tts_provider"),
+        "tts_chars": voice.get("tts_chars"),
+        "tts_fallback": voice.get("tts_fallback"),
     }
 
 
@@ -379,7 +549,7 @@ def lease_pending_voice_jobs(db: Session, *, limit: int = 20) -> list[int]:
         payload = dict(row.payload or {})
         payload.setdefault("voice", {})
         payload["voice"]["status"] = "processing"
-        row.payload = payload
+        _assign_payload(row, payload)
         job_ids.append(int(row.outbox_id))
     if job_ids:
         db.commit()

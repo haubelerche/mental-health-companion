@@ -1,11 +1,11 @@
-"""
-Product / Legal knobs (BACKEND_PLAN §15). Tune with Product before production.
+﻿"""
+Product / Legal knobs (BACKEND_PLAN Â§15). Tune with Product before production.
 """
 
-# Guest trial — max session wall time (seconds)
+# Guest trial â€” max session wall time (seconds)
 GUEST_TRIAL_MAX_DURATION_SEC = 120
 
-# Distress ladder (BACKEND_PLAN §7.9) — align distress_score 0.0–1.0
+# Distress ladder (BACKEND_PLAN Â§7.9) â€” align distress_score 0.0â€“1.0
 DISTRESS_VOICE_HINT = 0.8
 DISTRESS_CRITICAL = 0.9
 
@@ -13,4 +13,17 @@ DISTRESS_CRITICAL = 0.9
 CURRENT_POLICY_VERSION = "1.0"
 
 # Persona name shown in SOS / consent payloads (Product-facing string)
-CHAT_AGENT_DISPLAY_NAME = "Mây"
+CHAT_AGENT_DISPLAY_NAME = "Friend"
+# Persona rollout gates (BUILDING-PLAN-PERSONAS 20.2)
+FEATURE_FLAGS = {
+    "persona_router_enabled": True,
+    "persona_unlock_progression_enabled": True,
+    "heart_economy_enabled": True,
+    "rewards_store_enabled": True,
+    "persona_cun_unlock_enabled": True,
+    "persona_meo_unlock_enabled": True,
+    "persona_crush_unlock_enabled": False,
+    "persona_voice_styles_enabled": False,
+    "memory_cards_enabled": True,
+    "knowledge_unlocks_enabled": True,
+}

@@ -121,17 +121,10 @@ class AdminResourceCreateRequest(BaseModel):
     description: str | None = None
     format: str = Field(min_length=1, max_length=20)
     duration_sec: int = Field(ge=1)
-    storage_key: str | None = Field(default=None, max_length=500)
-    external_url: str | None = Field(default=None, max_length=500)
+    storage_key: str = Field(min_length=1, max_length=500)
     thumbnail_key: str | None = Field(default=None, max_length=500)
     tags: list[str] = Field(default_factory=list)
     is_active: bool = True
-
-    @model_validator(mode="after")
-    def storage_or_external(self) -> "AdminResourceCreateRequest":
-        if not (self.storage_key or self.external_url):
-            raise ValueError("storage_key or external_url is required")
-        return self
 
 
 class AdminResourceUpdateRequest(BaseModel):
@@ -141,7 +134,6 @@ class AdminResourceUpdateRequest(BaseModel):
     format: str | None = Field(default=None, min_length=1, max_length=20)
     duration_sec: int | None = Field(default=None, ge=1)
     storage_key: str | None = Field(default=None, min_length=1, max_length=500)
-    external_url: str | None = Field(default=None, max_length=500)
     thumbnail_key: str | None = Field(default=None, max_length=500)
     tags: list[str] | None = None
     is_active: bool | None = None
@@ -178,28 +170,14 @@ class OnboardingCompleteRequest(BaseModel):
         pattern="^(difficult_recently|ongoing_challenges|doing_okay)$"
     )
     primary_concern: str | None = Field(default=None, max_length=64)
-    support_level: str | None = Field(
-        default=None, pattern="^(excellent|good|limited|poor)$")
+    support_level: str | None = Field(default=None, pattern="^(excellent|good|limited|poor)$")
     stress_level: int = Field(ge=0, le=4)
     wake_time: str = Field(pattern="^([01]\\d|2[0-3]):[0-5]\\d$")
     bed_time: str = Field(pattern="^([01]\\d|2[0-3]):[0-5]\\d$")
     practice_ids: list[str] = Field(default_factory=list, max_length=8)
 
 
-class LetterSendRequest(BaseModel):
-    content: str = Field(min_length=1, max_length=2000)
-
-
-class LetterReplyRequest(BaseModel):
-    content: str = Field(min_length=1, max_length=1000)
-
-
-class LetterReactRequest(BaseModel):
-    reaction_type: str = Field(min_length=1, max_length=20)
-
-
-class LetterReportRequest(BaseModel):
-    letter_id: str = Field(min_length=1, max_length=80)
-    report_category: str = Field(min_length=1, max_length=50)
-    reason: str | None = Field(default=None, max_length=1000)
-    description: str | None = Field(default=None, max_length=2000)
+class PersonaUpdateRequest(BaseModel):
+    persona_id: str = Field(
+        pattern="^(ban_than|nguoi_yeu|nguoi_thay|nguoi_la|nguoi_than|cun|meo)$"
+    )

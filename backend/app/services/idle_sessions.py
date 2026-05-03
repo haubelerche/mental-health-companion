@@ -8,8 +8,8 @@ from datetime import timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Conversation
-from app.db.session import get_session_factory
+from app.services.db.models import Conversation
+from app.services.db.session import get_session_factory
 from app.services.session_summary import close_session_summary
 from app.services.utils import utc_now
 

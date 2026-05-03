@@ -101,7 +101,6 @@ CSRF_TRUSTED_ORIGINS=$(dotenv_get "CSRF_TRUSTED_ORIGINS")
 ADMIN_LOGIN_EMAIL=$(dotenv_get "ADMIN_LOGIN_EMAIL")
 ADMIN_PASSWORD_HASH=$(dotenv_get "ADMIN_PASSWORD_HASH")
 ADMIN_TOTP_SECRET=$(dotenv_get "ADMIN_TOTP_SECRET")
-BLAZE_API=$(dotenv_get "BLAZE_API")
 EXA_API_KEY=$(dotenv_get "EXA_API_KEY")
 
 FRONTEND_URL_PLACEHOLDER="https://serene-frontend-PLACEHOLDER.a.run.app"
@@ -116,7 +115,6 @@ upsert_secret "serene-csrf-origins"         "$ALL_ORIGINS"
 upsert_secret "serene-admin-email"          "$ADMIN_LOGIN_EMAIL"
 upsert_secret "serene-admin-password-hash"  "$ADMIN_PASSWORD_HASH"
 upsert_secret "serene-admin-totp-secret"    "$ADMIN_TOTP_SECRET"
-upsert_secret "serene-blaze-api"            "$BLAZE_API"
 upsert_secret "serene-exa-api-key"          "$EXA_API_KEY"
 
 echo ""

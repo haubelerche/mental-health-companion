@@ -7,14 +7,14 @@ from app.api.deps import enforce_admin_ip, get_admin_claims
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.db.models import AdminAuditLog, Conversation, CrisisLog, Resource
-from app.db.session import get_db
-from app.schemas.payloads import (
+from app.services.db.models import AdminAuditLog, Conversation, CrisisLog, Resource
+from app.services.db.session import get_db
+from app.services.schemas.payloads import (
     AdminLoginRequest,
     AdminResourceCreateRequest,
     AdminResourceUpdateRequest,
 )
-from app.schemas.payloads import AdminLoginRequest, CrisisReviewRequest
+from app.services.schemas.payloads import AdminLoginRequest, CrisisReviewRequest
 from app.services.chat_cost_metrics import get_chat_cost_snapshot
 from app.services.cookies import set_auth_cookies
 from app.services.auth_latency_metrics import get_auth_latency_snapshot
@@ -225,7 +225,6 @@ def admin_list_resources(
                     "format": row.format,
                     "duration_sec": row.duration_sec,
                     "storage_key": row.storage_key,
-                    "external_url": row.external_url,
                     "thumbnail_key": row.thumbnail_key,
                     "tags": row.tags,
                     "is_active": row.is_active,
@@ -257,8 +256,7 @@ def admin_create_resource(
         description=payload.description,
         format=payload.format,
         duration_sec=payload.duration_sec,
-        storage_key=payload.storage_key or make_id("src"),
-        external_url=payload.external_url,
+        storage_key=payload.storage_key,
         thumbnail_key=payload.thumbnail_key,
         tags=payload.tags,
         is_active=payload.is_active,
@@ -308,10 +306,8 @@ def admin_update_resource(
         row.format = payload.format
     if "duration_sec" in provided:
         row.duration_sec = payload.duration_sec
-    if "storage_key" in provided and payload.storage_key is not None:
+    if "storage_key" in provided:
         row.storage_key = payload.storage_key
-    if "external_url" in provided:
-        row.external_url = payload.external_url
     if "thumbnail_key" in provided:
         row.thumbnail_key = payload.thumbnail_key
     if "tags" in provided:

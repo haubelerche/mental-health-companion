@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import ensure_policy_acknowledged
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.db.models import Conversation, MoodCheckin, User
-from app.db.session import get_db
-from app.schemas.payloads import MoodCheckinPatchRequest, MoodCheckinRequest
+from app.services.db.models import Conversation, MoodCheckin, User
+from app.services.db.session import get_db
+from app.services.schemas.payloads import MoodCheckinPatchRequest, MoodCheckinRequest
 from app.services.utils import local_date_utc7, make_id, utc_now
 
 router = APIRouter(tags=["home"])

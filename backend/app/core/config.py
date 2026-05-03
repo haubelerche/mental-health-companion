@@ -35,8 +35,8 @@ class Settings(BaseSettings):
 
     database_url: str = Field(default="")
     auto_create_schema: bool = False
-    db_pool_size: int = Field(default=10, validation_alias=AliasChoices("DB_POOL_SIZE"))
-    db_max_overflow: int = Field(default=20, validation_alias=AliasChoices("DB_MAX_OVERFLOW"))
+    db_pool_size: int = Field(default=4, validation_alias=AliasChoices("DB_POOL_SIZE"))
+    db_max_overflow: int = Field(default=2, validation_alias=AliasChoices("DB_MAX_OVERFLOW"))
     db_pool_timeout_seconds: int = Field(default=30, validation_alias=AliasChoices("DB_POOL_TIMEOUT_SECONDS"))
     db_pool_recycle_seconds: int = Field(default=1800, validation_alias=AliasChoices("DB_POOL_RECYCLE_SECONDS"))
     db_pool_pre_ping: bool = Field(default=True, validation_alias=AliasChoices("DB_POOL_PRE_PING"))
@@ -75,27 +75,57 @@ class Settings(BaseSettings):
     proactive_voice_delta_threshold: float = 0.22
     proactive_voice_cooldown_seconds: int = 120
     proactive_voice_window_turns: int = 6
+    proactive_voice_auto_distress_threshold: float = Field(
+        default=0.8,
+        validation_alias=AliasChoices("PROACTIVE_VOICE_AUTO_DISTRESS_THRESHOLD"),
+    )
     voice_tts_auto_process_on_enqueue: bool = True
 
     profile_cache_ttl_seconds: int = 30
 
     tts_timeout_seconds: float = Field(default=4.0, validation_alias=AliasChoices("TTS_TIMEOUT_SECONDS"))
-    tts_provider: str = Field(default="blaze", validation_alias=AliasChoices("TTS_PROVIDER"))
+    # elevenlabs | auto (auto currently aliases to elevenlabs-only mode)
+    tts_provider: str = Field(default="elevenlabs", validation_alias=AliasChoices("TTS_PROVIDER"))
 
-    # Blaze TTS (https://blaze.vn)
-    blaze_api_key: str = Field(default="", validation_alias=AliasChoices("BLAZE_API", "BLAZE_API_KEY"))
-    blaze_tts_url: str = Field(
-        default="https://api.blaze.vn/api/tts",
-        validation_alias=AliasChoices("BLAZE_TTS_URL"),
+    # ElevenLabs TTS (optional second provider)
+    elevenlabs_feature_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("ELEVENLABS_FEATURE_ENABLED"),
     )
-    blaze_tts_model: str = Field(
-        default="blaze-tts-1",
-        validation_alias=AliasChoices("BLAZE_TTS_MODEL"),
+    elevenlabs_api_key: str = Field(default="", validation_alias=AliasChoices("ELEVENLABS_API_KEY"))
+    elevenlabs_voice_id: str = Field(
+        default="iSFxP4Z6YNcx9OXl62Ic",
+        validation_alias=AliasChoices("ELEVENLABS_VOICE_ID"),
     )
-    blaze_tts_output_format: str = Field(
-        default="mp3",
-        validation_alias=AliasChoices("BLAZE_TTS_OUTPUT_FORMAT"),
+    elevenlabs_model_id: str = Field(
+        default="eleven_multilingual_v2",
+        validation_alias=AliasChoices("ELEVENLABS_MODEL_ID"),
     )
+    elevenlabs_output_format: str = Field(
+        default="mp3_44100_128",
+        validation_alias=AliasChoices("ELEVENLABS_OUTPUT_FORMAT"),
+    )
+    elevenlabs_timeout_seconds: float = Field(
+        default=9.0,
+        validation_alias=AliasChoices("ELEVENLABS_TIMEOUT_SECONDS"),
+    )
+    elevenlabs_max_chars_per_job: int = Field(
+        default=520,
+        validation_alias=AliasChoices("ELEVENLABS_MAX_CHARS_PER_JOB"),
+    )
+    elevenlabs_use_only_on_tier: str = Field(
+        default="voice_recommended,critical",
+        validation_alias=AliasChoices("ELEVENLABS_USE_ONLY_ON_TIER"),
+    )
+    elevenlabs_min_distress: float = Field(
+        default=0.8,
+        validation_alias=AliasChoices("ELEVENLABS_MIN_DISTRESS"),
+    )
+    elevenlabs_max_chars_per_user_per_day: int = Field(
+        default=12000,
+        validation_alias=AliasChoices("ELEVENLABS_MAX_CHARS_PER_USER_PER_DAY"),
+    )
+
     trusted_contact_outbound_enabled: bool = False
 
     neo4j_uri: str = ""

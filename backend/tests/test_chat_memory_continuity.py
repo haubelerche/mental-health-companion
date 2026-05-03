@@ -39,6 +39,8 @@ def test_recent_transcript_hint_keeps_last_turns():
 
 
 def test_recall_context_includes_memory_even_when_low_distress():
+    import unicodedata
+
     context = _build_friend_context(
         {
             "user_message": "Bạn còn nhớ tôi là ai không?",
@@ -49,10 +51,12 @@ def test_recall_context_includes_memory_even_when_low_distress():
             "mem0_facts": ["Người dùng thích được lắng nghe trước khi nhận lời khuyên."],
         }
     )
+    norm_ctx = unicodedata.normalize("NFC", context)
+    needle = unicodedata.normalize("NFC", "Ký ức liên quan")
 
-    assert "Ký ức liên quan" in context
-    assert "deadline" in context
-    assert "đi bộ" in context
+    assert needle in norm_ctx
+    assert "deadline" in norm_ctx
+    assert "đi bộ" in norm_ctx
 
 
 def test_should_skip_cold_start_profile_for_short_low_distress_turn():

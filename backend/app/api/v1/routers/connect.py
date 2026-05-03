@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Response
 
 from app.core.responses import ok
-from app.schemas.payloads import ClinicsRequest
+from app.services.schemas.payloads import ClinicsRequest
 from app.services.vn_hotlines import connect_hotlines_list
 from app.services.clinics import clinics_for_default_list, clinics_near
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import unicodedata
 from unittest.mock import MagicMock, patch
 
 
@@ -39,8 +40,8 @@ class TestGetSimilarCounselingExamples:
         mock_engine, mock_factory, mock_embed_resp = self._patch_db("postgresql", [mock_row])
 
         with (
-            patch("app.db.session.get_engine", return_value=mock_engine),
-            patch("app.db.session.get_session_factory", return_value=mock_factory),
+            patch("app.services.db.session.get_engine", return_value=mock_engine),
+            patch("app.services.db.session.get_session_factory", return_value=mock_factory),
             patch("openai.OpenAI") as mock_openai,
         ):
             mock_openai.return_value.embeddings.create.return_value = mock_embed_resp
@@ -55,8 +56,8 @@ class TestGetSimilarCounselingExamples:
         mock_engine, mock_factory, mock_embed_resp = self._patch_db("postgresql", [mock_row])
 
         with (
-            patch("app.db.session.get_engine", return_value=mock_engine),
-            patch("app.db.session.get_session_factory", return_value=mock_factory),
+            patch("app.services.db.session.get_engine", return_value=mock_engine),
+            patch("app.services.db.session.get_session_factory", return_value=mock_factory),
             patch("openai.OpenAI") as mock_openai,
         ):
             mock_openai.return_value.embeddings.create.return_value = mock_embed_resp
@@ -68,7 +69,7 @@ class TestGetSimilarCounselingExamples:
         mock_engine = MagicMock()
         mock_engine.dialect.name = "sqlite"
 
-        with patch("app.db.session.get_engine", return_value=mock_engine):
+        with patch("app.services.db.session.get_engine", return_value=mock_engine):
             result = self._call()
 
         assert result == []
@@ -86,7 +87,7 @@ class TestGetSimilarCounselingExamples:
         mock_engine.dialect.name = "postgresql"
 
         with (
-            patch("app.db.session.get_engine", return_value=mock_engine),
+            patch("app.services.db.session.get_engine", return_value=mock_engine),
             patch("openai.OpenAI", side_effect=RuntimeError("network error")),
         ):
             result = self._call()
@@ -142,7 +143,8 @@ class TestBuildMentalchatExamples:
 
         _, kwargs = mock_fn.call_args
         assert kwargs.get("top_k") == 3
-        assert "Ví dụ tham khảo" in result
+        norm = unicodedata.normalize("NFC", result)
+        assert "Ví dụ tham khảo" in norm
 
     def test_medium_distress_requests_top_2(self):
         example = {"instruction": "Q", "response": "A"}

@@ -11,7 +11,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import UserProfile
+from app.services.db.models import UserProfile
 from app.services.mem0_service import MemoryManager
 from app.services.memory_enrichment import _fallback_extract, apply_to_profile
 from app.services.pii_mask import mask_pii

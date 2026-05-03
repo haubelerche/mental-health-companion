@@ -2,6 +2,7 @@ alembic
 anthropic
 bcrypt
 email-validator
+elevenlabs>=1.0.0
 fastapi
 httpx
 langchain-core>=0.3.0
