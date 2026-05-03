@@ -3,13 +3,7 @@
     "title": "100 Famous Quotes for Serene App",
     "version": "1.0",
     "total_records": 100,
-    "categories": [
-      "Life & Self-Worth",
-      "Resilience",
-      "Love & Relationships",
-      "Family",
-      "Philosophy"
-    ]
+    "categories": ["Life & Self-Worth", "Resilience", "Love & Relationships", "Family", "Philosophy"]
   },
   "quotes": [
     {

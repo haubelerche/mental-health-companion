@@ -1,8 +1,14 @@
-import { useEffect, type MouseEvent } from 'react'
-import { Bell, Book, Compass, HelpCircle, HomeIcon, Library, MessageSquare, Sailboat, Settings, Sparkles, Utensils } from 'lucide-react'
+import { useEffect, useState, type MouseEvent } from 'react'
+import { Bell, Compass, HelpCircle, HomeIcon, Library, MessageSquare, Sailboat, Settings, Sparkles, Utensils } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { ROUTE_PATHS } from '../../routes/paths'
-import { useThemeContext } from '../../contexts/ThemeContext'
+import {
+    APP_SETTINGS_STORAGE_KEY,
+    APP_SETTINGS_UPDATED_EVENT,
+    readAppSettings,
+    type AppSettings,
+} from '../../utils/appSettings'
+
 type SidebarProps = {
     isOpen: boolean
     onHide: () => void
@@ -14,15 +20,40 @@ const navItems = [
     { icon: MessageSquare, label: 'Chat', route: ROUTE_PATHS.chat },
     { icon: Sparkles, label: 'Nhìn lại', route: ROUTE_PATHS.reflect },
     { icon: Library, label: 'Tài nguyên', route: ROUTE_PATHS.resources },
-    { icon: Book, label: 'Bài tập', route: ROUTE_PATHS.exercises },
     { icon: Utensils, label: 'Dinh dưỡng', route: ROUTE_PATHS.nutrition },
     { icon: Compass, label: 'Kết nối', route: ROUTE_PATHS.connect },
     { icon: Sailboat, label: 'Thư', route: ROUTE_PATHS.bamboo },
 ]
 
 export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
-    const { effectiveTheme } = useThemeContext()
-    const isDark = effectiveTheme === 'dark'
+    const [isDark, setIsDark] = useState(() => readAppSettings().mode === 'dark')
+
+    useEffect(() => {
+        const syncThemeMode = (settings: AppSettings) => {
+            setIsDark(settings.mode === 'dark')
+        }
+
+        const handleSettingsUpdated = (event: Event) => {
+            const customEvent = event as CustomEvent<AppSettings>
+            if (customEvent.detail) {
+                syncThemeMode(customEvent.detail)
+            }
+        }
+
+        const handleStorageUpdated = (event: StorageEvent) => {
+            if (event.key !== APP_SETTINGS_STORAGE_KEY) {
+                return
+            }
+            syncThemeMode(readAppSettings())
+        }
+
+        window.addEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
+        window.addEventListener('storage', handleStorageUpdated)
+        return () => {
+            window.removeEventListener(APP_SETTINGS_UPDATED_EVENT, handleSettingsUpdated as EventListener)
+            window.removeEventListener('storage', handleStorageUpdated)
+        }
+    }, [])
 
     const sidebarContainerClass = isDark
         ? 'border-white/20 bg-black/30 text-white'

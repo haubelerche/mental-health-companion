@@ -14,7 +14,6 @@ export default function Register() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
-    const [voiceConsent, setVoiceConsent] = useState(true)
     const navigate = useNavigate()
     const { signup, isLoading } = useAuth()
 
@@ -42,7 +41,6 @@ export default function Register() {
                 email: email.trim(),
                 password,
                 disclaimer_accepted: true,
-                voice_consent: voiceConsent,
             })
             if (res.verification_required) {
                 toast.success(res.message || 'Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản.')
@@ -154,21 +152,6 @@ export default function Register() {
                                     required
                                 />
                             </div>
-                        </div>
-
-                        <div className="auth-disclaimer">
-                            <label className="flex items-start gap-3 text-xs leading-relaxed text-serene-muted sm:text-sm" htmlFor="voiceConsent">
-                                <input
-                                    id="voiceConsent"
-                                    type="checkbox"
-                                    checked={voiceConsent}
-                                    onChange={(event) => setVoiceConsent(event.target.checked)}
-                                    className="mt-0.5 h-5 w-5 rounded border-serene-outline bg-serene-bg/50 text-serene-primary focus:ring-serene-primary"
-                                />
-                                <span>
-                                    Cho phép hỗ trợ bằng voice khi mức căng thẳng tăng cao.
-                                </span>
-                            </label>
                         </div>
 
                         <button

@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Share2, Wind, MessageSquareText, Phone } from 'lucide-react'
+import { Share2, Wind, BookOpen, MessageSquareText, Phone } from 'lucide-react'
 import type { ScreeningResult } from '../../services/screeningService'
 import { ROUTE_PATHS } from '../../routes/paths'
 
