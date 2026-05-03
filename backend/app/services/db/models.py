@@ -318,3 +318,302 @@ class SyncOutbox(Base):
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# Heart Economy (Plan 03)
+# ---------------------------------------------------------------------------
+
+class HeartWallet(Base):
+    __tablename__ = "heart_wallets"
+    __table_args__ = (
+        CheckConstraint("balance >= 0", name="chk_wallet_balance_nonneg"),
+        CheckConstraint("lifetime_earned >= 0", name="chk_wallet_earned_nonneg"),
+        CheckConstraint("lifetime_spent >= 0", name="chk_wallet_spent_nonneg"),
+    )
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), primary_key=True)
+    balance: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    lifetime_earned: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    lifetime_spent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    daily_earned_today: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    daily_earned_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class HeartRewardEvent(Base):
+    __tablename__ = "heart_reward_events"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_reward_idempotency"),
+        CheckConstraint("amount > 0", name="chk_reward_amount_pos"),
+    )
+
+    event_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_tab: Mapped[str] = mapped_column(String(50), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(String(20), default="granted", nullable=False)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class StreakState(Base):
+    __tablename__ = "streak_states"
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), primary_key=True)
+    current_mood_checkin_streak: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    longest_mood_checkin_streak: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_mood_checkin_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    last_7d_bonus_streak_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class NutritionMealCheckin(Base):
+    __tablename__ = "nutrition_meal_checkins"
+    __table_args__ = (
+        UniqueConstraint("user_id", "meal_date", "meal_slot", name="uq_nutrition_slot"),
+        CheckConstraint(
+            "meal_slot IN ('breakfast', 'lunch', 'dinner')",
+            name="chk_meal_slot",
+        ),
+    )
+
+    checkin_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    meal_date: Mapped[date] = mapped_column(Date, nullable=False)
+    meal_slot: Mapped[str] = mapped_column(String(20), nullable=False)
+    items_text: Mapped[str] = mapped_column(Text, nullable=False)
+    photo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    mood_before: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    mood_after: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    reward_event_id: Mapped[str | None] = mapped_column(ForeignKey("heart_reward_events.event_id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class TherapyLetter(Base):
+    """Personal long-form therapeutic letter (tab Thư). Distinct from the social letters table."""
+
+    __tablename__ = "therapy_letters"
+
+    letter_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    recipient_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    letter_text: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    word_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="pending_review", nullable=False)
+    reward_event_id: Mapped[str | None] = mapped_column(ForeignKey("heart_reward_events.event_id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Reward Store (Plan 04)
+# ---------------------------------------------------------------------------
+
+class HeartSpendEvent(Base):
+    __tablename__ = "heart_spend_events"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_spend_idempotency"),
+        CheckConstraint("amount > 0", name="chk_spend_amount_pos"),
+    )
+
+    event_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    item_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(String(20), default="spent", nullable=False)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class RewardStoreItem(Base):
+    __tablename__ = "reward_store_items"
+    __table_args__ = (
+        CheckConstraint("price_hearts >= 100 AND price_hearts <= 10000", name="chk_price_range"),
+        CheckConstraint("tier >= 1", name="chk_tier_pos"),
+    )
+
+    item_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    item_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    subtitle: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    price_hearts: Mapped[int] = mapped_column(Integer, nullable=False)
+    tier: Mapped[int] = mapped_column(Integer, nullable=False)
+    icon_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict, nullable=False)
+    requirements: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class UserInventoryItem(Base):
+    __tablename__ = "user_inventory_items"
+    __table_args__ = (UniqueConstraint("user_id", "item_id", name="uq_inventory_item"),)
+
+    inventory_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    item_id: Mapped[str] = mapped_column(ForeignKey("reward_store_items.item_id"), nullable=False)
+    acquired_source: Mapped[str] = mapped_column(String(50), nullable=False)
+    spend_event_id: Mapped[str | None] = mapped_column(ForeignKey("heart_spend_events.event_id"), nullable=True)
+    acquired_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict, nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Persona Unlock Progression (Plan 05)
+# ---------------------------------------------------------------------------
+
+class PersonaUnlockState(Base):
+    __tablename__ = "persona_unlock_states"
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), primary_key=True)
+    persona_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    unlocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    unlocked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    unlock_source: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    required_hearts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    progress: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    requirements: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    boundary_accepted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Memory Cards (Plan 06)
+# ---------------------------------------------------------------------------
+
+class MemoryCard(Base):
+    __tablename__ = "memory_cards"
+    __table_args__ = (
+        CheckConstraint(
+            "memory_type IN ('preference','emotional_pattern','coping_history',"
+            "'current_stressor','nutrition_pattern','kindness_pattern','persona_preference')",
+            name="chk_memory_type",
+        ),
+        CheckConstraint(
+            "status IN ('pending_user_review','active','edited_by_user',"
+            "'deleted_by_user','rejected_by_guardrail')",
+            name="chk_memory_status",
+        ),
+        CheckConstraint(
+            "safety_review_status IN ('pending','approved','rejected')",
+            name="chk_safety_review_status",
+        ),
+    )
+
+    card_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+    )
+    source_session_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    memory_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(30), default="pending_user_review", nullable=False
+    )
+    safety_review_status: Mapped[str] = mapped_column(
+        String(20), default="pending", nullable=False
+    )
+    personalization_disabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSON, default=dict, nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+
+# ---------------------------------------------------------------------------
+# Knowledge Unlocks (Plan 07)
+# ---------------------------------------------------------------------------
+
+class KnowledgePack(Base):
+    __tablename__ = "knowledge_packs"
+    __table_args__ = (
+        CheckConstraint(
+            "price_hearts IS NULL OR (price_hearts >= 100 AND price_hearts <= 10000)",
+            name="chk_kp_price_range",
+        ),
+    )
+
+    pack_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    category: Mapped[str] = mapped_column(String(80), nullable=False)
+    price_hearts: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    required_item_id: Mapped[str | None] = mapped_column(
+        ForeignKey("reward_store_items.item_id"), nullable=True
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+
+class KnowledgeCard(Base):
+    __tablename__ = "knowledge_cards"
+
+    card_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    pack_id: Mapped[str] = mapped_column(
+        ForeignKey("knowledge_packs.pack_id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_markdown: Mapped[str] = mapped_column(Text, nullable=False)
+    order_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    estimated_read_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reflection_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class UserKnowledgeProgress(Base):
+    __tablename__ = "user_knowledge_progress"
+    __table_args__ = (
+        UniqueConstraint("user_id", "card_id", name="uq_user_card_progress"),
+    )
+
+    progress_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+    )
+    pack_id: Mapped[str] = mapped_column(
+        ForeignKey("knowledge_packs.pack_id"), nullable=False
+    )
+    card_id: Mapped[str] = mapped_column(
+        ForeignKey("knowledge_cards.card_id"), nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    reward_event_id: Mapped[str | None] = mapped_column(
+        ForeignKey("heart_reward_events.event_id"), nullable=True
+    )
+
+
+class MemoryCardAuditEvent(Base):
+    __tablename__ = "memory_card_audit_events"
+
+    event_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    memory_card_id: Mapped[str] = mapped_column(
+        ForeignKey("memory_cards.card_id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    old_value: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    new_value: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
