@@ -21,6 +21,8 @@ from app.services.db.session import get_session_factory
 from app.services.pii_mask import mask_pii
 from app.services.tts_exceptions import PermanentTtsError
 from app.services.tts_renderer import TTS_AUDIO_OUTPUT_DIR, _normalize_audio_bytes, render_tts_audio
+from app.voice.dedup import compute_event_signature, dedup_status_for, find_dedup_job
+from app.voice.style_mapping import resolve_active_style
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +131,8 @@ def enqueue_voice_job(
     voice_script: str,
     trigger_reason: str,
     trigger_snapshot: dict[str, Any],
+    persona_id: str | None = None,
+    user_owns_voice_style: bool = False,
 ) -> dict[str, Any]:
     global _VOICE_PROVIDER_BLOCKED_CODE
     settings = get_settings()
@@ -153,6 +157,46 @@ def enqueue_voice_job(
             "error_code": _VOICE_PROVIDER_BLOCKED_CODE,
             "error_message": "Voice provider hiện không khả dụng với cấu hình hiện tại. Hiển thị script text thay thế.",
         }
+    # ── Dedup check ────────────────────────────────────────────────────────
+    # Compute event signature and look for an existing reusable job before
+    # creating a new SyncOutbox row. This prevents repeated identical audio
+    # generation for SOS/crisis events and normal chat turns alike.
+    voice_style_id = resolve_active_style(
+        persona_id, user_owns_voice_style=user_owns_voice_style
+    )
+    voice_id = str(getattr(settings, "elevenlabs_voice_id", "") or "")
+    signature = compute_event_signature(
+        session_id=session_id,
+        voice_style_id=voice_style_id,
+        voice_script=voice_script,
+        provider=provider,
+        voice_id=voice_id,
+        locale="vi",
+        speech_rate=1.0,
+    )
+    existing = find_dedup_job(db, signature)
+    if existing:
+        dedup_status = dedup_status_for(existing["voice_status"])
+        logger.info(
+            "voice_job_dedup job_id=%s existing_id=%s voice_status=%s dedup_status=%s session_id=%s",
+            f"tts_new",
+            existing["tts_job_id"],
+            existing["voice_status"],
+            dedup_status,
+            session_id,
+        )
+        return {
+            "provider": provider,
+            "tts_job_id": existing["tts_job_id"],
+            "audio_url": existing.get("audio_url"),
+            "audio_data_uri": existing.get("audio_data_uri"),
+            "status": dedup_status,
+            "model_id": _model_hint_for_queue(settings),
+            "requested_tts_provider": provider,
+            "voice_style_id": voice_style_id,
+            "event_signature": signature,
+        }
+    # ── Create new job ─────────────────────────────────────────────────────
     # Always create a fresh execution job id. Reuse belongs to result-cache layer,
     # not job identity, to keep lifecycle deterministic in distributed environments.
     outbox = SyncOutbox(
@@ -163,7 +207,12 @@ def enqueue_voice_job(
             "voice_script": voice_script,
             "trigger_reason": trigger_reason,
             "trigger_snapshot": trigger_snapshot,
-            "voice": {"status": "queued", "requested_tts_provider": provider},
+            "voice": {
+                "status": "queued",
+                "requested_tts_provider": provider,
+                "event_signature": signature,
+                "voice_style_id": voice_style_id,
+            },
         },
         status="pending",
     )
@@ -193,6 +242,8 @@ def enqueue_voice_job(
         "status": "queued",
         "model_id": _model_hint_for_queue(settings),
         "requested_tts_provider": provider,
+        "voice_style_id": voice_style_id,
+        "event_signature": signature,
     }
 
 
