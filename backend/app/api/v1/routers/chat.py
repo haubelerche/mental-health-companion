@@ -141,6 +141,21 @@ def _record_sos_side_effects(
     clin.crisis_level = max(int(clin.crisis_level or 0), 5)
     clin.last_scored_at = utc_now().replace(tzinfo=None)
 
+    # Push real-time notification
+    try:
+        from app.services.notification_service import enqueue_notification
+        enqueue_notification(
+            db,
+            user_id=user_id,
+            event_type="crisis.detected",
+            payload={
+                "level": "sos",
+                "message": "Hệ thống phát hiện dấu hiệu khẩn cấp. Bạn có cần hỗ trợ ngay không?"
+            }
+        )
+    except Exception:
+        pass
+
 
 def _queue_human_review(
     db: Session,
@@ -169,6 +184,22 @@ def _queue_human_review(
             metadata_json={"user_id": user_id, "distress_score": round(float(distress_score), 3)},
         )
     )
+    
+    # Push real-time notification for high distress
+    try:
+        from app.services.notification_service import enqueue_notification
+        enqueue_notification(
+            db,
+            user_id=user_id,
+            event_type="crisis.detected",
+            payload={
+                "level": "high_distress",
+                "distress_score": distress_score,
+                "message": "Cậu đang cảm thấy bất ổn phải không? Mình luôn ở đây lắng nghe nhé."
+            }
+        )
+    except Exception:
+        pass
 
 
 def _recent_distress_history(recent_messages: list[dict], *, max_turns: int) -> list[float]:
