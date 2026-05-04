@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import Modal from 'react-modal'
+Modal.setAppElement('#root')
 
 export function getYouTubeVideoId(url: string): string | null {
     if (!url) return null
