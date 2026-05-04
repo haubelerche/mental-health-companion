@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -9,7 +10,7 @@ from app.services.db.models import Bookmark, PlayEvent, Resource, User
 from app.services.db.session import get_db
 from app.services.schemas.payloads import PlayEventRequest
 from app.services.exercise_catalog import get_exercise, list_exercises
-from app.services.utils import make_id, now_plus, utc_now
+from app.services.utils import make_id, now_plus, utc_now, get_youtube_id
 
 router = APIRouter(prefix="/resources", tags=["resources"])
 
@@ -47,29 +48,25 @@ def categories():
 
 @router.get("")
 def list_resources(
-    category: str = Query(...),
+    category: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
-    if category not in CATEGORIES:
-        raise AppError("INVALID_PARAMETER", "Category không hợp lệ", 400)
+    query = select(Resource).where(Resource.is_active.is_(True))
+    count_query = select(func.count(Resource.resource_id)).where(Resource.is_active.is_(True))
 
-    total = (
-        db.scalar(
-            select(func.count(Resource.resource_id)).where(
-                Resource.category == category,
-                Resource.is_active.is_(True),
-            )
-        )
-        or 0
-    )
+    if category and category != "all":
+        if category not in CATEGORIES:
+            raise AppError("INVALID_PARAMETER", "Category không hợp lệ", 400)
+        query = query.where(Resource.category == category)
+        count_query = count_query.where(Resource.category == category)
+
+    total = db.scalar(count_query) or 0
 
     rows = db.scalars(
-        select(Resource)
-        .where(Resource.category == category, Resource.is_active.is_(True))
-        .order_by(Resource.created_at.desc())
+        query.order_by(Resource.created_at.desc())
         .offset(offset)
         .limit(limit)
     ).all()
@@ -79,7 +76,21 @@ def list_resources(
         bookmarked = db.scalar(
             select(Bookmark).where(Bookmark.user_id == current_user.user_id, Bookmark.resource_id == row.resource_id)
         )
-        expires_at = now_plus(seconds=3600).isoformat().replace("+00:00", "Z")
+        
+        # Logic URL thông minh
+        url = row.storage_key
+        if not url.startswith(("http://", "https://")):
+            url = f"https://www.youtube.com/watch?v={url}"
+            
+        # Logic Thumbnail thông minh
+        thumbnail = row.thumbnail_key
+        if not thumbnail:
+            yt_id = get_youtube_id(url)
+            if yt_id:
+                thumbnail = f"https://img.youtube.com/vi/{yt_id}/maxresdefault.jpg"
+        elif thumbnail and not thumbnail.startswith(("http://", "https://")):
+             thumbnail = f"https://cdn.example.com/{thumbnail}"
+
         items.append(
             {
                 "id": row.resource_id,
@@ -87,9 +98,8 @@ def list_resources(
                 "title": row.title,
                 "duration_sec": row.duration_sec,
                 "format": row.format,
-                "url": f"https://cdn.example.com/{row.storage_key}?sig=dummy",
-                "url_expires_at": expires_at,
-                "thumbnail": f"https://cdn.example.com/{row.thumbnail_key}" if row.thumbnail_key else None,
+                "url": url,
+                "thumbnail": thumbnail,
                 "bookmarked": bookmarked is not None,
             }
         )
@@ -106,7 +116,19 @@ def resource_detail(resource_id: str, current_user: User = Depends(ensure_policy
     bookmarked = db.scalar(
         select(Bookmark).where(Bookmark.user_id == current_user.user_id, Bookmark.resource_id == row.resource_id)
     )
-    expires_at = now_plus(seconds=3600).isoformat().replace("+00:00", "Z")
+    
+    url = row.storage_key
+    if not url.startswith(("http://", "https://")):
+        url = f"https://www.youtube.com/watch?v={url}"
+        
+    thumbnail = row.thumbnail_key
+    if not thumbnail:
+        yt_id = get_youtube_id(url)
+        if yt_id:
+            thumbnail = f"https://img.youtube.com/vi/{yt_id}/maxresdefault.jpg"
+    elif thumbnail and not thumbnail.startswith(("http://", "https://")):
+        thumbnail = f"https://cdn.example.com/{thumbnail}"
+
     return ok(
         {
             "id": row.resource_id,
@@ -115,9 +137,8 @@ def resource_detail(resource_id: str, current_user: User = Depends(ensure_policy
             "description": row.description,
             "duration_sec": row.duration_sec,
             "format": row.format,
-            "url": f"https://cdn.example.com/{row.storage_key}?sig=dummy",
-            "url_expires_at": expires_at,
-            "thumbnail": f"https://cdn.example.com/{row.thumbnail_key}" if row.thumbnail_key else None,
+            "url": url,
+            "thumbnail": thumbnail,
             "bookmarked": bookmarked is not None,
             "tags": row.tags,
         }

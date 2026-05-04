@@ -10,6 +10,7 @@ import { ResourceGrid } from './ResourceGrid'
 import { YouTubeEmbed, isYouTubeUrl } from './YouTubeEmbed'
 import Loading from '../../ui/Loading'
 import { useThemeContext } from '../../../contexts/ThemeContext'
+import { ExerciseTab } from './ExerciseTab'
 // ── Vietnamese category labels ────────────────────────────────────────────────
 const VI_LABELS: Record<string, { label: string; icon: string }> = {
     all: { label: 'Tất cả', icon: '✦' },
@@ -19,13 +20,14 @@ const VI_LABELS: Record<string, { label: string; icon: string }> = {
     wisdom: { label: 'Trí tuệ', icon: '◌' },
     movement: { label: 'Vận động', icon: '↟' },
     work_study: { label: 'Tập trung', icon: '◎' },
+    exercises: { label: 'Bài tập', icon: '🌬️' },
 }
 
 function localizeCategory(id: string, fallbackLabel: string) {
     return VI_LABELS[id] ?? { label: fallbackLabel, icon: '○' }
 }
 
-const RESOURCE_CATEGORY_IDS = ['all', 'meditate', 'sleep', 'music', 'wisdom', 'movement', 'work_study']
+const RESOURCE_CATEGORY_IDS = ['all', 'exercises', 'meditate', 'sleep', 'music', 'wisdom', 'movement', 'work_study']
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function Resources() {
@@ -49,7 +51,11 @@ export default function Resources() {
         resourceService
             .getCategories()
             .then((data) => {
-                setCategories([{ id: 'all', label: 'Tất cả', icon: '✦' }, ...data.categories])
+                setCategories([
+                    { id: 'all', label: 'Tất cả', icon: '✦' },
+                    { id: 'exercises', label: 'Bài tập', icon: '🌬️' },
+                    ...data.categories
+                ])
             })
             .catch(() => undefined)
     }, [])
@@ -58,6 +64,10 @@ export default function Resources() {
         let active = true
 
         const loadResources = async () => {
+            if (selectedCategory === 'exercises') {
+                setLoadingResources(false)
+                return
+            }
             setLoadingResources(true)
             try {
                 const categoryParam =
@@ -163,6 +173,8 @@ export default function Resources() {
                 >
                     {loadingResources ? (
                         <Loading text="Đang tải tài nguyên..." />
+                    ) : selectedCategory === 'exercises' ? (
+                        <ExerciseTab />
                     ) : (
                         <ResourceGrid items={filteredItems} onOpen={openItem} />
                     )}
