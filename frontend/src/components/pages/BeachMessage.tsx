@@ -69,7 +69,14 @@ export default function BeachMessage() {
       setLoadingInbox(true)
       try {
         const inboxData = await anonymousShareService.getInbox()
-        if (active) setPendingLetter((current) => current ?? pickRandomLetter(inboxData.letters))
+        if (active) {
+            // Nếu lá thư đang chờ hiện tại không còn trong inbox mới, hoặc chưa có lá thư nào, hãy lấy cái mới
+            setPendingLetter((current) => {
+                const stillExists = current && inboxData.letters.some(l => l.id === current.id)
+                if (stillExists) return current
+                return pickRandomLetter(inboxData.letters)
+            })
+        }
       } catch {
         if (active) setPendingLetter(null)
       } finally {
