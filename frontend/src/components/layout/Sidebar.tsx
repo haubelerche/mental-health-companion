@@ -14,7 +14,7 @@ const navItems = [
     { icon: MessageSquare, label: 'Chat', route: ROUTE_PATHS.chat },
     { icon: Sparkles, label: 'Nhìn lại', route: ROUTE_PATHS.reflect },
     { icon: Library, label: 'Tài nguyên', route: ROUTE_PATHS.resources },
-    { icon: Book, label: 'Bài tập', route: ROUTE_PATHS.exercises },
+    // { icon: Book, label: 'Bài tập', route: ROUTE_PATHS.exercises },
     { icon: Utensils, label: 'Dinh dưỡng', route: ROUTE_PATHS.nutrition },
     { icon: Compass, label: 'Kết nối', route: ROUTE_PATHS.connect },
     { icon: Sailboat, label: 'Thư', route: ROUTE_PATHS.bamboo },

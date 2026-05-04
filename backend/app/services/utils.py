@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 
 import secrets
 from datetime import date, datetime, time, timedelta, timezone
@@ -79,3 +80,10 @@ def vn_week_chart_range(ref: date | None = None) -> tuple[date, date, int]:
 def make_id(prefix: str, size: int = 10) -> str:
     token = "".join(secrets.choice(ID_ALPHABET) for _ in range(size))
     return f"{prefix}_{token}"
+
+
+def get_youtube_id(url: str) -> str | None:
+    if not url:
+        return None
+    match = re.search(r"(?:v=|\/|embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})", url)
+    return match.group(1) if match else None

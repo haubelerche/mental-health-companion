@@ -199,11 +199,7 @@ export default function Connect() {
                     </aside>
                 </div>
 
-                <div className={`mx-auto mt-12 max-w-xl rounded-[2rem] ${isDark ? 'bg-black/20 border border-white/5' : 'bg-theme-surface/40'} px-7 py-6 text-center shadow-lg`}>
-                    <p className="font-display text-2xl italic text-theme-text-primary">
-                        "Peace is not the absence of trouble, but the presence of connection."
-                    </p>
-                </div>
+            
             </div>
 
             {referrals.length > 0 && (

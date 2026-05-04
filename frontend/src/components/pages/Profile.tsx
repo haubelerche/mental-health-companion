@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { ArrowLeft, Settings, Lock, User, Calendar, HeartPulse, Target, LifeBuoy, Activity, Moon, Sun, Sparkles, CheckCircle, ShieldCheck, Mail, Smartphone, Clock, Heart, Star, Pencil } from 'lucide-react'
+import { ArrowLeft, Settings, Lock, User, Calendar, HeartPulse, Target, LifeBuoy, Activity, Moon, Sun, Sparkles, CheckCircle, ShieldCheck, Mail, Smartphone, Clock, Heart, Star, Pencil, Repeat } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
@@ -181,7 +181,19 @@ export default function Profile() {
                         transition={{ delay: 0.2 }}
                         className="rounded-[2.5rem] border border-theme-border/50 bg-theme-surface/40 p-8 shadow-xl backdrop-blur-2xl"
                     >
-                        <h2 className="mb-8 font-display text-3xl italic text-theme-text-primary">Hành trình tâm thức</h2>
+                        <div className="mb-8 flex items-center justify-between">
+                            <h2 className="font-display text-3xl italic text-theme-text-primary">Hành trình tâm thức</h2>
+                            {onboardingData && (
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(ROUTE_PATHS.onboarding)}
+                                    className="inline-flex items-center gap-2 rounded-full bg-theme-accent/10 px-4 py-2 text-xs font-bold uppercase tracking-widest text-theme-accent transition hover:bg-theme-accent/20"
+                                >
+                                    <Repeat className="h-4 w-4" />
+                                    Cập nhật hành trình
+                                </button>
+                            )}
+                        </div>
                         {loading ? (
                             <Loading text="Đang tải dữ liệu..." />
                         ) : onboardingData ? (
@@ -207,9 +219,16 @@ export default function Profile() {
                                         </div>
                                     )
                                 })}
-                                <div className="col-span-full mt-4 rounded-3xl bg-theme-accent/5 p-6">
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-theme-accent/70">Thói quen ưu tiên</p>
-                                    <p className="mt-2 text-sm leading-relaxed italic">{practicesLabel}</p>
+                                <div className="col-span-full mt-4 flex items-center justify-between rounded-3xl bg-theme-accent/5 p-6">
+                                    <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-theme-accent/70">Thói quen ưu tiên</p>
+                                        <p className="mt-2 text-sm leading-relaxed italic">{practicesLabel}</p>
+                                    </div>
+                                    {onboardingCompletedAt && (
+                                        <p className="text-right text-[10px] text-theme-text-secondary/60">
+                                            Hoàn thành lúc:<br />{onboardingCompletedAt}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         ) : (
