@@ -395,18 +395,38 @@ class NutritionMealCheckin(Base):
 
 
 class TherapyLetter(Base):
-    """Personal long-form therapeutic letter (tab Thư). Distinct from the social letters table."""
+    """
+    Super Letter Model - Handles both personal therapeutic letters and social anonymous letters.
+    Supports threading (replies), reactions, forwarding, and reporting in a single table.
+    """
 
     __tablename__ = "therapy_letters"
 
     letter_id: Mapped[str] = mapped_column(String(50), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
-    recipient_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    letter_text: Mapped[str] = mapped_column(Text, nullable=False)
-    normalized_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    
+    # Social/Interaction fields
+    receiver_id: Mapped[str | None] = mapped_column(ForeignKey("users.user_id"), nullable=True)
+    reply_to_id: Mapped[str | None] = mapped_column(ForeignKey("therapy_letters.letter_id"), nullable=True)
+    
+    # Content & Metadata
+    letter_type: Mapped[str] = mapped_column(String(30), default="therapeutic", nullable=False) # 'therapeutic', 'public', 'reply'
+    recipient_type: Mapped[str | None] = mapped_column(String(50), nullable=True) # For therapeutic: 'inner_child', 'future_self', etc.
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    anonymous_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    
+    # Engagement fields
+    forward_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    reaction_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    
+    # Safety & Status
+    status: Mapped[str] = mapped_column(String(30), default="active", nullable=False) # 'pending_review', 'active', 'reported', 'deleted'
+    report_data: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    
+    # Metrics
     word_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    status: Mapped[str] = mapped_column(String(30), default="pending_review", nullable=False)
     reward_event_id: Mapped[str | None] = mapped_column(ForeignKey("heart_reward_events.event_id"), nullable=True)
+    
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
@@ -646,13 +666,6 @@ class UserNotification(Base):
     """Notification history (retained for 30 days or user-configured retention)"""
 
     __tablename__ = "user_notifications"
-    __table_args__ = (
-        CheckConstraint(
-            "notification_type IN ('letter.replied','letter.reported','memory.review',"
-            "'reward.earned','persona.unlocked','knowledge.completed','system')",
-            name="chk_notification_type",
-        ),
-    )
 
     notification_id: Mapped[str] = mapped_column(String(50), primary_key=True)
     user_id: Mapped[str] = mapped_column(
