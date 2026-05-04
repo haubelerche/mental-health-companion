@@ -101,13 +101,13 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
 
                 {/* Bottom links */}
                 <div className={`mt-4 space-y-1 border-t pt-4 text-base ${isDark ? 'border-white/20 text-white/75' : 'border-black/10 text-serene-muted'}`}>
-                    <button
-                        type="button"
-                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${hoverTextClass}`}
+                    <NavLink
+                        to={ROUTE_PATHS.notifications}
+                        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition ${hoverTextClass}`}
                     >
                         <Bell className="h-4 w-4" aria-hidden="true" />
                         <span>Thông báo</span>
-                    </button>
+                    </NavLink>
                     <NavLink
                         to={ROUTE_PATHS.setting}
                         className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition ${hoverTextClass}`}

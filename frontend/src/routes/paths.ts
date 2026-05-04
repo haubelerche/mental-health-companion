@@ -14,6 +14,7 @@ export const ROUTE_PATHS = {
     connect: '/serene/connect',
     profile: '/serene/profile',
     setting: '/serene/setting',
+    notifications: '/serene/notifications',
 
     // onboarding & flows
     onboardingPolicy: '/onboarding/policy',
