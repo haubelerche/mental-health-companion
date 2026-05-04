@@ -79,3 +79,15 @@ def vn_week_chart_range(ref: date | None = None) -> tuple[date, date, int]:
 def make_id(prefix: str, size: int = 10) -> str:
     token = "".join(secrets.choice(ID_ALPHABET) for _ in range(size))
     return f"{prefix}_{token}"
+
+
+def make_anon_name() -> str:
+    adjectives = [
+        "Nhỏ", "Bình Yên", "Mạnh Mẽ", "Hy Vọng", "Tự Do", 
+        "Dịu Dàng", "Kiên Cường", "Ấm Áp", "Lặng Lẽ", "Sáng Suốt"
+    ]
+    nouns = [
+        "Mèo", "Gió", "Nắng", "Mây", "Cánh Diều", 
+        "Hạt Mầm", "Ngôi Sao", "Dòng Sông", "Chiếc Lá", "Biển Cả"
+    ]
+    return f"{secrets.choice(nouns)} {secrets.choice(adjectives)}"
