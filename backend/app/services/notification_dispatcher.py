@@ -24,43 +24,43 @@ class NotificationDispatcher:
     NOTIFICATION_TEMPLATES = {
         "letter.replied": {
             "notification_type": "letter.replied",
-            "title": "📬 You have a new reply!",
-            "body": "Someone replied to your anonymous letter",
+            "title": "📬 Bạn có phản hồi mới!",
+            "body": "Ai đó vừa trả lời lá thư ẩn danh của bạn.",
         },
         "letter.reported": {
             "notification_type": "letter.reported",
-            "title": "⚠️ Your letter was reported",
-            "body": "Your letter has been reported by another user",
+            "title": "⚠️ Lá thư bị báo cáo",
+            "body": "Lá thư của bạn đã bị một người dùng khác báo cáo.",
         },
         "letter.received": {
             "notification_type": "letter.received",
-            "title": "💌 You received a letter",
-            "body": "Someone sent you an anonymous letter",
+            "title": "💌 Bạn nhận được thư",
+            "body": "Có một lá thư ẩn danh mới dành cho bạn.",
         },
         "reward.earned": {
             "notification_type": "reward.earned",
-            "title": "❤️ You earned hearts!",
-            "body": "You received hearts for your activity",
+            "title": "❤️ Bạn nhận được Tim!",
+            "body": "Số dư Tim của bạn vừa tăng thêm từ hoạt động hệ thống.",
         },
         "memory.completed": {
             "notification_type": "memory.completed",
-            "title": "📚 Memory card completed!",
-            "body": "You've completed a memory card review",
+            "title": "📚 Ký ức mới được ghi lại",
+            "body": "AI vừa hoàn thành việc ghi nhớ thêm thông tin về bạn.",
         },
         "persona.unlocked": {
             "notification_type": "persona.unlocked",
-            "title": "🎭 New persona unlocked!",
-            "body": "You've unlocked a new persona",
+            "title": "🎭 Nhân vật mới đã sẵn sàng!",
+            "body": "Chúc mừng! Bạn đã mở khóa thành công một nhân vật mới.",
         },
         "letter.reacted": {
             "notification_type": "letter.reacted",
-            "title": "✨ Someone reacted to your reply",
-            "body": "A user sent a reaction to your letter reply",
+            "title": "✨ Phản hồi được yêu thích",
+            "body": "Ai đó vừa thả tim vào phản hồi thư của bạn.",
         },
         "crisis.detected": {
             "notification_type": "crisis.detected",
-            "title": "🛡️ Safety Check",
-            "body": "We detected you might be going through a hard time. We're here to help.",
+            "title": "🛡️ Friend luôn ở đây",
+            "body": "Mình nhận thấy bạn đang gặp khó khăn. Đừng quên mình luôn sẵn sàng lắng nghe nhé.",
         },
     }
 
@@ -79,6 +79,10 @@ class NotificationDispatcher:
             logger.debug(f"No notification template for event type: {event_type}")
             return False  # Unknown event, let outbox_worker mark as failed
 
+        # Use message from payload if available, else use template body
+        body = payload.get("message") or template["body"]
+        title = payload.get("title") or template["title"]
+
         try:
             # Create notification record in DB
             notification_id = make_id("notif")
@@ -86,8 +90,8 @@ class NotificationDispatcher:
                 notification_id=notification_id,
                 user_id=user_id,
                 notification_type=template["notification_type"],
-                title=template["title"],
-                body=template["body"],
+                title=title,
+                body=body,
                 data_json=payload,
                 is_read=False,
                 created_at=datetime.now(timezone.utc).replace(tzinfo=None),
@@ -99,8 +103,8 @@ class NotificationDispatcher:
             notification_payload = {
                 "notification_id": notification_id,
                 "notification_type": template["notification_type"],
-                "title": template["title"],
-                "body": template["body"],
+                "title": title,
+                "body": body,
                 "data": payload,
                 "created_at": notification.created_at.isoformat(),
             }
