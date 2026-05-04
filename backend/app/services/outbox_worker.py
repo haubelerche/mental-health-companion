@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 
@@ -11,12 +12,46 @@ from app.services.utils import utc_now
 
 logger = logging.getLogger(__name__)
 
+# Notification event types that should be dispatched via WebSocket
+NOTIFICATION_EVENT_TYPES = {
+    "letter.replied",
+    "letter.reported",
+    "letter.received",
+    "reward.earned",
+    "memory.completed",
+    "persona.unlocked",
+}
+
 
 def _dispatch(event: SyncOutbox) -> None:
-    # Intentionally minimal dispatcher. Concrete integrations can be wired in dedicated workers.
+    """
+    Dispatch outbox event to appropriate handler.
+    Notification events are sent to WebSocket clients via dispatcher.
+    Other events are logged for specialized workers.
+    """
     event_name = str(event.event_type or "")
+    
+    # Handle notification events
+    if event_name in NOTIFICATION_EVENT_TYPES:
+        try:
+            # Import here to avoid circular imports
+            from app.services.notification_dispatcher import dispatch_notification_event
+            
+            factory = get_session_factory()
+            db = factory()
+            try:
+                # Run async dispatcher in sync context
+                asyncio.run(dispatch_notification_event(event, db))
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"Failed to dispatch notification event {event.outbox_id}: {e}")
+        return
+    
+    # Known event types that are handled by specialized workers
     if event_name in {"voice.tts_request", "memory.enrich", "trusted_contact.notify"}:
         return
+    
     logger.debug("outbox.unknown_event_type=%s id=%s", event_name, event.outbox_id)
 
 
