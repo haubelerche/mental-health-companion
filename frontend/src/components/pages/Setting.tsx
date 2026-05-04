@@ -4,7 +4,6 @@ import {
   Check,
   LogOut,
   Palette,
-  Repeat,
   TriangleAlert,
   User,
 } from 'lucide-react'
@@ -315,26 +314,6 @@ export default function Setting() {
             />
           </section>
 
-          <section className="mt-12 space-y-6 ">
-            <div className="flex items-center gap-2 border-b border-theme-border/30 pb-2">
-              <Repeat className="h-5 w-5 text-theme-accent" />
-              <h2 className="font-display text-2xl text-theme-text-primary">Cá nhân hóa Onboarding</h2>
-            </div>
-            <div className="rounded-3xl border border-theme-border/50 bg-theme-surface/40 p-6 ">
-              <p className="text-sm text-theme-text-primary">
-                Bạn có thể chạy lại onboarding để cập nhật mục tiêu, khung giờ sinh hoạt và gợi ý trong phần
-                {' '}
-                “Hôm nay của bạn”.
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate(ROUTE_PATHS.onboarding)}
-                className="mt-4 rounded-full bg-theme-accent px-6 py-3 text-xs font-bold uppercase tracking-[0.22em] text-white transition hover:brightness-105"
-              >
-                Mở lại onboarding
-              </button>
-            </div>
-          </section>
 
           <section className="mt-8 text-center">
             <button
