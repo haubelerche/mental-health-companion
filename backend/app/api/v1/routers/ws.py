@@ -9,12 +9,13 @@ from sqlalchemy.orm import Session
 
 from app.services.db.session import get_db
 from app.services.db.models import User
+from app.api.deps import get_current_user
 from app.services.security import decode_token
 from app.core.errors import AppError
 from app.services.ws_manager import connection_manager
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/v1/ws", tags=["websocket"])
+router = APIRouter(prefix="/ws", tags=["websocket"])
 
 
 async def get_current_user_ws_cookie(
@@ -41,42 +42,18 @@ async def get_current_user_ws_cookie(
 @router.websocket("/notifications")
 async def websocket_notifications(
     websocket: WebSocket,
+    user: User | None = Depends(get_current_user_ws_cookie),
     db: Session = Depends(get_db),
-    token: str = Query(default=None),  # Optional query param for token fallback
+    token: str = Query(default=None),
 ):
     """
     WebSocket endpoint for real-time notifications
-    
-    Connection methods:
-    1. **Cookie-based (Recommended)**: Browser automatically sends HTTP-only access_token cookie
-       URL: ws://localhost:8000/v1/ws/notifications
-       
-    2. **Query parameter (Dev/Testing)**: Pass token explicitly
-       URL: ws://localhost:8000/v1/ws/notifications?token={jwt_token}
-    
-    Events sent to client:
-    - type: "notification" - Real-time notification with payload
-    - type: "connected" - Welcome message after successful connection
-    - type: "ping" - Heartbeat every 30s
-    
-    Payload examples:
-    {
-        "notification_id": "notif_xxx",
-        "notification_type": "letter.replied",
-        "title": "You have a reply!",
-        "body": "Someone replied to your letter",
-        "data": {"letter_id": "letter_xxx", "reply_id": "reply_xxx"}
-    }
     """
     
-    user = None
     user_id = None
     
     try:
-        # Try cookie-based auth first (recommended)
-        user = await get_current_user_ws_cookie(None, db)
-        
-        # Fallback to query parameter if no cookie
+        # Fallback to query parameter if no cookie auth
         if not user and token:
             try:
                 payload = decode_token(token)
@@ -88,8 +65,14 @@ async def websocket_notifications(
                 pass
         
         if not user:
-            await websocket.close(code=4001, reason="Unauthorized")
-            logger.warning(f"WebSocket connection rejected: unauthorized")
+            # We must accept first to be able to send a message before closing
+            await websocket.accept()
+            await websocket.send_json({
+                "type": "error",
+                "message": "Unauthorized"
+            })
+            await websocket.close(code=4001)
+            logger.warning("WebSocket connection rejected: unauthorized")
             return
         
         user_id = user.user_id
@@ -125,3 +108,39 @@ async def websocket_notifications(
             await connection_manager.disconnect(websocket)
         except:
             pass
+
+
+@router.post("/test-notify")
+async def trigger_test_notification(
+    user_id: str | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Trigger a test notification for a specific user.
+    If no user_id is provided, it uses the ID of the current authenticated user.
+    """
+    from app.services.db.models import SyncOutbox
+    import datetime
+
+    target_id = user_id or current_user.user_id
+
+    # Create a dummy reward event as a test
+    event = SyncOutbox(
+        user_id=target_id,
+        event_type="reward.earned",
+        payload={
+            "amount": 100,
+            "message": "Đây là thông báo kiểm tra hệ thống WebSocket!",
+            "test_time": datetime.datetime.utcnow().isoformat()
+        },
+        status="pending",
+    )
+    db.add(event)
+    db.commit()
+    
+    return {
+        "success": True, 
+        "message": f"Test notification queued for user {target_id}",
+        "outbox_id": event.outbox_id
+    }
