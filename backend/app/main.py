@@ -37,26 +37,6 @@ def _backfill_policy_versions() -> None:
         pass
 
 
-def _fix_outbox_sequence() -> None:
-    """Synchronize the outbox_id sequence to prevent UniqueViolation errors."""
-    try:
-        factory = get_session_factory()
-        db = factory()
-        try:
-            # Find the current maximum ID
-            result = db.execute(text("SELECT MAX(outbox_id) FROM sync_outbox"))
-            max_id = result.scalar() or 0
-            # Restart the identity sequence from max_id + 1
-            db.execute(text(f"ALTER TABLE sync_outbox ALTER COLUMN outbox_id RESTART WITH {max_id + 1}"))
-            db.commit()
-        finally:
-            db.close()
-    except Exception as e:
-        # Log and ignore if sequence already correct or not using identity
-        import logging
-        logging.getLogger(__name__).warning(f"Outbox sequence sync skipped or failed: {e}")
-
-
 def _idle_loop() -> None:
     from app.services.idle_sessions import summarize_idle_sessions
 
@@ -85,7 +65,6 @@ async def lifespan(_: FastAPI):
     if settings.auto_create_schema:
         init_db()
     _backfill_policy_versions()
-    _fix_outbox_sequence()
     threading.Thread(target=_idle_loop, daemon=True).start()
     threading.Thread(target=_outbox_loop, daemon=True).start()
     threading.Thread(target=_voice_tts_loop, daemon=True).start()
