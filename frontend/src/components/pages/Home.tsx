@@ -417,7 +417,7 @@ export default function Home() {
                         {displayName}
                     </h1>
                 </div>
-                <div className="flex items-center gap-3 rounded-full bg-theme-surface/40 px-4 py-2 backdrop-blur-sm border border-theme-border/50 shadow-sm">
+                <div className="flex items-center gap-3 rounded-full bg-theme-surface/60 px-4 py-2 backdrop-blur-sm border border-theme-border/50 shadow-sm">
                     <span className="flex items-center gap-1 text-sm font-bold text-rose-500 dark:text-rose-400">
                         <Heart className="h-4 w-4 fill-current" />
                         {hearts}
@@ -431,7 +431,7 @@ export default function Home() {
             </header>
 
             {/* ── Today's plan + streak ── */}
-            <section className="rounded-[2.5rem] bg-theme-surface/40 p-6 backdrop-blur-3xl border border-theme-border/50 shadow-sm">
+            <section className="rounded-[2.5rem] bg-theme-surface/60 p-6 backdrop-blur-3xl border border-theme-border/50 shadow-sm">
                 <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
                     <div>
                         <div className="mb-5 flex items-center justify-between gap-4">
@@ -496,7 +496,7 @@ export default function Home() {
             </section>
 
             {/* ── Dành cho bạn ── */}
-            <section className="bg-theme-surface/40 p-6 rounded-[2rem] backdrop-blur-xl border border-theme-border/50 shadow-sm">
+            <section className="bg-theme-surface/60 p-6 rounded-[2rem] backdrop-blur-xl border border-theme-border/50 shadow-sm">
 
                 <div className="flex items-center justify-between gap-4">
                     <div>
@@ -549,7 +549,7 @@ export default function Home() {
                 </div>
             </section>
 
-            <section className="rounded-[2rem] bg-theme-surface/40 p-6 backdrop-blur-xl border border-theme-border/50 shadow-sm">
+            <section className="rounded-[2rem] bg-theme-surface/60 p-6 backdrop-blur-xl border border-theme-border/50 shadow-sm">
                 <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
                     <div>
                         <p className="font-semibold uppercase tracking-[0.2em] text-theme-text-primary">Bạn đang cảm thấy thế nào?</p>
@@ -671,7 +671,7 @@ export default function Home() {
                 onClick={() => navigate(ROUTE_PATHS.nutrition)}
                 whileHover={{ y: -4 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                className="group w-full rounded-[2.5rem] bg-theme-surface/40 p-7 text-left backdrop-blur-xl shadow-sm border border-theme-border/50 transition-all active:scale-[0.98]"
+                className="group w-full rounded-[2.5rem] bg-theme-surface/60 p-7 text-left backdrop-blur-xl shadow-sm border border-theme-border/50 transition-all active:scale-[0.98]"
             >
                 <div className="grid gap-5 lg:grid-cols-[220px_1fr_auto] lg:items-center cursor-pointer">
                     <div className="relative overflow-hidden rounded-[24px] min-h-[170px] shadow-sm">
@@ -701,7 +701,7 @@ export default function Home() {
             </motion.button>
 
             {/* ── Quick action grid 2×2 ── */}
-            <section className="p-6 bg-theme-surface/40 backdrop-blur-3xl rounded-[2.5rem] border border-theme-border/50 shadow-sm">
+            <section className="p-6 bg-theme-surface/60 backdrop-blur-3xl rounded-[2.5rem] border border-theme-border/50 shadow-sm">
                 <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_220px] lg:items-center">
                     <div>
                         <h2 className="font-display text-3xl text-theme-text-primary">Lối vào nhanh</h2>

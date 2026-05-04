@@ -135,11 +135,11 @@ export function ExercisesPage() {
     if (loading) return <Loading text="Đang chuẩn bị không gian tĩnh lặng..." />
 
     return (
-        <div className={`relative min-h-screen overflow-hidden ${isDark ? 'text-theme-text-primary' : 'text-theme-text-primary'}`}>
+        <div className={`relative min-h-screen overflow-hidden text-theme-text-primary`}>
             {/* Background Layer */}
             <div className="fixed inset-0 z-0">
                 <img src={ocean} alt="Background" className="h-full w-full object-cover" />
-                <div className={`absolute inset-0 ${isDark ? 'bg-black/40' : 'bg-white/10'} backdrop-blur-[2px]`} />
+                <div className={`absolute inset-0 ${isDark ? 'brightness-60 ' : 'brightness-80'} backdrop-blur-[2px]`} />
             </div>
 
             <div className="relative z-10 mx-auto max-w-6xl px-4 py-8 md:px-8">
@@ -150,7 +150,7 @@ export function ExercisesPage() {
                         className="space-y-8"
                     >
                         {/* Header Section */}
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between bg-theme-surface/80 backdrop-blur-xl rounded-4xl p-4">
                             <div>
                                 <h1 className="font-display text-4xl font-semibold tracking-tight md:text-5xl">
                                     Hành trình tâm thức
@@ -178,7 +178,7 @@ export function ExercisesPage() {
                                         onClick={() => setActiveTab(tab.id)}
                                         className={`flex items-center gap-2.5 rounded-2xl px-5 py-3 text-sm font-medium transition-all duration-300 ${isActive
                                                 ? 'bg-theme-accent text-white shadow-lg shadow-theme-accent/20 scale-105'
-                                                : 'bg-theme-surface/40 border border-theme-border/50 hover:bg-theme-surface/60'
+                                                : 'bg-theme-surface border border-theme-border/50 hover:bg-theme-surface/60'
                                             }`}
                                     >
                                         <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-theme-accent'}`} />
@@ -200,7 +200,7 @@ export function ExercisesPage() {
                                         exit={{ opacity: 0, scale: 0.95 }}
                                         transition={{ duration: 0.2, delay: idx * 0.05 }}
                                         onClick={() => startExercise(item.id)}
-                                        className={`group relative flex flex-col overflow-hidden rounded-[2.5rem] border border-theme-border bg-theme-surface/60 p-7 text-left shadow-xl backdrop-blur-xl transition-all hover:-translate-y-1.5 hover:bg-theme-surface/80`}
+                                        className={`group relative flex flex-col overflow-hidden rounded-[2.5rem] border border-theme-border bg-theme-surface/80 p-7 text-left shadow-xl backdrop-blur-xl transition-all hover:-translate-y-1.5 hover:bg-theme-surface/80`}
                                     >
                                         <div className="flex-1">
                                             <div className="flex items-center justify-between">
@@ -236,7 +236,7 @@ export function ExercisesPage() {
                         </div>
 
                         {/* Featured Tip Section */}
-                        <div className={`mt-8 overflow-hidden rounded-[3rem] border border-theme-border bg-theme-surface/40 p-8 backdrop-blur-xl`}>
+                        <div className={`mt-8 overflow-hidden rounded-[3rem] border border-theme-border bg-theme-surface/70 p-8 backdrop-blur-xl`}>
                             <div className="flex flex-col gap-6 md:flex-row md:items-center">
                                 <div className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-theme-accent/10 text-4xl`}>
                                     🌬️
