@@ -17,9 +17,11 @@ NOTIFICATION_EVENT_TYPES = {
     "letter.replied",
     "letter.reported",
     "letter.received",
+    "letter.reacted",
     "reward.earned",
     "memory.completed",
     "persona.unlocked",
+    "crisis.detected",
 }
 
 
