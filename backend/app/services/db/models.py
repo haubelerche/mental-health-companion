@@ -617,3 +617,56 @@ class MemoryCardAuditEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
+
+
+# ---------------------------------------------------------------------------
+# WebSocket Notifications (Phase 08)
+# ---------------------------------------------------------------------------
+
+class UserNotificationPreference(Base):
+    """User notification settings (opt-in/out by event type)"""
+
+    __tablename__ = "user_notification_preferences"
+
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True
+    )
+    letter_replied: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    letter_reported: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    memory_card_review: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    reward_earned: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    persona_unlocked: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    knowledge_completed: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+
+class UserNotification(Base):
+    """Notification history (retained for 30 days or user-configured retention)"""
+
+    __tablename__ = "user_notifications"
+    __table_args__ = (
+        CheckConstraint(
+            "notification_type IN ('letter.replied','letter.reported','memory.review',"
+            "'reward.earned','persona.unlocked','knowledge.completed','system')",
+            name="chk_notification_type",
+        ),
+    )
+
+    notification_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+    )
+    notification_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    data_json: Mapped[dict[str, Any]] = mapped_column(
+        "data", JSON, default=dict, nullable=False
+    )
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    action_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
