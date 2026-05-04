@@ -4,16 +4,7 @@
  */
 
 import React, { createContext, useContext, useCallback, useState, useEffect } from "react";
-
-export interface Notification {
-  notification_id: string;
-  notification_type: string;
-  title: string;
-  body: string;
-  data?: Record<string, any>;
-  created_at?: string;
-  is_read?: boolean;
-}
+import type { Notification } from "./NotificationTypes";
 
 interface NotificationContextType {
   notifications: Notification[];
@@ -39,7 +30,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     ]);
 
     // Auto-remove after 30 seconds if not read
-    setTimeout(() => {
+    window.setTimeout(() => {
       setNotifications((prev) =>
         prev.filter((n) => n.notification_id !== notification.notification_id)
       );
