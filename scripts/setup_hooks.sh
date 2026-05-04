@@ -1,12 +1,12 @@
 #!/bin/bash
 # Install git hooks:
-#   pre-commit  — security & syntax checks before each commit
-#   pre-push    — submit AI logs to grading server before push
+#   pre-commit - security and syntax checks before each commit
+#   pre-push   - submit AI logs to the grading server before push
 set -e
 
 echo "[hooks] Installing git hooks..."
 
-# ── pre-commit: security & syntax checks ─────────────────────────────────────
+# pre-commit: security and syntax checks
 cat > ".git/hooks/pre-commit" << 'HOOK'
 #!/bin/bash
 # Pre-commit hook: security checks + Python syntax validation
@@ -24,7 +24,7 @@ if git diff --cached --name-only | grep -qE '^\.env$'; then
     FAILED=1
 fi
 
-# 2. Detect potential hardcoded secrets in staged Python/JS/TS files
+# 2. Detect potential hardcoded secrets in staged Python/JS/TS/JSON files
 STAGED=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep -E '\.(py|js|ts|json)$' || true)
 if [ -n "$STAGED" ]; then
     while IFS= read -r f; do
@@ -35,7 +35,7 @@ if [ -n "$STAGED" ]; then
     done <<< "$STAGED"
 fi
 
-# 3. Python syntax check — find python interpreter (cross-platform)
+# 3. Python syntax check - find Python interpreter cross-platform
 PYTHON=""
 for cmd in python3 python py; do
     if command -v "$cmd" &>/dev/null && "$cmd" --version &>/dev/null 2>&1; then
@@ -47,7 +47,7 @@ done
 PY_FILES=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep '\.py$' || true)
 if [ -n "$PY_FILES" ]; then
     if [ -z "$PYTHON" ]; then
-        echo -e "${YELLOW}[WARN] Python not found in PATH — skipping syntax check.${NC}"
+        echo -e "${YELLOW}[WARN] Python not found in PATH - skipping syntax check.${NC}"
     else
         while IFS= read -r f; do
             [ -f "$f" ] || continue
@@ -73,12 +73,12 @@ HOOK
 chmod +x ".git/hooks/pre-commit"
 echo "[hooks] pre-commit hook installed."
 
-# ── pre-push: block if no AI logs, then submit ───────────────────────────────
+# pre-push: block if no AI logs, then submit
 cat > ".git/hooks/pre-push" << 'HOOK'
 #!/bin/bash
 # Pre-push hook: block push if no AI logs found; submit logs to grading server
 
-echo "🔍 [ai-log] Checking AI usage logs before push..."
+echo "[ai-log] Checking AI usage logs before push..."
 
 # Detect Python 3
 PYTHON=""
@@ -95,20 +95,18 @@ LOG_FILE="${AI_LOG_DIR:-.ai-log}/session.jsonl"
 
 _block() {
     echo ""
-    echo " [ai-log] BLOCKED: No AI logs found!"
+    echo "[ai-log] BLOCKED: No AI logs found."
     echo ""
-    echo "   Bạn chưa ghi log sử dụng AI nào trong phiên làm việc này."
-    echo "   Mọi thành viên đều PHẢI ghi log AI trước khi push."
+    echo "No AI usage log was found for this working session."
+    echo "Every team member must record AI usage before pushing."
     echo ""
-    echo "   Cách ghi log:"
-    echo "   ─────────────────────────────────────────────────"
-    echo "    Tool có hook tự động (Claude Code, Cursor, Codex, Gemini CLI, Copilot):"
-    echo "       → Đảm bảo đã chạy: bash scripts/setup_hooks.sh"
+    echo "How to record logs:"
+    echo "  - Automatic-hook tools: Claude Code, Cursor, Codex, Gemini CLI, Copilot."
+    echo "    Run: bash scripts/setup_hooks.sh"
+    echo "  - ChatGPT, Gemini Web, or another tool without a hook."
+    echo "    Run: python scripts/log_manual.py"
     echo ""
-    echo "    ChatGPT, Gemini Web, hoặc tool khác:"
-    echo "       → python scripts/log_manual.py"
-    echo ""
-    echo "   Sau khi ghi log, hãy push lại."
+    echo "After logging, run git push again."
     return 1
 }
 
@@ -128,7 +126,7 @@ with open(log_file, encoding='utf-8') as f:
         line = line.strip()
         if line:
             try: json.loads(line); n += 1
-            except: pass
+            except Exception: pass
 print(n)
 " 2>/dev/null)
 else
@@ -142,7 +140,7 @@ fi
 echo ""
 echo "[ai-log] Found $COUNT log entries."
 echo ""
-echo "Các tool AI đã ghi log:"
+echo "AI tools with recorded logs:"
 
 if [ -n "$PYTHON" ]; then
     AI_LOG_FILE="$LOG_FILE" "$PYTHON" - << 'PYEOF'
@@ -171,20 +169,20 @@ if [ -f "scripts/submit_log.py" ] && [ -n "$PYTHON" ]; then
 fi
 
 echo ""
-echo "[ai-log] Push allowed. Happy coding!"
+echo "[ai-log] Push allowed."
 exit 0
 HOOK
 
 chmod +x ".git/hooks/pre-push"
 echo "[hooks] pre-push hook installed."
 
-# ── ensure .ai-log directory exists ──────────────────────────────────────────
+# Ensure .ai-log directory exists
 mkdir -p .ai-log
 touch .ai-log/.gitkeep
 
 echo ""
-echo "[hooks] Setup complete!"
-echo "  pre-commit : blocks .env commits, detects hardcoded secrets, Python syntax check"
-echo "  pre-push   : submit AI logs → AI_LOG_SERVER"
+echo "[hooks] Setup complete."
+echo "  pre-commit : blocks .env commits, detects hardcoded secrets, checks Python syntax"
+echo "  pre-push   : submits AI logs to AI_LOG_SERVER"
 echo ""
-echo "Next step: copy .env.example to .env and fill in your API keys."
+echo "Next step: copy .env.example to .env and fill in required API keys when needed."

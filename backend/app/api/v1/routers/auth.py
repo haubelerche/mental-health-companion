@@ -11,7 +11,7 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.product_constants import CURRENT_POLICY_VERSION
 from app.core.responses import ok
-from app.db.models import (
+from app.services.db.models import (
     Conversation,
     ConversationMemory,
     CrisisLog,
@@ -23,10 +23,11 @@ from app.db.models import (
     UserProfile,
     UserProfileSnapshot,
 )
-from app.db.session import get_db
-from app.schemas.payloads import (
+from app.services.db.session import get_db
+from app.services.schemas.payloads import (
     ForgotPasswordRequest,
     LoginRequest,
+    PersonaUpdateRequest,
     ResendVerificationRequest,
     ResetPasswordRequest,
     SignupRequest,
@@ -51,6 +52,7 @@ from app.services.utils import make_id, now_plus, utc_now
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
+DEFAULT_PERSONA_ID = "ban_than"
 
 
 def _elapsed_ms(start: float) -> float:
@@ -69,6 +71,16 @@ def _allow_local_signup_without_smtp() -> bool:
     return settings.auto_create_schema or backend_base_url.startswith("http://127.0.0.1") or backend_base_url.startswith(
         "http://localhost"
     )
+
+
+def _read_profile(db: Session, user_id: str) -> tuple[UserProfile, dict]:
+    row = db.scalar(select(UserProfile).where(UserProfile.user_id == user_id))
+    if row is None:
+        row = UserProfile(user_id=user_id, profile={})
+        db.add(row)
+        db.flush()
+    profile_data = dict(row.profile or {})
+    return row, profile_data
 
 
 def _issue_login_session(user: User, response: Response, request: Request, db: Session):
@@ -523,6 +535,7 @@ def me(current_user: User = Depends(get_current_user), db: Session = Depends(get
     profile_row = db.scalar(select(UserProfile).where(UserProfile.user_id == current_user.user_id))
     profile_data = dict(profile_row.profile or {}) if profile_row else {}
     onboarding = dict(profile_data.get("onboarding") or {})
+    persona = dict(profile_data.get("persona") or {})
     return ok(
         {
             "user_id": current_user.user_id,
@@ -531,6 +544,37 @@ def me(current_user: User = Depends(get_current_user), db: Session = Depends(get
             "policy_version_ack": current_user.policy_version_ack,
             "onboarding_completed": bool(onboarding.get("completed_at")),
             "onboarding_skipped": bool(onboarding.get("skipped", False)),
+            "persona_id": persona.get("selected"),
+            "persona_selected_at": persona.get("selected_at"),
+        }
+    )
+
+
+@router.post("/me/persona", dependencies=[Depends(require_csrf)])
+def update_persona(
+    payload: PersonaUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    row, profile_data = _read_profile(db, current_user.user_id)
+    now = _utc_naive_now()
+    persona_data = dict(profile_data.get("persona") or {})
+    previous = str(persona_data.get("selected") or DEFAULT_PERSONA_ID)
+
+    persona_data["selected"] = payload.persona_id
+    persona_data["selected_at"] = now.isoformat() + "Z"
+    persona_data["updated_by"] = "user"
+    if previous != payload.persona_id:
+        persona_data["previous"] = previous
+
+    profile_data["persona"] = persona_data
+    row.profile = profile_data
+    row.updated_at = now
+    db.commit()
+    return ok(
+        {
+            "persona_id": payload.persona_id,
+            "persona_selected_at": persona_data["selected_at"],
         }
     )
 

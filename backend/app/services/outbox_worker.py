@@ -5,8 +5,8 @@ import time
 
 from sqlalchemy import select
 
-from app.db.models import SyncOutbox
-from app.db.session import get_session_factory
+from app.services.db.models import SyncOutbox
+from app.services.db.session import get_session_factory
 from app.services.utils import utc_now
 
 logger = logging.getLogger(__name__)

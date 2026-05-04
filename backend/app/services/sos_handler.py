@@ -1,5 +1,6 @@
 """
-Rule-based SOS handler (no LLM for crisis decision). BACKEND_PLAN §6.3, §7.2.
+Deterministic SOS handler (no LLM for crisis decision).
+Role mapping reference: docs/PRD.md + docs/GLOSSARY_RUNTIME.md.
 """
 
 from __future__ import annotations
@@ -252,14 +253,65 @@ def decide_sos(message: str, recent_user_messages: list[str] | None = None) -> t
     return False, combined
 
 
-_ASSISTANT_TEXT_SOS_VI = (
-    "Mình nhận thấy tình huống này có mức nguy hiểm cao và mình cần ưu tiên an toàn ngay lúc này. "
-    "Hãy tạm rời các vật có thể gây hại, tránh ở một mình, và gọi ngay hotline khẩn cấp ở bên dưới. "
-    "Bạn có thể nói cho mình biết hiện tại bạn đang ở đâu và có ai ở gần bạn không?"
+# --- SOS message variants (rule-based, no LLM) ---
+# Turn 0: first contact — warm + urgent safety, open question about location/company.
+# Turn 1: follow-up — acknowledge they're still here, encourage calling hotline.
+# Turn 2+: sustained — validate courage, grounding step, ask what's hardest right now.
+_ASSISTANT_TEXTS_SOS_VI = [
+    (
+        "Mình nghe bạn, và mình đang ở đây với bạn ngay lúc này. "
+        "Mình lo lắng cho bạn — hãy tạm rời các vật có thể gây hại "
+        "và cố gắng ở nơi có người khác nếu được. "
+        "Các đường dây hỗ trợ bên dưới luôn sẵn sàng lắng nghe, hoàn toàn bảo mật. "
+        "Bạn có thể nói cho mình biết bạn đang ở đâu và có ai ở gần không?"
+    ),
+    (
+        "Mình vẫn ở đây cùng bạn và mình nghe từng điều bạn chia sẻ. "
+        "Bạn không cần phải một mình với cảm giác này — mình và các đường dây hỗ trợ đều ở đây cho bạn. "
+        "Nếu cảm giác quá nặng, chỉ cần gọi một trong những số bên dưới — "
+        "nghe giọng ai đó đôi khi cũng giúp được rất nhiều. "
+        "Bạn đang cảm thấy thế nào ngay lúc này?"
+    ),
+    (
+        "Mình vẫn ở đây — bạn đã rất can đảm khi tiếp tục chia sẻ. "
+        "Mình muốn bạn an toàn hơn bao giờ hết. "
+        "Nếu cảm giác đang rất khó, hãy gọi ngay đường dây khẩn cấp bên dưới. "
+        "Nếu bạn có thể, hãy thử hít vào 4 giây, thở ra 6 giây — mình sẽ ở đây chờ. "
+        "Điều gì đang làm bạn khó thở nhất ngay lúc này?"
+    ),
+]
+
+# Variant for when user expresses isolation/loneliness (e.g. "không ai cả, tôi sống một mình").
+_ASSISTANT_TEXT_SOS_ALONE_VI = (
+    "Mình nghe bạn đang một mình và điều đó có thể rất nặng nề lúc này. "
+    "Bạn không phải mang điều này một mình — mình đang ở đây, "
+    "và các đường dây hỗ trợ bên dưới cũng sẵn sàng lắng nghe bất kỳ lúc nào, hoàn toàn bảo mật. "
+    "Bạn có thể kể cho mình nghe điều gì đang xảy ra với bạn không?"
 )
+
+# Backward-compat default (used by tests and any legacy callers).
+_ASSISTANT_TEXT_SOS_VI = _ASSISTANT_TEXTS_SOS_VI[0]
+
+_ALONE_KEYWORDS_NORMALIZED = {
+    "song mot minh", "khong ai ca", "khong co ai", "mot minh", "co don",
+    "lonely", "alone", "khong ai hieu", "khong ai quan tam", "khong ai can",
+}
+
+
+def assistant_text_for_sos(user_message: str = "", session_sos_count: int = 0) -> str:
+    """Select an SOS response variant based on user context and turn depth.
+
+    session_sos_count: number of previous SOS assistant turns in this session.
+    """
+    normalized = _normalize_text(user_message)
+    if any(kw in normalized for kw in _ALONE_KEYWORDS_NORMALIZED):
+        return _ASSISTANT_TEXT_SOS_ALONE_VI
+    idx = min(session_sos_count, len(_ASSISTANT_TEXTS_SOS_VI) - 1)
+    return _ASSISTANT_TEXTS_SOS_VI[idx]
 
 
 def assistant_text_for_stored_message_sos() -> str:
+    """Backward-compat alias. Prefer assistant_text_for_sos() for new call sites."""
     return _ASSISTANT_TEXT_SOS_VI
 
 
@@ -267,8 +319,10 @@ def build_sos_chat_response_data(
     session_id: str,
     snapshot: SafetySnapshot,
     *,
+    assistant_text: str | None = None,
     voice_hint_text: str | None = None,
 ) -> dict[str, Any]:
+    text = assistant_text or _ASSISTANT_TEXT_SOS_VI
     vhint = voice_hint_text or (
         "Cậu có thể bấm gọi để nói chuyện trực tiếp với tổng đài hỗ trợ để nhận sự trợ giúp chuyên sâu hơn. "
         "Mình vẫn ở đây trong lúc cậu cân nhắc."
@@ -290,7 +344,7 @@ def build_sos_chat_response_data(
         "risk_level": snapshot.risk_level,
         "agent_display_name": CHAT_AGENT_DISPLAY_NAME,
         "reply": None,
-        "assistant_text": _ASSISTANT_TEXT_SOS_VI,
+        "assistant_text": text,
         "assistant_strategy": {
             "keep_engaged": True,
             "encourage_external_help": True,

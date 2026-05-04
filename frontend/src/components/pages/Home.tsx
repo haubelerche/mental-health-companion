@@ -35,7 +35,6 @@ import { useThemeContext } from '../../contexts/ThemeContext'
 import {
     getRewardProgress,
     REWARD_UPDATED_EVENT,
-    syncRewardStreak,
 } from '../../utils/rewardProgress'
 
 type RecoCard = {
@@ -288,7 +287,8 @@ export default function Home() {
     const [quote, setQuote] = useState<{ text: string; author?: string | null } | null>(null)
     const [rewardProgress, setRewardProgress] = useState(() => getRewardProgress())
     const hearts = rewardProgress.hearts
-    const streak = rewardProgress.streakDays
+    const [backendStreakDays, setBackendStreakDays] = useState<number | null>(null)
+    const streak = backendStreakDays ?? rewardProgress.streakDays
     const [wellnessScores, setWellnessScores] = useState<WellnessScores | null>(null)
     const [nutritionTip, setNutritionTip] = useState<NutritionDailyTip | null>(null)
     const [homeMoodWords, setHomeMoodWords] = useState<string[]>([])
@@ -340,7 +340,7 @@ export default function Home() {
                 const active = data.session_stats.days_active_last_30 ?? 0
                 const rate = data.coping_stats.effective_rate
                 const streak30 = data.session_stats.streak_days ?? 0
-                setRewardProgress(syncRewardStreak(streak30))
+                setBackendStreakDays(streak30)
                 setWellnessScores({
                     emotional: Math.round(w),
                     sleep: phq9 !== null ? Math.max(5, Math.round(100 - phq9 * 3.7)) : Math.round(w * 0.85),

@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import ensure_policy_acknowledged
 from app.core.responses import ok
-from app.db.models import ClinicalProfile, Conversation, MoodCheckin, User, UserProfile
-from app.db.session import get_db
+from app.services.db.models import ClinicalProfile, Conversation, MoodCheckin, User, UserProfile
+from app.services.db.session import get_db
 from app.services.utils import (
     local_date_utc7,
     utc_now,

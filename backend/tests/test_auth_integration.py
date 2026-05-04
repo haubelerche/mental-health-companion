@@ -11,9 +11,30 @@ from sqlalchemy.pool import StaticPool
 
 from app.api.v1.routers import auth as auth_router
 from app.core.product_constants import CURRENT_POLICY_VERSION
-from app.db.models import User
-from app.db.session import Base
+from app.services.db.models import User
+from app.services.db.session import Base
 from app.main import app
+
+
+class _DummyAuthRateLimiter:
+    """Avoid Redis-backed limits during integration tests (shared IP + shared Redis → flaky 429)."""
+
+    def enforce_per_minute(self, *args: object, **kwargs: object) -> None:
+        return
+
+    def enforce_auth_lockout(self, *args: object, **kwargs: object) -> None:
+        return
+
+    def record_auth_failure(self, *args: object, **kwargs: object) -> None:
+        return
+
+    def clear_auth_failure(self, *args: object, **kwargs: object) -> None:
+        return
+
+
+@pytest.fixture(autouse=True)
+def _disable_auth_router_rate_limit(monkeypatch):
+    monkeypatch.setattr(auth_router, "get_rate_limiter", lambda: _DummyAuthRateLimiter())
 
 
 def _unique_email(prefix: str) -> str:

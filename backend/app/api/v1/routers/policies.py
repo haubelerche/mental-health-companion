@@ -5,9 +5,9 @@ from app.api.deps import get_current_user
 from app.core.errors import AppError
 from app.core.product_constants import CURRENT_POLICY_VERSION
 from app.core.responses import ok
-from app.db.models import User
-from app.db.session import get_db
-from app.schemas.payloads import PolicyAckRequest, VoiceConsentRequest
+from app.services.db.models import User
+from app.services.db.session import get_db
+from app.services.schemas.payloads import PolicyAckRequest, VoiceConsentRequest
 from app.services.voice_consent import get_voice_consent, set_voice_consent
 from app.services.utils import utc_now
 

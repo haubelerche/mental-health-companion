@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import AppError
-from app.db.models import User
-from app.db.session import get_db
+from app.services.db.models import User
+from app.services.db.session import get_db
 from app.services.security import decode_token
 
 

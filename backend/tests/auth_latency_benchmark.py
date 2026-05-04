@@ -21,7 +21,7 @@ for _p in (_BACKEND_ROOT, _REPO_ROOT):
         sys.path.insert(0, _s)
 
 from app.api.v1.routers import auth as auth_router
-from app.db.session import Base
+from app.services.db.session import Base
 from app.main import app
 
 LOGIN_P95_TARGET_MS = 1200

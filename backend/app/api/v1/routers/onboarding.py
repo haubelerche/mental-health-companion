@@ -8,9 +8,9 @@ from app.api.deps import get_current_user
 from app.core.errors import AppError
 from app.core.product_constants import CURRENT_POLICY_VERSION
 from app.core.responses import ok
-from app.db.models import User, UserProfile
-from app.db.session import get_db
-from app.schemas.payloads import OnboardingCompleteRequest
+from app.services.db.models import User, UserProfile
+from app.services.db.session import get_db
+from app.services.schemas.payloads import OnboardingCompleteRequest
 from app.services.utils import utc_now
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])

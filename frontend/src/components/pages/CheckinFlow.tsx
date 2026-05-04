@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { checkinService } from '../../services/checkinService'
+import { checkinService, type CheckinRewardResult, type CheckinStreakResult } from '../../services/checkinService'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { toast } from 'react-toastify'
 import { ChevronLeft, Info } from 'lucide-react'
 import { StreakCelebration } from '../common/StreakCelebration'
 import { MoodWordChips } from '../common/MoodWordChips'
-import { grantCheckinReward } from '../../utils/rewardProgress'
 
 export type CheckinLocationState = {
   moodWords?: string[]
@@ -98,7 +97,8 @@ export function CheckinFlow() {
   const [note, setNote] = useState('')
   const [loading, setLoading] = useState(false)
   const [showStreak, setShowStreak] = useState(false)
-  const MOCK_STREAK = 3 // placeholder until backend streak endpoint
+  const [checkinReward, setCheckinReward] = useState<CheckinRewardResult | null>(null)
+  const [checkinStreak, setCheckinStreak] = useState<CheckinStreakResult | null>(null)
 
   useEffect(() => {
     const st = location.state as CheckinLocationState | null
@@ -127,12 +127,14 @@ export function CheckinFlow() {
     if (moodWords.length === 0) return
     setLoading(true)
     try {
-      await checkinService.quickCheckin({
+      const result = await checkinService.quickCheckin({
         mood,
         emotions: moodWords,
         triggers: selectedTriggers,
         note: note.trim() || null,
       })
+      setCheckinReward(result?.reward ?? null)
+      setCheckinStreak(result?.streak ?? null)
       setSelectedMood(mood)
       setStep('summary')
       setTimeout(() => setShowStreak(true), 600)
@@ -150,11 +152,10 @@ export function CheckinFlow() {
     <div className="min-h-screen bg-white/45 px-4 pb-12 pt-7 text-serene-ink backdrop-blur-xl sm:px-6">
       <StreakCelebration
         open={showStreak}
-        streakDays={MOCK_STREAK}
-        heartsEarned={10}
+        streakDays={checkinStreak?.current ?? 0}
+        heartsEarned={checkinReward?.amount ?? 0}
         onClose={() => setShowStreak(false)}
         onClaim={() => {
-          grantCheckinReward(10, MOCK_STREAK)
           setShowStreak(false)
           navigate(ROUTE_PATHS.home)
         }}
@@ -261,9 +262,11 @@ export function CheckinFlow() {
           >
             <div className="flex items-center justify-between">
               <p className="text-lg uppercase tracking-[0.22em] text-serene-primary/65">Đã lưu</p>
-              <span className="rounded-full bg-rose-50 px-3 py-1 text-sm font-semibold text-rose-500">
-                +5 ♥
-              </span>
+              {checkinReward?.granted && checkinReward.amount > 0 && (
+                <span className="rounded-full bg-rose-50 px-3 py-1 text-sm font-semibold text-rose-500">
+                  +{checkinReward.amount} ♥
+                </span>
+              )}
             </div>
             <h2 className="mt-1 text-5xl font-semibold">Xong rồi! ✓</h2>
             <p className="mt-4 text-xl text-serene-muted">

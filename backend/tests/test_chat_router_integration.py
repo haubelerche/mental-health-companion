@@ -21,10 +21,15 @@ class FakeDB:
         self.items.append(item)
 
     def flush(self) -> None:
-        return
+        for item in self.items:
+            if hasattr(item, "outbox_id") and getattr(item, "outbox_id", None) is None:
+                item.outbox_id = 1
 
     def commit(self) -> None:
         self.committed = True
+
+    def scalar(self, *_args, **_kwargs):
+        return 0
 
 
 def _override_user():
@@ -35,7 +40,6 @@ def test_chat_message_non_sos_success(monkeypatch):
     fake_db = FakeDB()
     captured: dict[str, object] = {}
     monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
-    monkeypatch.setattr(chat_router, "get_voice_consent", lambda *_args, **_kwargs: False)
     monkeypatch.setattr(
         chat_router,
         "get_user_longterm_memories",
@@ -86,7 +90,6 @@ def test_chat_message_non_sos_success(monkeypatch):
 def test_chat_message_sos_skips_graph(monkeypatch):
     fake_db = FakeDB()
     monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
-    monkeypatch.setattr(chat_router, "get_voice_consent", lambda *_args, **_kwargs: False)
     monkeypatch.setattr(chat_router, "get_user_longterm_memories", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(chat_router, "decide_sos", lambda _message, **_kw: (True, 0.95))
     monkeypatch.setattr(
@@ -128,7 +131,6 @@ def test_chat_message_non_sos_triggers_proactive_voice(monkeypatch):
     monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
     monkeypatch.setattr(chat_router, "decide_sos", lambda _message, **_kw: (False, 0.72))
     monkeypatch.setattr(chat_router, "get_user_longterm_memories", lambda *_args, **_kwargs: [])
-    monkeypatch.setattr(chat_router, "get_voice_consent", lambda *_args, **_kwargs: True)
     monkeypatch.setattr(chat_router, "cooldown_active", lambda **_kwargs: (False, 0))
     monkeypatch.setattr(
         chat_router,
@@ -185,7 +187,6 @@ def test_chat_message_triggers_voice_when_graph_raises_distress(monkeypatch):
     monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
     monkeypatch.setattr(chat_router, "decide_sos", lambda _message, **_kw: (False, 0.72))
     monkeypatch.setattr(chat_router, "get_user_longterm_memories", lambda *_args, **_kwargs: [])
-    monkeypatch.setattr(chat_router, "get_voice_consent", lambda *_args, **_kwargs: True)
     monkeypatch.setattr(chat_router, "cooldown_active", lambda **_kwargs: (False, 0))
     monkeypatch.setattr(
         chat_router,
@@ -237,7 +238,6 @@ def test_chat_message_triggers_voice_when_graph_raises_distress(monkeypatch):
 def test_chat_message_stream_returns_sse(monkeypatch):
     fake_db = FakeDB()
     monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
-    monkeypatch.setattr(chat_router, "get_voice_consent", lambda *_args, **_kwargs: False)
     monkeypatch.setattr(chat_router, "decide_sos", lambda *_args, **_kwargs: (False, 0.2))
     monkeypatch.setattr(chat_router, "get_cached_turn", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(chat_router, "set_cached_turn", lambda *_args, **_kwargs: None)

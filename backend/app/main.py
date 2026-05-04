@@ -11,8 +11,8 @@ from app.api.v1.api import api_router
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.responses import fail
-from app.db.init_db import init_db
-from app.db.session import get_engine, get_session_factory
+from app.services.db.init_db import init_db
+from app.services.db.session import get_session_factory
 from fastapi.middleware.cors import CORSMiddleware
 
 settings = get_settings()
@@ -37,7 +37,6 @@ def _backfill_policy_versions() -> None:
         pass
 
 
-
 def _idle_loop() -> None:
     from app.services.idle_sessions import summarize_idle_sessions
 
@@ -55,6 +54,12 @@ def _outbox_loop() -> None:
     run_outbox_worker_loop(poll_seconds=10)
 
 
+def _voice_tts_loop() -> None:
+    from app.core.voice_tts_worker import run_forever
+
+    run_forever(poll_seconds=2, batch_size=20)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     if settings.auto_create_schema:
@@ -62,6 +67,7 @@ async def lifespan(_: FastAPI):
     _backfill_policy_versions()
     threading.Thread(target=_idle_loop, daemon=True).start()
     threading.Thread(target=_outbox_loop, daemon=True).start()
+    threading.Thread(target=_voice_tts_loop, daemon=True).start()
     yield
 
 

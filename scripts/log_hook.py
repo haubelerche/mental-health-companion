@@ -120,12 +120,6 @@ def normalize(data: dict, tool: str) -> dict | None:
             "tool_args": data.get("toolArgs"),
         })
 
-    elif tool == "antigravity":
-        base.update({
-            "prompt": data.get("prompt", "")[:1000],
-            "turn_id": data.get("turn_id", ""),
-        })
-
     # Skip empty/noise events
     if not base.get("prompt") and event not in ("Stop", "stop", "SessionEnd", "sessionEnd", "AfterModel"):
         return None

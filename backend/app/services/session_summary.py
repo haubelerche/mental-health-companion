@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.db.models import Conversation, Message, SyncOutbox, UserProfile
+from app.services.db.models import Conversation, Message, SyncOutbox, UserProfile
 from app.services.mem0_service import MemoryManager
 from app.services.memory_enrichment import StructuredExtract, apply_to_profile, extract_structured
 from app.services.pii_mask import mask_pii

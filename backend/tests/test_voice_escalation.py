@@ -5,8 +5,7 @@ Kiểm tra từng tầng của luồng gửi voice message khi phát hiện tìn
 Layers tested:
   1. build_voice_script()          — chọn đúng kịch bản theo ngữ cảnh
   2. compute_escalation_signal()   — trigger escalation đúng điều kiện
-  3. _render_blaze_audio()         — gọi Blaze API và lưu file audio (mocked HTTP)
-  4. enqueue + process job         — end-to-end job lifecycle (SQLite in-memory)
+  3. Router helper: escalate -> intervention payload (TTS Blaze đã thay bằng ElevenLabs)
 """
 
 from __future__ import annotations
@@ -108,170 +107,7 @@ class TestEscalationSignal:
         assert isinstance(sig.escalate, bool)
 
 
-# ── 3. _render_blaze_audio (mocked HTTP) ──────────────────────────────────────
-
-
-from app.services.proactive_voice import _render_blaze_audio, PermanentTtsError
-
-
-FAKE_AUDIO_BYTES = b"\xff\xfb\x10\x00" * 512  # fake MP3 header bytes
-
-
-class TestRenderBlazeAudio:
-    def _mock_settings(self, **overrides):
-        defaults = {
-            "blaze_api_key": "test-blaze-key",
-            "blaze_tts_url": "https://api.blaze.vn/api/tts",
-            "blaze_tts_model": "blaze-tts-1",
-            "blaze_tts_output_format": "mp3",
-            "tts_timeout_seconds": 4.0,
-        }
-        defaults.update(overrides)
-        m = MagicMock()
-        for k, v in defaults.items():
-            setattr(m, k, v)
-        return m
-
-    def test_successful_blaze_call_saves_audio_file(self, tmp_path):
-        """Blaze API trả về audio bytes → lưu file và trả Path."""
-        with patch("app.services.proactive_voice.get_settings", return_value=self._mock_settings()), \
-             patch("app.services.proactive_voice._AUDIO_DIR", tmp_path):
-
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.is_success = True
-            mock_response.iter_bytes.return_value = iter([FAKE_AUDIO_BYTES[:1024], FAKE_AUDIO_BYTES[1024:]])
-            mock_response.__enter__ = lambda s: s
-            mock_response.__exit__ = MagicMock(return_value=False)
-
-            mock_client = MagicMock()
-            mock_client.stream.return_value = mock_response
-            mock_client.__enter__ = lambda s: s
-            mock_client.__exit__ = MagicMock(return_value=False)
-
-            with patch("httpx.Client", return_value=mock_client):
-                result = _render_blaze_audio(job_id=1, voice_script="Mình đang ở đây với bạn.")
-
-        assert result is not None
-        assert result.suffix == ".mp3"
-        assert result.read_bytes() == FAKE_AUDIO_BYTES
-
-    def test_correct_bearer_auth_header_sent(self, tmp_path):
-        """Request phải chứa Authorization: Bearer <key>."""
-        captured: dict[str, Any] = {}
-
-        with patch("app.services.proactive_voice.get_settings", return_value=self._mock_settings()), \
-             patch("app.services.proactive_voice._AUDIO_DIR", tmp_path):
-
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.is_success = True
-            mock_response.iter_bytes.return_value = iter([FAKE_AUDIO_BYTES])
-            mock_response.__enter__ = lambda s: s
-            mock_response.__exit__ = MagicMock(return_value=False)
-
-            mock_client = MagicMock()
-            mock_client.__enter__ = lambda s: s
-            mock_client.__exit__ = MagicMock(return_value=False)
-
-            def capture_stream(method, url, json=None, headers=None):
-                captured["method"] = method
-                captured["url"] = url
-                captured["json"] = json
-                captured["headers"] = headers or {}
-                return mock_response
-
-            mock_client.stream.side_effect = capture_stream
-
-            with patch("httpx.Client", return_value=mock_client):
-                _render_blaze_audio(job_id=2, voice_script="test")
-
-        assert captured["headers"].get("Authorization") == "Bearer test-blaze-key"
-        assert captured["headers"].get("Content-Type") == "application/json"
-        assert captured["json"]["query"] == "test"
-        assert captured["json"]["model"] == "blaze-tts-1"
-        assert captured["method"] == "POST"
-
-    def test_missing_api_key_returns_none(self):
-        with patch("app.services.proactive_voice.get_settings",
-                   return_value=self._mock_settings(blaze_api_key="")):
-            result = _render_blaze_audio(job_id=3, voice_script="test")
-        assert result is None
-
-    def test_401_raises_permanent_error(self, tmp_path):
-        with patch("app.services.proactive_voice.get_settings", return_value=self._mock_settings()), \
-             patch("app.services.proactive_voice._AUDIO_DIR", tmp_path):
-
-            mock_response = MagicMock()
-            mock_response.status_code = 401
-            mock_response.is_success = False
-            mock_response.read.return_value = b"Unauthorized"
-            mock_response.__enter__ = lambda s: s
-            mock_response.__exit__ = MagicMock(return_value=False)
-
-            mock_client = MagicMock()
-            mock_client.stream.return_value = mock_response
-            mock_client.__enter__ = lambda s: s
-            mock_client.__exit__ = MagicMock(return_value=False)
-
-            with patch("httpx.Client", return_value=mock_client):
-                with pytest.raises(PermanentTtsError, match="blaze_unauthorized"):
-                    _render_blaze_audio(job_id=4, voice_script="test")
-
-    def test_402_raises_permanent_error(self, tmp_path):
-        with patch("app.services.proactive_voice.get_settings", return_value=self._mock_settings()), \
-             patch("app.services.proactive_voice._AUDIO_DIR", tmp_path):
-
-            mock_response = MagicMock()
-            mock_response.status_code = 402
-            mock_response.is_success = False
-            mock_response.__enter__ = lambda s: s
-            mock_response.__exit__ = MagicMock(return_value=False)
-
-            mock_client = MagicMock()
-            mock_client.stream.return_value = mock_response
-            mock_client.__enter__ = lambda s: s
-            mock_client.__exit__ = MagicMock(return_value=False)
-
-            with patch("httpx.Client", return_value=mock_client):
-                with pytest.raises(PermanentTtsError, match="blaze_paid_plan_required"):
-                    _render_blaze_audio(job_id=5, voice_script="test")
-
-    def test_empty_audio_response_returns_none(self, tmp_path):
-        with patch("app.services.proactive_voice.get_settings", return_value=self._mock_settings()), \
-             patch("app.services.proactive_voice._AUDIO_DIR", tmp_path):
-
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.is_success = True
-            mock_response.iter_bytes.return_value = iter([])
-            mock_response.__enter__ = lambda s: s
-            mock_response.__exit__ = MagicMock(return_value=False)
-
-            mock_client = MagicMock()
-            mock_client.stream.return_value = mock_response
-            mock_client.__enter__ = lambda s: s
-            mock_client.__exit__ = MagicMock(return_value=False)
-
-            with patch("httpx.Client", return_value=mock_client):
-                result = _render_blaze_audio(job_id=6, voice_script="test")
-        assert result is None
-
-    def test_network_error_returns_none(self, tmp_path):
-        with patch("app.services.proactive_voice.get_settings", return_value=self._mock_settings()), \
-             patch("app.services.proactive_voice._AUDIO_DIR", tmp_path):
-
-            mock_client = MagicMock()
-            mock_client.__enter__ = lambda s: s
-            mock_client.__exit__ = MagicMock(return_value=False)
-            mock_client.stream.side_effect = Exception("Connection refused")
-
-            with patch("httpx.Client", return_value=mock_client):
-                result = _render_blaze_audio(job_id=7, voice_script="test")
-        assert result is None
-
-
-# ── 4. Router helper: escalate -> intervention payload ────────────────────────
+# ── 3. Router helper: escalate -> intervention payload ────────────────────────
 
 
 from app.api.v1.routers.chat import _build_voice_intervention
@@ -280,7 +116,7 @@ from app.services.safety_scoring import SafetySnapshot
 
 class TestVoiceInterventionPayload:
     def test_escalation_builds_voice_intervention_with_contextual_script(self):
-        fake_voice = {"status": "queued", "tts_job_id": "tts_123", "audio_url": None, "provider": "blaze"}
+        fake_voice = {"status": "queued", "tts_job_id": "tts_123", "audio_url": None, "provider": "elevenlabs"}
         with patch("app.api.v1.routers.chat.enqueue_voice_job", return_value=fake_voice), patch(
             "app.api.v1.routers.chat.mark_cooldown"
         ):
@@ -288,8 +124,7 @@ class TestVoiceInterventionPayload:
                 db=MagicMock(),
                 user_id="u1",
                 session_id="s1",
-                raw_text="toi muon tu tu",
-                recent_messages=[],
+                assistant_reply_for_tts="Nếu bạn đang gặp nguy hiểm, hãy gọi hotline hỗ trợ ngay.",
                 snapshot=SafetySnapshot(
                     distress_score=0.95,
                     risk_level=5,
@@ -308,7 +143,7 @@ class TestVoiceInterventionPayload:
         assert "hotline" in payload["voice_script"].lower()
 
     def test_escalation_payload_has_ui_safety_cta(self):
-        fake_voice = {"status": "queued", "tts_job_id": "tts_456", "audio_url": None, "provider": "blaze"}
+        fake_voice = {"status": "queued", "tts_job_id": "tts_456", "audio_url": None, "provider": "elevenlabs"}
         with patch("app.api.v1.routers.chat.enqueue_voice_job", return_value=fake_voice), patch(
             "app.api.v1.routers.chat.mark_cooldown"
         ):
@@ -316,8 +151,7 @@ class TestVoiceInterventionPayload:
                 db=MagicMock(),
                 user_id="u2",
                 session_id="s2",
-                raw_text="mình đang rất hoảng loạn",
-                recent_messages=[],
+                assistant_reply_for_tts="Mình ở đây với bạn. Hít thở chậm cùng mình nhé.",
                 snapshot=SafetySnapshot(
                     distress_score=0.9,
                     risk_level=5,
@@ -332,10 +166,10 @@ class TestVoiceInterventionPayload:
         assert payload["crisis_footer"]["show_once"] is True
         assert payload["crisis_footer"]["hotline_cta"]["action"] == "open_hotline_sheet"
         assert payload["next_actions"][0]["id"] == "continue_voice"
-        assert payload["copy_ngan"]
+        assert payload["voice_script"]
 
 
-# ── 5. Integration: script + escalation signal aligned ───────────────────────
+# ── 4. Integration: script + escalation signal aligned ───────────────────────
 
 
 class TestEscalationToScriptAlignment:

@@ -16,15 +16,17 @@ from app.api.deps import ensure_policy_acknowledged, get_current_user, require_c
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.db.models import AdminAuditLog, Conversation, CrisisLog, Message, User
-from app.db.session import get_db
-from app.schemas.payloads import ChatEndRequest, ChatMessageRequest, GuestChatMessageRequest
+from app.services.db.models import AdminAuditLog, Conversation, CrisisLog, Message, User, UserProfile
+from app.services.db.session import get_db
+from app.services.schemas.payloads import ChatEndRequest, ChatMessageRequest, GuestChatMessageRequest
 from app.services.chat_context import load_chat_context_sync
 from app.services.chat_response_cache import get_cached_turn, hash_message, set_cached_turn
 from app.services.confidence_router import route_for_human_review
 from app.services.guest_service import heartbeat as guest_heartbeat
 from app.services.guest_service import start_session as guest_start_session
 from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn, stream_non_sos_turn_events
+from app.personas import route_persona
+from app.personas.unlocks import is_persona_unlocked
 from app.services.longterm_memory import (
     UserMemoryContext,
     build_user_memory_context,
@@ -36,7 +38,7 @@ from app.services.pii_mask import mask_pii
 from app.services.rate_limit import get_rate_limiter
 from app.services.session_summary import close_session_summary
 from app.services.sos_handler import (
-    assistant_text_for_stored_message_sos,
+    assistant_text_for_sos,
     build_sos_chat_response_data,
     decide_sos,
     heuristic_distress,
@@ -44,9 +46,7 @@ from app.services.sos_handler import (
 )
 from app.services.clinical_profile import get_or_create_clinical_profile
 from app.services.safety_scoring import SafetySnapshot, compute_escalation_signal
-from app.services.voice_consent import get_voice_consent
 from app.services.proactive_voice import (
-    build_voice_script,
     cooldown_active,
     enqueue_voice_job,
     get_voice_audio_path,
@@ -60,6 +60,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 SYSTEM_AUDIT_ADMIN = "sys_auto"
+DEFAULT_PERSONA_ID = "ban_than"
 
 
 def _build_heartbeat_event(*, started_at: float, last_heartbeat_at: float, stage: str, interval_seconds: float = 0.4):
@@ -85,6 +86,28 @@ def _enqueue_turn_mem0(user_id: str, raw_text: str, assistant_text: str) -> None
         )
     except Exception as exc:  # pragma: no cover - fail-safe
         logger.warning("mem0 turn add failed for %s: %s", user_id, exc)
+
+
+def _active_persona_id(db: Session, user_id: str, *, distress: float = 0.0) -> str:
+    if not hasattr(db, "scalar"):
+        return DEFAULT_PERSONA_ID
+    try:
+        profile_row = db.scalar(select(UserProfile).where(UserProfile.user_id == user_id))
+    except Exception:
+        return DEFAULT_PERSONA_ID
+    profile_data = dict(profile_row.profile or {}) if profile_row else {}
+    persona_data = dict(profile_data.get("persona") or {})
+    selected = str(persona_data.get("selected") or "").strip()
+    requested = selected or DEFAULT_PERSONA_ID
+    unlocked = is_persona_unlocked(db, user_id=user_id, persona_id=requested) if requested != DEFAULT_PERSONA_ID else True
+    decision = route_persona(
+        current_persona_id=DEFAULT_PERSONA_ID,
+        requested_persona_id=requested if requested != DEFAULT_PERSONA_ID else None,
+        distress=distress,
+        sos_triggered=False,
+        is_unlocked=unlocked,
+    )
+    return decision.target_persona_id
 
 
 def _record_sos_side_effects(
@@ -223,21 +246,16 @@ def _build_voice_intervention(
     db: Session,
     user_id: str,
     session_id: str,
-    raw_text: str,
-    recent_messages: list[dict],
+    assistant_reply_for_tts: str,
     snapshot,
     trigger_reason: str,
     rolling_window_turns: int,
     delta_score: float,
 ) -> dict:
-    script = build_voice_script(
-        user_message=raw_text,
-        recent_messages=recent_messages,
-        distress_score=snapshot.distress_score,
-        risk_level=snapshot.risk_level,
-        safety_tier=snapshot.safety_tier,
-        conversation_mode=snapshot.conversation_mode,
-    )
+    """TTS is the same text as the assistant/Friend reply (no separate crisis script, no meta copy)."""
+    script = (assistant_reply_for_tts or "").strip()
+    tts_cfg = get_settings()
+    requested_tts = str(getattr(tts_cfg, "tts_provider", "elevenlabs") or "elevenlabs").lower()
     voice = enqueue_voice_job(
         db,
         user_id=user_id,
@@ -264,9 +282,9 @@ def _build_voice_intervention(
             "delta_score": delta_score,
         },
         "cooldown": {"active": False, "seconds_remaining": 0},
+        "requested_tts_provider": requested_tts,
         "voice": voice,
         "voice_script": script,
-        "copy_ngan": "Mình gửi cậu một lời nhắn thoại ngắn để đồng hành ngay lúc này.",
         "crisis_footer": {
             "show_once": True,
             "text": "Nếu cậu đang có ý định tự hại ngay lúc này, hãy bấm để kết nối hỗ trợ khẩn cấp.",
@@ -277,6 +295,59 @@ def _build_voice_intervention(
             {"id": "grounding_54321", "label": "Bài tập 5-4-3-2-1", "action": "start_grounding"},
         ],
     }
+
+
+def _maybe_enqueue_voice(
+    *,
+    db: Session,
+    user_id: str,
+    session_id: str,
+    snap,
+    assistant_content: str,
+    recent_messages: list[dict],
+    cooldown_is_active: bool,
+    cooldown_seconds: int,
+    settings,
+) -> dict | None:
+    """Single authority for proactive voice trigger decisions on non-SOS turns.
+
+    Evaluates the escalation signal and distress threshold, then either enqueues
+    a TTS job or returns a cooldown placeholder. Returns None when voice should
+    not fire. SOS path bypasses this function and calls _build_voice_intervention
+    directly (unconditional).
+    """
+    if not str(assistant_content or "").strip():
+        return None
+    final_distress = float(snap.distress_score)
+    history = _recent_distress_history(recent_messages, max_turns=settings.proactive_voice_window_turns)
+    signal = compute_escalation_signal(
+        current_distress=final_distress,
+        previous_distress=history,
+        threshold=settings.proactive_voice_threshold,
+        delta_threshold=settings.proactive_voice_delta_threshold,
+        window_turns=settings.proactive_voice_window_turns,
+    )
+    auto_thr = float(settings.proactive_voice_auto_distress_threshold)
+    if not (signal.escalate or final_distress >= auto_thr):
+        return None
+    if cooldown_is_active:
+        return {
+            "type": "proactive_voice",
+            "trigger_reason": "cooldown_active",
+            "cooldown": {"active": True, "seconds_remaining": cooldown_seconds},
+            "voice": {"status": "cooldown", "tts_job_id": None, "audio_url": None},
+        }
+    trigger_reason = signal.trigger_reason if signal.escalate else "distress_auto_voice"
+    return _build_voice_intervention(
+        db=db,
+        user_id=user_id,
+        session_id=session_id,
+        assistant_reply_for_tts=assistant_content,
+        snapshot=snap,
+        trigger_reason=trigger_reason,
+        rolling_window_turns=signal.rolling_window_turns,
+        delta_score=signal.delta_score,
+    )
 
 
 @router.post("/message")
@@ -345,7 +416,6 @@ def send_message(
     if previous_user_messages and previous_user_messages[-1] == stored_user_content:
         previous_user_messages = previous_user_messages[:-1]
     sos, distress0 = decide_sos(raw_text, recent_user_messages=previous_user_messages)
-    voice_consent = get_voice_consent(db, current_user.user_id)
     cooldown_is_active, cooldown_seconds = cooldown_active(
         user_id=current_user.user_id,
         session_id=session.session_id,
@@ -355,7 +425,14 @@ def send_message(
 
     if sos:
         snap = snapshot_for_sos(distress0)
-        assistant_content = assistant_text_for_stored_message_sos()
+        sos_count = db.scalar(
+            select(func.count(Message.message_id)).where(
+                Message.session_id == session.session_id,
+                Message.role == "assistant",
+                Message.sos_triggered == True,  # noqa: E712
+            )
+        ) or 0
+        assistant_content = assistant_text_for_sos(raw_text, sos_count)
         assistant_msg = Message(
             message_id=make_id("msg"),
             session_id=session.session_id,
@@ -377,28 +454,24 @@ def send_message(
             request_host=host,
         )
         db.commit()
-        data = build_sos_chat_response_data(session.session_id, snap)
-        data["intervention"] = None
-        if voice_consent:
-            data["intervention"] = _build_voice_intervention(
-                db=db,
-                user_id=current_user.user_id,
-                session_id=session.session_id,
-                raw_text=raw_text,
-                recent_messages=ctx.recent_messages,
-                snapshot=snap,
-                trigger_reason="sos_gate_forced",
-                rolling_window_turns=1,
-                delta_score=0.0,
-            )
+        data = build_sos_chat_response_data(session.session_id, snap, assistant_text=assistant_content)
+        data["intervention"] = _build_voice_intervention(
+            db=db,
+            user_id=current_user.user_id,
+            session_id=session.session_id,
+            assistant_reply_for_tts=assistant_content,
+            snapshot=snap,
+            trigger_reason="sos_gate_forced",
+            rolling_window_turns=1,
+            delta_score=0.0,
+        )
         return ok(data)
 
     # Persist user turn before calling LLM to release DB connection back to pool.
     db.commit()
 
+    # distress_score frozen after decide_sos() — mood is context for LangGraph, not a routing delta.
     distress = distress0
-    if ctx.mood_today and ctx.mood_today.get("mood") in ("stressed", "restless", "melancholic"):
-        distress = min(1.0, distress + 0.08)
 
     turn = None
     message_hash = hash_message(raw_text, context_seed=f"{session.session_id}:{session.message_count}:{len(ctx.recent_messages)}")
@@ -426,6 +499,7 @@ def send_message(
                 active_goals=(memory_ctx.active_goals if memory_ctx else []),
                 effective_coping=(memory_ctx.effective_coping if memory_ctx else []),
                 clinical_trajectory=(memory_ctx.clinical_trajectory if memory_ctx else ""),
+                persona_id=_active_persona_id(db, current_user.user_id, distress=distress),
                 user_id=current_user.user_id,
                 session_id=session.session_id,
             )
@@ -491,7 +565,7 @@ def send_message(
     vhint = None
     if snap.safety_tier == "voice_recommended":
         vhint = (
-            "Bạn có thể bấm gọi để nói chuyện trực tiếp với Mây / tổng đài — mình vẫn ở đây trong lúc bạn cân nhắc."
+            "Bạn có thể bấm gọi để nói chuyện trực tiếp với Friend / tổng đài — mình vẫn ở đây trong lúc bạn cân nhắc."
         )
 
     data = build_normal_envelope(
@@ -508,39 +582,17 @@ def send_message(
     if review_decision.requires_human_review:
         data["pending_human_review"] = True
         data["review_reason"] = review_decision.reason
-    final_distress = float(snap.distress_score)
-    history = _recent_distress_history(
-        ctx.recent_messages,
-        max_turns=settings.proactive_voice_window_turns,
+    data["intervention"] = _maybe_enqueue_voice(
+        db=db,
+        user_id=current_user.user_id,
+        session_id=session.session_id,
+        snap=snap,
+        assistant_content=assistant_content,
+        recent_messages=ctx.recent_messages,
+        cooldown_is_active=cooldown_is_active,
+        cooldown_seconds=cooldown_seconds,
+        settings=settings,
     )
-    signal = compute_escalation_signal(
-        current_distress=final_distress,
-        previous_distress=history,
-        threshold=settings.proactive_voice_threshold,
-        delta_threshold=settings.proactive_voice_delta_threshold,
-        window_turns=settings.proactive_voice_window_turns,
-    )
-    force_voice_by_tier = snap.safety_tier in {"critical", "voice_recommended"} and final_distress >= 0.8
-    if (signal.escalate or force_voice_by_tier) and voice_consent and not cooldown_is_active:
-        trigger_reason = signal.trigger_reason if signal.escalate else "safety_tier_forced"
-        data["intervention"] = _build_voice_intervention(
-            db=db,
-            user_id=current_user.user_id,
-            session_id=session.session_id,
-            raw_text=raw_text,
-            recent_messages=ctx.recent_messages,
-            snapshot=snap,
-            trigger_reason=trigger_reason,
-            rolling_window_turns=signal.rolling_window_turns,
-            delta_score=signal.delta_score,
-        )
-    elif (signal.escalate or force_voice_by_tier) and voice_consent and cooldown_is_active:
-        data["intervention"] = {
-            "type": "proactive_voice",
-            "trigger_reason": "cooldown_active",
-            "cooldown": {"active": True, "seconds_remaining": cooldown_seconds},
-            "voice": {"status": "cooldown", "tts_job_id": None, "audio_url": None},
-        }
     return ok(data)
 
 
@@ -642,7 +694,6 @@ def send_message_stream(
             if hb:
                 yield hb
 
-            voice_consent = get_voice_consent(db, current_user.user_id)
             cooldown_is_active, cooldown_seconds = cooldown_active(
                 user_id=current_user.user_id,
                 session_id=session.session_id,
@@ -651,7 +702,14 @@ def send_message_stream(
 
             if sos:
                 snap = snapshot_for_sos(distress0)
-                assistant_content = assistant_text_for_stored_message_sos()
+                sos_count = db.scalar(
+                    select(func.count(Message.message_id)).where(
+                        Message.session_id == session.session_id,
+                        Message.role == "assistant",
+                        Message.sos_triggered == True,  # noqa: E712
+                    )
+                ) or 0
+                assistant_content = assistant_text_for_sos(raw_text, sos_count)
                 assistant_msg = Message(
                     message_id=make_id("msg"),
                     session_id=session.session_id,
@@ -673,20 +731,17 @@ def send_message_stream(
                     request_host=host,
                 )
                 db.commit()
-                data = build_sos_chat_response_data(session.session_id, snap)
-                data["intervention"] = None
-                if voice_consent:
-                    data["intervention"] = _build_voice_intervention(
-                        db=db,
-                        user_id=current_user.user_id,
-                        session_id=session.session_id,
-                        raw_text=raw_text,
-                        recent_messages=ctx.recent_messages,
-                        snapshot=snap,
-                        trigger_reason="sos_gate_forced",
-                        rolling_window_turns=1,
-                        delta_score=0.0,
-                    )
+                data = build_sos_chat_response_data(session.session_id, snap, assistant_text=assistant_content)
+                data["intervention"] = _build_voice_intervention(
+                    db=db,
+                    user_id=current_user.user_id,
+                    session_id=session.session_id,
+                    assistant_reply_for_tts=assistant_content,
+                    snapshot=snap,
+                    trigger_reason="sos_gate_forced",
+                    rolling_window_turns=1,
+                    delta_score=0.0,
+                )
                 elapsed_ms = int((time.perf_counter() - started_at) * 1000)
                 yield "event: status\ndata: " + json.dumps({"stage": "ready", "latency_ms": elapsed_ms}, ensure_ascii=False) + "\n\n"
                 yield "event: final\ndata: " + json.dumps(data, ensure_ascii=False) + "\n\n"
@@ -695,9 +750,8 @@ def send_message_stream(
             # Persist user turn before any potentially long-running LLM call.
             db.commit()
 
+            # distress_score frozen after decide_sos() — mood is context for LangGraph, not a routing delta.
             distress = distress0
-            if ctx.mood_today and ctx.mood_today.get("mood") in ("stressed", "restless", "melancholic"):
-                distress = min(1.0, distress + 0.08)
 
             message_hash = hash_message(
                 raw_text,
@@ -730,6 +784,7 @@ def send_message_stream(
                     active_goals=(memory_ctx.active_goals if memory_ctx else []),
                     effective_coping=(memory_ctx.effective_coping if memory_ctx else []),
                     clinical_trajectory=(memory_ctx.clinical_trajectory if memory_ctx else ""),
+                    persona_id=_active_persona_id(db, current_user.user_id, distress=distress),
                     user_id=current_user.user_id,
                     session_id=session.session_id,
                 ):
@@ -797,7 +852,7 @@ def send_message_stream(
 
             vhint = None
             if snap.safety_tier == "voice_recommended":
-                vhint = "Bạn có thể bấm gọi để nói chuyện trực tiếp với Mây / tổng đài — mình vẫn ở đây trong lúc bạn cân nhắc."
+                vhint = "Bạn có thể bấm gọi để nói chuyện trực tiếp với Friend / tổng đài — mình vẫn ở đây trong lúc bạn cân nhắc."
 
             data = build_normal_envelope(
                 session.session_id,
@@ -813,36 +868,17 @@ def send_message_stream(
             if review_decision.requires_human_review:
                 data["pending_human_review"] = True
                 data["review_reason"] = review_decision.reason
-            final_distress = float(snap.distress_score)
-            history = _recent_distress_history(ctx.recent_messages, max_turns=settings.proactive_voice_window_turns)
-            signal = compute_escalation_signal(
-                current_distress=final_distress,
-                previous_distress=history,
-                threshold=settings.proactive_voice_threshold,
-                delta_threshold=settings.proactive_voice_delta_threshold,
-                window_turns=settings.proactive_voice_window_turns,
+            data["intervention"] = _maybe_enqueue_voice(
+                db=db,
+                user_id=current_user.user_id,
+                session_id=session.session_id,
+                snap=snap,
+                assistant_content=assistant_content,
+                recent_messages=ctx.recent_messages,
+                cooldown_is_active=cooldown_is_active,
+                cooldown_seconds=cooldown_seconds,
+                settings=settings,
             )
-            force_voice_by_tier = snap.safety_tier in {"critical", "voice_recommended"} and final_distress >= 0.8
-            if (signal.escalate or force_voice_by_tier) and voice_consent and not cooldown_is_active:
-                trigger_reason = signal.trigger_reason if signal.escalate else "safety_tier_forced"
-                data["intervention"] = _build_voice_intervention(
-                    db=db,
-                    user_id=current_user.user_id,
-                    session_id=session.session_id,
-                    raw_text=raw_text,
-                    recent_messages=ctx.recent_messages,
-                    snapshot=snap,
-                    trigger_reason=trigger_reason,
-                    rolling_window_turns=signal.rolling_window_turns,
-                    delta_score=signal.delta_score,
-                )
-            elif (signal.escalate or force_voice_by_tier) and voice_consent and cooldown_is_active:
-                data["intervention"] = {
-                    "type": "proactive_voice",
-                    "trigger_reason": "cooldown_active",
-                    "cooldown": {"active": True, "seconds_remaining": cooldown_seconds},
-                    "voice": {"status": "cooldown", "tts_job_id": None, "audio_url": None},
-                }
 
             elapsed_ms = int((time.perf_counter() - started_at) * 1000)
             yield "event: status\ndata: " + json.dumps({"stage": "ready", "latency_ms": elapsed_ms}, ensure_ascii=False) + "\n\n"
@@ -904,6 +940,7 @@ def send_guest_message(payload: GuestChatMessageRequest, _: None = Depends(requi
                 recent_messages=[],
                 mood_today=None,
                 distress_score=distress,
+                persona_id=DEFAULT_PERSONA_ID,
                 session_id=session_id,
             )
         except Exception as exc:
