@@ -133,3 +133,26 @@ def enforce_admin_ip(request: Request) -> None:
             return
 
     raise AppError("ADMIN_FORBIDDEN", "Bạn không có quyền truy cập", 403)
+
+
+async def get_current_user_ws(
+    token: str, db: Session
+) -> User | None:
+    """
+    Authenticate user for WebSocket connection via JWT token from query parameter.
+    Used by WebSocket endpoints instead of cookie-based auth.
+    Returns None if token is invalid instead of raising exception.
+    """
+    if not token:
+        return None
+    try:
+        payload = decode_token(token)
+    except Exception:
+        return None
+
+    user_id = payload.get("sub")
+    if not user_id:
+        return None
+
+    user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
+    return user
