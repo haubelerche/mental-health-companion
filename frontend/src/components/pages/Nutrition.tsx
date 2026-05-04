@@ -89,11 +89,11 @@ export default function Nutrition() {
         <div className="space-y-6 pb-16 lg:space-y-8">
 
             {/* ── Daily fact banner ───────────────────────────────────────── */}
-            <section className="flex items-start gap-3 rounded-[22px] bg-theme-accent/20 px-5 py-4 backdrop-blur-sm">
+            <section className="flex items-start gap-3 rounded-[22px] bg-theme-surface/40 px-5 py-4 backdrop-blur-sm">
                 <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-theme-accent" />
                 <div>
-                    <p className="mb-1 text-[10px] uppercase tracking-[0.28em] text-theme-accent/70">Fact hôm nay</p>
-                    <p className="text-sm leading-relaxed text-theme-text-primary">{todayFact}</p>
+                    <p className="mb-1 text-[10px] uppercase tracking-[0.28em] text-theme-text-primary font-bold">Fact hôm nay</p>
+                    <p className="text-sm leading-relaxed text-theme-text-secondary">{todayFact}</p>
                 </div>
             </section>
 
