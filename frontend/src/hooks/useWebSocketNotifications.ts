@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useRef, useCallback } from "react";
-import { useNotification } from "@/contexts/NotificationContext";
+import { useNotification } from "../contexts/NotificationContext";
 
 export interface WebSocketMessage {
   type: "notification" | "connected" | "ping" | "error";
