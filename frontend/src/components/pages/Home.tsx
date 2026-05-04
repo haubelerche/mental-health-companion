@@ -20,6 +20,9 @@ import quotesJson from '../../../famous-quotes.json'
 import beachMessageBg from '../../assets/beach-message-bg.avif'
 import exerciseImg from '../../assets/exercise.png'
 import forestImg from '../../assets/forest.png'
+import morningRhythmImg from '../../assets/morning_rhythm.png'
+import dayRhythmImg from '../../assets/day_rhythm.png'
+import eveningRhythmImg from '../../assets/evening_rhythm.png'
 import healingImg from '../../assets/healing.jpg'
 import nutritionImg from '../../assets/nutrition-a1.jpg'
 import { Link, useNavigate } from 'react-router-dom'
@@ -278,6 +281,12 @@ function getCurrentTimeSlot(hour: number): TimeSlot {
     return 'evening'
 }
 
+const TIME_SLOT_BG: Record<TimeSlot, string> = {
+    morning: morningRhythmImg,
+    day: dayRhythmImg,
+    evening: eveningRhythmImg,
+}
+
 export default function Home() {
     const navigate = useNavigate()
     const { user } = useAuth()
@@ -426,7 +435,7 @@ export default function Home() {
                 <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
                     <div>
                         <div className="mb-5 flex items-center justify-between gap-4">
-                            <h2 className="font-display text-3xl text-theme-text-primary">Hôm nay của bạn</h2>
+                            <h2 className="font-display text-3xl text-theme-text-primary">Nhịp sống hôm nay</h2>
                             <span className="rounded-full bg-theme-accent/10 px-3 py-1 text-sm font-semibold text-theme-accent">
                                 {TIME_SLOT_META[currentSlot].label} · {TIME_SLOT_META[currentSlot].range}
                             </span>
@@ -472,13 +481,13 @@ export default function Home() {
 
                     <div className="relative overflow-hidden rounded-[26px] min-h-[280px] shadow-xl">
                         <img
-                            src={forestImg}
+                            src={TIME_SLOT_BG[currentSlot]}
                             alt="Khung cảnh thiên nhiên dịu nhẹ cho phần nhịp hôm nay"
                             className={`absolute inset-0 h-full w-full object-cover ${isDark ? 'brightness-75' : ''}`}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
                         <div className="absolute inset-x-0 bottom-0 p-5 text-white">
-                            <p className="text-lg uppercase tracking-[0.22em] text-white/75">Nhịp hôm nay</p>
+                            <p className="text-lg uppercase tracking-[0.22em] text-white/75">Khoảnh khắc hiện tại</p>
                             <p className="mt-2 text-lg font-semibold">{TIME_SLOT_META[currentSlot].label}</p>
                             <p className="mt-1 text-sm leading-relaxed text-white/85">{TIME_SLOT_META[currentSlot].intro}</p>
                         </div>
@@ -491,7 +500,7 @@ export default function Home() {
 
                 <div className="flex items-center justify-between gap-4">
                     <div>
-                        <h2 className="font-display text-3xl text-theme-text-primary">Dành cho bạn</h2>
+                        <h2 className="font-display text-3xl text-theme-text-primary">Gợi ý nhẹ nhàng</h2>
                         <p className="mt-2 text-xs lg:text-base  text-theme-text-secondary">
                             Chọn một lối vào ngắn, nhẹ và đúng nhu cầu hiện tại để bạn bắt đầu nhanh hơn.
                         </p>
@@ -513,7 +522,7 @@ export default function Home() {
                     />
                     <div className="absolute inset-0 bg-gradient-to-tr from-black/70 via-transparent to-transparent" />
                     <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                        <p className="text-sm font-bold uppercase tracking-[0.2em] text-white/75">Khởi động nhẹ</p>
+                        <p className="text-sm font-bold uppercase tracking-[0.2em] text-white/75">Bắt đầu từ một hơi thở</p>
                         <p className="mt-1 text-sm ">Một chạm là có thể bắt đầu ngay</p>
                     </div>
                 </div>
@@ -543,7 +552,7 @@ export default function Home() {
             <section className="rounded-[2rem] bg-theme-surface/40 p-6 backdrop-blur-xl border border-theme-border/50 shadow-sm">
                 <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
                     <div>
-                        <p className="font-semibold uppercase tracking-[0.2em] text-theme-text-primary">Tâm trạng hôm nay?</p>
+                        <p className="font-semibold uppercase tracking-[0.2em] text-theme-text-primary">Bạn đang cảm thấy thế nào?</p>
                         <p className="mt-2 max-w-xl text-sm leading-relaxed text-theme-text-secondary">
                             Chọn 1-3 từ mô tả điều đang diễn ra bên trong bạn. Những từ nhỏ cũng đủ giúp bạn nhìn rõ mình hơn.
                         </p>
@@ -568,7 +577,7 @@ export default function Home() {
                     <div className=" sm:p-6">
                         <div className="mb-4 flex items-center justify-between gap-4">
                             <div>
-                                <h3 className=" uppercase tracking-[0.2em] font-display text-theme-text-primary">Một câu nhắc dịu dàng</h3>
+                                <h3 className=" uppercase tracking-[0.2em] font-display text-theme-text-primary">Lời nhắn cho bạn</h3>
                             </div>
                             <div className="mt-4 flex items-center gap-2">
                                 <button
@@ -673,13 +682,13 @@ export default function Home() {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
                         <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                            <p className="text-xs uppercase tracking-[0.19em] text-white">Nạp lại năng lượng</p>
+                            <p className="text-xs uppercase tracking-[0.19em] text-white">Nuôi dưỡng cơ thể</p>
                             <p className="mt-1 text-sm font-semibold">Ăn đủ để mood cũng được nâng lên</p>
                         </div>
                     </div>
 
                     <div className="flex-1">
-                        <p className="text-xs uppercase tracking-[0.2em] font-bold text-theme-text-secondary">Gợi ý dinh dưỡng</p>
+                        <p className="text-xs uppercase tracking-[0.2em] font-bold text-theme-text-secondary">Món ăn hôm nay</p>
                         <h2 className="mt-2.5 font-display text-2xl text-theme-text-primary group-hover:text-theme-accent transition-colors">
                             {nutritionTip?.dish || 'Yến mạch + trái cây + hạt'}
                         </h2>
@@ -695,7 +704,7 @@ export default function Home() {
             <section className="p-6 bg-theme-surface/40 backdrop-blur-3xl rounded-[2.5rem] border border-theme-border/50 shadow-sm">
                 <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_220px] lg:items-center">
                     <div>
-                        <h2 className="font-display text-3xl text-theme-text-primary">Bắt đầu từ đây</h2>
+                        <h2 className="font-display text-3xl text-theme-text-primary">Lối vào nhanh</h2>
                         <p className="mt-2 max-w-2xl text-theme-text-secondary">
                             Các lối vào ngắn để bạn chuyển nhanh từ cảm nhận sang hành động.
                         </p>
@@ -742,10 +751,10 @@ export default function Home() {
                             transition={{ duration: 1.5, repeat: Infinity }}
                             className="text-xs uppercase tracking-[0.22em] font-semibold text-theme-text-primary/90"
                         >
-                            ✨ Nhìn Lại · Tiến trình tuần này
+                            ✨ Hành trình của bạn tuần này
                         </motion.p>
                         <h3 className="mt-2 font-display text-2xl text-theme-text-primary">
-                            6 chiều sức khoẻ
+                            Bức tranh sức khoẻ
                         </h3>
 
                         <motion.div
