@@ -13,83 +13,66 @@ const NotificationToast: React.FC<{ notification: Notification; onClose: () => v
   onClose,
 }) => {
   const [isExiting, setIsExiting] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    // Small delay to trigger entrance animation
+    const mountTimer = setTimeout(() => setIsMounted(true), 10);
+    
+    const exitTimer = setTimeout(() => {
       setIsExiting(true);
-      setTimeout(onClose, 300);
+      setTimeout(onClose, 500);
     }, 7000);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(mountTimer);
+      clearTimeout(exitTimer);
+    };
   }, [onClose]);
 
   const getIcon = () => {
     switch (notification.notification_type) {
       case "letter.replied":
-        return <MessageSquare className="w-5 h-5 text-blue-500" />;
-      case "letter.reported":
-        return <AlertCircle className="w-5 h-5 text-red-500" />;
       case "letter.received":
-        return <MessageSquare className="w-5 h-5 text-purple-500" />;
+        return <MessageSquare size={18} className="text-purple-500" />;
+      case "letter.reported":
+      case "crisis.detected":
+        return <AlertCircle size={18} className="text-red-500" />;
       case "reward.earned":
-        return <CheckCircle className="w-5 h-5 text-green-500" />;
+        return <CheckCircle size={18} className="text-green-500" />;
       case "persona.unlocked":
-        return <CheckCircle className="w-5 h-5 text-yellow-500" />;
       case "memory.completed":
-        return <CheckCircle className="w-5 h-5 text-indigo-500" />;
+        return <CheckCircle size={18} className="text-blue-500" />;
       default:
-        return <Info className="w-5 h-5 text-gray-500" />;
+        return <Info size={18} className="text-gray-500" />;
     }
   };
 
-  const getBgColor = () => {
-    switch (notification.notification_type) {
-      case "letter.replied":
-        return "bg-blue-50 border-blue-200";
-      case "letter.reported":
-        return "bg-red-50 border-red-200";
-      case "letter.received":
-        return "bg-purple-50 border-purple-200";
-      case "reward.earned":
-        return "bg-green-50 border-green-200";
-      case "persona.unlocked":
-        return "bg-yellow-50 border-yellow-200";
-      case "memory.completed":
-        return "bg-indigo-50 border-indigo-200";
-      default:
-        return "bg-gray-50 border-gray-200";
-    }
+  const getTypeClass = () => {
+    if (notification.notification_type.startsWith("letter")) return "letter";
+    if (notification.notification_type === "reward.earned") return "reward";
+    if (notification.notification_type.includes("crisis") || notification.notification_type.includes("reported")) return "safety";
+    return "system";
   };
 
   return (
     <div
-      className={`
-        transform transition-all duration-300
-        ${isExiting ? "translate-x-96 opacity-0" : "translate-x-0 opacity-100"}
-      `}
+      className={`notification-toast ${getTypeClass()} ${isMounted ? "show" : ""} ${isExiting ? "exit" : ""}`}
     >
-      <div
-        className={`
-          ${getBgColor()}
-          border rounded-lg shadow-lg p-4 mb-3 flex items-start gap-3
-          max-w-md
-        `}
-      >
-        <div className="flex-shrink-0 mt-0.5">{getIcon()}</div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm text-gray-900">{notification.title}</p>
-          <p className="text-sm text-gray-600 mt-1">{notification.body}</p>
-        </div>
-        <button
-          onClick={() => {
-            setIsExiting(true);
-            setTimeout(onClose, 300);
-          }}
-          className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </button>
+      <div className="notification-icon">{getIcon()}</div>
+      <div className="notification-content">
+        <div className="notification-title">{notification.title}</div>
+        <div className="notification-body">{notification.body}</div>
       </div>
+      <button
+        onClick={() => {
+          setIsExiting(true);
+          setTimeout(onClose, 500);
+        }}
+        className="notification-close"
+      >
+        <X size={16} />
+      </button>
     </div>
   );
 };
@@ -98,16 +81,14 @@ export const NotificationContainer: React.FC = () => {
   const { notifications, removeNotification } = useNotification();
 
   return (
-    <div className="fixed bottom-0 right-0 p-4 pointer-events-none z-50">
-      <div className="flex flex-col gap-2 pointer-events-auto">
-        {notifications.slice(0, 5).map((notification) => (
-          <NotificationToast
-            key={notification.notification_id}
-            notification={notification}
-            onClose={() => removeNotification(notification.notification_id)}
-          />
-        ))}
-      </div>
+    <div className="notification-container">
+      {notifications.slice(0, 5).map((notification) => (
+        <NotificationToast
+          key={notification.notification_id}
+          notification={notification}
+          onClose={() => removeNotification(notification.notification_id)}
+        />
+      ))}
     </div>
   );
 };
