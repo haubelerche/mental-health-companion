@@ -52,6 +52,16 @@ class NotificationDispatcher:
             "title": "🎭 New persona unlocked!",
             "body": "You've unlocked a new persona",
         },
+        "letter.reacted": {
+            "notification_type": "letter.reacted",
+            "title": "✨ Someone reacted to your reply",
+            "body": "A user sent a reaction to your letter reply",
+        },
+        "crisis.detected": {
+            "notification_type": "crisis.detected",
+            "title": "🛡️ Safety Check",
+            "body": "We detected you might be going through a hard time. We're here to help.",
+        },
     }
 
     async def dispatch(self, event: SyncOutbox, db: Session) -> bool:
