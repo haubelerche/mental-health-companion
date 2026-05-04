@@ -4,7 +4,7 @@
  * This component ensures the WebSocket hook runs at the app level
  */
 
-import { useWebSocketNotifications } from "@/hooks/useWebSocketNotifications";
+import { useWebSocketNotifications } from "../../hooks/useWebSocketNotifications";
 
 const NotificationSetup = () => {
   // Initialize WebSocket connection
