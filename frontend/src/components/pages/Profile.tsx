@@ -6,28 +6,13 @@ import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { onboardingService, type OnboardingProfile } from '../../services/onboardingService'
 import { EMOTIONAL_OPTIONS, PRIMARY_CONCERN_OPTIONS, SUPPORT_OPTIONS, AGE_OPTIONS, PRACTICE_OPTIONS, STRESS_LABELS } from './onboarding/onboard.option'
-import { useThemeContext } from '../../contexts/ThemeContext'
 import Loading from '../ui/Loading'
 import avatar from '../../assets/avatar.png'
 
-type UserStats = {
-    label: string
-    value: string
-    icon: typeof Star
-    color: string
-}
-
-const STATS: UserStats[] = [
-    { label: 'Cấp độ', value: 'Bậc thầy Tĩnh lặng', icon: Star, color: 'text-amber-500' },
-    { label: 'Số giờ thiền', value: '128 giờ', icon: Clock, color: 'text-theme-accent' },
-    { label: 'Tương tác', value: '450+', icon: Heart, color: 'text-rose-500' },
-]
 
 export default function Profile() {
     const navigate = useNavigate()
     const { user } = useAuth()
-    const { effectiveTheme } = useThemeContext()
-    const isDark = effectiveTheme === 'dark'
 
     const [onboardingData, setOnboardingData] = useState<OnboardingProfile | null>(null)
     const [loading, setLoading] = useState(true)
@@ -46,6 +31,7 @@ export default function Profile() {
             }
         }
         fetchOnboardingData()
+        console.log(user)
     }, [])
 
     if (!user) return null
@@ -76,7 +62,7 @@ export default function Profile() {
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="relative overflow-hidden rounded-[3rem] border border-theme-border/50 bg-theme-surface/40 p-8 shadow-2xl backdrop-blur-3xl md:p-12"
+                className="relative overflow-hidden rounded-[3rem] border border-theme-border/50 bg-theme-surface/60 p-8 shadow-2xl backdrop-blur-3xl md:p-12"
             >
                 <div className="absolute right-0 top-0 -mr-20 -mt-20 h-64 w-64 rounded-full bg-theme-accent/10 blur-3xl" />
                 <div className="absolute bottom-0 left-0 -mb-20 -ml-20 h-64 w-64 rounded-full bg-theme-accent/5 blur-3xl" />
@@ -86,21 +72,18 @@ export default function Profile() {
                         <div className="h-44 w-44 overflow-hidden rounded-full shadow-2xl md:h-52 md:w-52">
                             <img src={avatar} alt="Profile" className="h-full w-full object-cover" />
                         </div>
-                        <button
+                        {/* <button
                             type="button"
                             className="absolute bottom-3 right-3 flex h-12 w-12 items-center justify-center rounded-full bg-theme-accent text-white shadow-xl transition hover:scale-110 active:scale-95"
                         >
                             <Pencil className="h-5 w-5" />
-                        </button>
+                        </button> */}
                     </div>
 
                     <div className="flex-1 text-center lg:text-left">
                         <div className="flex flex-wrap items-center justify-center gap-4 lg:justify-start">
                             <h1 className="font-display text-5xl italic text-theme-text-primary md:text-6xl">{nicknameLabel}</h1>
-                            <span className="flex items-center gap-1.5 rounded-full bg-theme-accent/10 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-theme-accent">
-                                <ShieldCheck className="h-3.5 w-3.5" />
-                                Verified Member
-                            </span>
+                            
                         </div>
 
                         <div className="mt-6 flex flex-wrap justify-center gap-6 lg:justify-start">
@@ -108,29 +91,14 @@ export default function Profile() {
                                 <Mail className="h-4.5 w-4.5 opacity-60" />
                                 <span className="text-sm md:text-base">{user.email}</span>
                             </div>
-                            <div className="flex items-center gap-2 text-theme-text-secondary">
-                                <Smartphone className="h-4.5 w-4.5 opacity-60" />
-                                <span className="text-sm md:text-base">090 * * * 1234</span>
-                            </div>
+                         
+                            <span className="flex items-center gap-1.5 rounded-full bg-theme-accent/10 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-theme-accent">
+                                <ShieldCheck className="h-3.5 w-3.5" />
+                                Verified Member
+                            </span>
                         </div>
 
-                        <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                            {STATS.map((stat) => {
-                                const Icon = stat.icon
-                                return (
-                                    <div
-                                        key={stat.label}
-                                        className="flex flex-col items-center rounded-3xl border border-theme-border/30 bg-theme-surface/50 p-5 shadow-sm transition hover:bg-theme-surface/70 lg:items-start"
-                                    >
-                                        <Icon className={`h-6 w-6 ${stat.color} mb-3`} />
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary">
-                                            {stat.label}
-                                        </p>
-                                        <p className="mt-1 font-display text-xl text-theme-text-primary">{stat.value}</p>
-                                    </div>
-                                )
-                            })}
-                        </div>
+                   
                     </div>
                 </div>
             </motion.div>
@@ -143,17 +111,17 @@ export default function Profile() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1 }}
-                        className="rounded-[2.5rem] border border-theme-border/50 bg-theme-surface/40 p-8 shadow-xl backdrop-blur-2xl"
+                        className="rounded-[2.5rem] border border-theme-border/50 bg-theme-surface/60 p-8 shadow-xl backdrop-blur-2xl"
                     >
                         <div className="mb-8 flex items-center justify-between">
                             <h2 className="font-display text-3xl italic text-theme-text-primary">Thông tin cá nhân</h2>
-                            <button
+                            {/* <button
                                 onClick={() => navigate(ROUTE_PATHS.setting)}
                                 type="button"
                                 className="text-xs font-bold uppercase tracking-widest text-theme-accent hover:opacity-70"
                             >
                                 Chỉnh sửa
-                            </button>
+                            </button> */}
                         </div>
 
                         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -179,7 +147,7 @@ export default function Profile() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
-                        className="rounded-[2.5rem] border border-theme-border/50 bg-theme-surface/40 p-8 shadow-xl backdrop-blur-2xl"
+                        className="rounded-[2.5rem] border border-theme-border/50 bg-theme-surface/60 p-8 shadow-xl backdrop-blur-2xl"
                     >
                         <div className="mb-8 flex items-center justify-between">
                             <h2 className="font-display text-3xl italic text-theme-text-primary">Hành trình tâm thức</h2>
@@ -208,7 +176,7 @@ export default function Profile() {
                                 ].map((item, idx) => {
                                     const Icon = item.icon
                                     return (
-                                        <div key={idx} className="flex items-center gap-4 rounded-3xl border border-theme-border/30 bg-theme-surface/20 p-4 transition hover:bg-theme-surface/40">
+                                        <div key={idx} className="flex items-center gap-4 rounded-3xl border border-theme-border/30 bg-theme-surface/20 p-4 transition hover:bg-theme-surface/60">
                                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-theme-accent/10 text-theme-accent">
                                                 <Icon className="h-5 w-5" />
                                             </div>
@@ -246,13 +214,13 @@ export default function Profile() {
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.3 }}
-                        className="rounded-[2.5rem] border border-theme-border/50 bg-theme-surface/40 p-8 shadow-xl backdrop-blur-2xl"
+                        className="rounded-[2.5rem] border border-theme-border/50 bg-theme-surface/60 p-8 shadow-xl backdrop-blur-2xl"
                     >
                         <h2 className="mb-6 font-display text-2xl italic text-theme-text-primary">Bảo mật & Tài khoản</h2>
                         <div className="space-y-3">
                             <button
                                 onClick={() => navigate(ROUTE_PATHS.forget)}
-                                className="flex w-full items-center justify-between rounded-2xl border border-theme-border/30 bg-theme-surface/20 px-5 py-4 transition hover:bg-theme-surface/40"
+                                className="flex w-full items-center justify-between rounded-2xl border border-theme-border/30 bg-theme-surface/60 px-5 py-4 transition hover:bg-theme-surface/60"
                             >
                                 <div className="flex items-center gap-3">
                                     <Lock className="h-4 w-4 text-theme-text-secondary" />
@@ -261,7 +229,7 @@ export default function Profile() {
                             </button>
                             <button
                                 onClick={() => navigate(ROUTE_PATHS.setting)}
-                                className="flex w-full items-center justify-between rounded-2xl border border-theme-border/30 bg-theme-surface/20 px-5 py-4 transition hover:bg-theme-surface/40"
+                                className="flex w-full items-center justify-between rounded-2xl border border-theme-border/30 bg-theme-surface/60 px-5 py-4 transition hover:bg-theme-surface/60"
                             >
                                 <div className="flex items-center gap-3">
                                     <Settings className="h-4 w-4 text-theme-text-secondary" />
@@ -270,7 +238,7 @@ export default function Profile() {
                             </button>
                         </div>
                     </motion.div>
-
+{/* 
                     <motion.div
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -288,7 +256,7 @@ export default function Profile() {
                         >
                             Nâng cấp ngay
                         </button>
-                    </motion.div>
+                    </motion.div> */}
                 </section>
             </div>
         </div>
