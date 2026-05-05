@@ -1,4 +1,3 @@
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
@@ -214,6 +213,5 @@ class Settings(BaseSettings):
         return urlunparse(parsed._replace(query=urlencode(query)))
 
 
-@lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()
