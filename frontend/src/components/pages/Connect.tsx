@@ -74,7 +74,7 @@ export default function Connect() {
 
     return (
         <section className="mx-auto max-w-6xl text-theme-text-primary">
-            <div className={`rounded-[2.75rem] ${isDark ? 'bg-black/40 border border-white/10' : 'bg-theme-surface/35'} p-6 shadow-xl backdrop-blur-2xl md:p-10`}>
+            <div className={`rounded-[2.75rem] bg-theme-surface/60 border border-white/10 p-6 shadow-xl backdrop-blur-2xl md:p-10`}>
                 <div className={`rounded-full  px-6 py-3 text-center font-display tracking-wide text-xl font-semibold italic text-theme-text-secondary/70`}>
                     Serene là AI, không thay thế chuyên gia
                 </div>
@@ -91,7 +91,7 @@ export default function Connect() {
                     </p>
                 </header>
 
-                <section className={`mt-9 grid gap-6 rounded-[2rem] p-6 shadow-inner lg:grid-cols-[1fr_220px] ${isDark ? 'bg-black/20 border border-white/5' : 'bg-theme-surface/40'}`}>
+                <section className={`mt-9 grid gap-6 rounded-[2rem] p-6 shadow-inner lg:grid-cols-[1fr_220px] bg-theme-surface/70`}>
                     <div>
                         <div className="mb-5 flex items-center gap-3">
                             <span className="font-display text-4xl text-theme-accent">*</span>
@@ -108,7 +108,7 @@ export default function Connect() {
                                 <a
                                     key={`${item.name}-${item.number}`}
                                     href={`tel:${item.number.replace(/\s/g, '')}`}
-                                    className={`flex items-center justify-between rounded-3xl ${isDark ? 'bg-white/5 border border-white/5' : 'bg-theme-surface/65'} px-5 py-4 shadow-sm transition hover:-translate-y-0.5 hover:bg-theme-surface/80`}
+                                    className={`flex items-center justify-between rounded-3xl bg-theme-surface/80 shadow-xl px-5 py-4  transition hover:-translate-y-0.5 hover:bg-theme-surface/80`}
                                 >
                                     <div>
                                         <p className="text-[0.6rem] font-bold uppercase tracking-[0.24em] text-theme-text-secondary/70">
@@ -199,15 +199,11 @@ export default function Connect() {
                     </aside>
                 </div>
 
-                <div className={`mx-auto mt-12 max-w-xl rounded-[2rem] ${isDark ? 'bg-black/20 border border-white/5' : 'bg-theme-surface/40'} px-7 py-6 text-center shadow-lg`}>
-                    <p className="font-display text-2xl italic text-theme-text-primary">
-                        "Peace is not the absence of trouble, but the presence of connection."
-                    </p>
-                </div>
+            
             </div>
 
             {referrals.length > 0 && (
-                <section className={`mt-6 rounded-4xl bg-theme-surface/55 backdrop-blur-xl p-5 `}>
+                <section className={`mt-6 rounded-4xl bg-theme-surface/60 backdrop-blur-2xl p-5 `}>
                     <h3 className="mb-4 font-display text-2xl text-theme-text-primary">Gợi ý hỗ trợ từ Serene</h3>
                     <div className="grid gap-3 md:grid-cols-3">
                         {referrals.map(r => {
@@ -215,8 +211,8 @@ export default function Connect() {
                             const Icon = meta.icon  
                             return (
                                 <div
-                                    key={r.type}
-                                    className={`flex items-center gap-3 rounded-2xl p-4 ${isDark ? 'bg-white/10 border border-white/5' : 'bg-theme-surface/50'}`}
+                                    key={r.type}    
+                                    className={`flex items-center gap-3 rounded-2xl p-4 bg-theme-surface/60 backdrop-blur-2xl shadow-lg`}
                                 >
                                     <Icon className="h-5 w-5 text-theme-accent" />
                                     <div>

@@ -701,7 +701,7 @@ export default function Chat() {
     // ─── Render ────────────────────────────────────────────────────────────────
     return (
         <div>
-            <div className="h-[92dvh] flex flex-col bg-theme-surface/60 backdrop-blur-3xl rounded-[2.5rem] p-4 shadow-xl border border-theme-border/50">
+            <div className="h-[92dvh] flex flex-col bg-theme-surface/80 backdrop-blur-3xl rounded-[2.5rem] p-4 shadow-xl border border-theme-border/50">
 
                 {/* ── Header ───────────────────────────────────────────── */}
                 <div className="flex shrink-0 items-center justify-between mb-3 border-b border-theme-border/50 px-5 py-3">
