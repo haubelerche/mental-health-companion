@@ -46,14 +46,15 @@ async def process_outbox_batch_async(limit: int = 50) -> int:
     db = factory()
     processed = 0
     try:
-        # Fetch pending events
+        # Fetch and lock pending rows so concurrent workers do not process the same batch.
         rows = db.scalars(
             select(SyncOutbox)
             .where(SyncOutbox.status == "pending")
             .order_by(SyncOutbox.created_at.asc())
             .limit(limit)
+            .with_for_update(skip_locked=True)
         ).all()
-        
+
         if not rows:
             return 0
 
@@ -67,7 +68,7 @@ async def process_outbox_batch_async(limit: int = 50) -> int:
                 logger.error(f"Error processing outbox {row.outbox_id}: {e}")
                 row.retry_count = int(row.retry_count or 0) + 1
                 row.status = "failed" if row.retry_count >= 3 else "pending"
-        
+
         db.commit()
         return processed
     finally:
