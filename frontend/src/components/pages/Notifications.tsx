@@ -69,18 +69,18 @@ export default function NotificationsPage({ dark = false }: { dark?: boolean }) 
   }
 
   const ui = {
-    bg: dark ? 'bg-theme-surface' : 'bg-white',
-    text: dark ? 'text-white' : 'text-slate-900',
-    subtext: dark ? 'text-slate-400' : 'text-slate-500',
-    card: dark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white border-slate-100',
-    unread: dark ? 'bg-indigo-500/10 border-l-4 border-l-indigo-500' : 'bg-indigo-50 border-l-4 border-l-indigo-500',
+    bg: 'bg-theme-surface/60',
+    text: 'text-theme-primary',
+    subtext: 'text-theme-secondary',
+    card: 'bg-theme-surface border-slate-700/50',
+    unread: 'bg-theme-accent/10 border-l-4 border-l-indigo-500',
   }
 
-  if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loading /></div>
+  if (loading) return <Loading />
 
   return (
-    <div className={`min-h-screen pb-20 ${ui.bg} ${ui.text} font-sans`}>
-      <div className="sticky top-0 z-20 backdrop-blur-md bg-opacity-80 border-b border-slate-200/20 px-6 py-4 flex items-center justify-between">
+    <div className={`min-h-screen pb-20 ${ui.bg} ${ui.text} font-sans backdrop-blur-2xl rounded-4xl`}>
+      <div className="sticky top-0 z-20  border-b border-slate-200/20 px-6 py-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold font-display">Thông báo</h1>
         {unreadCount > 0 && (
           <button 
