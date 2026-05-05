@@ -21,6 +21,7 @@ for _p in (_BACKEND_ROOT, _REPO_ROOT):
 
 # Fail-open Redis-backed limits for the whole pytest process (see rate_limit.get_rate_limiter).
 os.environ.setdefault("SERENE_BACKEND_TESTING", "1")
+os.environ.setdefault("JWT_DEV_SECRET", "serene-test-jwt-secret-123")
 try:
     from app.services import rate_limit as _rate_limit_mod
 
