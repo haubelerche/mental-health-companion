@@ -86,6 +86,8 @@ http://localhost:8000/v1/auth/oauth/facebook/start?return_to=http://localhost:51
   - `http://localhost:8000/v1/auth/oauth/google/callback`
   - `http://localhost:8000/v1/auth/oauth/facebook/callback`
 
+Lưu ý: khi test local, nên dùng `localhost` thay vì `127.0.0.1` cho cả FE và backend redirect URI. Facebook thường nhạy hơn với host `127.0.0.1` khi app chưa cấu hình HTTPS.
+
 ### Production
 
 - Authorized JavaScript origins:
