@@ -1,4 +1,3 @@
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
@@ -171,6 +170,18 @@ class Settings(BaseSettings):
     auth_email_resend_cooldown_seconds: int = 60
     auth_allow_signup_without_smtp: bool = True
 
+    google_client_id: str = Field(default="", validation_alias=AliasChoices("GOOGLE_CLIENT_ID"))
+    google_client_secret: str = Field(default="", validation_alias=AliasChoices("GOOGLE_CLIENT_SECRET"))
+    google_redirect_uri: str = Field(default="", validation_alias=AliasChoices("GOOGLE_REDIRECT_URI"))
+    facebook_client_id: str = Field(default="", validation_alias=AliasChoices("FACEBOOK_CLIENT_ID"))
+    facebook_client_secret: str = Field(default="", validation_alias=AliasChoices("FACEBOOK_CLIENT_SECRET"))
+    facebook_redirect_uri: str = Field(default="", validation_alias=AliasChoices("FACEBOOK_REDIRECT_URI"))
+    oauth_state_ttl_seconds: int = Field(default=600, validation_alias=AliasChoices("OAUTH_STATE_TTL_SECONDS"))
+    frontend_auth_redirect_url: str = Field(
+        default="http://127.0.0.1:5173/auth/callback",
+        validation_alias=AliasChoices("FRONTEND_AUTH_REDIRECT_URL"),
+    )
+
     backend_public_base_url: str = "http://127.0.0.1:8000"
     frontend_home_url: str = "http://127.0.0.1:5173/home"
     frontend_reset_password_url: str = "http://127.0.0.1:5173/reset-password"
@@ -202,6 +213,5 @@ class Settings(BaseSettings):
         return urlunparse(parsed._replace(query=urlencode(query)))
 
 
-@lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()

@@ -1,5 +1,7 @@
 import logging
 import time
+import json
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import RedirectResponse
@@ -15,6 +17,7 @@ from app.services.db.models import (
     Conversation,
     ConversationMemory,
     CrisisLog,
+    UserIdentity,
     EmailVerificationToken,
     Message,
     PasswordResetToken,
@@ -597,3 +600,247 @@ def erase_my_data(current_user: User = Depends(get_current_user), db: Session = 
     cache_delete(profile_cache_key(user_id))
     MemoryManager.instance().delete_user(user_id)
     return ok({"deleted": True, "deleted_at": now.isoformat() + "Z"})
+
+
+# --- OAuth Google skeleton (STEP 2) ---
+@router.get("/oauth/google/start")
+def oauth_google_start(return_to: str | None = None, request: Request = None):
+    settings = get_settings()
+    if not settings.google_client_id or not settings.google_redirect_uri:
+        raise AppError("CONFIG_ERROR", "Google OAuth not configured", 503)
+    from app.services.oauth_state import create_oauth_state
+
+    state = create_oauth_state({"return_to": return_to or settings.frontend_auth_redirect_url})
+    params = {
+        "client_id": settings.google_client_id,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "redirect_uri": settings.google_redirect_uri,
+        "state": state,
+        "access_type": "offline",
+        "prompt": "consent",
+    }
+    url = "https://accounts.google.com/o/oauth2/v2/auth" + "?" + urlencode(params)
+    return RedirectResponse(url=url)
+
+
+@router.get("/oauth/google/callback")
+async def oauth_google_callback(code: str | None = None, state: str | None = None, request: Request = None, response: Response = None, db: Session = Depends(get_db)):
+    if not code or not state:
+        raise AppError("AUTH_OAUTH_INVALID", "Missing code or state", 400)
+    from app.services.oauth_state import pop_oauth_state
+    from app.services.db.models import UserIdentity
+
+    payload = pop_oauth_state(state)
+    if not payload:
+        raise AppError("AUTH_OAUTH_STATE_INVALID", "Invalid or expired state", 400)
+
+    try:
+        from app.services.oauth_client import exchange_google_code, get_google_userinfo
+    except Exception:
+        raise AppError("CONFIG_ERROR", "OAuth client helper not available", 500)
+
+    token_json = await exchange_google_code(code)
+    access_token = token_json.get("access_token")
+    if not access_token:
+        raise AppError("AUTH_OAUTH_TOKEN_FAILED", "Missing access token", 400)
+    profile = await get_google_userinfo(access_token)
+
+    provider_user_id = str(profile.get("id") or profile.get("sub") or "")
+    provider_email = profile.get("email")
+    provider_email_verified = bool(profile.get("verified_email") or profile.get("email_verified"))
+    provider_name = profile.get("name")
+    provider_picture = profile.get("picture")
+
+    # Try to find existing identity
+    row = db.scalar(select(UserIdentity).where(UserIdentity.provider == "google", UserIdentity.provider_user_id == provider_user_id))
+    return_to = payload.get("return_to") or settings.frontend_auth_redirect_url
+    if row:
+        user = db.get(User, row.user_id)
+        resp = RedirectResponse(url=return_to)
+        _issue_login_session(user=user, response=resp, request=request, db=db)
+        return resp
+
+    # If provider email is verified, link to existing user or create new user
+    if provider_email and provider_email_verified:
+        existing_user = db.scalar(select(User).where(User.email == provider_email))
+        if existing_user:
+            # create identity link
+            ident = UserIdentity(
+                identity_id=make_id("ui"),
+                user_id=existing_user.user_id,
+                provider="google",
+                provider_user_id=provider_user_id,
+                provider_email=provider_email,
+                provider_name=provider_name,
+                provider_picture_url=provider_picture,
+                provider_email_verified_at=utc_now().replace(tzinfo=None),
+            )
+            db.add(ident)
+            db.commit()
+            resp = RedirectResponse(url=return_to)
+            _issue_login_session(user=existing_user, response=resp, request=request, db=db)
+            return resp
+
+        # create local user (auto-create allowed when provider email verified)
+        pw = None
+        try:
+            from app.services.security import hash_password, generate_one_time_token
+
+            pw = hash_password(generate_one_time_token())
+        except Exception:
+            pw = ""
+
+        now = utc_now().replace(tzinfo=None)
+        new_user = User(
+            user_id=make_id("usr"),
+            display_name=provider_name or (provider_email.split("@")[0] if provider_email else ""),
+            email=provider_email,
+            password_hash=pw,
+            is_active=True,
+            email_verified_at=now,
+            disclaimer_accepted=False,
+            policy_acknowledged_at=now,
+            policy_version_ack=CURRENT_POLICY_VERSION,
+        )
+        db.add(new_user)
+        db.flush()
+        ident = UserIdentity(
+            identity_id=make_id("ui"),
+            user_id=new_user.user_id,
+            provider="google",
+            provider_user_id=provider_user_id,
+            provider_email=provider_email,
+            provider_name=provider_name,
+            provider_picture_url=provider_picture,
+            provider_email_verified_at=now,
+        )
+        db.add(ident)
+        db.commit()
+        resp = RedirectResponse(url=return_to)
+        _issue_login_session(user=new_user, response=resp, request=request, db=db)
+        return resp
+
+    # No verified email — do not auto-create. Redirect frontend to prompt for linking or email collection.
+    redirect_url = f"{return_to}?oauth_missing_email=1&provider=google"
+    return RedirectResponse(url=redirect_url)
+
+
+@router.get("/oauth/facebook/start")
+def oauth_facebook_start(return_to: str | None = None, request: Request = None):
+    settings = get_settings()
+    if not settings.facebook_client_id or not settings.facebook_redirect_uri:
+        raise AppError("CONFIG_ERROR", "Facebook OAuth not configured", 503)
+    from app.services.oauth_state import create_oauth_state
+
+    state = create_oauth_state({"return_to": return_to or settings.frontend_auth_redirect_url})
+    params = {
+        "client_id": settings.facebook_client_id,
+        "response_type": "code",
+        "scope": "email,public_profile",
+        "redirect_uri": settings.facebook_redirect_uri,
+        "state": state,
+    }
+    url = "https://www.facebook.com/v17.0/dialog/oauth" + "?" + urlencode(params)
+    return RedirectResponse(url=url)
+
+
+@router.get("/oauth/facebook/callback")
+async def oauth_facebook_callback(code: str | None = None, state: str | None = None, request: Request = None, response: Response = None, db: Session = Depends(get_db)):
+    if not code or not state:
+        raise AppError("AUTH_OAUTH_INVALID", "Missing code or state", 400)
+    from app.services.oauth_state import pop_oauth_state
+
+    payload = pop_oauth_state(state)
+    if not payload:
+        raise AppError("AUTH_OAUTH_STATE_INVALID", "Invalid or expired state", 400)
+
+    try:
+        from app.services.oauth_client import exchange_facebook_code, get_facebook_userinfo
+    except Exception:
+        raise AppError("CONFIG_ERROR", "OAuth client helper not available", 500)
+
+    token_json = await exchange_facebook_code(code)
+    access_token = token_json.get("access_token")
+    if not access_token:
+        raise AppError("AUTH_OAUTH_TOKEN_FAILED", "Missing access token", 400)
+    profile = await get_facebook_userinfo(access_token)
+
+    provider_user_id = str(profile.get("id") or "")
+    provider_email = profile.get("email")
+    # Facebook does not always mark email verified field; treat presence of email as unverified unless proven
+    provider_email_verified = bool(provider_email)
+    provider_name = profile.get("name")
+    provider_picture = profile.get("picture")
+
+    # Try to find existing identity
+    row = db.scalar(select(UserIdentity).where(UserIdentity.provider == "facebook", UserIdentity.provider_user_id == provider_user_id))
+    settings = get_settings()
+    return_to = payload.get("return_to") or settings.frontend_auth_redirect_url
+    if row:
+        user = db.get(User, row.user_id)
+        resp = RedirectResponse(url=return_to)
+        _issue_login_session(user=user, response=resp, request=request, db=db)
+        return resp
+
+    if provider_email and provider_email_verified:
+        existing_user = db.scalar(select(User).where(User.email == provider_email))
+        if existing_user:
+            ident = UserIdentity(
+                identity_id=make_id("ui"),
+                user_id=existing_user.user_id,
+                provider="facebook",
+                provider_user_id=provider_user_id,
+                provider_email=provider_email,
+                provider_name=provider_name,
+                provider_picture_url=provider_picture,
+                provider_email_verified_at=utc_now().replace(tzinfo=None),
+            )
+            db.add(ident)
+            db.commit()
+            resp = RedirectResponse(url=return_to)
+            _issue_login_session(user=existing_user, response=resp, request=request, db=db)
+            return resp
+
+        # create user when email present
+        pw = ""
+        try:
+            from app.services.security import hash_password, generate_one_time_token
+
+            pw = hash_password(generate_one_time_token())
+        except Exception:
+            pw = ""
+
+        now = utc_now().replace(tzinfo=None)
+        new_user = User(
+            user_id=make_id("usr"),
+            display_name=provider_name or (provider_email.split("@")[0] if provider_email else ""),
+            email=provider_email,
+            password_hash=pw,
+            is_active=True,
+            email_verified_at=now,
+            disclaimer_accepted=False,
+            policy_acknowledged_at=now,
+            policy_version_ack=CURRENT_POLICY_VERSION,
+        )
+        db.add(new_user)
+        db.flush()
+        ident = UserIdentity(
+            identity_id=make_id("ui"),
+            user_id=new_user.user_id,
+            provider="facebook",
+            provider_user_id=provider_user_id,
+            provider_email=provider_email,
+            provider_name=provider_name,
+            provider_picture_url=provider_picture,
+            provider_email_verified_at=now,
+        )
+        db.add(ident)
+        db.commit()
+        resp = RedirectResponse(url=return_to)
+        _issue_login_session(user=new_user, response=resp, request=request, db=db)
+        return resp
+
+    # Missing or unverified email — do not auto-create. Frontend must prompt for linking or email collection.
+    redirect_url = f"{return_to}?oauth_missing_email=1&provider=facebook"
+    return RedirectResponse(url=redirect_url)

@@ -15,6 +15,10 @@ function resolveApiBaseUrl(): string {
 const API_BASE_URL = resolveApiBaseUrl()
 export const HTTP_UNAUTHORIZED_EVENT = 'serene:http-unauthorized'
 
+export function getApiBaseUrl(): string {
+    return API_BASE_URL
+}
+
 /** Dùng cho `<Audio src>` khi `audio_url` là path tương đối `/v1/...`. */
 export function resolveMediaUrl(path: string): string {
     if (path.startsWith('http://') || path.startsWith('https://')) return path

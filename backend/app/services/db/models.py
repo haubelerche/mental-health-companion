@@ -48,6 +48,25 @@ class User(Base):
     policy_version_ack: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
+class UserIdentity(Base):
+    __tablename__ = "user_identities"
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_user_id", name="uq_user_identity_provider_uid"),
+        UniqueConstraint("user_id", "provider", name="uq_user_identity_user_provider"),
+    )
+
+    identity_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    provider_user_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    provider_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    provider_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    provider_picture_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    provider_email_verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 

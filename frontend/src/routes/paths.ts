@@ -2,6 +2,7 @@ export const ROUTE_PATHS = {
     root: '/',
     landing: '/landing',
     login: '/login',
+    oauthCallback: '/auth/callback',
     register: '/register',
     forget: '/forget-password',
 

@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import Login from '../components/auth/Login.tsx'
+import OAuthCallback from '../components/auth/OAuthCallback.tsx'
 import Register from '../components/auth/Register.tsx'
 import Chat from '../components/chat/Chat.tsx'
 import Main from '../components/layout/Main.tsx'
@@ -68,6 +69,7 @@ export default function AppRoutes() {
             {/* user */}
             <Route path={ROUTE_PATHS.root} element={<Navigate to={ROUTE_PATHS.landing} replace />} />
             <Route path={ROUTE_PATHS.login} element={<Login />} />
+            <Route path={ROUTE_PATHS.oauthCallback} element={<OAuthCallback />} />
             <Route path={ROUTE_PATHS.register} element={<Register />} />
             <Route path={ROUTE_PATHS.forget} element={<Forget />} />
             <Route path={ROUTE_PATHS.landing} element={<Landing />} />

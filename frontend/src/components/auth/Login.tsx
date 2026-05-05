@@ -2,17 +2,27 @@ import { useState } from 'react'
 import type { ComponentProps } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
+import { ArrowRight } from 'lucide-react'
 import { ApiRequestError } from '../../api/types'
 import bg from '../../assets/bg.png'
 import { useAuth } from '../../hooks/useAuth'
+import { authService } from '../../services/authService'
 import { ROUTE_PATHS } from '../../routes/paths'
 
 export default function Login() {
     type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [oauthLoading, setOauthLoading] = useState<null | 'google' | 'facebook'>(null)
     const navigate = useNavigate()
     const { login, isLoading } = useAuth()
+
+    const handleOAuthLogin = (provider: 'google' | 'facebook') => {
+        const returnTo = `${window.location.origin}${ROUTE_PATHS.oauthCallback}`
+        const startUrl = authService.startOAuth(provider, returnTo)
+        setOauthLoading(provider)
+        window.location.assign(startUrl)
+    }
 
     const handleSubmit: FormSubmitHandler = async (event) => {
         event.preventDefault()
@@ -72,6 +82,37 @@ export default function Login() {
                         </p>
                     </header>
 
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <button
+                            type="button"
+                            onClick={() => handleOAuthLogin('google')}
+                            disabled={Boolean(oauthLoading)}
+                            className="inline-flex items-center justify-center gap-3 rounded-full border border-serene-outline/35 bg-white/70 px-5 py-3 text-sm font-medium text-serene-ink transition hover:border-serene-primary/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold text-serene-primary shadow-sm">
+                                G
+                            </span>
+                            {oauthLoading === 'google' ? 'Đang mở Google...' : 'Tiếp tục với Google'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleOAuthLogin('facebook')}
+                            disabled={Boolean(oauthLoading)}
+                            className="inline-flex items-center justify-center gap-3 rounded-full border border-serene-outline/35 bg-white/70 px-5 py-3 text-sm font-medium text-serene-ink transition hover:border-serene-primary/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#1877F2] text-xs font-bold text-white shadow-sm">
+                                f
+                            </span>
+                            {oauthLoading === 'facebook' ? 'Đang mở Facebook...' : 'Tiếp tục với Facebook'}
+                        </button>
+                    </div>
+
+                    <div className="my-8 flex items-center gap-4 text-[10px] uppercase tracking-[0.32em] text-serene-muted/50">
+                        <span className="h-px flex-1 bg-serene-outline/25" />
+                        <span>Hoặc</span>
+                        <span className="h-px flex-1 bg-serene-outline/25" />
+                    </div>
+
                     <form className="space-y-8" onSubmit={handleSubmit}>
                         <div>
                             <label
@@ -112,7 +153,7 @@ export default function Login() {
                             />
 
                         </div>
-                        <div >
+                        <div>
                             <Link
                                 to={ROUTE_PATHS.forget}
                                 type="button"
@@ -124,10 +165,13 @@ export default function Login() {
                         <div className="pt-2">
                             <button
                                 type="submit"
-                                disabled={isLoading}
+                                disabled={isLoading || Boolean(oauthLoading)}
                                 className="auth-cta"
                             >
-                                {isLoading ? 'Đang đăng nhập...' : 'Bước vào'}
+                                <span className="inline-flex items-center justify-center gap-2">
+                                    {isLoading ? 'Đang đăng nhập...' : 'Bước vào'}
+                                    {!isLoading && <ArrowRight className="h-4 w-4" />}
+                                </span>
                             </button>
                         </div>
                     </form>
