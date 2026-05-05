@@ -17,7 +17,7 @@ class ConnectionManager:
     def __init__(self):
         # user_id -> Set[WebSocket]
         self.active_connections: Dict[str, Set[WebSocket]] = {}
-        self.user_sessions: Dict[str, str] = {}  # WebSocket -> user_id mapping
+        self.user_sessions: Dict[int, str] = {}  # id(WebSocket) -> user_id mapping
 
     async def connect(self, websocket: WebSocket, user_id: str):
         """Register new WebSocket connection for a user"""
@@ -35,13 +35,23 @@ class ConnectionManager:
         """Unregister WebSocket connection"""
         ws_id = id(websocket)
         user_id = self.user_sessions.pop(ws_id, None)
-        
+
         if user_id and user_id in self.active_connections:
             self.active_connections[user_id].discard(websocket)
             if not self.active_connections[user_id]:
                 del self.active_connections[user_id]
-            
             logger.info(f"WebSocket disconnected: user_id={user_id}")
+            return
+
+        # Fallback cleanup for partially registered sockets.
+        for uid, websockets in list(self.active_connections.items()):
+            if websocket in websockets:
+                websockets.discard(websocket)
+                if not websockets:
+                    del self.active_connections[uid]
+                self.user_sessions.pop(ws_id, None)
+                logger.info(f"WebSocket disconnected via fallback cleanup: user_id={uid}")
+                return
 
     async def send_notification(self, user_id: str, notification: dict):
         """Send notification to all WebSocket connections of a user"""

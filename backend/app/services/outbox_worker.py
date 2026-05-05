@@ -58,6 +58,13 @@ async def process_outbox_batch_async(limit: int = 50) -> int:
         if not rows:
             return 0
 
+        # Release the DB lock before any network I/O so other workers can claim new rows.
+        claimed_at = utc_now().replace(tzinfo=None)
+        for row in rows:
+            row.status = "processing"
+            row.processing_started_at = claimed_at
+        db.commit()
+
         for row in rows:
             try:
                 await _dispatch_async(row, db)
@@ -68,8 +75,8 @@ async def process_outbox_batch_async(limit: int = 50) -> int:
                 logger.error(f"Error processing outbox {row.outbox_id}: {e}")
                 row.retry_count = int(row.retry_count or 0) + 1
                 row.status = "failed" if row.retry_count >= 3 else "pending"
-
-        db.commit()
+            finally:
+                db.commit()
         return processed
     finally:
         db.close()

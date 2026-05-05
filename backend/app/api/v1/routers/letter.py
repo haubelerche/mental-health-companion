@@ -2,7 +2,8 @@ from datetime import date, datetime, timezone
 import random
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select, or_
+from sqlalchemy import exists, func, select, or_
+from sqlalchemy.orm import aliased
 from sqlalchemy.orm import Session
 
 from app.api.deps import ensure_policy_acknowledged
@@ -226,17 +227,16 @@ def get_inbox(
     current_user: User = Depends(ensure_policy_acknowledged),
 ):
     # Get letters where current user is the receiver and no reply exists yet.
-    replied_letter_ids = (
-        select(TherapyLetter.reply_to_id)
-        .where(TherapyLetter.reply_to_id.is_not(None))
-    )
+    reply = aliased(TherapyLetter)
     letters = (
         db.query(TherapyLetter)
         .filter(
             TherapyLetter.receiver_id == current_user.user_id,
             TherapyLetter.letter_type == "public",
             TherapyLetter.status == "active",
-            ~TherapyLetter.letter_id.in_(replied_letter_ids),
+            ~exists().where(
+                reply.reply_to_id == TherapyLetter.letter_id,
+            ),
         )
         .order_by(TherapyLetter.created_at.desc())
         .all()
