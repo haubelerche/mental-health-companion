@@ -33,8 +33,8 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
     return (
         <div className="space-y-6">
             {/* Featured */}
-            <article className={`rounded-4xl ${isDark ? 'bg-theme-surface/60 border border-white/10' : 'bg-white/52'} p-5 shadow-lg`}>
-                <div className="relative overflow-hidden rounded-3xl cursor-pointer" onClick={() => onOpen(featured)}>
+            <article className={`rounded-4xl ${isDark ? 'bg-theme-surface/60 border border-white/10' : 'bg-white/52'} shadow-lg`}>
+                <div className="relative overflow-hidden rounded-t-3xl cursor-pointer" onClick={() => onOpen(featured)}>
                     {featured.thumbnail ? (
                         <div className="aspect-video relative">
                             <img
@@ -64,7 +64,7 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                         <Play className="ml-1 h-6 w-6 fill-current" />
                     </button>
                 </div>
-                <div className="mt-5 flex items-end justify-between gap-4">
+                <div className="mt-5 flex items-end justify-between gap-4 p-5">
                     <div>
                         <h2 className={`font-display font-semibold text-4xl ${isDark ? 'text-white' : 'text-serene-ink'}`}>{featured.title}</h2>
                         <p className={`mt-1.5 ml-1.5 text-sm ${isDark ? 'text-white/60' : 'text-serene-muted'}`}>

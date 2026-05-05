@@ -10,6 +10,7 @@ import { ResourceGrid } from './ResourceGrid'
 import { YouTubeEmbed, isYouTubeUrl } from './YouTubeEmbed'
 import Loading from '../../ui/Loading'
 import { useThemeContext } from '../../../contexts/ThemeContext'
+import { ExerciseTab } from './ExerciseTab'
 // ── Vietnamese category labels ────────────────────────────────────────────────
 const VI_LABELS: Record<string, { label: string; icon: string }> = {
     all: { label: 'Tất cả', icon: '✦' },
@@ -19,13 +20,14 @@ const VI_LABELS: Record<string, { label: string; icon: string }> = {
     wisdom: { label: 'Trí tuệ', icon: '◌' },
     movement: { label: 'Vận động', icon: '↟' },
     work_study: { label: 'Tập trung', icon: '◎' },
+    exercises: { label: 'Bài tập', icon: '🌬️' },
 }
 
 function localizeCategory(id: string, fallbackLabel: string) {
     return VI_LABELS[id] ?? { label: fallbackLabel, icon: '○' }
 }
 
-const RESOURCE_CATEGORY_IDS = ['all', 'meditate', 'sleep', 'music', 'wisdom', 'movement', 'work_study']
+const RESOURCE_CATEGORY_IDS = ['all', 'exercises', 'meditate', 'sleep', 'music', 'wisdom', 'movement', 'work_study']
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function Resources() {
@@ -49,7 +51,11 @@ export default function Resources() {
         resourceService
             .getCategories()
             .then((data) => {
-                setCategories([{ id: 'all', label: 'Tất cả', icon: '✦' }, ...data.categories])
+                setCategories([
+                    { id: 'all', label: 'Tất cả', icon: '✦' },
+                    { id: 'exercises', label: 'Bài tập', icon: '🌬️' },
+                    ...data.categories
+                ])
             })
             .catch(() => undefined)
     }, [])
@@ -58,6 +64,10 @@ export default function Resources() {
         let active = true
 
         const loadResources = async () => {
+            if (selectedCategory === 'exercises') {
+                setLoadingResources(false)
+                return
+            }
             setLoadingResources(true)
             try {
                 const categoryParam =
@@ -112,20 +122,20 @@ export default function Resources() {
     }
 
     return (
-        <section className={`mx-auto max-w-6xl rounded-[2.5rem] border ${isDark ? 'border-white/10 bg-theme-surface/40' : 'border-white/50 bg-[#f5eee5]/78'} p-5 shadow-[0_30px_90px_rgba(47,52,46,0.18)] backdrop-blur-2xl sm:p-8 lg:p-10 transition-colors duration-200`}>
+        <section className={`mx-auto max-w-6xl rounded-[2.5rem] border bg-theme-surface/60 border-white/10 backdrop-blur-2xl sm:p-8 lg:p-10 transition-colors duration-200`}>
 
             {/* Header */}
             <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                     <h1 className={`mt-1 font-display text-4xl ${isDark ? 'text-white' : 'text-serene-ink'} md:text-5xl`}> Thư viện tài nguyên</h1>
                 </div>
-                <label className={`flex items-center gap-2 border ${isDark ? 'border-white/10 bg-white/5' : 'border-gray-300 bg-white'} rounded-full px-4 py-3 text-sm ${isDark ? 'text-white/60' : 'text-serene-muted'} shadow-inner`}>
+                <label className={`flex items-center gap-2 border border-white/10 bg-theme-surface rounded-full px-4 py-3 text-sm ${isDark ? 'text-white/60' : 'text-serene-muted'} shadow-inner`}>
                     <Search className="h-4 w-4 shrink-0" />
                     <input
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         placeholder="Tìm kiếm..."
-                        className="w-full bg-transparent outline-none placeholder:text-serene-muted/60"
+                        className="w-full bg-transparent outline-none placeholder:text-theme-text-primary"
                     />
                 </label>
             </div>
@@ -140,9 +150,9 @@ export default function Resources() {
                             key={cat.id}
                             type="button"
                             onClick={() => setSelectedCategory(cat.id)}
-                            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition ${isActive
-                                ? 'bg-serene-primary text-serene-on-primary shadow-[0_8px_20px_rgba(77,99,89,0.25)]'
-                                : `${isDark ? 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/80' : 'bg-white/55 text-serene-muted hover:bg-white/85 hover:text-serene-ink'}`
+                            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm cursor-pointer font-semibold transition ${isActive
+                                ? 'bg-serene-primary text-serene-on-primary shadow-xl'
+                                : 'bg-theme-surface text-theme-text-primary'
                                 }`}
                         >
                             <span>{vi.icon}</span>
@@ -163,6 +173,8 @@ export default function Resources() {
                 >
                     {loadingResources ? (
                         <Loading text="Đang tải tài nguyên..." />
+                    ) : selectedCategory === 'exercises' ? (
+                        <ExerciseTab />
                     ) : (
                         <ResourceGrid items={filteredItems} onOpen={openItem} />
                     )}

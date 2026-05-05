@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 
 import secrets
 from datetime import date, datetime, time, timedelta, timezone
@@ -91,3 +92,10 @@ def make_anon_name() -> str:
         "Hạt Mầm", "Ngôi Sao", "Dòng Sông", "Chiếc Lá", "Biển Cả"
     ]
     return f"{secrets.choice(nouns)} {secrets.choice(adjectives)}"
+
+def get_youtube_id(url: str) -> str | None:
+    if not url:
+        return None
+    match = re.search(r"(?:v=|\/|embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})", url)
+    return match.group(1) if match else None
+
