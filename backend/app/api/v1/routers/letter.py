@@ -225,13 +225,18 @@ def get_inbox(
     db: Session = Depends(get_db),
     current_user: User = Depends(ensure_policy_acknowledged),
 ):
-    # Get letters where current user is the receiver and it's not a reply
+    # Get letters where current user is the receiver and no reply exists yet.
+    replied_letter_ids = (
+        select(TherapyLetter.reply_to_id)
+        .where(TherapyLetter.reply_to_id.is_not(None))
+    )
     letters = (
         db.query(TherapyLetter)
         .filter(
             TherapyLetter.receiver_id == current_user.user_id,
             TherapyLetter.letter_type == "public",
-            TherapyLetter.status == "active"
+            TherapyLetter.status == "active",
+            ~TherapyLetter.letter_id.in_(replied_letter_ids),
         )
         .order_by(TherapyLetter.created_at.desc())
         .all()
@@ -239,21 +244,6 @@ def get_inbox(
 
     items = []
     for letter in letters:
-        # Check if ANY reply exists for this letter (safety measure)
-        # In our unified model, a reply is a letter where reply_to_id == original_id
-        has_any_reply = db.query(TherapyLetter).filter(
-            TherapyLetter.reply_to_id == letter.letter_id
-        ).first() is not None
-        
-        if has_any_reply:
-            # If it has a reply, it should not be in the inbox. 
-            # We also ensure receiver_id is None just in case it wasn't set before.
-            if letter.receiver_id is not None:
-                letter.receiver_id = None
-                db.add(letter)
-                db.commit()
-            continue
-
         items.append(
             {
                 "letter_id": letter.letter_id,
