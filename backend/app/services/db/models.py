@@ -12,6 +12,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Identity,
     Integer,
     String,
     Text,
@@ -310,7 +311,11 @@ class CounselingKnowledge(Base):
 class SyncOutbox(Base):
     __tablename__ = "sync_outbox"
 
-    outbox_id: Mapped[int] = mapped_column(BIGINT, primary_key=True, autoincrement=True)
+    outbox_id: Mapped[int] = mapped_column(
+        BIGINT().with_variant(Integer, "sqlite"),
+        Identity(),
+        primary_key=True,
+    )
     user_id: Mapped[str | None] = mapped_column(ForeignKey("users.user_id"), nullable=True)
     event_type: Mapped[str] = mapped_column(String(80), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
