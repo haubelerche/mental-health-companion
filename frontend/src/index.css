@@ -222,3 +222,97 @@
         scrollbar-color: var(--color-serene-primary) transparent;
     }
 }
+
+/* --- Premium Notification Toasts --- */
+.notification-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.notification-toast {
+    pointer-events: auto;
+    width: 360px;
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    transform: translateX(120%);
+    transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.notification-toast.show {
+    transform: translateX(0);
+}
+
+.notification-toast.exit {
+    transform: translateX(120%);
+    opacity: 0;
+}
+
+[data-theme="dark"] .notification-toast {
+    background: rgba(22, 27, 34, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.notification-icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+
+.notification-content {
+    flex: 1;
+}
+
+.notification-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--theme-text-primary);
+    margin-bottom: 4px;
+}
+
+.notification-body {
+    font-size: 13px;
+    color: var(--theme-text-secondary);
+    line-height: 1.4;
+}
+
+.notification-close {
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: var(--theme-text-tertiary);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    display: flex;
+}
+
+.notification-close:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--theme-text-primary);
+}
+
+/* Type variations */
+.notification-toast.reward { border-left: 4px solid #10b981; }
+.notification-toast.letter { border-left: 4px solid #8b5cf6; }
+.notification-toast.safety { border-left: 4px solid #ef4444; }
+.notification-toast.system { border-left: 4px solid #3b82f6; }

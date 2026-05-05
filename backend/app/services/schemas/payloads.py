@@ -181,3 +181,26 @@ class PersonaUpdateRequest(BaseModel):
     persona_id: str = Field(
         pattern="^(ban_than|nguoi_yeu|nguoi_thay|nguoi_la|nguoi_than|cun|meo)$"
     )
+
+
+# ---------------------------------------------------------------------------
+# Letter System 
+# ---------------------------------------------------------------------------
+
+class LetterSendRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=5000)
+
+
+class LetterReplyRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=5000)
+
+
+class LetterReactRequest(BaseModel):
+    reaction_type: str = Field(default="heart", max_length=20)
+
+
+class LetterReportRequest(BaseModel):
+    letter_id: str = Field(min_length=1, max_length=50)
+    report_category: str = Field(min_length=1, max_length=30)
+    reason: str | None = Field(default=None, max_length=500)
+    description: str | None = Field(default=None, max_length=500)

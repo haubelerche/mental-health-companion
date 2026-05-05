@@ -1,16 +1,23 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   server: {
     proxy: {
       /** Cùng origin với Vite; tránh CORS + cookie khi dev. Backend mặc định cổng 8000. */
       '/v1': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
+        ws: true,
       },
     },
   },
@@ -19,6 +26,7 @@ export default defineConfig({
       '/v1': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
+        ws: true,
       },
     },
   },

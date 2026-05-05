@@ -18,6 +18,9 @@ from app.api.v1.routers import (
     rewards,
     safety,
     screening,
+    ws,
+    letter,
+    notifications,
 )
 from app.knowledge.routes import router as knowledge_router
 from app.memory.routes import router as memory_router
@@ -42,3 +45,6 @@ api_router.include_router(admin.router)
 api_router.include_router(nutrition.router)
 api_router.include_router(rewards.router)
 api_router.include_router(knowledge_router)
+api_router.include_router(ws.router)
+api_router.include_router(letter.router)
+api_router.include_router(notifications.router)

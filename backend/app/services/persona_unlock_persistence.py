@@ -67,6 +67,23 @@ def mark_persona_unlocked(
         state.updated_at = now
     db.flush()
     logger.info("[Unlocks] user=%s persona=%s source=%s", user_id, persona_id, source)
+    
+    # Push real-time notification
+    try:
+        from app.services.notification_service import enqueue_notification
+        enqueue_notification(
+            db,
+            user_id=user_id,
+            event_type="persona.unlocked",
+            payload={
+                "persona_id": persona_id,
+                "message": f"Chúc mừng! Bạn đã mở khóa thành công nhân vật mới: {persona_id.upper()}",
+                "source": source
+            }
+        )
+    except Exception:
+        pass
+
     return state
 
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
-import re
 
+import re
 import secrets
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Literal
@@ -87,3 +87,15 @@ def get_youtube_id(url: str) -> str | None:
         return None
     match = re.search(r"(?:v=|\/|embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})", url)
     return match.group(1) if match else None
+
+
+def make_anon_name() -> str:
+    adjectives = [
+        "Nhỏ", "Bình Yên", "Mạnh Mẽ", "Hy Vọng", "Tự Do",
+        "Dịu Dàng", "Kiên Cường", "Ấm Áp", "Lặng Lẽ", "Sáng Suốt"
+    ]
+    nouns = [
+        "Mèo", "Gió", "Nắng", "Mây", "Cánh Diều",
+        "Hạt Mầm", "Ngôi Sao", "Dòng Sông", "Chiếc Lá", "Biển Cả"
+    ]
+    return f"{secrets.choice(nouns)} {secrets.choice(adjectives)}"

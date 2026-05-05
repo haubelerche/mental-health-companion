@@ -107,6 +107,23 @@ def grant_hearts(
         "[HeartService] grant user=%s event_type=%s amount=%d key=%s",
         user_id, event_type, amount, idempotency_key,
     )
+    
+    # Push real-time notification
+    try:
+        from app.services.notification_service import enqueue_notification
+        enqueue_notification(
+            db, 
+            user_id=user_id, 
+            event_type="reward.earned", 
+            payload={
+                "amount": amount,
+                "reward_type": event_type,
+                "message": f"Bạn vừa nhận được {amount} Tim!"
+            }
+        )
+    except Exception as e:
+        logger.warning(f"Failed to enqueue reward notification: {e}")
+
     return {
         "granted": True,
         "amount": amount,

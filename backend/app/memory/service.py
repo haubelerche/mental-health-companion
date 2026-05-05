@@ -73,6 +73,23 @@ def create_cards_from_candidates(
 
     if created:
         db.flush()
+        # Push real-time notification for new memories
+        try:
+            from app.services.notification_service import enqueue_notification
+            # We notify that new memories are available for review
+            enqueue_notification(
+                db,
+                user_id=user_id,
+                event_type="memory.completed",
+                payload={
+                    "count": len(created),
+                    "message": f"AI vừa ghi nhớ thêm {len(created)} điều mới về bạn!",
+                    "card_ids": [c.card_id for c in created]
+                }
+            )
+        except Exception:
+            # Don't fail the whole memory creation if notification fails
+            pass
 
     return created
 

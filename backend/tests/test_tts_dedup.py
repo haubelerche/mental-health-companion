@@ -53,21 +53,13 @@ def db():
     Base.metadata.drop_all(engine)
 
 
-_OUTBOX_ID_COUNTER = 1000
-
-
 def _make_outbox(db: Session, signature: str, voice_status: str) -> SyncOutbox:
     """Helper: insert a SyncOutbox TTS job with a given signature and voice status.
-
-    SQLite does not auto-increment BIGINT PKs, so we assign explicit IDs.
     """
-    global _OUTBOX_ID_COUNTER
-    _OUTBOX_ID_COUNTER += 1
     db_status = "pending" if voice_status in ("queued", "processing") else (
         "done" if voice_status == "ready" else "failed"
     )
     row = SyncOutbox(
-        outbox_id=_OUTBOX_ID_COUNTER,
         event_type="voice.tts_request",
         payload={
             "user_id": "usr_tts_test",
