@@ -1,4 +1,6 @@
-import { httpClient } from '../api/httpClient'
+import { getApiBaseUrl, httpClient } from '../api/httpClient'
+
+export type OAuthProvider = 'google' | 'facebook'
 
 export type SignupPayload = {
     display_name: string
@@ -53,6 +55,14 @@ export type MeResponse = {
     onboarding_completed?: boolean
     onboarding_skipped?: boolean
 }
+
+function buildOAuthStartUrl(provider: OAuthProvider, returnTo: string): string {
+    const apiBaseUrl = getApiBaseUrl()
+    const apiOrigin = apiBaseUrl.startsWith('http') ? apiBaseUrl.replace(/\/v1\/?$/, '') : window.location.origin
+    const encodedReturnTo = encodeURIComponent(returnTo)
+    return `${apiOrigin}/v1/auth/oauth/${provider}/start?return_to=${encodedReturnTo}`
+}
+
 export const authService = {
     signup: async (payload: SignupPayload) => {
         const startedAt = performance.now()
@@ -82,6 +92,7 @@ export const authService = {
         // Policy is auto-acknowledged by the server during login.
         return data
     },
+    startOAuth: (provider: OAuthProvider, returnTo: string) => buildOAuthStartUrl(provider, returnTo),
     logout: async () => {
         await httpClient.postWithCsrf<LogoutResponse>('/auth/logout')
         httpClient.resetCsrfToken()
