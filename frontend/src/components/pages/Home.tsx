@@ -14,6 +14,7 @@ import {
     ChevronRight,
     X,
     CalendarCheck,
+    Moon,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -46,43 +47,42 @@ type RecoCard = {
     accentClass: string
 }
 
-const RECO_CARDS: RecoCard[] = [
-    {
-        icon: Wind,
-        label: 'Thở hộp 4-4-4',
-        desc: '3 phút · Giảm lo âu',
-        route: `${ROUTE_PATHS.exercises}?exercise=box_breath`,
-        accentClass: 'bg-theme-accent/10 text-theme-accent',
-    },
-    {
-        icon: Leaf,
-        label: 'Thiền buổi sáng',
-        desc: '5 phút · Bắt đầu ngày mới',
-        route: `${ROUTE_PATHS.exercises}?type=meditation&id=morning_5`,
-        accentClass: 'bg-theme-accent/10 text-theme-accent',
-    },
-    {
-        icon: Headphones,
-        label: 'Tiếng sóng biển',
-        desc: 'Âm thanh · Thư giãn',
-        route: `${ROUTE_PATHS.exercises}?type=sound&id=ocean`,
-        accentClass: 'bg-theme-accent/10 text-theme-accent',
-    },
-    {
-        icon: CalendarCheck,
-        label: 'Check-in buổi tối',
-        desc: 'Nhìn lại ngày hôm nay',
-        route: `${ROUTE_PATHS.checkin}?variant=evening`,
-        accentClass: 'bg-theme-accent/10 text-theme-accent',
-    },
-    {
-        icon: ClipboardList,
-        label: 'Làm bài Test ',
-        desc: 'Sàng lọc sức khỏe tinh thần',
-        route: `${ROUTE_PATHS.screening}`,
-        accentClass: 'bg-theme-accent/10 text-theme-accent',
-    },
-]
+const getRecoCards = (hour: number): RecoCard[] => {
+    const isMorning = hour >= 5 && hour < 16
+
+    return [
+        {
+            icon: Wind,
+            label: 'Bài hít thở 4-4-4',
+            desc: '3 phút · Giảm lo âu',
+            route: `${ROUTE_PATHS.exercises}?exercise=box_breath`,
+            accentClass: 'bg-theme-accent/10 text-theme-accent',
+        },
+        {
+            icon: isMorning ? Leaf : Moon,
+            label: isMorning ? 'Thiền buổi sáng' : 'Thiền trước ngủ',
+            desc: isMorning ? '5 phút · Bắt đầu ngày mới' : '10 phút · Dễ đi vào giấc ngủ',
+            route: isMorning 
+                ? `${ROUTE_PATHS.exercises}?type=meditation&id=morning_5`
+                : `${ROUTE_PATHS.exercises}?type=meditation&id=sleep_deep`,
+            accentClass: 'bg-theme-accent/10 text-theme-accent',
+        },
+        {
+            icon: CalendarCheck,
+            label: isMorning ? 'Check-in buổi sáng' : 'Check-in buổi tối',
+            desc: isMorning ? 'Khởi đầu ngày tỉnh thức' : 'Nhìn lại ngày hôm nay',
+            route: `${ROUTE_PATHS.checkin}?variant=${isMorning ? 'morning' : 'evening'}`,
+            accentClass: 'bg-theme-accent/10 text-theme-accent',
+        },
+        {
+            icon: ClipboardList,
+            label: 'Làm bài Test ',
+            desc: 'Sàng lọc sức khỏe tinh thần',
+            route: `${ROUTE_PATHS.screening}`,
+            accentClass: 'bg-theme-accent/10 text-theme-accent',
+        },
+    ]
+}
 
 type QuickAction = {
     icon: typeof Wind
@@ -303,6 +303,7 @@ export default function Home() {
     const [homeMoodWords, setHomeMoodWords] = useState<string[]>([])
     const [quoteIndex, setQuoteIndex] = useState(0)
     const currentHour = new Date().getHours()
+    const recoCards = useMemo(() => getRecoCards(currentHour), [currentHour])
     const currentSlot = useMemo<TimeSlot>(() => getCurrentTimeSlot(currentHour), [currentHour])
 
     const currentReminders = useMemo(() => SLOT_REMINDERS[currentSlot], [currentSlot])
@@ -528,7 +529,7 @@ export default function Home() {
                 </div>
 
                 <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide mt-5">
-                    {RECO_CARDS.map((card) => {
+                    {recoCards.map((card) => {
                         const RecoIcon = card.icon
                         return (
                             <button
