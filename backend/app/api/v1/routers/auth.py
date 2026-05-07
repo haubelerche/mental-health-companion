@@ -374,7 +374,7 @@ def verify_email(token: str, request: Request, db: Session = Depends(get_db)):
     if not user:
         raise AppError("AUTH_VERIFY_TOKEN_INVALID", "Liên kết xác nhận không hợp lệ", 400)
 
-    if row.used_at is None and row.expires_at < now:
+    if row.used_at is None and row.expires_at.replace(tzinfo=None) < now:
         raise AppError("AUTH_VERIFY_TOKEN_EXPIRED", "Liên kết xác nhận đã hết hạn", 400)
 
     user.is_active = True
@@ -487,7 +487,7 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
         raise AppError("AUTH_RESET_TOKEN_INVALID", "Liên kết đặt lại mật khẩu không hợp lệ", 400)
     if row.used_at is not None:
         raise AppError("AUTH_RESET_TOKEN_USED", "Liên kết đặt lại mật khẩu đã được sử dụng", 400)
-    if row.expires_at < now:
+    if row.expires_at.replace(tzinfo=None) < now:
         raise AppError("AUTH_RESET_TOKEN_EXPIRED", "Liên kết đặt lại mật khẩu đã hết hạn", 400)
 
     user = db.get(User, row.user_id)
@@ -522,7 +522,7 @@ def refresh_token(response: Response, refresh_token: str | None = Cookie(default
         raise AppError("AUTH_REFRESH_MALFORMED", "Refresh token không hợp lệ", 401)
     if row.revoked_at is not None:
         raise AppError("AUTH_REFRESH_REVOKED", "Refresh token đã bị thu hồi", 401)
-    if row.expires_at < utc_now().replace(tzinfo=None):
+    if row.expires_at.replace(tzinfo=None) < utc_now().replace(tzinfo=None):
         raise AppError("AUTH_REFRESH_EXPIRED", "Refresh token đã hết hạn", 401)
 
     access = issue_access_token(row.user_id)
