@@ -86,7 +86,7 @@ export function YouTubeEmbed({ url, title, isOpen, onClose }: YouTubeEmbedProps)
 
                 {/* Title */}
                 <div className="rounded-b-lg bg-white/5 p-4 text-white">
-                    <p className="font-display text-xl">{title}</p>
+                    <p className="font-display text-xl" dangerouslySetInnerHTML={{ __html: title }} ></p>
                 </div>
             </div>
         </Modal>
