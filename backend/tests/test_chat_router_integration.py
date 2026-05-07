@@ -81,6 +81,8 @@ def test_chat_message_non_sos_success(monkeypatch):
         assert body["success"] is True
         assert body["data"]["sos_triggered"] is False
         assert body["data"]["reply"] == "Mình luôn ở đây với cậu."
+        assert "latency_trace" in body["data"]
+        assert "total_backend_ms" in body["data"]["latency_trace"]
         assert captured["long_term_memories"] == []
         assert fake_db.committed is True
     finally:
@@ -284,5 +286,58 @@ def test_chat_message_stream_returns_sse(monkeypatch):
         assert "event: status" in resp.text
         assert "event: final" in resp.text
         assert "Mình đang ở đây cùng bạn nhé." in resp.text
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_chat_message_non_sos_passes_routed_persona_to_langgraph(monkeypatch):
+    fake_db = FakeDB()
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
+    monkeypatch.setattr(
+        chat_router,
+        "get_user_longterm_memories",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        chat_router,
+        "load_chat_context_sync",
+        lambda *_args, **_kwargs: SimpleNamespace(recent_messages=[], mood_today=None),
+    )
+    monkeypatch.setattr(chat_router, "decide_sos", lambda _message, **_kw: (False, 0.12))
+
+    def fake_turn(**kwargs):
+        captured["persona_id"] = kwargs.get("persona_id")
+        return {
+            "session_fields": SafetySnapshot(
+                distress_score=0.12,
+                risk_level=0,
+                safety_tier="normal",
+                conversation_mode="normal",
+            ),
+            "reply": "OK.",
+            "tone_cam_xuc": "xac_nhan",
+            "goi_y_nhanh": [],
+            "the_dinh_kem": [],
+        }
+
+    monkeypatch.setattr(chat_router, "run_non_sos_turn", fake_turn)
+    monkeypatch.setattr(
+        chat_router,
+        "_active_persona_id",
+        lambda _db, _uid, distress=0.0: "nguoi_thay",
+    )
+
+    def override_db():
+        yield fake_db
+
+    app.dependency_overrides[chat_router.ensure_policy_acknowledged] = _override_user
+    app.dependency_overrides[chat_router.get_db] = override_db
+
+    try:
+        with TestClient(app) as client:
+            resp = client.post("/v1/chat/message", json={"message": "chao ban"})
+        assert resp.status_code == 200
+        assert captured.get("persona_id") == "nguoi_thay"
     finally:
         app.dependency_overrides.clear()

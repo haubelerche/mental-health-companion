@@ -13,6 +13,7 @@ from app.api.v1.routers import auth as auth_router
 from app.core.product_constants import CURRENT_POLICY_VERSION
 from app.services.db.models import User
 from app.services.db.session import Base
+from app.services.utils import utc_now
 from app.main import app
 
 
@@ -186,3 +187,101 @@ def test_signup_local_fallback_auto_verifies_when_smtp_missing(monkeypatch, auth
         assert user.email_verified_at is not None
     finally:
         db.close()
+
+
+def test_me_persona_crush_and_alias_locked_without_store_unlock(monkeypatch, auth_test_db):
+    # Real JWT access tokens so `get_current_user` + `/me/persona` work under TestClient cookies.
+    monkeypatch.setattr(auth_router, "generate_refresh_token", lambda: "test-refresh-token")
+    monkeypatch.setattr(auth_router, "send_verification_email", lambda **_kwargs: None)
+    email = _unique_email("persona_crush_lock")
+    password = "StrongPass#2026"
+    with TestClient(app) as client:
+        signup_resp = client.post(
+            "/v1/auth/signup",
+            json={
+                "display_name": "Persona Lock User",
+                "email": email,
+                "password": password,
+                "disclaimer_accepted": True,
+            },
+        )
+        assert signup_resp.status_code == 202
+        user_id = signup_resp.json()["data"]["user_id"]
+
+        db = auth_test_db()
+        try:
+            user = db.scalar(select(User).where(User.user_id == user_id))
+            assert user is not None
+            user.is_active = True
+            user.email_verified_at = utc_now().replace(tzinfo=None)
+            db.commit()
+        finally:
+            db.close()
+
+        assert client.post("/v1/auth/login", json={"email": email, "password": password}).status_code == 200
+        csrf = client.get("/v1/auth/csrf-token").json()["data"]["csrf_token"]
+        crush_resp = client.post(
+            "/v1/auth/me/persona",
+            json={"persona_id": "crush"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert crush_resp.status_code == 403
+        assert crush_resp.json()["error"]["code"] == "persona_locked"
+
+        alias_resp = client.post(
+            "/v1/auth/me/persona",
+            json={"persona_id": "nguoi_yeu"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert alias_resp.status_code == 403
+        assert alias_resp.json()["error"]["code"] == "persona_locked"
+
+        ok_resp = client.post(
+            "/v1/auth/me/persona",
+            json={"persona_id": "ban_than"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert ok_resp.status_code == 200
+        assert ok_resp.json()["data"]["persona_id"] == "ban_than"
+        me_resp = client.get("/v1/auth/me")
+        assert me_resp.status_code == 200
+        assert me_resp.json()["data"]["persona_id"] == "ban_than"
+
+
+def test_me_persona_unknown_returns_400(monkeypatch, auth_test_db):
+    monkeypatch.setattr(auth_router, "generate_refresh_token", lambda: "test-refresh-token")
+    monkeypatch.setattr(auth_router, "send_verification_email", lambda **_kwargs: None)
+    email = _unique_email("persona_unknown")
+    password = "StrongPass#2026"
+    with TestClient(app) as client:
+        signup_resp = client.post(
+            "/v1/auth/signup",
+            json={
+                "display_name": "U2",
+                "email": email,
+                "password": password,
+                "disclaimer_accepted": True,
+            },
+        )
+        assert signup_resp.status_code == 202
+        user_id = signup_resp.json()["data"]["user_id"]
+
+        db = auth_test_db()
+        try:
+            user = db.scalar(select(User).where(User.user_id == user_id))
+            assert user is not None
+            user.is_active = True
+            user.email_verified_at = utc_now().replace(tzinfo=None)
+            db.commit()
+        finally:
+            db.close()
+
+        assert client.post("/v1/auth/login", json={"email": email, "password": password}).status_code == 200
+        csrf = client.get("/v1/auth/csrf-token").json()["data"]["csrf_token"]
+        unk = client.post(
+            "/v1/auth/me/persona",
+            json={"persona_id": "nguoi_la"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert unk.status_code == 400
+        assert unk.json()["error"]["code"] == "persona_unknown"
