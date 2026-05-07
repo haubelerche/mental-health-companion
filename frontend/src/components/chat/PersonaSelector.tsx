@@ -6,6 +6,9 @@ import { personasService } from '../../services/personasService'
 import { ApiRequestError } from '../../api/types'
 import { ROUTE_PATHS } from '../../routes/paths'
 
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
+
 const PERSONA_ORDER = ['ban_than', 'nguoi_thay', 'cun', 'meo', 'crush'] as const
 
 const PERSONA_LABEL: Record<string, string> = {
@@ -21,6 +24,7 @@ type Props = {
 }
 
 export default function PersonaSelector({ onSelect }: Props) {
+    const navigate = useNavigate()
     const [progress, setProgress] = useState<PersonaProgress[]>([])
     const [activePersonaId, setActivePersonaId] = useState<string>('ban_than')
     const [loading, setLoading] = useState(true)
@@ -28,9 +32,7 @@ export default function PersonaSelector({ onSelect }: Props) {
 
     const selectablePersonas = useMemo(() => {
         const byId = new Map(progress.map((p) => [p.persona_id, p]))
-        return PERSONA_ORDER.map((id) => byId.get(id)).filter(
-            (p): p is PersonaProgress => Boolean(p && (p.is_core || p.unlocked)),
-        )
+        return PERSONA_ORDER.map((id) => byId.get(id)).filter((p): p is PersonaProgress => Boolean(p))
     }, [progress])
 
     useEffect(() => {
@@ -58,6 +60,14 @@ export default function PersonaSelector({ onSelect }: Props) {
     async function handleSelect(personaId: string) {
         if (personaId === activePersonaId) return
         setError(null)
+
+        const p = selectablePersonas.find(x => x.persona_id === personaId)
+        if (p && !p.is_core && !p.unlocked) {
+            toast.info('Nhân vật này chưa mở khoá. Hãy đến Cửa hàng Thưởng để mở nhé!')
+   
+            return
+        }
+
         try {
             const res = await personasService.select(personaId)
             setActivePersonaId(res.persona_id || personaId)
@@ -87,7 +97,7 @@ export default function PersonaSelector({ onSelect }: Props) {
             >
                 {selectablePersonas.map((p) => (
                     <option key={p.persona_id} value={p.persona_id}>
-                        {PERSONA_LABEL[p.persona_id] ?? p.persona_id}
+                        {PERSONA_LABEL[p.persona_id] ?? p.persona_id} {(!p.is_core && !p.unlocked) ? ' (🔒)' : ''}
                     </option>
                 ))}
             </select>
