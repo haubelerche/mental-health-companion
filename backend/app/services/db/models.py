@@ -32,9 +32,19 @@ except ImportError:  # pragma: no cover
     Vector = None
 
 try:
-    from sqlalchemy.dialects.postgresql import JSONB
+    from sqlalchemy.dialects.postgresql import INET as PG_INET
+    from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB
 except ImportError:  # pragma: no cover
-    JSONB = SAJSON
+    PG_INET = None
+    PG_JSONB = None
+
+JSONB_COMPAT = SAJSON()
+if PG_JSONB is not None:  # pragma: no branch
+    JSONB_COMPAT = JSONB_COMPAT.with_variant(PG_JSONB(astext_type=Text()), "postgresql")
+
+INET_COMPAT = String(45)
+if PG_INET is not None:  # pragma: no branch
+    INET_COMPAT = INET_COMPAT.with_variant(PG_INET(), "postgresql")
 
 
 class User(Base):
@@ -81,7 +91,7 @@ class RefreshToken(Base):
     token_id: Mapped[str] = mapped_column(String(50), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
     token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    ip_address: Mapped[str | None] = mapped_column(String(45))
+    ip_address: Mapped[str | None] = mapped_column(INET_COMPAT)
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
@@ -344,7 +354,7 @@ class SessionSummaryArchive(Base):
     session_id: Mapped[Optional[str]] = mapped_column(
         String, ForeignKey("conversations.session_id", ondelete="SET NULL"), nullable=True
     )
-    summary: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    summary: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, nullable=False)
     session_started_at: Mapped[Optional[datetime]] = mapped_column(
         TIMESTAMP(timezone=True), nullable=True
     )
@@ -375,7 +385,7 @@ class RiskInferenceLog(Base):
         nullable=True,
     )
     detail: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, default=dict, server_default="{}", nullable=False
+        JSONB_COMPAT, default=dict, server_default="{}", nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), default=func.now(), server_default=func.now(), nullable=False
@@ -412,7 +422,7 @@ class SessionRiskSnapshot(Base):
         Boolean, default=False, server_default="false", nullable=False
     )
     components: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, default=dict, server_default="{}", nullable=False
+        JSONB_COMPAT, default=dict, server_default="{}", nullable=False
     )
     source: Mapped[str] = mapped_column(
         String(20),
@@ -447,7 +457,7 @@ class AnalystSignal(Base):
     suggested_focus: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     clinical_note_internal: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     risk_indicators: Mapped[list[Any]] = mapped_column(
-        JSONB, default=list, server_default="[]", nullable=False
+        JSONB_COMPAT, default=list, server_default="[]", nullable=False
     )
     distress_score: Mapped[Optional[float]] = mapped_column(
         Float,
@@ -502,7 +512,7 @@ class InsightHypothesis(Base):
     title: Mapped[str] = mapped_column(String, nullable=False)
     user_safe_summary: Mapped[str] = mapped_column(Text, nullable=False)
     internal_rationale: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, default=dict, server_default="{}", nullable=False
+        JSONB_COMPAT, default=dict, server_default="{}", nullable=False
     )
     evidence_window_start: Mapped[Optional[datetime]] = mapped_column(
         TIMESTAMP(timezone=True), nullable=True

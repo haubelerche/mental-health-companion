@@ -4,9 +4,13 @@ export type AppearanceMode = 'light' | 'dark'
 export type AppSettings = {
     theme: ThemeOption
     mode: AppearanceMode
+    /** Client-only display preference. Must not be treated as clinical, reward, profile, or backend consent state. */
     maskIdentity: boolean
+    /** Client-only UI preference for local sharing affordances; backend data-sharing consent must use an API contract. */
     shareData: boolean
+    /** Client-only notification display preference; persisted notification history lives on the backend. */
     reminder: boolean
+    /** Client-only summary display preference; analytical summaries must be fetched from the backend. */
     weeklySummary: boolean
 }
 
@@ -63,10 +67,19 @@ export function saveAppSettings(settings: AppSettings) {
         return
     }
 
-    window.localStorage.setItem(APP_SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+    const uiOnlySettings: AppSettings = {
+        theme: settings.theme,
+        mode: settings.mode,
+        maskIdentity: settings.maskIdentity,
+        shareData: settings.shareData,
+        reminder: settings.reminder,
+        weeklySummary: settings.weeklySummary,
+    }
+
+    window.localStorage.setItem(APP_SETTINGS_STORAGE_KEY, JSON.stringify(uiOnlySettings))
     window.dispatchEvent(
         new CustomEvent<AppSettings>(APP_SETTINGS_UPDATED_EVENT, {
-            detail: settings,
+            detail: uiOnlySettings,
         }),
     )
 }

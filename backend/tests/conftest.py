@@ -9,8 +9,10 @@ from unittest.mock import patch
 
 import pytest
 from sqlalchemy import create_engine
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
+from sqlalchemy.pool import NullPool
 
 _THIS = Path(__file__).resolve().parent
 _BACKEND_ROOT = _THIS.parent
@@ -82,7 +84,8 @@ def real_db_url() -> str:
 def real_engine(real_db_url: str):
     engine = create_engine(
         real_db_url,
-        connect_args={"options": "-csearch_path=app,public,extensions", "connect_timeout": 15},
+        connect_args={"options": "-c search_path=app,public,extensions", "connect_timeout": 15},
+        poolclass=NullPool,
     )
     yield engine
     engine.dispose()
@@ -92,9 +95,18 @@ def real_engine(real_db_url: str):
 def real_db(real_engine):
     SessionLocal = sessionmaker(bind=real_engine)
     session = SessionLocal()
+    opened = False
     try:
-        session.execute(text("SET search_path TO app, public, extensions"))
+        try:
+            session.execute(text("SET search_path TO app, public, extensions"))
+            opened = True
+        except OperationalError as exc:
+            session.close()
+            if "EMAXCONNSESSION" in str(exc) or "max clients reached" in str(exc):
+                pytest.skip(f"real DB unavailable: Supabase session pool exhausted: {exc}")
+            raise
         yield session
     finally:
-        session.rollback()
-        session.close()
+        if opened:
+            session.rollback()
+            session.close()

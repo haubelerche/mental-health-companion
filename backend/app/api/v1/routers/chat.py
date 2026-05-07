@@ -154,7 +154,7 @@ def _record_sos_side_effects(
             log_id=make_id("cl"),
             session_id=session_id,
             user_id=user_id,
-            muc_do="cao",
+            severity_level="high",
             context_summary=context_summary[:2000],
             reviewed=False,
         )
@@ -201,7 +201,7 @@ def _queue_human_review(
         log_id=make_id("cl"),
         session_id=session_id,
         user_id=user_id,
-        muc_do="cao",
+        severity_level="high",
         context_summary=f"[pending_review distress={distress_score:.2f}] {mask_pii(message)[:1800]}",
         reviewed=False,
     )

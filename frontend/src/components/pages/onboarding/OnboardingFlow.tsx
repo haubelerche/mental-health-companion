@@ -499,14 +499,6 @@ export function OnboardingFlow() {
         }
         try {
             await onboardingService.complete(payload)
-            try {
-                localStorage.setItem(
-                    'serene_onboarding',
-                    JSON.stringify({ ...payload, completedAt: new Date().toISOString(), skipped: false }),
-                )
-            } catch {
-                // ignore storage failures
-            }
             markOnboardingCompleted(false)
             navigate(ROUTE_PATHS.home, { replace: true })
         } finally {
