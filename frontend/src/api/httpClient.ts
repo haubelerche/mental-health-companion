@@ -48,10 +48,84 @@ function isEnvelope<T>(value: unknown): value is ApiEnvelope<T> {
 
 async function parseJsonSafely(response: Response): Promise<unknown> {
     try {
-        return await response.json()
+        return await response.clone().json()
     } catch {
         return null
     }
+}
+
+let isRefreshing = false
+let refreshSubscribers: ((error: Error | null) => void)[] = []
+
+function onRefreshed(error: Error | null) {
+    refreshSubscribers.forEach((cb) => cb(error))
+    refreshSubscribers = []
+}
+
+async function fetchWithRetry(url: string, options: RequestInit, path: string): Promise<Response> {
+    let response = await fetch(url, options)
+
+    if (
+        response.status === 401 &&
+        !path.startsWith('/auth/')
+    ) {
+        if (!isRefreshing) {
+            isRefreshing = true
+            try {
+                const token = await ensureCsrfToken()
+                const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'X-CSRF-Token': token,
+                    },
+                })
+
+                if (refreshResponse.ok) {
+                    onRefreshed(null)
+                    // Update CSRF token if the original request used it
+                    if (options.headers) {
+                        const headers = new Headers(options.headers)
+                        if (headers.has('X-CSRF-Token')) {
+                            headers.set('X-CSRF-Token', await ensureCsrfToken())
+                            options.headers = headers
+                        }
+                    }
+                    response = await fetch(url, options)
+                } else {
+                    const error = new Error('Refresh token expired')
+                    onRefreshed(error)
+                }
+            } catch (error) {
+                onRefreshed(error as Error)
+            } finally {
+                isRefreshing = false
+            }
+        } else {
+            return new Promise<Response>((resolve, reject) => {
+                refreshSubscribers.push(async (error) => {
+                    if (error) {
+                        resolve(response)
+                    } else {
+                        try {
+                            if (options.headers) {
+                                const headers = new Headers(options.headers)
+                                if (headers.has('X-CSRF-Token')) {
+                                    headers.set('X-CSRF-Token', await ensureCsrfToken())
+                                    options.headers = headers
+                                }
+                            }
+                            resolve(await fetch(url, options))
+                        } catch (err) {
+                            reject(err)
+                        }
+                    }
+                })
+            })
+        }
+    }
+
+    return response
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -62,11 +136,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
     let response: Response
     try {
-        response = await fetch(`${API_BASE_URL}${path}`, {
+        response = await fetchWithRetry(`${API_BASE_URL}${path}`, {
             credentials: 'include',
             ...init,
             headers,
-        })
+        }, path)
     } catch (err) {
         const isNetwork =
             err instanceof TypeError ||
@@ -162,13 +236,13 @@ async function postStreamWithCsrf(path: string, body?: unknown, init: RequestIni
     headers.set('Content-Type', 'application/json')
     headers.set('X-CSRF-Token', token)
 
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetchWithRetry(`${API_BASE_URL}${path}`, {
         method: 'POST',
         credentials: 'include',
         body: body !== undefined ? JSON.stringify(body) : undefined,
         ...init,
         headers,
-    })
+    }, path)
     return response
 }
 
