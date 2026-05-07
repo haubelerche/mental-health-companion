@@ -75,6 +75,7 @@ export default function AdminCrisisLogs() {
             setLogs((prev) => prev.map((item) => (item.log_id === logId ? { ...item, reviewed } : item)))
             toast.success('Đã cập nhật trạng thái.')
         } catch (err) {
+            if (err instanceof ApiRequestError && err.handledByModal) return
             if (err instanceof ApiRequestError) toast.error(err.message)
             else toast.error('Không thể cập nhật.')
         } finally {
