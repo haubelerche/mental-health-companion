@@ -138,6 +138,10 @@ class AdminResourceUpdateRequest(BaseModel):
     tags: list[str] | None = None
     is_active: bool | None = None
 
+class AdminAgentCrawlRequest(BaseModel):
+    category: str = Field(min_length=1, max_length=50)
+    limit: int = Field(default=5, ge=1, le=50)
+
 
 class ClinicsRequest(BaseModel):
     lat: float | None = Field(default=None, ge=-90, le=90)
