@@ -30,7 +30,7 @@ export function ChatHistoryModal({ open, loading, sessions, onClose, onSelectSes
             shouldCloseOnEsc
             shouldCloseOnOverlayClick
             contentLabel="Lịch sử chat"
-            className="relative z-10 w-full max-w-2xl overflow-hidden rounded-[28px] border border-theme-border/50 bg-theme-surface shadow-md outline-none"
+            className="relative z-10 w-full max-w-2xl overflow-hidden rounded-[28px] border border-theme-border bg-theme-surface shadow-md outline-none"
             overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
         >
             <div>
@@ -66,7 +66,7 @@ export function ChatHistoryModal({ open, loading, sessions, onClose, onSelectSes
                                     key={sess.session_id}
                                     type="button"
                                     onClick={() => onSelectSession(sess.session_id)}
-                                    className="w-full rounded-2xl border border-theme-border/20 bg-theme-surface/70 px-4 py-3 text-left transition hover:bg-theme-accent/20 hover:border-theme-border/35"
+                                    className="w-full rounded-2xl border border-theme-border bg-theme-surface/50 px-4 py-3 text-left transition hover:bg-theme-accent/20 hover:border-theme-border/35"
                                 >
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="min-w-0 flex-1">

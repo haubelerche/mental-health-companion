@@ -7,6 +7,8 @@ import { toast } from 'react-toastify'
 import { ChevronLeft, Info } from 'lucide-react'
 import { StreakCelebration } from './StreakCelebration'
 import { MoodWordChips } from './MoodWordChips'
+import bg from '../../assets_gif/3.gif'
+import { useThemeContext } from '../../contexts/ThemeContext'
 
 export type CheckinLocationState = {
   moodWords?: string[]
@@ -90,6 +92,8 @@ const TRIGGER_TAGS = [
 export function CheckinFlow() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { effectiveTheme } = useThemeContext()
+  const isDark = effectiveTheme === 'dark'
   const [step, setStep] = useState<Step>('mood')
   const [selectedMood, setSelectedMood] = useState<MoodKey | null>(null)
   const [moodWords, setMoodWords] = useState<string[]>([])
@@ -149,18 +153,24 @@ export function CheckinFlow() {
     VI_MOOD_WORD_TO_KEY[word] ?? selectedMood ?? 'fine'
 
   return (
-    <div className="min-h-screen bg-theme-surface/65 px-4 pb-12 pt-7 backdrop-blur-xl sm:px-6">
-      <StreakCelebration
-        open={showStreak}
-        streakDays={checkinStreak?.current ?? 0}
-        heartsEarned={checkinReward?.amount ?? 0}
-        onClose={() => setShowStreak(false)}
-        onClaim={() => {
-          setShowStreak(false)
-          navigate(ROUTE_PATHS.home)
-        }}
-      />
-      <AnimatePresence mode="wait">
+    <div className="relative min-h-screen overflow-hidden text-theme-text-primary">
+      <div className="fixed inset-0 z-0">
+          <img src={bg} alt="Background" className="h-full w-full object-cover" />
+          <div className={`absolute inset-0 ${isDark ? 'bg-theme-bg-primary/60' : 'bg-theme-surface/40'} backdrop-blur-sm`} />
+      </div>
+      
+      <div className="relative z-10 px-4 pb-12 pt-7 sm:px-6">
+        <StreakCelebration
+          open={showStreak}
+          streakDays={checkinStreak?.current ?? 0}
+          heartsEarned={checkinReward?.amount ?? 0}
+          onClose={() => setShowStreak(false)}
+          onClaim={() => {
+            setShowStreak(false)
+            navigate(ROUTE_PATHS.home)
+          }}
+        />
+        <AnimatePresence mode="wait">
         {step === 'mood' && (
           <motion.div key="mood" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mx-auto w-full max-w-[460px]">
             <header className="mb-5 flex items-center justify-between">
@@ -328,6 +338,7 @@ export function CheckinFlow() {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </div>
   )
 }

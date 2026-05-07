@@ -9,6 +9,7 @@ import {
     Music,
     Paperclip,
     Play,
+    Send,
     Sprout,
     UserRound,
     Wind,
@@ -856,10 +857,10 @@ export default function Chat() {
     // ─── Render ────────────────────────────────────────────────────────────────
     return (
         <div>
-            <div className="h-[92dvh] flex flex-col bg-theme-surface/80 backdrop-blur-3xl rounded-[2.5rem] p-4 shadow-xl border border-theme-border/50">
+            <div className="h-[92dvh] flex flex-col bg-theme-surface/80 backdrop-blur-3xl rounded-4xl p-4 shadow-xl border border-theme-border/50">
 
                 {/* ── Header ───────────────────────────────────────────── */}
-                <div className="flex shrink-0 items-center justify-between mb-3 border-b border-theme-border/50 px-5 py-3">
+                <div className="flex shrink-0 items-center justify-between mb-3 border-b border-theme-accent/10 px-5 py-3">
                     <div className="flex items-center gap-3">
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-theme-accent/20 text-theme-accent">
                             <Leaf className="h-7 w-7" aria-hidden />
@@ -950,7 +951,7 @@ export default function Chat() {
 
                 {/* ── Tab bar (Chat / Ký ức) — chỉ hiện khi đăng nhập ───────────────── */}
                 {!isGuestMode && (
-                    <div className="flex shrink-0 gap-1 border-b border-theme-border/30 px-5 pb-0">
+                    <div className="flex shrink-0 gap-1 px-5 pb-0">
                         {(['chat', 'memory'] as const).map((tab) => (
                             <button
                                 key={tab}
@@ -1074,7 +1075,7 @@ export default function Chat() {
                 {/* ── Input bar ─────────────────────────────────────────── */}
                 <form
                     onSubmit={handleSend}
-                    className="sticky bottom-15 rounded-full bg-theme-surface px-4 py-3 backdrop-blur-sm border border-theme-border/50 shadow-2xl"
+                    className="sticky bottom-15 rounded-full bg-theme-surface px-4 py-2 backdrop-blur-sm border border-theme-border/50 shadow-xl "
                 >
                     {/* overlay */}
 
@@ -1084,14 +1085,14 @@ export default function Chat() {
                             onChange={(e) => setInput(e.target.value)}
                             disabled={isGuestMode && guestSecondsLeft <= 0}
                             placeholder="Chia sẻ điều bạn đang cảm thấy..."
-                            className="flex-1 rounded-full bg-transparent px-4 py-3 text-md text-theme-text-primary focus:outline-none"
+                            className="flex-1 rounded-full  px-4 py-3 text-md text-theme-text-primary focus:outline-none"
                         />
                         <button
                             type="submit"
                             disabled={!canSend}
-                            className="shrink-0 rounded-full bg-theme-accent px-5 py-2.5 font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="shrink-0 rounded-full bg-theme-accent px-5 py-2 font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                            {sending ? '···' : 'Gửi'}
+                            <Send className='w-5 h-5'/>
                         </button>
                     </div>
                 </form>

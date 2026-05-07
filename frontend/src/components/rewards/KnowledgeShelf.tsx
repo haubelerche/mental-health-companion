@@ -13,7 +13,7 @@ export default function KnowledgeShelf({ shelf, balance, ownedItemIds, onPurchas
 
     return (
         <section className="mb-6 p-3">
-            <h2 className="mb-4 text-lg font-display font-semibold text-theme-text-primary">
+            <h2 className="mb-4 text-2xl font-display font-semibold text-theme-text-primary text-shadow-2xl">
                 Tri thức của Người đồng hành
             </h2>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">

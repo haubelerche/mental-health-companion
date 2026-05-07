@@ -73,7 +73,7 @@ export default function NotificationsPage() {
     text: 'text-theme-primary',
     subtext: 'text-theme-secondary',
     card: 'bg-theme-surface border-slate-700/50',
-    unread: 'bg-theme-accent/10 border-l-4 border-l-indigo-500',
+    unread: 'bg-theme-accent/10 border-l-5 border-l-theme-accent',
   }
 
   if (loading) return <Loading />
@@ -85,7 +85,7 @@ export default function NotificationsPage() {
         {unreadCount > 0 && (
           <button 
             onClick={handleMarkAllAsRead}
-            className="text-sm font-medium text-indigo-500 hover:text-indigo-600 transition-colors"
+            className="text-sm font-medium text-theme-accent hover:text-serene-secondary transition-colors"
           >
             Đánh dấu đã đọc tất cả
           </button>
@@ -109,7 +109,7 @@ export default function NotificationsPage() {
                   className={`p-4 rounded-2xl border transition-all cursor-pointer ${n.is_read ? ui.card : ui.unread} hover:shadow-lg`}
                 >
                   <div className="flex justify-between items-start mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
+                    <span className="text-xs font-bold uppercase tracking-wider text-shadow-theme-surface">
                       {n.notification_type?.replace('.', ' • ') || 'Thông báo'}
                     </span>
                     <span className={`text-[10px] ${ui.subtext}`}>
@@ -121,8 +121,8 @@ export default function NotificationsPage() {
                   
                   {!n.is_read && (
                     <div className="mt-3 flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-                      <span className="text-[10px] font-medium text-indigo-500">Mới</span>
+                      <div className="w-3 h-3 rounded-full bg-theme-accent animate-pulse" />
+                      <span className="text-sm font-medium text-sern-primary">Mới</span>
                     </div>
                   )}
                 </div>

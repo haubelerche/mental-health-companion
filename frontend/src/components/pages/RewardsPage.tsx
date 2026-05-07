@@ -6,13 +6,16 @@ import KnowledgeShelf from '../rewards/KnowledgeShelf'
 import HeartBalanceBadge from '../rewards/HeartBalanceBadge'
 import { ApiRequestError } from '../../api/types'
 import Loading from '../ui/Loading'
-
+import { useThemeContext } from '../../contexts/ThemeContext'
+import bg from '../../assets/nen2.gif'
 export default function RewardsPage() {
     const [shelves, setShelves] = useState<RewardShelfType[]>([])
     const [balance, setBalance] = useState(0)
     const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set())
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
 
     useEffect(() => {
         let cancelled = false
@@ -54,11 +57,18 @@ export default function RewardsPage() {
     }
 
     return (
-        <div className="max-w-5xl mx-auto px-4 py-6 bg-theme-surface/60 rounded-4xl backdrop-blur-sm">
-            <div className="flex items-center justify-between mb-6">
-                <h1 className="text-xl font-bold text-theme-text-primary">Thưởng</h1>
-                <HeartBalanceBadge balance={balance} />
+        <div className="relative min-h-screen overflow-hidden text-theme-text-primary">
+            <div className="fixed inset-0 z-0">
+                <img src={bg} alt="Background" className="h-full w-full object-cover" />
+                <div className={`absolute inset-0`} />
             </div>
+            <div className="relative z-10 mx-auto max-w-5xl px-4 py-6 md:py-8">
+                <div className="rounded-[2.5rem] bg-theme-surface/85 backdrop-blur-xs p-6 md:p-8">
+                    <div className="mb-6 flex items-center justify-between">
+                        <div />
+                        <h1 className="font-display text-center text-3xl font-bold text-theme-text-primary text-shadow-2xl">Cửa hàng vật phẩm</h1>
+                        <HeartBalanceBadge balance={balance} />
+                    </div>
 
             {shelves.map((shelf) => {
                 if (shelf.shelf === 'knowledge') {
@@ -84,8 +94,10 @@ export default function RewardsPage() {
             })}
 
             {shelves.length === 0 && (
-                <p className="text-sm text-gray-400">Cửa hàng chưa có mặt hàng nào.</p>
+                <p className="text-sm text-theme-text-secondary">Cửa hàng chưa có mặt hàng nào.</p>
             )}
+                </div>
+            </div>
         </div>
     )
 }

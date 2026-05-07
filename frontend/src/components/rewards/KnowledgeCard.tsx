@@ -28,10 +28,10 @@ export default function KnowledgeCard({ item, balance, owned, onPurchase }: Prop
     }
 
     return (
-        <div className={`relative flex flex-col gap-3 rounded-2xl border p-4 shadow-sm transition-all ${isDark ? 'border-theme-border/30 bg-theme-surface/40 hover:bg-theme-surface/60' : 'border-serene-border/40 bg-white/60 hover:bg-white'} overflow-hidden`}>
+        <div className={`relative flex flex-col gap-3 rounded-2xl border p-4 shadow-xl transition-all hover:-translate-y-1 hover:shadow-md border-theme-text-secondary bg-theme-surface overflow-hidden`}>
             {owned && (
                 <div className="absolute right-0 top-0 rounded-bl-xl bg-theme-accent/20 px-3 py-1 backdrop-blur-sm">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-theme-accent">Đã mở khoá</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-theme-accent">Đã sở hữu</span> 
                 </div>
             )}
             
@@ -50,7 +50,7 @@ export default function KnowledgeCard({ item, balance, owned, onPurchase }: Prop
             </div>
 
             <div className="mt-2 flex items-center justify-between border-t border-theme-border/20 pt-3">
-                <div className={`flex items-center gap-1.5 text-sm font-bold ${isDark ? 'text-rose-300' : 'text-rose-500'}`}>
+                <div className={`flex items-center gap-1.5 text-sm font-bold text-rose-400`}>
                     {item.price_hearts.toLocaleString('vi-VN')} <Heart className="h-4 w-4" />
                 </div>
                 
