@@ -27,6 +27,11 @@ import AdminLogin from '../components/admin/AdminLogin.tsx'
 import AdminDashboard from '../components/admin/AdminDashboard'
 import AdminCrisisLogs from '../components/admin/AdminCrisisLogs'
 import AdminResources from '../components/admin/AdminResources'
+import AdminUsers from '../components/admin/AdminUsers'
+import AdminAnalytics from '../components/admin/AdminAnalytics'
+import AdminLetters from '../components/admin/AdminLetters'
+import AdminAuditLogs from '../components/admin/AdminAuditLogs'
+import AdminNotifications from '../components/admin/AdminNotifications.tsx'
 import AdminMain from '../components/admin/layout/AdminMain.tsx'
 import Home from '../components/pages/Home.tsx'
 import RewardsPage from '../components/pages/RewardsPage.tsx'
@@ -72,6 +77,11 @@ export default function AppRoutes() {
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="crisis-logs" element={<AdminCrisisLogs />} />
                 <Route path="resources" element={<AdminResources />} />
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="letters" element={<AdminLetters />} />
+                <Route path="audit-logs" element={<AdminAuditLogs />} />
+                <Route path="notifications" element={<AdminNotifications />} />
+                <Route path="analytics" element={<AdminAnalytics />} />
             </Route>
 
             {/* user */}
