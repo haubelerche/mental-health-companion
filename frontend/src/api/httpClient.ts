@@ -34,6 +34,8 @@ export function resolveMediaUrl(path: string): string {
 
 let csrfToken: string | null = null
 let lastUnauthorizedAt = 0
+let isRefreshing = false
+let refreshQueue: Array<(success: boolean) => void> = []
 
 function readCookie(name: string): string | null {
     if (typeof document === 'undefined') return null
@@ -83,16 +85,61 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const payload = await parseJsonSafely(response)
 
     if (!response.ok) {
-        if (response.status === 401 && typeof window !== 'undefined') {
-            const now = Date.now()
-            // Debounce unauthorized broadcast to avoid event storms when many calls fail together.
-            if (now - lastUnauthorizedAt > 1200) {
-                lastUnauthorizedAt = now
-                window.dispatchEvent(
-                    new CustomEvent<{ path: string; status: number }>(HTTP_UNAUTHORIZED_EVENT, {
-                        detail: { path, status: response.status },
-                    }),
-                )
+        if (response.status === 401) {
+            const isAuthEndpoint =
+                path.includes('/auth/refresh') || path.includes('/auth/login') || path.includes('/auth/logout')
+            const isAdminEndpoint = path.includes('/admin')
+
+            // 1. Nếu là User bình thường (không phải admin) và không phải đang login/refresh -> Thử auto-refresh
+            if (!isAuthEndpoint && !isAdminEndpoint) {
+                if (isRefreshing) {
+                    return new Promise((resolve, reject) => {
+                        refreshQueue.push((success) => {
+                            if (success) resolve(request<T>(path, init))
+                            else
+                                reject(
+                                    new ApiRequestError('Phiên đăng nhập hết hạn', {
+                                        status: 401,
+                                        code: 'AUTH_REFRESH_FAILED',
+                                    }),
+                                )
+                        })
+                    })
+                }
+
+                isRefreshing = true
+                try {
+                    // Gọi refresh token endpoint (sẽ trả về access_token mới qua cookie)
+                    await postWithCsrf('/auth/refresh')
+                    isRefreshing = false
+
+                    // Chạy tiếp các request đang đợi
+                    const callbacks = [...refreshQueue]
+                    refreshQueue = []
+                    callbacks.forEach((cb) => cb(true))
+
+                    // Thử lại request hiện tại
+                    return request<T>(path, init)
+                } catch (refreshErr) {
+                    isRefreshing = false
+                    const callbacks = [...refreshQueue]
+                    refreshQueue = []
+                    callbacks.forEach((cb) => cb(false))
+                    // Refresh thất bại -> Tiếp tục xử lý lỗi 401 gốc
+                }
+            }
+
+            // 2. Nếu là Admin hoặc Refresh thất bại -> Phát sự kiện 401 để UI xử lý (hiện modal hoặc văng)
+            if (typeof window !== 'undefined') {
+                const now = Date.now()
+                if (now - lastUnauthorizedAt > 1200) {
+                    lastUnauthorizedAt = now
+                    window.dispatchEvent(
+                        new CustomEvent<{ path: string; status: number }>(HTTP_UNAUTHORIZED_EVENT, {
+                            detail: { path, status: response.status },
+                        }),
+                    )
+                }
             }
         }
 
