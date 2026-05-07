@@ -435,7 +435,7 @@ export default function Reflect() {
                             </section>
                         )}
 
-                        <section className={`mt-6 rounded-3xl border-l-4 ${isDark ? 'border-theme-accent bg-theme-accent/10 shadow-sm' : 'border-serene-primary bg-serene-primary/5'} p-4 md:p-6`}>
+                        <section className={`my-6 rounded-3xl border-l-4 ${isDark ? 'border-theme-accent bg-theme-accent/10 shadow-sm' : 'border-serene-primary bg-serene-primary/5'} p-4 md:p-6`}>
                             <div className="mb-4 flex items-center gap-3">
                                 <div className={`rounded-full ${isDark ? 'bg-theme-accent/20 text-theme-accent' : 'bg-theme-accent/10 p-2.5 text-theme-accent'} p-2.5`}>
                                     <Sparkles className="h-5 w-5" />
@@ -450,97 +450,6 @@ export default function Reflect() {
                                     : `“${weeklyNote?.content || 'Bạn đang duy trì nỗ lực rất tốt. Hãy tiếp tục giữ nhịp nghỉ ngơi và chăm sóc bản thân.'}”`}
                             </p>
                         </section>
-
-                        <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-5">
-                            <div className={`rounded-3xl border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-theme-border/20 bg-white/30'} p-4 backdrop-blur-md lg:col-span-2 md:p-6 shadow-sm`}>
-                                <div className="mb-5 flex items-center justify-between gap-4">
-                                    <div className="flex items-center gap-3">
-                                        <Leaf className={`h-4 w-4 ${isDark ? 'text-theme-accent' : 'text-primary'}`} />
-                                        <h3 className={`font-display text-xl ${isDark ? 'text-theme-text-primary' : 'text-serene-primary'}`}>Nhật ký gần đây</h3>
-                                    </div>
-                                    <span className={`text-[10px] uppercase tracking-widest ${isDark ? 'text-theme-text-secondary/60' : 'text-serene-primary/50'}`}>
-                                        {recentJournal?.created_at
-                                            ? new Date(recentJournal.created_at).toLocaleDateString('vi-VN')
-                                            : 'Chưa có'}
-                                    </span>
-                                </div>
-
-                                <blockquote className={`mb-5 font-display text-lg italic leading-relaxed ${isDark ? 'text-theme-text-primary' : 'text-serene-primary-dim'} md:text-2xl`}>
-                                    {recentJournal
-                                        ? `“${recentJournal.content_preview}”`
-                                        : '“Hãy viết vài dòng cảm nhận để hệ thống hiểu bạn sâu hơn.”'}
-                                </blockquote>
-
-                                <button
-                                    type="button"
-                                    onClick={() => navigate(ROUTE_PATHS.reflect)}
-                                    className={`inline-flex items-center gap-2 text-xs uppercase tracking-widest ${isDark ? 'text-theme-accent' : 'text-serene-primary'} transition-transform hover:translate-x-0.5`}
-                                >
-                                    Đọc toàn bộ
-                                    <ArrowRight className="h-4 w-4" />
-                                </button>
-                            </div>
-
-                            <aside className={`rounded-3xl border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-theme-border/20 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
-                                <h3 className={`mb-5 font-display text-xl ${isDark ? 'text-theme-text-primary' : 'text-serene-primary'}`}>Bài tập nhanh</h3>
-                                <div className="space-y-3">
-                                    {quickExercises.map((exercise) => {
-                                        const Icon = exercise.icon
-
-                                        return (
-                                            <button
-                                                key={exercise.title}
-                                                type="button"
-                                                className={`group flex w-full items-center gap-3 rounded-full ${isDark ? 'bg-theme-surface/60 hover:bg-theme-accent/10 border border-theme-border/30 shadow-sm' : 'bg-white hover:bg-white/60'} p-3 text-left transition-all`}
-                                            >
-                                                <div className={`flex h-9 w-9 items-center justify-center rounded-full ${isDark ? 'bg-theme-surface/80 text-theme-accent shadow-inner' : exercise.tone} `}>
-                                                    <Icon className="h-4 w-4" />
-                                                </div>
-                                                <div>
-                                                    <p className={`text-[13px] font-bold ${isDark ? 'text-theme-text-primary' : 'text-serene-primary'}`}>{exercise.title}</p>
-                                                    <p className={`text-[10px] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary'}`}>{exercise.duration}</p>
-                                                </div>
-                                                <ChevronRight className={`ml-auto h-4 w-4 ${isDark ? 'text-theme-text-secondary/40' : 'text-serene-primary/30'} transition-transform group-hover:translate-x-1`} />
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                                <div className={`mt-4 rounded-2xl ${isDark ? 'bg-theme-surface/40 border border-theme-border/20' : 'bg-black/5'} p-3 text-[11px] ${isDark ? 'text-theme-text-secondary' : 'text-serene-muted'}`}>
-                                    <p>Tỷ lệ coping hiệu quả (tự báo cáo): {formatPercent(reflectSummary?.progress.effective_rate)}</p>
-                                    <p className="mt-2">
-                                        Insight gần đây:{' '}
-                                        {reflectSummary?.top_insights?.length
-                                            ? reflectSummary.top_insights[0].title
-                                            : 'Serene đang chờ thêm check-in hoặc trò chuyện nhẹ'}
-                                    </p>
-                                </div>
-                            </aside>
-                        </section>
-
-                         {/* {prompts.length > 0 && (
-                            <section className="mt-6">
-                                <h3 className={`flex items-center gap-2 font-semibold ${isDark ? 'text-theme-text-primary/90' : 'text-[var(--color-serene-ink)]'} mb-3 text-sm`}>
-                                    <PenLine className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-                                    Gợi ý ghi chép hôm nay
-                                </h3>
-                                <div className="flex flex-col gap-2">
-                                    {prompts.slice(0, 3).map(p => (
-                                        <div
-                                            key={p.id}
-                                            className={`${isDark ? 'bg-theme-surface/60 text-theme-text-secondary border border-theme-border/30' : 'bg-[var(--color-guong-bg)] text-[var(--color-serene-muted)]'} rounded-2xl p-4 text-sm leading-relaxed shadow-sm`}
-                                        >
-                                            {p.text}
-                                        </div>
-                                    ))}
-                                </div>
-                            </section>
-                        )} */}
-
-                        <div className={`mt-6 border-t ${isDark ? 'border-theme-border/50' : 'border-serene-primary/5'} pt-7 text-center`}>
-                            <p className={`font-display text-base italic ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary'} md:text-lg`}>
-                                “Học cách chữa lành là hành trình đẹp đẽ nhất của mỗi con người.”
-                            </p>
-                        </div>
                     </section>
                 </div>
             </div>
