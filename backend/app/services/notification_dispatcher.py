@@ -62,6 +62,11 @@ class NotificationDispatcher:
             "title": "🛡️ Friend luôn ở đây",
             "body": "Mình nhận thấy bạn đang gặp khó khăn. Đừng quên mình luôn sẵn sàng lắng nghe nhé.",
         },
+        "admin.broadcast": {
+            "notification_type": "admin.broadcast",
+            "title": "📢 Thông báo hệ thống",
+            "body": "Bạn có một thông báo mới từ ban quản trị.",
+        },
     }
 
     async def dispatch(self, event: SyncOutbox, db: Session) -> bool:
