@@ -5,8 +5,8 @@ import { checkinService, type CheckinRewardResult, type CheckinStreakResult } fr
 import { ROUTE_PATHS } from '../../routes/paths'
 import { toast } from 'react-toastify'
 import { ChevronLeft, Info } from 'lucide-react'
-import { StreakCelebration } from '../common/StreakCelebration'
-import { MoodWordChips } from '../common/MoodWordChips'
+import { StreakCelebration } from './StreakCelebration'
+import { MoodWordChips } from './MoodWordChips'
 
 export type CheckinLocationState = {
   moodWords?: string[]
@@ -149,7 +149,7 @@ export function CheckinFlow() {
     VI_MOOD_WORD_TO_KEY[word] ?? selectedMood ?? 'fine'
 
   return (
-    <div className="min-h-screen bg-white/45 px-4 pb-12 pt-7 text-serene-ink backdrop-blur-xl sm:px-6">
+    <div className="min-h-screen bg-theme-surface/65 px-4 pb-12 pt-7 backdrop-blur-xl sm:px-6">
       <StreakCelebration
         open={showStreak}
         streakDays={checkinStreak?.current ?? 0}
@@ -164,24 +164,24 @@ export function CheckinFlow() {
         {step === 'mood' && (
           <motion.div key="mood" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mx-auto w-full max-w-[460px]">
             <header className="mb-5 flex items-center justify-between">
-              <button type="button" onClick={() => navigate(ROUTE_PATHS.home)} className="rounded-full p-2 text-serene-muted transition hover:bg-white/60" aria-label="Quay lại trang chủ">
+              <button type="button" onClick={() => navigate(ROUTE_PATHS.home)} className="rounded-full p-2 text-theme-text-primary transition hover:bg-white/60" aria-label="Quay lại trang chủ">
                 <ChevronLeft className="h-6 w-6" />
               </button>
-              <h1 className="text-[2rem] font-semibold leading-none">Check-in cảm xúc</h1>
-              <Info className="h-5 w-5 text-serene-muted" />
+              <h1 className="text-[2rem] font-semibold leading-none ">Check-in cảm xúc</h1>
+              <Info className="h-5 w-5" />
             </header>
 
-            <section className="rounded-[30px] border border-white/45 bg-white/65 p-6 shadow-[0_20px_60px_rgba(72,87,121,0.14)] backdrop-blur-xl">
+            <section className="rounded-[30px] border border-theme-border bg-theme-surface/80 p-6 shadow-md backdrop-blur-xl">
               <h2 className="mb-5 text-4xl font-semibold leading-tight">Tâm trạng hôm nay?</h2>
               <MoodWordChips selected={moodWords} onChange={setMoodWords} />
             </section>
 
-            <p className="mt-5 text-lg text-serene-muted">Chọn một hoặc nhiều từ mô tả đúng nhất cảm giác của bạn lúc này.</p>
+            <p className="mt-5 text-lg text-theme-text-secondary">Chọn một hoặc nhiều từ mô tả đúng nhất cảm giác của bạn lúc này.</p>
             <button
               type="button"
               onClick={goToTriggersFromMood}
               disabled={moodWords.length === 0}
-              className="mt-8 w-full rounded-full bg-serene-primary py-4 text-2xl font-semibold text-serene-on-primary shadow-lg shadow-serene-primary/20 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-8 w-full rounded-full bg-theme-accent py-4 text-2xl font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Tiếp theo
             </button>
@@ -198,7 +198,7 @@ export function CheckinFlow() {
               <Info className="h-5 w-5 text-serene-muted" />
             </header>
 
-            <section className="rounded-[30px] border border-white/45 bg-white/65 p-6 shadow-[0_20px_60px_rgba(72,87,121,0.14)] backdrop-blur-xl">
+            <section className="rounded-[30px] border border-theme-border  bg-theme-surface/80 p-6 shadow-md backdrop-blur-xl">
               <h2 className="mb-5 text-4xl font-semibold leading-tight">Điều gì ảnh hưởng đến bạn hôm nay?</h2>
               <div className="flex flex-wrap gap-2.5">
                 {TRIGGER_TAGS.map((trigger) => {
@@ -212,7 +212,7 @@ export function CheckinFlow() {
                       style={
                         isSelected
                           ? { backgroundColor: MOOD_CATEGORIES[selectedMood].color, color: '#fff' }
-                          : { backgroundColor: 'rgba(255,255,255,0.72)', color: 'var(--color-serene-ink)' }
+                          : { backgroundColor: 'var(--color-theme-surface)', color: 'var(--color-theme-text-secondary)', border: '1px solid var(--color-theme-border) ' }
                       }
                     >
                       {trigger}
@@ -228,7 +228,7 @@ export function CheckinFlow() {
                 rows={4}
                 maxLength={500}
                 placeholder="Ghi lại điều gì đó về khoảnh khắc này..."
-                className="mt-3 w-full resize-none rounded-3xl border border-white/50 bg-white/75 px-4 py-4 text-xl text-serene-ink placeholder:text-serene-muted/60 focus:border-serene-primary/30 focus:outline-none"
+                className="mt-3 w-full resize-none rounded-3xl border border-theme-border bg- theme-surface px-4 py-4 text-xl text-theme-text-secondary placeholder:text-serene-muted/60 focus:border-serene-primary/30 focus:outline-none"
               />
             </section>
 
@@ -237,7 +237,7 @@ export function CheckinFlow() {
                 type="button"
                 onClick={() => setStep('mood')}
                 disabled={loading}
-                className="w-1/3 rounded-full border border-white/50 bg-white/30 py-3 text-lg font-medium text-serene-muted transition hover:bg-white/60 disabled:opacity-50"
+                className="w-1/3 rounded-full border border-theme-border bg-theme-surface py-3 text-lg font-medium text-theme-text-secondary transition hover:bg-theme-surface/80 disabled:opacity-50"
               >
                 Quay lại
               </button>
@@ -245,7 +245,7 @@ export function CheckinFlow() {
                 type="button"
                 onClick={submit}
                 disabled={loading}
-                className="w-2/3 rounded-full bg-serene-primary py-3 text-xl font-semibold text-serene-on-primary shadow-lg shadow-serene-primary/20 transition hover:brightness-105 disabled:opacity-60"
+                className="w-2/3 rounded-full bg-theme-accent py-3 text-xl font-semibold text-white cursor-pointer transition hover:brightness-105 disabled:opacity-60"
               >
                 {loading ? 'Đang lưu...' : 'Lưu lại'}
               </button>

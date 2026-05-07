@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { RewardShelf as RewardShelfType } from '../../services/rewardsService'
 import { rewardsService } from '../../services/rewardsService'
 import RewardShelf from '../rewards/RewardShelf'
+import KnowledgeShelf from '../rewards/KnowledgeShelf'
 import HeartBalanceBadge from '../rewards/HeartBalanceBadge'
 import { ApiRequestError } from '../../api/types'
 import Loading from '../ui/Loading'
@@ -59,15 +60,28 @@ export default function RewardsPage() {
                 <HeartBalanceBadge balance={balance} />
             </div>
 
-            {shelves.map((shelf) => (
-                <RewardShelf
-                    key={shelf.shelf}
-                    shelf={shelf}
-                    balance={balance}
-                    ownedItemIds={ownedIds}
-                    onPurchase={handlePurchase}
-                />
-            ))}
+            {shelves.map((shelf) => {
+                if (shelf.shelf === 'knowledge') {
+                    return (
+                        <KnowledgeShelf
+                            key={shelf.shelf}
+                            shelf={shelf}
+                            balance={balance}
+                            ownedItemIds={ownedIds}
+                            onPurchase={handlePurchase}
+                        />
+                    )
+                }
+                return (
+                    <RewardShelf
+                        key={shelf.shelf}
+                        shelf={shelf}
+                        balance={balance}
+                        ownedItemIds={ownedIds}
+                        onPurchase={handlePurchase}
+                    />
+                )
+            })}
 
             {shelves.length === 0 && (
                 <p className="text-sm text-gray-400">Cửa hàng chưa có mặt hàng nào.</p>
