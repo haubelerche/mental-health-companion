@@ -208,3 +208,7 @@ class LetterReportRequest(BaseModel):
     report_category: str = Field(min_length=1, max_length=30)
     reason: str | None = Field(default=None, max_length=500)
     description: str | None = Field(default=None, max_length=500)
+
+class AdminUserUpdateRequest(BaseModel):
+    is_active: bool | None = None
+    display_name: str | None = Field(default=None, max_length=255)
