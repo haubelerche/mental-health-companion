@@ -18,7 +18,12 @@ def _audit(db: Session, admin_id: str, action: str, request: Request):
             metadata_json={},
         )
     )
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        # Log error but don't crash the request for an audit failure
+        print(f"Audit log failed: {e}")
 
 def _validate_resource_payload(category: str, format_value: str):
     if category not in RESOURCE_CATEGORIES:
