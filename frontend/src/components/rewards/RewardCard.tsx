@@ -1,6 +1,7 @@
-import { Gift } from 'lucide-react'
+import { Gift, Heart } from 'lucide-react'
 import type { RewardStoreItem } from '../../services/rewardsService'
 import { ApiRequestError } from '../../api/types'
+import { useThemeContext } from '@/contexts/ThemeContext'
 
 type Props = {
     item: RewardStoreItem
@@ -24,6 +25,8 @@ export default function RewardCard({ item, balance, owned, onPurchase }: Props) 
     const canAfford = balance >= item.price_hearts
     const requirementsMet = !item.requirements || Object.keys(item.requirements).length === 0
     const disabled = owned || !canAfford || !requirementsMet
+        const { effectiveTheme } = useThemeContext()
+        const isDark = effectiveTheme === 'dark'
 
     async function handleClick() {
         if (disabled) return
@@ -36,16 +39,16 @@ export default function RewardCard({ item, balance, owned, onPurchase }: Props) 
     }
 
     return (
-        <div className="rounded-xl border border-gray-200 bg-white p-4 flex flex-col gap-2 shadow-sm">
+        <div className="rounded-xl border border-theme-surface/20 bg-theme-surface/60 p-4 flex flex-col gap-2 shadow-sm">
             {item.icon_key ? (
-                <Gift className="h-7 w-7 text-indigo-500/90" aria-hidden />
+                <Gift className="h-7 w-7 text-amber-500/90" aria-hidden />
             ) : null}
-            <p className="font-semibold text-gray-900 text-sm">{sanitizeTitle(item.title)}</p>
+            <p className="font-semibold text-theme-text-primary text-sm">{sanitizeTitle(item.title)}</p>
             {item.subtitle && (
-                <p className="text-xs text-gray-500">{item.subtitle}</p>
+                <p className="text-xs text-theme-text-secondary">{item.subtitle}</p>
             )}
-            <p className="text-xs font-medium text-indigo-600 mt-auto">
-                {item.price_hearts.toLocaleString('vi-VN')} Tim
+            <p className={`text-xs font-medium mt-auto flex items-center gap-1 ${isDark ? 'text-rose-300' : 'text-rose-500'}`}>
+                {item.price_hearts.toLocaleString('vi-VN')} <Heart className="h-4 w-4" />
             </p>
             {owned ? (
                 <span className="text-xs text-green-600 font-medium">Đã sở hữu</span>

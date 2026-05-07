@@ -8,6 +8,8 @@ import bg from '../../assets/bg.png'
 import { useAuth } from '../../hooks/useAuth'
 import { authService } from '../../services/authService'
 import { ROUTE_PATHS } from '../../routes/paths'
+import LogoGoogle from '../../assets/icons8-google-logo-100.png'
+import LogoFacebook from '../../assets/icons8-facebook-96.png'
 
 export default function Login() {
     type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
@@ -67,9 +69,6 @@ export default function Login() {
                     <Link to={ROUTE_PATHS.landing} className="auth-brand">
                         Serene
                     </Link>
-                    <p className="auth-brand-sub">
-                        Digital Sanctuary
-                    </p>
                 </div>
 
                 <section className="auth-card max-w-md p-8 sm:p-10">
@@ -82,37 +81,7 @@ export default function Login() {
                         </p>
                     </header>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        <button
-                            type="button"
-                            onClick={() => handleOAuthLogin('google')}
-                            disabled={Boolean(oauthLoading)}
-                            className="inline-flex items-center justify-center gap-3 rounded-full border border-serene-outline/35 bg-white/70 px-5 py-3 text-sm font-medium text-serene-ink transition hover:border-serene-primary/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
-                        >
-                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold text-serene-primary shadow-sm">
-                                G
-                            </span>
-                            {oauthLoading === 'google' ? 'Đang mở Google...' : 'Tiếp tục với Google'}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => handleOAuthLogin('facebook')}
-                            disabled={Boolean(oauthLoading)}
-                            className="inline-flex items-center justify-center gap-3 rounded-full border border-serene-outline/35 bg-white/70 px-5 py-3 text-sm font-medium text-serene-ink transition hover:border-serene-primary/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
-                        >
-                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#1877F2] text-xs font-bold text-white shadow-sm">
-                                f
-                            </span>
-                            {oauthLoading === 'facebook' ? 'Đang mở Facebook...' : 'Tiếp tục với Facebook'}
-                        </button>
-                    </div>
-
-                    <div className="my-8 flex items-center gap-4 text-[10px] uppercase tracking-[0.32em] text-serene-muted/50">
-                        <span className="h-px flex-1 bg-serene-outline/25" />
-                        <span>Hoặc</span>
-                        <span className="h-px flex-1 bg-serene-outline/25" />
-                    </div>
-
+                
                     <form className="space-y-8" onSubmit={handleSubmit}>
                         <div>
                             <label
@@ -166,7 +135,7 @@ export default function Login() {
                             <button
                                 type="submit"
                                 disabled={isLoading || Boolean(oauthLoading)}
-                                className="auth-cta"
+                                className="auth-cta cursor-pointer"
                             >
                                 <span className="inline-flex items-center justify-center gap-2">
                                     {isLoading ? 'Đang đăng nhập...' : 'Bước vào'}
@@ -175,6 +144,33 @@ export default function Login() {
                             </button>
                         </div>
                     </form>
+                    
+                    <div className="my-8 flex items-center gap-4 text-[10px] uppercase tracking-[0.32em] text-serene-muted">
+                        <span className="h-px flex-1 bg-serene-outline" />
+                        <span>Hoặc</span>
+                        <span className="h-px flex-1 bg-serene-outline" />
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                        <button
+                            type="button"
+                            onClick={() => handleOAuthLogin('google')}
+                            disabled={Boolean(oauthLoading)}
+                            className="inline-flex items-center justify-center gap-3 rounded-2xl border border-serene-outline/70 cursor-pointer bg-white/70 px-4 py-2 text-sm font-medium text-serene-ink transition hover:border-serene-primary/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                            <img src={LogoGoogle} alt="Google" className="h-7 w-7" />
+                            {oauthLoading === 'google' ? 'Đang mở Google...' : 'Tiếp tục với Google'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleOAuthLogin('facebook')}
+                            disabled={Boolean(oauthLoading)}
+                            className="inline-flex items-center justify-center gap-3 rounded-2xl border border-serene-outline/70 cursor-pointer bg-white/70 px-4 py-2 text-sm font-medium text-serene-ink transition hover:border-serene-primary/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                            <img src={LogoFacebook} alt="Facebook" className="h-7 w-7" />
+                            {oauthLoading === 'facebook' ? 'Đang mở Facebook...' : 'Tiếp tục với Facebook'}
+                        </button>
+                    </div>
 
                     <footer className="mt-12 text-center">
                         <p className="text-xs tracking-tight text-serene-muted/60">

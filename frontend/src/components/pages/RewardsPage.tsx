@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import type { RewardShelf as RewardShelfType } from '../../services/rewardsService'
 import { rewardsService } from '../../services/rewardsService'
 import RewardShelf from '../rewards/RewardShelf'
+import KnowledgeShelf from '../rewards/KnowledgeShelf'
 import HeartBalanceBadge from '../rewards/HeartBalanceBadge'
 import { ApiRequestError } from '../../api/types'
+import Loading from '../ui/Loading'
 
 export default function RewardsPage() {
     const [shelves, setShelves] = useState<RewardShelfType[]>([])
@@ -42,9 +44,7 @@ export default function RewardsPage() {
     }
 
     if (loading) {
-        return (
-            <div className="p-6 text-sm text-gray-400">Đang tải cửa hàng…</div>
-        )
+        return <Loading text='Đang tải cửa hàng...' />
     }
 
     if (error) {
@@ -54,21 +54,34 @@ export default function RewardsPage() {
     }
 
     return (
-        <div className="max-w-2xl mx-auto px-4 py-6">
+        <div className="max-w-5xl mx-auto px-4 py-6 bg-theme-surface/60 rounded-4xl backdrop-blur-sm">
             <div className="flex items-center justify-between mb-6">
-                <h1 className="text-xl font-bold text-gray-900">Thưởng</h1>
+                <h1 className="text-xl font-bold text-theme-text-primary">Thưởng</h1>
                 <HeartBalanceBadge balance={balance} />
             </div>
 
-            {shelves.map((shelf) => (
-                <RewardShelf
-                    key={shelf.shelf}
-                    shelf={shelf}
-                    balance={balance}
-                    ownedItemIds={ownedIds}
-                    onPurchase={handlePurchase}
-                />
-            ))}
+            {shelves.map((shelf) => {
+                if (shelf.shelf === 'knowledge') {
+                    return (
+                        <KnowledgeShelf
+                            key={shelf.shelf}
+                            shelf={shelf}
+                            balance={balance}
+                            ownedItemIds={ownedIds}
+                            onPurchase={handlePurchase}
+                        />
+                    )
+                }
+                return (
+                    <RewardShelf
+                        key={shelf.shelf}
+                        shelf={shelf}
+                        balance={balance}
+                        ownedItemIds={ownedIds}
+                        onPurchase={handlePurchase}
+                    />
+                )
+            })}
 
             {shelves.length === 0 && (
                 <p className="text-sm text-gray-400">Cửa hàng chưa có mặt hàng nào.</p>

@@ -21,8 +21,8 @@ export default function RewardShelf({ shelf, balance, ownedItemIds, onPurchase }
     if (shelf.items.length === 0) return null
 
     return (
-        <section className="mb-6">
-            <h2 className="text-base font-semibold text-gray-700 mb-3">
+        <section className="mb-6 p-3 ">
+            <h2 className="text-base font-semibold text-theme-text-secondary mb-3">
                 {SHELF_LABELS[shelf.shelf] ?? shelf.shelf}
             </h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">

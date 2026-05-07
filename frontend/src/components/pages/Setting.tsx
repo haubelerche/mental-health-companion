@@ -335,7 +335,7 @@ export default function Setting() {
                   type="button"
                   onClick={() => void handleLogout()}
                   disabled={isLoggingOut}
-                  className="inline-flex gap-2 items-center rounded-full bg-red-600/10 px-6 py-3 text-xs font-bold uppercase tracking-[0.22em] text-red-500 transition hover:bg-red-600/20 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="inline-flex gap-2 items-center rounded-full bg-red-600 px-6 py-3 text-xs font-bold uppercase tracking-[0.22em] text-red-50 transition hover:bg-red-600/20 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <LogOut className="h-5 w-5 " />
                   {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất '}

@@ -400,11 +400,9 @@ export default function Home() {
             {/* ── Greeting header ── */}
             <header className="flex items-start justify-between gap-4">
                 <div>
-                    <p className="font-display text-2xl font-medium uppercase tracking-wide text-theme-text-primary">
-                        {getGreeting()}
-                    </p>
-                    <h1 className="mt-1 font-display text-3xl italic text-theme-text-primary sm:text-4xl">
-                        {displayName}
+
+                    <h1 className={`mt-1 font-display text-2xl italic ${isDark ? 'text-theme-text-primary' : 'text-white'} sm:text-3xl`}>
+                        {getGreeting()}! {displayName}
                     </h1>
                 </div>
                 <div className="flex items-center gap-3 rounded-full bg-theme-surface/60 px-4 py-2 backdrop-blur-sm border border-theme-border/50 shadow-sm">
@@ -784,7 +782,7 @@ export default function Home() {
                                     >
                                         <Leaf className="h-10 w-10 opacity-90" aria-hidden />
                                     </motion.div>
-                                    <p className="text-center text-[11px] text-white/70 leading-relaxed font-medium">
+                                    <p className="text-center text-[11px] text-theme-text-secondary leading-relaxed font-medium">
                                         Hãy check-in cảm xúc để khám phá sức khỏe của bạn
                                     </p>
                                 </div>

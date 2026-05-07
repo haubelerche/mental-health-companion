@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Flame, Heart, TrendingUp, CheckSquare } from 'lucide-react'
+import { Flame, Calendar, TrendingUp, CheckSquare } from 'lucide-react'
 
 export type ProgressData = {
   streakDays: number
@@ -7,7 +7,7 @@ export type ProgressData = {
   weeklyCheckins: number       // out of 7
   totalSessions: number
   breathingSessions: number
-  heartsThisWeek?: number      // frontend placeholder
+  daysActive30d: number
 }
 
 type StatCardProps = {
@@ -77,10 +77,10 @@ export function ProgressStats({ data }: Props) {
           delay={0.12}
         />
         <StatCard
-          icon={Heart}
-          value={data.heartsThisWeek ?? data.breathingSessions * 5}
-          label="Tim nhận tuần này"
-          sub={`${data.breathingSessions} lần thở`}
+          icon={Calendar}
+          value={data.daysActive30d}
+          label="Ngày HĐ (30d)"
+          sub="Trong 30 ngày qua"
           color="#e11d48"
           delay={0.18}
         />
