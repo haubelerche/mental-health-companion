@@ -1,19 +1,20 @@
 import {
-  ArrowRight,
+  ArrowLeft,
   BellRing,
-  Check,
+  ChevronRight,
+  Gift,
   LogOut,
   Palette,
-  TriangleAlert,
+  Repeat,
   User,
 } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import bg from '../../assets/bg.png'
 import bg2 from '../../assets/bg2.png'
 import bg3 from '../../assets/bg3.png'
 import bg4 from '../../assets/bg-reflect.png'
-import avatar from '../../assets/avatar.png'
+
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
 import {
@@ -43,8 +44,9 @@ type ThemeCardProps = {
   onSelect: () => void
 }
 
+type TabId = 'main' | 'notifications' | 'appearance'
+
 function ToggleRow({ title, description, checked, onChange }: ToggleRowProps) {
-  const isDark = readAppSettings().mode === 'dark'
   return (
     <div className="flex items-center justify-between rounded-3xl border border-theme-border/50 bg-theme-surface/40 p-5 transition hover:bg-theme-surface/60 sm:p-6 shadow-sm">
       <div className="pr-4">
@@ -56,7 +58,7 @@ function ToggleRow({ title, description, checked, onChange }: ToggleRowProps) {
   )
 }
 
-function ThemeCard({ label, image, selected, isDark, onSelect }: ThemeCardProps) {
+function ThemeCard({ label, image, selected, isDark: _isDark, onSelect }: ThemeCardProps) {
   return (
     <button
       type="button"
@@ -84,23 +86,41 @@ function ThemeCard({ label, image, selected, isDark, onSelect }: ThemeCardProps)
   )
 }
 
+function SettingMenuItem({ icon: Icon, title, description, onClick }: { icon: any, title: string, description: string, onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center justify-between rounded-2xl border border-theme-border/50 bg-theme-surface/40 p-5 transition hover:bg-theme-surface/60 shadow-sm mb-3 text-left"
+    >
+      <div className="flex items-center gap-4">
+        <Icon className="h-6 w-6 text-theme-text-primary shrink-0" />
+        <div>
+          <p className="text-base font-medium text-theme-text-primary">{title}</p>
+          <p className="text-sm text-theme-text-secondary">{description}</p>
+        </div>
+      </div>
+      <ChevronRight className="h-5 w-5 text-theme-text-secondary shrink-0" />
+    </button>
+  )
+}
+
 export default function Setting() {
-  const { user, logout } = useAuth()
+  const { logout } = useAuth()
   const navigate = useNavigate()
   const initialSettings = readAppSettings()
+  
+  const [activeTab, setActiveTab] = useState<TabId>('main')
+  
   const [isDark, setIsDark] = useState(initialSettings.mode === 'dark')
   const [maskIdentity, setMaskIdentity] = useState(initialSettings.maskIdentity)
   const [shareData, setShareData] = useState(initialSettings.shareData)
   const [reminder, setReminder] = useState(initialSettings.reminder)
   const [weeklySummary, setWeeklySummary] = useState(initialSettings.weeklySummary)
-  const [sosAccess, setSosAccess] = useState(initialSettings.sosAccess)
   const [selectedMode, setSelectedMode] = useState<AppearanceMode>(initialSettings.mode)
   const [selectedTheme, setSelectedTheme] = useState<ThemeOption>(initialSettings.theme)
   const [savedSettings, setSavedSettings] = useState(initialSettings)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-  const displayName = user?.displayName || 'Lê Minh Anh'
-  const email = user?.email || 'minhanh.le@serenemail.com'
 
   const previewTheme = (theme: ThemeOption) => {
     const previewSettings: AppSettings = {
@@ -110,7 +130,6 @@ export default function Setting() {
       shareData,
       reminder,
       weeklySummary,
-      sosAccess,
     }
     window.dispatchEvent(
       new CustomEvent<AppSettings>(APP_SETTINGS_UPDATED_EVENT, {
@@ -127,7 +146,6 @@ export default function Setting() {
       shareData,
       reminder,
       weeklySummary,
-      sosAccess,
     }
 
     saveAppSettings(settings)
@@ -143,7 +161,6 @@ export default function Setting() {
     setShareData(settings.shareData)
     setReminder(settings.reminder)
     setWeeklySummary(settings.weeklySummary)
-    setSosAccess(settings.sosAccess)
     previewTheme(settings.theme)
   }
 
@@ -160,181 +177,182 @@ export default function Setting() {
     }
   }
 
+  const renderAppearance = () => (
+    <section className="space-y-6">
+      <div className="flex items-center gap-2 border-b border-theme-border/30 pb-2">
+        <Palette className="h-5 w-5 text-theme-accent" />
+        <h2 className="font-display text-2xl text-theme-text-primary">Giao diện</h2>
+      </div>
+
+      <div className="grid gap-4">
+        <ToggleRow
+          title="Chế độ tối"
+          description="Bật để dùng tông màu tối cho giao diện chính."
+          checked={selectedMode === 'dark'}
+          onChange={(checked) => {
+            const nextMode: AppearanceMode = checked ? 'dark' : 'light'
+            setSelectedMode(nextMode)
+            setIsDark(checked)
+            setSavedSettings((prev) => ({ ...prev, mode: nextMode }))
+            updateAppMode(nextMode)
+          }}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
+        <ThemeCard
+          label="Sunset Ocean"
+          image={bg}
+          selected={selectedTheme === 'sunset'}
+          isDark={isDark}
+          onSelect={() => {
+            setSelectedTheme('sunset')
+            previewTheme('sunset')
+          }}
+        />
+        <ThemeCard
+          label="Blue Ocean"
+          image={bg4}
+          selected={selectedTheme === 'ocean'}
+          isDark={isDark}
+          onSelect={() => {
+            setSelectedTheme('ocean')
+            previewTheme('ocean')
+          }}
+        />
+        <ThemeCard
+          label="Dawn Sky"
+          image={bg2}
+          selected={selectedTheme === 'dawn'}
+          isDark={isDark}
+          onSelect={() => {
+            setSelectedTheme('dawn')
+            previewTheme('dawn')
+          }}
+        />
+        <ThemeCard
+          label="Night Sky"
+          image={bg3}
+          selected={selectedTheme === 'night'}
+          isDark={isDark}
+          onSelect={() => {
+            setSelectedTheme('night')
+            previewTheme('night')
+          }}
+        />
+      </div>
+    </section>
+  )
+
+  const renderNotifications = () => (
+    <section className="space-y-6">
+      <div className="flex items-center gap-2 border-b border-theme-border/30 pb-2">
+        <BellRing className="h-5 w-5 text-theme-accent" />
+        <h2 className="font-display text-2xl text-theme-text-primary">Thông báo</h2>
+      </div>
+
+      <div className="grid gap-4">
+        <ToggleRow
+          title="Nhắc nhở Serene"
+          description="Thông báo nhắc nhở thiền định và hít thở hàng ngày."
+          checked={reminder}
+          onChange={setReminder}
+        />
+        <ToggleRow
+          title="Cảnh báo Ghi chú Tuần"
+          description="Tổng kết những khoảnh khắc phản chiếu trong tuần."
+          checked={weeklySummary}
+          onChange={setWeeklySummary}
+        />
+      </div>
+    </section>
+  )
+
   return (
     <div className="relative min-h-full text-theme-text-primary transition-colors duration-200">
       <div className="mx-auto flex w-full max-w-4xl flex-col items-center px-0 pb-10 pt-2 sm:px-3 lg:pb-14 lg:pt-4">
+        
+        {activeTab !== 'main' && (
+          <div className="w-full mb-6 flex justify-start">
+            <button
+              onClick={() => setActiveTab('main')}
+              className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-theme-text-secondary transition hover:bg-theme-surface/50 hover:text-theme-text-primary"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Quay lại danh mục
+            </button>
+          </div>
+        )}
+
         <div className="w-full rounded-4xl border border-theme-border/50 bg-theme-surface/50 px-5 py-6 shadow-xl backdrop-blur-2xl sm:px-8 sm:py-8 lg:px-10 lg:py-10">
-          <header className="text-center">
-            <h1 className="font-display text-5xl font-light leading-tight text-theme-text-primary sm:text-6xl lg:text-7xl">
-              Cài đặt
-            </h1>
-            <p className="mt-3 text-[0.68rem] uppercase tracking-[0.34em] text-theme-text-secondary/70">
-              Digital Sanctuary Configuration
-            </p>
-          </header>
+          
+          {activeTab === 'main' ? (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <header className="mb-10 text-center">
+                <h1 className="font-display text-5xl font-light leading-tight text-theme-text-primary sm:text-6xl lg:text-7xl">
+                  Cài đặt
+                </h1>
+                <p className="mt-3 text-[0.68rem] uppercase tracking-[0.34em] text-theme-text-secondary/70">
+                  Digital Sanctuary Configuration
+                </p>
+              </header>
 
-          <section id='user-profile' className="mt-10 space-y-6">
-            <div className="flex items-center gap-2 border-b border-theme-border/30 pb-2">
-              <User className="h-5 w-5 text-theme-accent" />
-              <h2 className="font-display text-2xl text-theme-text-primary">Hồ sơ cá nhân</h2>
-            </div>
-
-            <div className="flex flex-col gap-6 rounded-3xl border border-theme-border/50 bg-theme-surface/40 p-6 sm:flex-row sm:items-center sm:p-8">
-              <div className="relative h-28 w-28 shrink-0">
-                <img
-                  src={avatar}
-                  alt="Ảnh hồ sơ"
-                  className="rounded-full border-2 border-theme-border/30 object-cover"
+              <div className="space-y-1">
+                <SettingMenuItem
+                  icon={User}
+                  title="Hồ sơ cá nhân"
+                  description="Quản lý thông tin tài khoản và danh tính của bạn"
+                  onClick={() => navigate(ROUTE_PATHS.profile)}
                 />
+                <SettingMenuItem
+                  icon={Gift}
+                  title="Cửa hàng Thưởng"
+                  description="Xem số dư Tim và mở khóa vật phẩm"
+                  onClick={() => navigate(ROUTE_PATHS.rewards)}
+                />
+                <SettingMenuItem
+                  icon={BellRing}
+                  title="Thông báo"
+                  description="Nhắc nhở thiền định và tổng kết tuần"
+                  onClick={() => setActiveTab('notifications')}
+                />
+                <SettingMenuItem
+                  icon={Palette}
+                  title="Giao diện"
+                  description="Chủ đề, chế độ sáng/tối và hình nền"
+                  onClick={() => setActiveTab('appearance')}
+                />
+                <SettingMenuItem
+                  icon={Repeat}
+                  title="Cá nhân hóa Onboarding"
+                  description="Cập nhật mục tiêu và khung giờ sinh hoạt"
+                  onClick={() => navigate(ROUTE_PATHS.onboarding)}
+                />
+              </div>
+
+              <section className="mt-10 text-center">
                 <button
                   type="button"
-                  className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-theme-accent text-white shadow-lg transition hover:brightness-110"
-                  aria-label="Chỉnh sửa ảnh hồ sơ"
+                  onClick={() => void handleLogout()}
+                  disabled={isLoggingOut}
+                  className="inline-flex gap-2 items-center rounded-full bg-red-600/10 px-6 py-3 text-xs font-bold uppercase tracking-[0.22em] text-red-500 transition hover:bg-red-600/20 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  <Check className="h-5 w-5" />
+                  <LogOut className="h-5 w-5 " />
+                  {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất '}
                 </button>
-              </div>
-
-              <div className="space-y-2 text-center sm:text-left flex-1">
-                <p className="font-display text-3xl italic text-theme-text-primary sm:text-4xl">{displayName}</p>
-                <p className="text-sm text-theme-text-secondary sm:text-base">{email}</p>
-                <span className={`rounded-full border px-4 py-1 text-[10px] font-bold uppercase tracking-[0.22em] ${isDark ? 'border-green-400/30 bg-green-400/10 text-green-400' : 'border-theme-border/30 bg-green-500/10 text-green-600/80'}`}>
-                  Verified
-                </span>
-              </div>
-              <div className=''>
-                <Link to={ROUTE_PATHS.profile} className="inline-flex gap-3 items-center rounded-full bg-theme-accent px-4 py-2 text-xs font-medium uppercase tracking-[0.22em] text-white transition hover:brightness-105">
-                  Xem chi tiết
-                  <ArrowRight />
-                </Link>
-              </div>
+              </section>
             </div>
-          </section>
-
-          <section className="mt-12 space-y-6">
-            <div className="flex items-center gap-2 border-b border-theme-border/30 pb-2">
-              <Palette className="h-5 w-5 text-theme-accent" />
-              <h2 className="font-display text-2xl text-theme-text-primary">Giao diện</h2>
+          ) : (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+              {activeTab === 'notifications' && renderNotifications()}
+              {activeTab === 'appearance' && renderAppearance()}
             </div>
-
-            <div className="grid gap-4">
-              <ToggleRow
-                title="Chế độ tối"
-                description="Bật để dùng tông màu tối cho giao diện chính."
-                checked={selectedMode === 'dark'}
-                onChange={(checked) => {
-                  const nextMode: AppearanceMode = checked ? 'dark' : 'light'
-                  setSelectedMode(nextMode)
-                  setIsDark(checked)
-                  setSavedSettings((prev) => ({ ...prev, mode: nextMode }))
-                  updateAppMode(nextMode)
-                }}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
-              <ThemeCard
-                label="Sunset Ocean"
-                image={bg}
-                selected={selectedTheme === 'sunset'}
-                isDark={isDark}
-                onSelect={() => {
-                  setSelectedTheme('sunset')
-                  previewTheme('sunset')
-                }}
-              />
-              <ThemeCard
-                label="Blue Ocean"
-                image={bg4}
-                selected={selectedTheme === 'ocean'}
-                isDark={isDark}
-                onSelect={() => {
-                  setSelectedTheme('ocean')
-                  previewTheme('ocean')
-                }}
-              />
-              <ThemeCard
-                label="Dawn Sky"
-                image={bg2}
-                selected={selectedTheme === 'dawn'}
-                isDark={isDark}
-                onSelect={() => {
-                  setSelectedTheme('dawn')
-                  previewTheme('dawn')
-                }}
-              />
-              <ThemeCard
-                label="Night Sky"
-                image={bg3}
-                selected={selectedTheme === 'night'}
-                isDark={isDark}
-                onSelect={() => {
-                  setSelectedTheme('night')
-                  previewTheme('night')
-                }}
-              />
-            </div>
-          </section>
-
-          <section className="mt-12 space-y-6">
-            <div className="flex items-center gap-2 border-b border-theme-border/30 pb-2">
-              <BellRing className="h-5 w-5 text-theme-accent" />
-              <h2 className="font-display text-2xl text-theme-text-primary">Thông báo</h2>
-            </div>
-
-            <div className="grid gap-4">
-              <ToggleRow
-                title="Nhắc nhở Serene"
-                description="Thông báo nhắc nhở thiền định và hít thở hàng ngày."
-                checked={reminder}
-                onChange={setReminder}
-              />
-              <ToggleRow
-                title="Cảnh báo Ghi chú Tuần"
-                description="Tổng kết những khoảnh khắc phản chiếu trong tuần."
-                checked={weeklySummary}
-                onChange={setWeeklySummary}
-              />
-            </div>
-          </section>
-
-          <section className={`my-12`}>
-            <div className="mb-6 flex items-center gap-4">
-              <div className={`flex h-12 w-12 items-center justify-center rounded-full ${isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-600/20 text-red-600'}`}>
-                <TriangleAlert className="h-6 w-6" />
-              </div>
-              <h2 className={`font-display text-2xl ${isDark ? 'text-red-400' : 'text-red-600'}`}>Trợ giúp Khẩn cấp</h2>
-            </div>
-
-            <ToggleRow
-              title="Truy cập nhanh SOS"
-              description="Hiển thị nút hỗ trợ khẩn cấp trên màn hình chính."
-              checked={sosAccess}
-              onChange={setSosAccess}
-            />
-          </section>
-
-
-          <section className="mt-8 text-center">
-            <button
-              type="button"
-              onClick={() => void handleLogout()}
-              disabled={isLoggingOut}
-              className="inline-flex gap-2 items-center mt-4 rounded-full bg-red-600 px-6 py-3 text-xs font-bold uppercase tracking-[0.22em] text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              <LogOut className="h-5 w-5 " />
-              {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất '}
-            </button>
-
-          </section>
-
-          {/*nếu có thay đổi thì mới hiện*/}
+          )}
 
           {(maskIdentity !== savedSettings.maskIdentity ||
             shareData !== savedSettings.shareData ||
             reminder !== savedSettings.reminder ||
             weeklySummary !== savedSettings.weeklySummary ||
-            sosAccess !== savedSettings.sosAccess ||
             selectedMode !== savedSettings.mode ||
             selectedTheme !== savedSettings.theme) && (
               <footer className="mt-12 flex flex-col-reverse gap-3 border-t border-theme-border/30 pt-8 sm:flex-row sm:justify-end sm:gap-5">
@@ -355,8 +373,6 @@ export default function Setting() {
               </footer>
             )}
         </div>
-
-
       </div>
     </div>
   )

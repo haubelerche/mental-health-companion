@@ -15,12 +15,8 @@ type Props = {
 
 const DAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
 
-function scoreToEmoji(score: number): string {
-    if (score >= 80) return '😊'
-    if (score >= 60) return '😌'
-    if (score >= 40) return '😐'
-    if (score >= 20) return '😔'
-    return '😟'
+function scoreAbbrev(score: number): string {
+    return `${Math.round(score)}`
 }
 
 function scoreToClasses(score: number): string {
@@ -123,8 +119,8 @@ export function MoodCalendar({ points, className, onDayClick }: Props) {
                                     ].join(' ')}
                                 >
                                     {score !== null ? (
-                                        <span className="select-none text-[15px] leading-none">
-                                            {scoreToEmoji(score)}
+                                        <span className="select-none text-[10px] font-semibold tabular-nums leading-none">
+                                            {scoreAbbrev(score)}
                                         </span>
                                     ) : (
                                         <span className="h-1.5 w-1.5 rounded-full bg-serene-outline/25" />

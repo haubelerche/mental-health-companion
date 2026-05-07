@@ -1,3 +1,4 @@
+import { Gift } from 'lucide-react'
 import type { RewardStoreItem } from '../../services/rewardsService'
 import { ApiRequestError } from '../../api/types'
 
@@ -36,9 +37,9 @@ export default function RewardCard({ item, balance, owned, onPurchase }: Props) 
 
     return (
         <div className="rounded-xl border border-gray-200 bg-white p-4 flex flex-col gap-2 shadow-sm">
-            {item.icon_key && (
-                <span className="text-2xl" aria-hidden="true">{item.icon_key}</span>
-            )}
+            {item.icon_key ? (
+                <Gift className="h-7 w-7 text-indigo-500/90" aria-hidden />
+            ) : null}
             <p className="font-semibold text-gray-900 text-sm">{sanitizeTitle(item.title)}</p>
             {item.subtitle && (
                 <p className="text-xs text-gray-500">{item.subtitle}</p>

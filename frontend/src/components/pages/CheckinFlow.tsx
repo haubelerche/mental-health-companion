@@ -16,23 +16,23 @@ type Step = 'mood' | 'triggers' | 'summary'
 
 const MOOD_CATEGORIES = {
   awesome: {
-    label: 'Rất tốt! 🌟',
+    label: 'Rất tốt',
     color: '#4A90E2',
   },
   good: {
-    label: 'Tốt 😊',
+    label: 'Tốt',
     color: '#4CAF50',
   },
   fine: {
-    label: 'Bình thường 😌',
+    label: 'Bình thường',
     color: '#FFC107',
   },
   bad: {
-    label: 'Không tốt 😔',
+    label: 'Không tốt',
     color: '#FF7043',
   },
   terrible: {
-    label: 'Tệ lắm 😟',
+    label: 'Tệ lắm',
     color: '#E64A19',
   },
 } as const
@@ -139,7 +139,7 @@ export function CheckinFlow() {
       setStep('summary')
       setTimeout(() => setShowStreak(true), 600)
     } catch {
-      toast.error('Không thể lưu check-in. Thử lại nhé.')
+      toast.error('Không thể lưu check-in cảm xúc. Thử lại nhé.')
     } finally {
       setLoading(false)
     }
@@ -247,7 +247,7 @@ export function CheckinFlow() {
                 disabled={loading}
                 className="w-2/3 rounded-full bg-serene-primary py-3 text-xl font-semibold text-serene-on-primary shadow-lg shadow-serene-primary/20 transition hover:brightness-105 disabled:opacity-60"
               >
-                {loading ? 'Đang lưu...' : 'Lưu lại ✓'}
+                {loading ? 'Đang lưu...' : 'Lưu lại'}
               </button>
             </div>
           </motion.div>
@@ -264,11 +264,11 @@ export function CheckinFlow() {
               <p className="text-lg uppercase tracking-[0.22em] text-serene-primary/65">Đã lưu</p>
               {checkinReward?.granted && checkinReward.amount > 0 && (
                 <span className="rounded-full bg-rose-50 px-3 py-1 text-sm font-semibold text-rose-500">
-                  +{checkinReward.amount} ♥
+                  +{checkinReward.amount} tim
                 </span>
               )}
             </div>
-            <h2 className="mt-1 text-5xl font-semibold">Xong rồi! ✓</h2>
+            <h2 className="mt-1 text-5xl font-semibold">Xong rồi</h2>
             <p className="mt-4 text-xl text-serene-muted">
               Tổng quan: <span className="font-semibold text-serene-ink">{MOOD_CATEGORIES[selectedMood].label}</span>
             </p>

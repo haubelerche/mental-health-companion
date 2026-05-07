@@ -1,12 +1,25 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Share2, Wind, MessageSquareText, Phone } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import {
+    Activity,
+    Cloud,
+    CloudRain,
+    CloudSun,
+    HeartHandshake,
+    MessageSquareText,
+    NotebookPen,
+    Phone,
+    Share2,
+    Sprout,
+    Wind,
+} from 'lucide-react'
 import type { ScreeningResult } from '../../services/screeningService'
 import { ROUTE_PATHS } from '../../routes/paths'
 
 type SeverityMeta = {
   label: string
-  emoji: string
+  headlineIcon: LucideIcon
   color: string
   bgColor: string
   barColor: string
@@ -14,13 +27,13 @@ type SeverityMeta = {
   insights: string[]
   interpretation: string
   actions: Array<{ label: string; path: string; primary?: boolean; icon?: React.ElementType }>
-  exercises: Array<{ icon: string; label: string; desc: string }>
+  exercises: Array<{ icon: LucideIcon; label: string; desc: string }>
 }
 
 const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
   minimal: {
     label: 'Rất nhẹ',
-    emoji: '🌱',
+    headlineIcon: Sprout,
     color: 'var(--color-an)',
     bgColor: 'var(--color-an-bg)',
     barColor: '#4caf50',
@@ -32,8 +45,8 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
       'Thử một bài tập nhỏ hôm nay',
     ],
     exercises: [
-      { icon: '🌬️', label: 'Thở hộp', desc: '2 phút · Duy trì cân bằng' },
-      { icon: '📓', label: 'Check-in buổi sáng', desc: 'Ghi nhận cảm xúc' },
+      { icon: Wind, label: 'Thở hộp', desc: '2 phút · Duy trì cân bằng' },
+      { icon: NotebookPen, label: 'Check-in buổi sáng', desc: 'Ghi nhận cảm xúc' },
     ],
     actions: [
       { label: 'Thở cùng Lửa', path: ROUTE_PATHS.exercises, primary: true, icon: Wind },
@@ -42,7 +55,7 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
   },
   mild: {
     label: 'Nhẹ',
-    emoji: '🌤️',
+    headlineIcon: CloudSun,
     color: 'var(--color-an)',
     bgColor: 'var(--color-an-bg)',
     barColor: '#8bc34a',
@@ -54,8 +67,8 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
       'Nhắc bản thân check-in lại ngày mai',
     ],
     exercises: [
-      { icon: '💬', label: 'Nói chuyện với Serene', desc: 'Chia sẻ cảm xúc ngay' },
-      { icon: '🌬️', label: 'Thở 4-7-8', desc: '3 phút · Thư giãn' },
+      { icon: MessageSquareText, label: 'Nói chuyện với Serene', desc: 'Chia sẻ cảm xúc ngay' },
+      { icon: Wind, label: 'Thở 4-7-8', desc: '3 phút · Thư giãn' },
     ],
     actions: [
       { label: 'Trò chuyện với Mây', path: ROUTE_PATHS.chat, primary: true, icon: MessageSquareText },
@@ -64,7 +77,7 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
   },
   moderate: {
     label: 'Trung bình',
-    emoji: '🌥️',
+    headlineIcon: Cloud,
     color: 'var(--color-lua)',
     bgColor: 'var(--color-lua-bg)',
     barColor: '#ff9800',
@@ -76,8 +89,8 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
       'Bài tập grounding có thể giúp ổn định ngay',
     ],
     exercises: [
-      { icon: '💬', label: 'Nói chuyện với Serene', desc: 'Serene sẵn sàng ngay bây giờ' },
-      { icon: '🫁', label: 'Bài thở grounding', desc: '5 phút · Ổn định cơ thể' },
+      { icon: MessageSquareText, label: 'Nói chuyện với Serene', desc: 'Serene sẵn sàng ngay bây giờ' },
+      { icon: Activity, label: 'Bài thở grounding', desc: '5 phút · Ổn định cơ thể' },
     ],
     actions: [
       { label: 'Trò chuyện với Mây ngay', path: ROUTE_PATHS.chat, primary: true, icon: MessageSquareText },
@@ -86,7 +99,7 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
   },
   moderately_severe: {
     label: 'Khá cao',
-    emoji: '⛅',
+    headlineIcon: CloudRain,
     color: 'var(--color-la-ban)',
     bgColor: 'var(--color-la-ban-bg)',
     barColor: '#e57373',
@@ -94,21 +107,21 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
     interpretation: 'Kết quả cho thấy cần hỗ trợ chuyên nghiệp. Bạn không cần đi qua điều này một mình.',
     insights: [
       'Kết quả cho thấy cần hỗ trợ chuyên nghiệp',
-      'Kết Nối có thể chỉ bạn tới nguồn phù hợp',
+      'Phần Hỗ trợ có thể chỉ bạn tới nguồn phù hợp',
       'Bạn không cần đi qua điều này một mình',
     ],
     exercises: [
-      { icon: '🤝', label: 'Tìm nguồn hỗ trợ', desc: 'Hotlines & chuyên gia' },
-      { icon: '💬', label: 'Nói chuyện với Serene', desc: 'Ngay bây giờ' },
+      { icon: HeartHandshake, label: 'Tìm nguồn hỗ trợ', desc: 'Hotlines & chuyên gia' },
+      { icon: MessageSquareText, label: 'Nói chuyện với Serene', desc: 'Ngay bây giờ' },
     ],
     actions: [
-      { label: 'Mở Kết Nối', path: ROUTE_PATHS.connect, primary: true },
+      { label: 'Liên hệ Hỗ trợ', path: ROUTE_PATHS.support, primary: true },
       { label: 'Trò chuyện với Mây', path: ROUTE_PATHS.chat, icon: MessageSquareText },
     ],
   },
   severe: {
     label: 'Cao',
-    emoji: '🌧️',
+    headlineIcon: CloudRain,
     color: 'var(--color-la-ban)',
     bgColor: 'var(--color-la-ban-bg)',
     barColor: '#c62828',
@@ -116,15 +129,15 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
     interpretation: 'Kết quả quan trọng — cần được hỗ trợ sớm. Bạn đã rất dũng cảm khi làm bài này.',
     insights: [
       'Kết quả quan trọng — cần được hỗ trợ sớm',
-      'Vui lòng liên hệ Kết Nối hoặc gọi hotline',
+      'Vui lòng xem phần Hỗ trợ hoặc gọi hotline',
       'Bạn đã rất dũng cảm khi làm bài này',
     ],
     exercises: [
-      { icon: '📞', label: 'Hotline 1800-599-920', desc: 'Miễn phí · 24/7' },
-      { icon: '🤝', label: 'Kết nối chuyên gia', desc: 'Hỗ trợ ngay' },
+      { icon: Phone, label: 'Hotline 1800-599-920', desc: 'Miễn phí · 24/7' },
+      { icon: HeartHandshake, label: 'Liên hệ chuyên gia', desc: 'Hỗ trợ ngay' },
     ],
     actions: [
-      { label: 'Mở Kết Nối ngay', path: ROUTE_PATHS.connect, primary: true },
+      { label: 'Liên hệ Hỗ trợ ngay', path: ROUTE_PATHS.support, primary: true },
       { label: 'Hotline 1800-599-920', path: 'tel', icon: Phone },
     ],
   },
@@ -180,7 +193,7 @@ export function ResultsPage() {
   }
 
   const handleShare = async () => {
-    const text = `Tôi vừa làm bài test sức khoẻ tâm thần trên Serene — Mức: ${meta.label} ${meta.emoji}. Bạn cũng thử xem nhé!`
+    const text = `Tôi vừa làm bài test sức khoẻ tâm thần trên Serene — Mức: ${meta.label}. Bạn cũng thử xem nhé!`
     if (navigator.share) {
       try {
         await navigator.share({ title: 'Kết quả Serene', text })
@@ -212,10 +225,10 @@ export function ResultsPage() {
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 200, damping: 18 }}
-            className="mb-4 text-7xl"
+            className="mb-4 flex justify-center"
             aria-hidden="true"
           >
-            {meta.emoji}
+            <meta.headlineIcon className="h-16 w-16" style={{ color: meta.color }} />
           </motion.div>
           <p className="mb-1 text-[10px] uppercase tracking-widest text-serene-muted">Kết quả</p>
           <h1 className="font-display text-4xl text-serene-ink">
@@ -270,18 +283,20 @@ export function ResultsPage() {
         <div className="mb-4 rounded-3xl bg-white p-5 shadow-sm">
           <h3 className="mb-3 font-semibold text-serene-ink text-sm">Gợi ý cho bạn</h3>
           <div className="grid grid-cols-2 gap-3">
-            {meta.exercises.map((ex) => (
+            {meta.exercises.map((ex) => {
+              const ExIcon = ex.icon
+              return (
               <button
                 key={ex.label}
                 type="button"
                 onClick={() => navigate(ROUTE_PATHS.exercises)}
                 className="flex flex-col items-start rounded-2xl border border-serene-border bg-serene-surface-2 p-3.5 text-left transition hover:bg-white"
               >
-                <span className="mb-2 text-2xl">{ex.icon}</span>
+                <ExIcon className="mb-2 h-6 w-6 text-serene-primary" aria-hidden />
                 <p className="text-sm font-semibold text-serene-ink leading-tight">{ex.label}</p>
                 <p className="mt-0.5 text-xs text-serene-muted">{ex.desc}</p>
               </button>
-            ))}
+            )})}
           </div>
         </div>
 
@@ -350,7 +365,7 @@ export function ResultsPage() {
             onClick={() => navigate(ROUTE_PATHS.chat)}
             className="mt-3 w-full rounded-xl bg-serene-primary/10 py-2.5 text-sm font-semibold text-serene-primary transition hover:bg-serene-primary/20"
           >
-            Mở Chat →
+            Mở Chat
           </button>
         </div>
 

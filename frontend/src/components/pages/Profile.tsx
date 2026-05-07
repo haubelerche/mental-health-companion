@@ -1,11 +1,11 @@
 import { motion } from 'framer-motion'
-import { ArrowLeft, Settings, Lock, User, Calendar, HeartPulse, Target, LifeBuoy, Activity, Moon, Sun, Sparkles, CheckCircle, ShieldCheck, Mail, Smartphone, Clock, Heart, Star, Pencil, Repeat } from 'lucide-react'
+import { Settings, Lock, User, HeartPulse, Target, LifeBuoy, Activity, Sun, Moon, Sparkles, Mail, ShieldCheck, Repeat } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { onboardingService, type OnboardingProfile } from '../../services/onboardingService'
-import { EMOTIONAL_OPTIONS, PRIMARY_CONCERN_OPTIONS, SUPPORT_OPTIONS, AGE_OPTIONS, PRACTICE_OPTIONS, STRESS_LABELS } from './onboarding/onboard.option'
+import { EMOTIONAL_OPTIONS, PRIMARY_CONCERN_OPTIONS, SUPPORT_OPTIONS, PRACTICE_OPTIONS, STRESS_LABELS } from './onboarding/onboard.option'
 import Loading from '../ui/Loading'
 import avatar from '../../assets/avatar.png'
 
@@ -42,7 +42,6 @@ export default function Profile() {
         return found ? found.label : id
     }
 
-    const ageGroupLabel = findLabel(AGE_OPTIONS, onboardingData?.age_group)
     const concernLabel = findLabel(PRIMARY_CONCERN_OPTIONS, onboardingData?.primary_concern ?? undefined)
     const supportLevelLabel = findLabel(SUPPORT_OPTIONS, onboardingData?.support_level ?? undefined)
     const nicknameLabel = onboardingData?.nickname || user.displayName || 'Chưa cập nhật'
@@ -54,8 +53,6 @@ export default function Profile() {
     const wakeTimeLabel = onboardingData?.wake_time || 'Chưa cập nhật'
     const bedTimeLabel = onboardingData?.bed_time || 'Chưa cập nhật'
     const practicesLabel = onboardingData?.practice_ids && onboardingData.practice_ids.length > 0 ? onboardingData.practice_ids.map((id) => PRACTICE_OPTIONS.find((p) => p.id === id)?.label || id).join(', ') : 'Chưa cập nhật'
-    const onboardingCompletedAt = onboardingData?.completed_at ? new Date(onboardingData.completed_at).toLocaleString('vi-VN') : null
-
     return (
         <div className="mx-auto max-w-5xl space-y-8 pb-20 text-theme-text-primary">
             {/* Header Card */}
@@ -192,11 +189,7 @@ export default function Profile() {
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-theme-accent/70">Thói quen ưu tiên</p>
                                         <p className="mt-2 text-sm leading-relaxed italic">{practicesLabel}</p>
                                     </div>
-                                    {onboardingCompletedAt && (
-                                        <p className="text-right text-[10px] text-theme-text-secondary/60">
-                                            Hoàn thành lúc:<br />{onboardingCompletedAt}
-                                        </p>
-                                    )}
+
                                 </div>
                             </div>
                         ) : (

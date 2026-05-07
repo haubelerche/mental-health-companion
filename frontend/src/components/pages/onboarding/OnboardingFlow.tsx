@@ -1,16 +1,49 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Check, Sparkles } from 'lucide-react'
+import {
+    Brain,
+    ChevronLeft,
+    ChevronRight,
+    Check,
+    Footprints,
+    Heart,
+    MessageCircle,
+    Moon,
+    NotebookPen,
+    Sparkles,
+    Sun,
+    Target,
+    Wind,
+    type LucideIcon,
+} from 'lucide-react'
 import { ROUTE_PATHS } from '../../../routes/paths'
 import {
     buildDailyPlan,
     buildPlanReason,
     onboardingService,
+    type DailyPlanIconId,
     type EmotionalState,
     type OnboardingProfile,
     type SupportLevel,
 } from '../../../services/onboardingService'
+
+const DAILY_PLAN_ICONS: Record<DailyPlanIconId, LucideIcon> = {
+    sun: Sun,
+    wind: Wind,
+    notebook: NotebookPen,
+    message: MessageCircle,
+    heart: Heart,
+    footprints: Footprints,
+    moon: Moon,
+    target: Target,
+    brain: Brain,
+}
+
+function DailyPlanStepIcon({ id }: { id: DailyPlanIconId }) {
+    const Icon = DAILY_PLAN_ICONS[id]
+    return <Icon className="h-5 w-5 shrink-0 text-serene-primary" aria-hidden />
+}
 import { useAuth } from '../../../hooks/useAuth'
 import bgGradient from '../../../assets//bg-gradient.png'
 import { AGE_OPTIONS, EMOTIONAL_OPTIONS, PRACTICE_OPTIONS, PRIMARY_CONCERN_OPTIONS, STRESS_LABELS, SUPPORT_OPTIONS, type OnboardingDraft } from './onboard.option'
@@ -152,7 +185,7 @@ function StepEmotionalState({ value, onChange }: { value: EmotionalState | ''; o
             <div className="space-y-3">
                 {EMOTIONAL_OPTIONS.map((opt) => (
                     <OptionPill key={opt.id} selected={value === opt.id} onClick={() => onChange(opt.id)}>
-                        <span className="text-2xl">{opt.icon}</span>
+                        <opt.Icon className="h-7 w-7 shrink-0 text-serene-primary" aria-hidden />
                         <div>
                             <p className="font-semibold text-serene-ink">{opt.label}</p>
                             <p className="text-sm text-serene-muted">{opt.desc}</p>
@@ -183,7 +216,7 @@ function StepPrimaryConcern({
             <div className="space-y-3">
                 {PRIMARY_CONCERN_OPTIONS.map((opt) => (
                     <OptionPill key={opt.id} selected={value === opt.id} onClick={() => onChange(value === opt.id ? '' : opt.id)}>
-                        <span className="text-xl">{opt.icon}</span>
+                        {opt.Icon ? <opt.Icon className="h-6 w-6 shrink-0 text-serene-primary" aria-hidden /> : null}
                         <span className="font-medium text-serene-ink">{opt.label}</span>
                     </OptionPill>
                 ))}
@@ -254,7 +287,9 @@ function StepPractices({ value, onChange }: { value: string[]; onChange: (v: str
                                 : 'border-serene-border bg-white/70 hover:border-serene-primary/40'
                                 }`}
                         >
-                            <div className="mb-1 text-xl">{item.icon}</div>
+                            <div className="mb-1 flex text-serene-primary">
+                                <item.Icon className="h-6 w-6" aria-hidden />
+                            </div>
                             <p className={`text-sm font-medium ${selected ? 'text-serene-primary' : 'text-serene-ink'}`}>{item.label}</p>
                         </button>
                     )
@@ -368,7 +403,7 @@ function StepSummary({
             <div className="space-y-3">
                 {planItems.map((item) => (
                     <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-serene-border bg-white/70 px-4 py-3">
-                        <span className="text-xl">{item.icon}</span>
+                        <DailyPlanStepIcon id={item.icon} />
                         <p className="font-medium text-serene-ink">{item.label}</p>
                     </div>
                 ))}
