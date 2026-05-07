@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { adminService } from '../../services/adminService'
 import { ApiRequestError } from '../../api/types'
 import { toast } from 'react-toastify'
-import { Bell, Send, Info, Coffee, Sparkles, MessageCircle } from 'lucide-react'
+import { Bell, Send, Info, Coffee, Sparkles, MessageCircle, Activity, Zap } from 'lucide-react'
+import WorkerAutomationCard from './automation/WorkerAutomationCard'
 
 const TEMPLATES = [
     {
@@ -34,6 +35,21 @@ export default function AdminNotifications() {
     const [category, setCategory] = useState('general')
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState<any>(null)
+    const [logs, setLogs] = useState<any[]>([])
+
+    const fetchLogs = async () => {
+        try {
+            const res = await adminService.getAutomationStatus()
+            const notifLogs = (res.logs || []).filter((l: any) => l.worker.startsWith('notif_')).slice(0, 5)
+            setLogs(notifLogs)
+        } catch (err) {}
+    }
+
+    useEffect(() => {
+        fetchLogs()
+        const inv = setInterval(fetchLogs, 15000)
+        return () => clearInterval(inv)
+    }, [])
 
     const applyTemplate = (tpl: typeof TEMPLATES[0]) => {
         setTitle(tpl.title)
@@ -71,6 +87,45 @@ export default function AdminNotifications() {
                 <h1 className="text-2xl font-bold text-white">Trung tâm Thông báo</h1>
                 <p className="text-slate-400">Gửi thông báo hàng loạt đến toàn bộ người dùng đang hoạt động.</p>
             </header>
+
+            <div className="flex flex-col xl:flex-row gap-6 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+                    <WorkerAutomationCard 
+                        workerKey="notif_morning" 
+                        icon={Coffee} 
+                        description="Gửi lời chào & nhắc nhở check-in buổi sáng."
+                    />
+                    <WorkerAutomationCard 
+                        workerKey="notif_reminder" 
+                        icon={Sparkles} 
+                        description="Nhắc nhở người dùng dành thời gian tự chăm sóc bản thân."
+                    />
+                    <WorkerAutomationCard 
+                        workerKey="notif_letters" 
+                        icon={MessageCircle} 
+                        description="Khuyến khích người dùng tham gia viết/trả lời thư."
+                    />
+                </div>
+                <div className="xl:w-1/3 bg-black/40 border border-white/10 rounded-2xl p-6 flex flex-col">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <Activity size={14} className="text-indigo-400" /> Nhật ký Gửi tự động
+                        </h3>
+                    </div>
+                    <div className="space-y-2 flex-1 overflow-y-auto max-h-[160px] custom-scrollbar pr-2">
+                        {logs.length > 0 ? (
+                            logs.map((log, i) => (
+                                <div key={i} className="flex gap-3 text-[11px] border-l border-indigo-500/20 pl-3 py-1 hover:bg-white/5 transition-all">
+                                    <span className="text-slate-600 shrink-0">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
+                                    <span className="text-slate-300 line-clamp-1">{log.message}</span>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-xs text-slate-600 italic py-4 text-center">Chưa có hoạt động nào được ghi nhận.</p>
+                        )}
+                    </div>
+                </div>
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Templates Section */}
