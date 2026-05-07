@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Optional
 
 from sqlalchemy import (
     BIGINT,
@@ -15,6 +15,7 @@ from sqlalchemy import (
     Identity,
     Integer,
     String,
+    TIMESTAMP,
     Text,
     UniqueConstraint,
     func,
@@ -152,6 +153,16 @@ class MoodCheckin(Base):
     emoji: Mapped[str | None] = mapped_column(String(10))
     emotions: Mapped[list[Any] | None] = mapped_column(JSON)
     triggers: Mapped[list[Any] | None] = mapped_column(JSON)
+    source: Mapped[str] = mapped_column(
+        String(20),
+        CheckConstraint(
+            "source IN ('self_report','imported','system')",
+            name="ck_mood_checkins_source",
+        ),
+        default="self_report",
+        server_default="self_report",
+        nullable=False,
+    )
     note: Mapped[str | None] = mapped_column(Text)
     logged_date: Mapped[date] = mapped_column(Date, nullable=False)
     logged_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
@@ -175,6 +186,15 @@ class ClinicalProfile(Base):
     phq9_coverage: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     gad7_coverage: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     crisis_level: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    score_source: Mapped[Optional[str]] = mapped_column(
+        String(30),
+        CheckConstraint(
+            "score_source IN ('self_report','questionnaire','analyst_inference','clinician_review','system')",
+            name="ck_clinical_profiles_score_source",
+        ),
+        nullable=True,
+    )
+    model_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     last_scored_at: Mapped[datetime | None] = mapped_column(DateTime)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
@@ -291,6 +311,18 @@ class ConversationMemory(Base):
         embedding: Mapped[list[float]] = mapped_column(JSON, nullable=False)
     importance_score: Mapped[float | None] = mapped_column(Float)
     confidence: Mapped[float | None] = mapped_column(Float)
+    pii_checked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    source: Mapped[str] = mapped_column(
+        String(20),
+        CheckConstraint(
+            "source IN ('chat_turn','session_summary','checkin','manual','system')",
+            name="ck_conv_memories_source",
+        ),
+        default="chat_turn",
+        server_default="chat_turn",
+        nullable=False,
+    )
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
@@ -312,6 +344,17 @@ class UserProfile(Base):
 
     user_id: Mapped[str] = mapped_column(String(50), ForeignKey("users.user_id"), primary_key=True)
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    schema_version: Mapped[str] = mapped_column(String(10), default="v1", server_default="v1", nullable=False)
+    last_active_session_id: Mapped[Optional[str]] = mapped_column(
+        String, ForeignKey("conversations.session_id", ondelete="SET NULL"), nullable=True
+    )
+    summary_count: Mapped[int] = mapped_column(
+        Integer,
+        CheckConstraint("summary_count >= 0", name="ck_user_profiles_summary_count_gte0"),
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
     profile: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
