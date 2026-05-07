@@ -8,7 +8,6 @@ export type AppSettings = {
     shareData: boolean
     reminder: boolean
     weeklySummary: boolean
-    sosAccess: boolean
 }
 
 export const APP_SETTINGS_STORAGE_KEY = 'serene:app-settings'
@@ -21,7 +20,6 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
     shareData: false,
     reminder: true,
     weeklySummary: true,
-    sosAccess: false,
 }
 
 function isThemeOption(value: unknown): value is ThemeOption {
@@ -54,7 +52,6 @@ export function readAppSettings(): AppSettings {
             shareData: typeof parsed.shareData === 'boolean' ? parsed.shareData : DEFAULT_APP_SETTINGS.shareData,
             reminder: typeof parsed.reminder === 'boolean' ? parsed.reminder : DEFAULT_APP_SETTINGS.reminder,
             weeklySummary: typeof parsed.weeklySummary === 'boolean' ? parsed.weeklySummary : DEFAULT_APP_SETTINGS.weeklySummary,
-            sosAccess: typeof parsed.sosAccess === 'boolean' ? parsed.sosAccess : DEFAULT_APP_SETTINGS.sosAccess,
         }
     } catch {
         return DEFAULT_APP_SETTINGS

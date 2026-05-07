@@ -75,4 +75,8 @@ export const chatService = {
             undefined,
             { method: 'DELETE' },
         ),
+    getGreeting: (personaId?: string) =>
+        httpClient.get<{ text: string; persona_id: string }>(
+            `/chat/greeting${personaId ? `?persona_id=${encodeURIComponent(personaId)}` : ''}`,
+        ),
 }

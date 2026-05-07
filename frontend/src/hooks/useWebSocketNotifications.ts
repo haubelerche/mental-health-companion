@@ -32,7 +32,7 @@ export const useWebSocketNotifications = (
   const { autoConnect = true, reconnectAttempts = 5, reconnectInterval = 3000 } = options;
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectCountRef = useRef(0);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const reconnectTimeoutRef = useRef<number | undefined>(undefined);
 
   const { addNotification } = useNotification();
 
@@ -115,7 +115,7 @@ export const useWebSocketNotifications = (
   }, [addNotification, reconnectAttempts, reconnectInterval]);
 
   const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
+    if (reconnectTimeoutRef.current !== undefined) {
       clearTimeout(reconnectTimeoutRef.current);
     }
     if (wsRef.current) {

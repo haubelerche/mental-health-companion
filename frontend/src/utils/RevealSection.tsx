@@ -39,7 +39,7 @@ export default function RevealSection({
     const ref = useRef(null)
 
     const isInView = useInView(ref, {
-        once: true, // 🔥 fix lag
+        once: true,
         amount: 0.3,
     })
 
@@ -57,7 +57,7 @@ export default function RevealSection({
                 delay,
                 ease: 'easeOut',
             }}
-            style={{ willChange: 'transform, opacity' }} // 🔥 GPU
+            style={{ willChange: 'transform, opacity' }}
         >
             {children}
         </motion.section>

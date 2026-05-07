@@ -1,14 +1,18 @@
 import { httpClient } from '../api/httpClient'
 
-export type PersonaState = {
-    active_persona_id: string
-    display_name: string
-    style_note?: string | null
-    safety_override: boolean
+/** Subset of `/auth/me` used for persona. */
+export type AuthMePersonaFields = {
+    persona_id: string | null
+    persona_selected_at?: string | null
 }
 
 export const personasService = {
-    getState: () => httpClient.get<PersonaState>('/personas/state'),
+    /** Current user profile — includes selected persona id. */
+    getMe: () => httpClient.get<AuthMePersonaFields & Record<string, unknown>>('/auth/me'),
+
+    /** Canonical persona selection (core + unlockables). */
     select: (personaId: string) =>
-        httpClient.postWithCsrf<PersonaState>('/personas/select', { persona_id: personaId }),
+        httpClient.postWithCsrf<{ persona_id: string; persona_selected_at?: string }>('/auth/me/persona', {
+            persona_id: personaId,
+        }),
 }
