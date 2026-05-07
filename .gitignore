@@ -19,6 +19,12 @@ package-lock.json
 # Loại bỏ tất cả các tệp hình ảnh
 CLAUDE.md
 
+# AI coding agent workflow docs (Claude Code, Cursor, Codex, Copilot, etc.) — local only, do not push
+COMMIT_PLAYBOOK.MD
+COMMIT_PLAYBOOK.md
+**/COMMIT_PLAYBOOK.*
+COMMIT_PLAYBOOK.MD.backup-*
+
 .claude/
 .codex/
 .github/
