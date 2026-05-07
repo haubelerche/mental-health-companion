@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { adminService } from '../../services/adminService'
+import { ApiRequestError } from '../../api/types'
 import { toast } from 'react-toastify'
 import { Bell, Send, Info, Coffee, Sparkles, MessageCircle } from 'lucide-react'
 
@@ -57,6 +58,7 @@ export default function AdminNotifications() {
             setTitle('')
             setBody('')
         } catch (err) {
+            if (err instanceof ApiRequestError && err.handledByModal) return
             toast.error('Không thể gửi thông báo hàng loạt')
         } finally {
             setLoading(false)
