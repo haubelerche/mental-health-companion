@@ -83,7 +83,7 @@ export default function PersonaSelector({ onSelect }: Props) {
                 id="persona-select"
                 value={value || 'ban_than'}
                 onChange={(e) => void handleSelect(e.target.value)}
-                className="w-full rounded-lg border border-theme-border/40 bg-theme-bg-secondary/80 px-3 py-2 text-sm text-theme-text-primary"
+                className="w-full rounded-lg border border-theme-border/40 bg-theme-surface/60 px-3 py-2 text-sm text-theme-text-primary"
             >
                 {selectablePersonas.map((p) => (
                     <option key={p.persona_id} value={p.persona_id}>
