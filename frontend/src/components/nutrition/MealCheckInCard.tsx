@@ -48,8 +48,8 @@ export default function MealCheckInCard({ claimedSlots = [], onCheckin }: Props)
     }
 
     return (
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <p className="text-sm font-semibold text-gray-700 mb-3">Ghi nhận bữa ăn hôm nay</p>
+        <div className="rounded-xl border border-theme-border/20 bg-theme-surface/60 p-4">
+            <p className="text-sm font-semibold text-theme-text-primary mb-3">Ghi nhận bữa ăn hôm nay</p>
             <div className="flex gap-2">
                 {(Object.keys(SLOT_LABELS) as MealSlot[]).map((slot) => {
                     const claimed = localClaimed.has(slot)

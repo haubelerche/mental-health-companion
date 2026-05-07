@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Search, Sparkles, X } from 'lucide-react'
+import { Search, Sparkles, X, Clock, Heart, List, ArrowRight } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import MealCheckInCard from '../nutrition/MealCheckInCard'
@@ -67,6 +68,7 @@ export default function Nutrition() {
     const [dailyTip, setDailyTip] = useState<NutritionDailyTip | null>(null)
     const [query, setQuery] = useState('')
     const [activeTag, setActiveTag] = useState<string | null>(null)
+    const [selectedRecipe, setSelectedRecipe] = useState<NutritionRecipe | null>(null)
 
     const todayFact = useMemo(
         () => pickRandom(CONTENT.dailyFacts) ?? 'Một bữa ăn đều đặn, đủ chất và ít chế biến là nền tảng tốt cho sức khỏe thể chất lẫn tinh thần.',
@@ -112,7 +114,7 @@ export default function Nutrition() {
             <MealCheckInCard />
 
             {/* ── Daily fact banner ───────────────────────────────────────── */}
-            <section className="flex items-start gap-3 rounded-[22px] bg-theme-surface/40 px-5 py-4 backdrop-blur-sm">
+            <section className="flex items-start gap-3 rounded-[22px] bg-theme-surface/60 px-5 py-4 backdrop-blur-sm">
                 <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-theme-accent" />
                 <div>
                     <p className="mb-1 text-[10px] uppercase tracking-[0.28em] text-theme-text-primary font-bold">Fact hôm nay</p>
@@ -256,31 +258,28 @@ export default function Nutrition() {
                         </p>
                     ) : (
                         filteredRecipes.map((recipe) => (
-                            <article
+                            <button
                                 key={recipe.name}
-                                className={`rounded-[20px] border ${isDark ? 'border-white/10 bg-white/5' : 'border-theme-border/20 bg-theme-surface/65'} p-4 transition hover:border-theme-accent/30 hover:bg-theme-accent/10`}
+                                onClick={() => setSelectedRecipe(recipe)}
+                                className={`group relative flex flex-col items-start rounded-[22px] border ${isDark ? 'border-white/10 bg-white/5' : 'border-theme-border/20 bg-theme-surface/65'} p-5 text-left transition-all hover:-translate-y-1 hover:border-theme-accent/40 hover:bg-theme-accent/5 hover:shadow-xl`}
                             >
-                                <div className="mb-2 flex items-start justify-between gap-2">
-                                    <h4 className="text-sm font-semibold leading-snug text-theme-text-primary">{recipe.name}</h4>
-                                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${MOOD_STYLE[recipe.mood] ?? 'border-theme-border bg-theme-surface text-theme-text-secondary'}`}>
+                                <div className="mb-3 flex w-full items-start justify-between gap-2">
+                                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest ${MOOD_STYLE[recipe.mood] ?? 'border-theme-border bg-theme-surface text-theme-text-secondary'}`}>
                                         {recipe.mood}
                                     </span>
-                                </div>
-                                <p className="text-xs leading-relaxed text-theme-text-secondary">{recipe.ingredients}</p>
-                                {recipe.benefit && (
-                                    <p className="mt-2 text-[11px] leading-relaxed text-theme-text-secondary/70">{recipe.benefit}</p>
-                                )}
-                                <div className="mt-3 flex items-center justify-between gap-2">
-                                    <p className="text-[10px] text-theme-text-secondary/50">⏱ {recipe.time}</p>
-                                    <div className="flex max-w-[70%] flex-wrap justify-end gap-1">
-                                        {recipe.tags.slice(0, 2).map((tag) => (
-                                            <span key={tag} className="rounded-full bg-theme-accent/10 px-2 py-0.5 text-[9px] text-theme-accent/80">
-                                                {tag}
-                                            </span>
-                                        ))}
+                                    <div className="flex items-center gap-1.5 text-[10px] font-medium text-theme-text-secondary/60">
+                                        <Clock className="h-3 w-3" />
+                                        {recipe.time}
                                     </div>
                                 </div>
-                            </article>
+                                <h4 className="font-display text-xl font-semibold leading-tight text-theme-text-primary transition-colors group-hover:text-theme-accent">
+                                    {recipe.name}
+                                </h4>
+                                <div className="mt-4 flex w-full items-center justify-between text-[10px] font-bold uppercase tracking-widest text-theme-accent opacity-0 transition-opacity group-hover:opacity-100">
+                                    <span>Xem chi tiết</span>
+                                    <ArrowRight className="h-3.5 w-3.5" />
+                                </div>
+                            </button>
                         ))
                     )}
                 </div>
@@ -291,6 +290,103 @@ export default function Nutrition() {
                     </p>
                 )}
             </section>
+
+            {/* ── Detail Modal ───────────────────────────────────────────── */}
+            <AnimatePresence>
+                {selectedRecipe && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setSelectedRecipe(null)}
+                            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className={`relative w-full max-w-xl overflow-hidden rounded-[32px] border ${isDark ? 'border-white/10 bg-theme-surface' : 'border-theme-border bg-theme-surface'} p-0 shadow-2xl shadow-black/20`}
+                        >
+                            {/* Modal Header */}
+                            <div className={`relative px-8 pt-10 pb-6`}>
+                                <button
+                                    onClick={() => setSelectedRecipe(null)}
+                                    className="absolute right-6 top-6 flex h-10 w-10 items-center justify-center rounded-full bg-theme-surface-alt/50 text-theme-text-secondary transition hover:bg-theme-surface-alt"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
+
+                                <div className="mb-4">
+                                    <span className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-widest ${MOOD_STYLE[selectedRecipe.mood] ?? 'border-theme-border bg-theme-surface text-theme-text-secondary'}`}>
+                                        {selectedRecipe.mood}
+                                    </span>
+                                </div>
+
+                                <h3 className="font-display text-3xl font-semibold leading-tight text-theme-text-primary sm:text-4xl">
+                                    {selectedRecipe.name}
+                                </h3>
+
+                                <div className="mt-4 flex flex-wrap gap-4 text-xs text-theme-text-secondary">
+                                    <div className="flex items-center gap-2">
+                                        <Clock className="h-4 w-4 text-theme-accent" />
+                                        <span>Chuẩn bị: {selectedRecipe.time}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex gap-1">
+                                            {selectedRecipe.tags.map(tag => (
+                                                <span key={tag} className="rounded-full bg-theme-accent/10 px-2 py-0.5 text-[10px] text-theme-accent">
+                                                    #{tag}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Modal Content */}
+                            <div className="max-h-[60vh] overflow-y-auto px-8 pb-10">
+                                <div className="space-y-8">
+                                    {/* Ingredients */}
+                                    <div className="rounded-2xl bg-theme-surface-alt/40 p-6">
+                                        <div className="mb-4 flex items-center gap-3">
+                                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-theme-accent/10 text-theme-accent">
+                                                <List className="h-4 w-4" />
+                                            </div>
+                                            <h4 className="text-sm font-bold uppercase tracking-[0.1em] text-theme-text-primary">Thành phần chính</h4>
+                                        </div>
+                                        <p className="text-[15px] leading-relaxed text-theme-text-secondary whitespace-pre-line">
+                                            {selectedRecipe.ingredients}
+                                        </p>
+                                    </div>
+
+                                    {/* Benefits */}
+                                    {selectedRecipe.benefit && (
+                                        <div className="rounded-2xl bg-theme-accent/5 p-6 border border-theme-accent/10">
+                                            <div className="mb-4 flex items-center gap-3">
+                                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-theme-accent/10 text-theme-accent">
+                                                    <Heart className="h-4 w-4" />
+                                                </div>
+                                                <h4 className="text-sm font-bold uppercase tracking-[0.1em] text-theme-accent">Lợi ích tâm trí</h4>
+                                            </div>
+                                            <p className="text-[15px] leading-relaxed text-theme-text-secondary italic">
+                                                "{selectedRecipe.benefit}"
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="border-t border-theme-border/30 bg-theme-surface-alt/20 p-6 text-center">
+                                <p className="text-[11px] text-theme-text-secondary/50">
+                                    Hãy thưởng thức bữa ăn một cách chậm rãi và chánh niệm
+                                </p>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     )
 }
