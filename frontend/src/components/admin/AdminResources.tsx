@@ -100,6 +100,7 @@ export default function AdminResources() {
             })
             setResources(data.items)
         } catch (err) {
+            if (err instanceof ApiRequestError && err.handledByModal) return
             if (err instanceof ApiRequestError) setError(err.message)
             else setError('Không tải được resources.')
         } finally {
@@ -144,6 +145,7 @@ export default function AdminResources() {
             resetForm()
             await load()
         } catch (err) {
+            if (err instanceof ApiRequestError && err.handledByModal) return
             if (err instanceof ApiRequestError) toast.error(err.message)
             else toast.error('Không thể lưu resource.')
         } finally {
@@ -176,6 +178,7 @@ export default function AdminResources() {
             toast.success('Đã xóa resource.')
             await load()
         } catch (err) {
+            if (err instanceof ApiRequestError && err.handledByModal) return
             if (err instanceof ApiRequestError) toast.error(err.message)
             else toast.error('Không thể xóa resource.')
         } finally {
@@ -193,6 +196,7 @@ export default function AdminResources() {
                 toast.info(`Hệ thống gợi ý bổ sung thêm tài nguyên: ${CATEGORY_LABELS[data.suggestions[0].category]}`)
             }
         } catch (err) {
+            if (err instanceof ApiRequestError && err.handledByModal) return
             toast.error('Không thể lấy gợi ý thông minh')
         } finally {
             setLoadingSuggestion(false)
@@ -266,6 +270,7 @@ export default function AdminResources() {
             // Refresh resource list
             void load()
         } catch (err) {
+            if (err instanceof ApiRequestError && err.handledByModal) return
             if (err instanceof ApiRequestError) toast.error(err.message)
             else toast.error('Agent crawl gặp lỗi.')
         } finally {
