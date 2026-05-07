@@ -95,7 +95,9 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                                     <div className="h-16 w-16 rounded-2xl bg-serene-primary/10" />
                                 )}
                                 <div>
-                                    <h3 className={`font-display text-lg font-semibold leading-tight ${isDark ? 'text-white' : 'text-serene-ink'}`}>
+                                    <h3 
+                                    title={item.title}
+                                    className={`font-display font-semibold line-clamp-2 leading-tight ${isDark ? 'text-white' : 'text-serene-ink'}`}>
                                         {item.title}
                                     </h3>
                                     <p className={`mt-1 text-xs ${isDark ? 'text-white/60' : 'text-serene-muted'}`}>
