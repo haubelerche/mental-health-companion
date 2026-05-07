@@ -17,6 +17,7 @@ from app.services.db.models import (
     MoodCheckin,
     SessionRiskSnapshot,
     User,
+    UserProfile,
 )
 
 
@@ -33,9 +34,12 @@ class TestSchemaConnectivity:
     def test_core_tables_exist(self, real_db) -> None:
         required = [
             "users",
+            "user_identities",
             "conversations",
+            "email_verification_tokens",
             "messages",
             "mood_checkins",
+            "password_reset_tokens",
             "conversation_memories",
             "session_summaries_archive",
             "analyst_signals",
@@ -45,6 +49,21 @@ class TestSchemaConnectivity:
             "risk_inference_log",
             "sync_outbox",
             "admin_audit_log",
+            "heart_wallets",
+            "heart_reward_events",
+            "heart_spend_events",
+            "streak_states",
+            "nutrition_meal_checkins",
+            "persona_unlock_states",
+            "reward_store_items",
+            "user_inventory_items",
+            "memory_cards",
+            "memory_card_audit_events",
+            "knowledge_packs",
+            "knowledge_cards",
+            "user_knowledge_progress",
+            "user_notifications",
+            "user_notification_preferences",
         ]
         result = real_db.execute(
             text(
@@ -94,6 +113,47 @@ class TestColumnConsistency:
         )
         assert result.fetchone() is not None, "mood_checkins.source is missing"
 
+    def test_mood_checkins_has_time_bucket(self, real_db) -> None:
+        result = real_db.execute(
+            text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema='app' AND table_name='mood_checkins' AND column_name='time_bucket'"
+            )
+        )
+        assert result.fetchone() is not None, "mood_checkins.time_bucket is missing"
+
+    def test_user_profiles_contract_columns(self, real_db) -> None:
+        required_cols = {
+            "user_id",
+            "version",
+            "schema_version",
+            "profile",
+            "last_active_session_id",
+            "summary_count",
+            "updated_at",
+        }
+        result = real_db.execute(
+            text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema='app' AND table_name='user_profiles'"
+            )
+        )
+        existing = {row[0] for row in result}
+        missing = required_cols - existing
+        assert not missing, f"app.user_profiles missing columns: {missing}"
+
+    def test_public_user_profiles_does_not_mask_app_schema(self, real_db) -> None:
+        result = real_db.execute(
+            text(
+                "SELECT table_schema FROM information_schema.tables "
+                "WHERE table_name='user_profiles' ORDER BY table_schema"
+            )
+        )
+        schemas = [row[0] for row in result]
+        assert "app" in schemas, "app.user_profiles is missing"
+        path = str(real_db.execute(text("SHOW search_path")).scalar() or "")
+        assert path.startswith("app") or "app" in path.split(","), f"runtime search_path does not prefer app: {path}"
+
     def test_insight_hypotheses_columns(self, real_db) -> None:
         required_cols = {
             "insight_id",
@@ -123,6 +183,9 @@ class TestColumnConsistency:
 class TestOrmRead:
     def test_orm_can_query_users(self, real_db) -> None:
         real_db.execute(select(User).limit(1))
+
+    def test_orm_can_query_user_profiles(self, real_db) -> None:
+        real_db.execute(select(UserProfile).limit(1))
 
     def test_orm_can_query_insight_hypotheses(self, real_db) -> None:
         rows = (
