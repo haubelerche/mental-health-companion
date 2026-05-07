@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 import openai
 from app.core.config import get_settings
 from app.services.db.models import TherapyLetter, MoodCheckin, ClinicalProfile, User
-from app.services.utils import make_id
+from app.services.utils import make_id, make_anon_name
 
 settings = get_settings()
 
@@ -16,12 +16,13 @@ async def generate_ai_reply(letter_content: str, mood_info: str = None, clinical
     client = openai.AsyncClient(api_key=settings.openai_api_key)
     
     system_prompt = (
-        "Bạn là Serene - một người bạn tâm giao ẩn danh. Bạn có khả năng thấu hiểu và xoa dịu tâm hồn. "
-        "Nhiệm vụ của bạn là phản hồi những lá thư tâm sự của người dùng một cách chân thành, "
-        "chữa lành và gần gũi. Hãy xưng 'mình' và gọi người dùng là 'bạn'. "
-        "Ngôn ngữ: Tiếng Việt. Phong cách: Nhẹ nhàng, thấu cảm, không máy móc, mang tính khích lệ, đời thường. "
-        "Hãy dựa vào thông tin tâm trạng và tình trạng lâm sàng (nếu có) để đưa ra lời khuyên phù hợp. "
-        "Độ dài: Khoảng 80-120 từ."
+        "Bạn là Tiến sĩ Serene - một nhà tâm lý học lâm sàng với hơn 15 năm kinh nghiệm trong trị liệu tâm hồn. "
+        "Phong cách của bạn là sự kết hợp giữa sự thấu cảm sâu sắc của một người bạn và tri thức chuyên môn của một chuyên gia tâm lý. "
+        "Nhiệm vụ của bạn là phản hồi những lá thư tâm sự của người dùng một cách chân thành, chữa lành và mang tính nâng đỡ cao. "
+        "Hãy xưng 'mình' hoặc 'tôi' tùy ngữ cảnh (nhưng 'mình' sẽ thân thiện hơn) và gọi người dùng là 'bạn'. "
+        "Ngôn ngữ: Tiếng Việt. Phong cách: Điềm tĩnh, thấu cảm, không máy móc, mang tính khích lệ, sử dụng ngôn từ có sức mạnh chữa lành. "
+        "Hãy dựa vào thông tin tâm trạng và tình trạng lâm sàng (nếu có) để đưa ra những phân tích và lời khuyên phù hợp với tâm thế của một bác sĩ tâm lý thấu hiểu. "
+        "Độ dài: Khoảng 100-150 từ."
     )
     
     user_context = f"Nội dung thư của người dùng gửi: \"{letter_content}\"\n"
@@ -32,7 +33,7 @@ async def generate_ai_reply(letter_content: str, mood_info: str = None, clinical
         
     try:
         response = await client.chat.completions.create(
-            model=settings.openai_model_chat,
+            model=settings.openai_model_friend,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_context}
@@ -44,6 +45,46 @@ async def generate_ai_reply(letter_content: str, mood_info: str = None, clinical
     except Exception as e:
         print(f"AI Letter Reply Error: {e}")
         return "Mình đã đọc được tâm sự của bạn. Dù thế nào, mình vẫn ở đây lắng nghe và ủng hộ bạn. Chúc bạn một ngày bình yên nhé."
+
+async def analyze_reported_letter(letter_content: str, report_reason: str = None) -> dict:
+    """Analyze a reported letter to help admin decide the action."""
+    client = openai.AsyncClient(api_key=settings.openai_api_key)
+    
+    system_prompt = (
+        "Bạn là chuyên gia kiểm duyệt nội dung của hệ thống Serene. "
+        "Nhiệm vụ của bạn là phân tích một lá thư bị báo cáo và đưa ra đánh giá khách quan. "
+        "Hãy xác định xem lá thư có thực sự vi phạm (nội dung độc hại, quấy rối, tự hại, v.v.) hay đây là một báo cáo sai sự thật. "
+        "Kết quả trả về dưới dạng JSON với các trường: "
+        "'category' (loại vi phạm hoặc 'safe'), "
+        "'severity' (thấp/trung bình/cao), "
+        "'reason' (giải thích ngắn gọn), "
+        "'action' (đề xuất: 'keep' hoặc 'delete')."
+    )
+    
+    user_context = f"Nội dung thư bị báo cáo: \"{letter_content}\"\n"
+    if report_reason:
+        user_context += f"Lý do người dùng báo cáo: {report_reason}\n"
+        
+    try:
+        response = await client.chat.completions.create(
+            model=settings.openai_model_friend,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_context}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.3
+        )
+        import json
+        return json.loads(response.choices[0].message.content.strip())
+    except Exception as e:
+        print(f"AI Content Moderation Error: {e}")
+        return {
+            "category": "unknown",
+            "severity": "unknown",
+            "reason": f"Lỗi phân tích AI: {str(e)}",
+            "action": "keep"
+        }
 
 async def run_ai_reply_worker(db: Session, hours_threshold: int = 6):
     """
@@ -108,7 +149,7 @@ async def run_ai_reply_worker(db: Session, hours_threshold: int = 6):
             letter_id=make_id("lrep_ai"),
             user_id=AI_SERENE_USER_ID,
             reply_to_id=letter.letter_id,
-            anonymous_name="Serene AI 🌿",
+            anonymous_name=make_anon_name(),
             content=reply_content,
             letter_type="reply",
             status="active",
