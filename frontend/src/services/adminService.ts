@@ -121,4 +121,53 @@ export const adminService = {
         httpClient.delete<{ resource_id: string; deleted_at: string }>(`/admin/resources/${encodeURIComponent(resourceId)}`),
     agentCrawlResources: (payload: { category: string; limit: number }) =>
         httpClient.postStreamWithCsrf('/admin/resources/agent-crawl', payload),
+
+    // Task 3.1: User Management
+    listUsers: (params?: { is_active?: boolean; query?: string; limit?: number; offset?: number }) => {
+        const query = new URLSearchParams()
+        if (typeof params?.is_active === 'boolean') query.set('is_active', String(params.is_active))
+        if (params?.query) query.set('query', params.query)
+        if (typeof params?.limit === 'number') query.set('limit', String(params.limit))
+        if (typeof params?.offset === 'number') query.set('offset', String(params.offset))
+        return httpClient.get<{ users: any[]; total: number }>(`/admin/users?${query.toString()}`)
+    },
+    getUserDetail: (userId: string) => httpClient.get<any>(`/admin/users/${encodeURIComponent(userId)}/detail`),
+    updateUser: (userId: string, payload: { is_active?: boolean; display_name?: string }) =>
+        httpClient.patch<any>(`/admin/users/${encodeURIComponent(userId)}`, payload),
+
+    // Task 3.2-3.4: Analytics
+    getMoodAnalytics: (days: number = 30) => httpClient.get<any>(`/admin/analytics/mood-distribution?days=${days}`),
+    getMoodTrend: (days: number = 30) => httpClient.get<any>(`/admin/analytics/mood-trend?days=${days}`),
+    getClinicalAnalytics: () => httpClient.get<any>('/admin/analytics/clinical-overview'),
+    getResourceAnalytics: () => httpClient.get<any>('/admin/analytics/resources'),
+    getHeartAnalytics: (days: number = 30) => httpClient.get<any>(`/admin/analytics/hearts?days=${days}`),
+
+    // Task 3.5: Letter Management
+    listLetters: (params?: { status?: string; query?: string; limit?: number; offset?: number }) => {
+        const query = new URLSearchParams()
+        if (params?.status) query.set('status', params.status)
+        if (params?.query) query.set('query', params.query)
+        if (typeof params?.limit === 'number') query.set('limit', String(params.limit))
+        if (typeof params?.offset === 'number') query.set('offset', String(params.offset))
+        return httpClient.get<{ letters: any[]; total: number }>(`/admin/letters?${query.toString()}`)
+    },
+    reviewLetter: (letterId: string, action: 'keep' | 'delete') =>
+        httpClient.patch<any>(`/admin/letters/${encodeURIComponent(letterId)}/review?action=${action}`, {}),
+
+    // Task 3.6: Emotion-Driven Agent
+    getEmotionResourceSuggestion: () => httpClient.get<any>('/admin/analytics/emotion-resource-suggestion'),
+    // Task 3.7: Audit Logs
+    listAuditLogs: (params?: { limit?: number; offset?: number }) => {
+        const query = new URLSearchParams()
+        if (typeof params?.limit === 'number') query.set('limit', String(params.limit))
+        if (typeof params?.offset === 'number') query.set('offset', String(params.offset))
+        return httpClient.get<{ items: any[]; total: number }>(`/admin/audit-logs?${query.toString()}`)
+    },
+
+    // Task 3.8: AI Letter Responder
+    runAiResponder: (hours: number = 6) => httpClient.post<any>(`/admin/run-ai-responder?hours=${hours}`, {}),
+
+    // Task 3.10: Bulk Notifications
+    broadcastNotification: (payload: { title?: string; body: string; category?: string }) =>
+        httpClient.post<any>('/admin/notifications/broadcast', payload),
 }
