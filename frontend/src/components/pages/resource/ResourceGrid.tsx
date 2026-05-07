@@ -33,7 +33,7 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
     return (
         <div className="space-y-6">
             {/* Featured */}
-            <article className={`rounded-4xl ${isDark ? 'bg-theme-surface/60 border border-white/10' : 'bg-white/52'} shadow-lg`}>
+            <article className={`rounded-4xl bg-theme-surface/80 border border-white/10 shadow-lg`}>
                 <div className="relative overflow-hidden rounded-t-3xl cursor-pointer" onClick={() => onOpen(featured)}>
                     {featured.thumbnail ? (
                         <div className="aspect-video relative">
@@ -48,11 +48,6 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                     ) : (
                         <div className="h-52 w-full rounded-3xl bg-serene-primary/15" />
                     )}
-
-                    {/* label */}
-                    <span className="absolute bottom-4 left-4 rounded-full bg-serene-primary px-3 py-1 tracking-wide font-bold uppercase  text-white">
-                        Nổi bật
-                    </span>
 
                     {/* nút play ở giữa */}
                     <button
@@ -95,7 +90,9 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                                     <div className="h-16 w-16 rounded-2xl bg-serene-primary/10" />
                                 )}
                                 <div>
-                                    <h3 className={`font-display text-lg font-semibold leading-tight ${isDark ? 'text-white' : 'text-serene-ink'}`}>
+                                    <h3 
+                                    title={item.title}
+                                    className={`font-display font-semibold line-clamp-2 leading-tight ${isDark ? 'text-white' : 'text-serene-ink'}`}>
                                         {item.title}
                                     </h3>
                                     <p className={`mt-1 text-xs ${isDark ? 'text-white/60' : 'text-serene-muted'}`}>

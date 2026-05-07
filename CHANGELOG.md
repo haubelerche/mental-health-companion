@@ -4,10 +4,17 @@
 
 ---
 
+## [Unreleased] — Sprint A Phase 5 · 2026-05-07
+
+### Fixed
+- **ORM column names aligned to SQL schema**: Renamed `tone_cam_xuc` → `assistant_tone` (with updated `CheckConstraint` accepting `supportive|validating|cheerful|calming|mentor|neutral`) and `muc_do` → `severity_level` (with `CheckConstraint` accepting `low|moderate|high|imminent|unknown`) in `backend/app/services/db/models.py`. Propagated the rename across all reference sites: `chat.py`, `admin.py`, `langgraph_chat.py` (TypedDict field, dict keys, LLM prompt, `build_normal_envelope` parameter), and `session_summarizer.py` (dataclass field, raw SQL query, attribute accesses).
+- **Chat stream 500 — `mood_checkins.time_bucket` undefined**: Local DB was stamped at `0005_letters_schema` while the model expected `0011_mood_checkin_time_bucket`; running `alembic upgrade head` failed at `0006_reports_enhancement` because the optional `reports` table never existed (no `Report` model is created by `init_db`). Made `0006_reports_enhancement` idempotent: it now no-ops when `reports` is absent, and column / index additions are guarded so re-runs are safe. Re-running `alembic upgrade head` now applies `0007 → 0011`, restoring the `time_bucket` column and unblocking `POST /v1/chat/message/stream`.
+
 ## [Unreleased] — Sprint A Phase 5 · 2026-04-30
 
 ### Removed
 - Dropped `COMMIT_PLAYBOOK.MD` from version control; added `.gitignore` rules so local AI-agent commit playbooks (e.g. Claude Code / Cursor) are not pushed to GitHub.
+- Dropped `tham-khao/` (local reference GIFs) from version control and ignored the folder so it is not committed again.
 
 ### Docs
 - Added `docs/GLOSSARY_RUNTIME.md` as the canonical runtime naming map between product role names, orchestration identifiers, graph keys, routing tokens, and trace spans.
@@ -349,3 +356,18 @@
 ---
 
 *No previous releases — initial changelog setup.*
+
+## [Unreleased] - Sprint A Phase 5 � 2026-05-07
+
+### Fixed
+- Synced ORM column names with Supabase SQL schema: `tone_cam_xuc` -> `assistant_tone` and `muc_do` -> `severity_level`.
+- Added missing ORM fields for existing core models: `MoodCheckin.source`, `ConversationMemory.pii_checked/expires_at/source`, `UserProfile.schema_version/last_active_session_id/summary_count`, and `ClinicalProfile.score_source/model_version`.
+- Added ORM models for analyst pipeline and safety domains: `SessionSummaryArchive`, `RiskInferenceLog`, `SessionRiskSnapshot`, `AnalystSignal`, `InsightHypothesis`.
+- Replaced dashboard raw SQL in `backend/app/dashboard/service.py` with SQLAlchemy ORM query using `InsightHypothesis`.
+- Enforced PostgreSQL schema resolution for Supabase via `search_path=app,public,extensions` in DB session engine config and integration-test fixtures.
+
+### Added
+- Alembic migration `0012_sync_core_schema.py` with guarded rename/add-column logic to support both legacy and already-synced DB states.
+- Real PostgreSQL integration suite `backend/tests/test_db_integration.py` covering connectivity, table/column consistency, ORM query smoke tests, and write/read flow.
+- Real DB fixtures in `backend/tests/conftest.py`: `real_db_url`, `real_engine`, `real_db`.
+- Verified `backend/scripts/verify_db_schema.py` execution against Supabase with UTF-8 console mode on Windows.

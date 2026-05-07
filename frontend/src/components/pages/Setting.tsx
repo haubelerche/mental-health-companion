@@ -77,7 +77,7 @@ function ThemeCard({ label, image, selected, isDark: _isDark, onSelect }: ThemeC
       <p
         className={[
           'mt-3 text-center text-[0.7rem] font-semibold uppercase tracking-[0.28em]',
-          selected ? 'text-serene-primary' : 'text-theme-text-secondary',
+          selected ? 'text-theme-accent' : 'text-theme-text-secondary',
         ].join(' ')}
       >
         {label}
@@ -276,7 +276,7 @@ export default function Setting() {
           <div className="w-full mb-6 flex justify-start">
             <button
               onClick={() => setActiveTab('main')}
-              className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-theme-text-secondary transition hover:bg-theme-surface/50 hover:text-theme-text-primary"
+              className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-theme-text-secondary cursor-pointer bg-theme-surface/50 hover:text-theme-text-primary"
             >
               <ArrowLeft className="h-4 w-4" />
               Quay lại danh mục
@@ -335,7 +335,7 @@ export default function Setting() {
                   type="button"
                   onClick={() => void handleLogout()}
                   disabled={isLoggingOut}
-                  className="inline-flex gap-2 items-center rounded-full bg-red-600/10 px-6 py-3 text-xs font-bold uppercase tracking-[0.22em] text-red-500 transition hover:bg-red-600/20 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="inline-flex gap-2 items-center rounded-full bg-red-600 px-6 py-3 text-xs font-bold uppercase tracking-[0.22em] text-red-50 transition hover:bg-red-600/20 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <LogOut className="h-5 w-5 " />
                   {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất '}

@@ -2,10 +2,11 @@ import { useEffect, useState, useMemo } from 'react'
 import { Search, Sparkles, X } from 'lucide-react'
 import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
 import { useThemeContext } from '../../contexts/ThemeContext'
-import MealCheckInCard from '../nutrition/MealCheckInCard'
 import nutritionContent from '../../../data/nutritionContent.json'
 import a1 from '../../assets/nutrition-a1.jpg'
 import a2 from '../../assets/nutrition-a2.jpg'
+
+// ─── Types ──────────────────────────────────────────────────────────────────────
 
 type NutritionRecipe = {
     name: string
@@ -47,17 +48,6 @@ const getMoodStyle = (isDark: boolean): Record<string, string> => ({
     'Bình yên': isDark ? 'bg-slate-500/20 text-slate-300 border-slate-500/30' : 'bg-slate-100 text-slate-600 border-slate-200',
 })
 
-const pickRandom = <T,>(items: T[]): T | undefined => {
-    if (items.length === 0) return undefined
-    return items[Math.floor(Math.random() * items.length)]
-}
-
-const getRandomItems = <T,>(items: T[], count: number): T[] => {
-    return [...items].sort(() => Math.random() - 0.5).slice(0, count)
-}
-
-const normalizeText = (value: string) => value.trim().toLowerCase()
-
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 export default function Nutrition() {
@@ -69,11 +59,13 @@ export default function Nutrition() {
     const [activeTag, setActiveTag] = useState<string | null>(null)
 
     const todayFact = useMemo(
-        () => pickRandom(CONTENT.dailyFacts) ?? 'Một bữa ăn đều đặn, đủ chất và ít chế biến là nền tảng tốt cho sức khỏe thể chất lẫn tinh thần.',
+        () => CONTENT.dailyFacts[Math.floor(Math.random() * CONTENT.dailyFacts.length)] ?? 'Một bữa ăn đều đặn, đủ chất và ít chế biến là nền tảng tốt cho sức khỏe thể chất lẫn tinh thần.',
         [],
     )
 
-    const featuredRecipes = useMemo(() => getRandomItems(CONTENT.recipes, 3), [])
+    const featuredRecipes = useMemo(() => {
+        return [...CONTENT.recipes].sort(() => Math.random() - 0.5).slice(0, 3)
+    }, [])
 
     useEffect(() => {
         let mounted = true
@@ -85,31 +77,19 @@ export default function Nutrition() {
     }, [])
 
     const filteredRecipes = useMemo(() => {
-        const q = normalizeText(query)
+        const q = query.trim().toLowerCase()
         if (!q && !activeTag) return featuredRecipes
-
-        return CONTENT.recipes.filter((recipe) => {
-            const searchable = [
-                recipe.name,
-                recipe.ingredients,
-                recipe.benefit ?? '',
-                recipe.mood,
-                ...recipe.tags,
-            ].join(' ')
-
-            const matchQuery = !q || normalizeText(searchable).includes(q)
-            const matchTag = !activeTag || recipe.tags.includes(activeTag)
+        return CONTENT.recipes.filter((r) => {
+            const matchQuery = !q || r.name.toLowerCase().includes(q) || r.ingredients.toLowerCase().includes(q) || (r.benefit ?? '').toLowerCase().includes(q)
+            const matchTag = !activeTag || r.tags.includes(activeTag)
             return matchQuery && matchTag
-        }).slice(0, 9)
+        }).slice(0, 6)
     }, [query, activeTag, featuredRecipes])
 
     const MOOD_STYLE = getMoodStyle(isDark)
 
     return (
         <div className="space-y-6 pb-16 lg:space-y-8">
-
-            {/* ── Ghi nhận bữa ăn ─────────────────────────────────────── */}
-            <MealCheckInCard />
 
             {/* ── Daily fact banner ───────────────────────────────────────── */}
             <section className="flex items-start gap-3 rounded-[22px] bg-theme-surface/40 px-5 py-4 backdrop-blur-sm">
@@ -186,15 +166,6 @@ export default function Nutrition() {
                                 <div>
                                     <p className="text-sm font-semibold text-theme-text-primary">{item.food}</p>
                                     <p className="mt-0.5 text-xs leading-relaxed text-theme-text-secondary">{item.why}</p>
-                                    {item.tags && item.tags.length > 0 && (
-                                        <div className="mt-2 flex flex-wrap gap-1.5">
-                                            {item.tags.map((tag) => (
-                                                <span key={tag} className="rounded-full bg-theme-accent/10 px-2 py-0.5 text-[10px] text-theme-accent/80">
-                                                    {tag}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
                                 </div>
                             </li>
                         ))}
@@ -216,15 +187,14 @@ export default function Nutrition() {
                         type="text"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Tìm theo tên món, nguyên liệu, lợi ích hoặc tag..."
-                        className={`w-full rounded-2xl ${isDark ? 'bg-white/5 border border-white/10' : 'bg-theme-surface/70'} py-3 pl-11 pr-10 text-sm text-theme-text-primary placeholder-theme-text-secondary/45 outline-none transition focus:ring-1 focus:ring-theme-accent/30`}
+                        placeholder="Tìm theo tên món, nguyên liệu hoặc lợi ích..."
+                        className={`w-full rounded-2xl bg-theme-surface/70 py-3 pl-11 pr-10 text-sm text-theme-text-primary placeholder-theme-text-secondary/45 outline-none transition focus:ring-1 focus:ring-theme-accent/30`}
                     />
                     {query && (
                         <button
                             type="button"
                             onClick={() => setQuery('')}
                             className="absolute right-4 top-1/2 -translate-y-1/2 text-theme-text-secondary/50 transition hover:text-theme-text-secondary"
-                            aria-label="Xóa từ khóa tìm kiếm"
                         >
                             <X className="h-4 w-4" />
                         </button>
@@ -240,7 +210,7 @@ export default function Nutrition() {
                             onClick={() => setActiveTag(activeTag === tag ? null : tag)}
                             className={`rounded-full border px-3 py-1.5 text-xs transition ${activeTag === tag
                                 ? 'border-theme-accent bg-theme-accent text-white'
-                                : `border-theme-border/30 bg-theme-surface text-theme-text-primary hover:border-theme-accent/50 `
+                                : `border-theme-border/30 bg-theme-surface text-theme-text-primary hover:border-theme-accent/50`
                                 }`}
                         >
                             {tag}
@@ -258,11 +228,11 @@ export default function Nutrition() {
                         filteredRecipes.map((recipe) => (
                             <article
                                 key={recipe.name}
-                                className={`rounded-[20px] border ${isDark ? 'border-white/10 bg-white/5' : 'border-theme-border/20 bg-theme-surface/65'} p-4 transition hover:border-theme-accent/30 hover:bg-theme-accent/10`}
+                                className={`rounded-[20px] border border-theme-border/20 bg-theme-surface/60 p-4 transition hover:bg-theme-accent/10 hover:border-theme-accent/30`}
                             >
                                 <div className="mb-2 flex items-start justify-between gap-2">
                                     <h4 className="text-sm font-semibold leading-snug text-theme-text-primary">{recipe.name}</h4>
-                                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${MOOD_STYLE[recipe.mood] ?? 'border-theme-border bg-theme-surface text-theme-text-secondary'}`}>
+                                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${MOOD_STYLE[recipe.mood] ?? 'bg-theme-surface text-theme-text-secondary border-theme-border'}`}>
                                         {recipe.mood}
                                     </span>
                                 </div>
@@ -270,16 +240,7 @@ export default function Nutrition() {
                                 {recipe.benefit && (
                                     <p className="mt-2 text-[11px] leading-relaxed text-theme-text-secondary/70">{recipe.benefit}</p>
                                 )}
-                                <div className="mt-3 flex items-center justify-between gap-2">
-                                    <p className="text-[10px] text-theme-text-secondary/50">⏱ {recipe.time}</p>
-                                    <div className="flex max-w-[70%] flex-wrap justify-end gap-1">
-                                        {recipe.tags.slice(0, 2).map((tag) => (
-                                            <span key={tag} className="rounded-full bg-theme-accent/10 px-2 py-0.5 text-[9px] text-theme-accent/80">
-                                                {tag}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
+                                <p className="mt-2.5 text-[10px] text-theme-text-secondary/50">⏱ {recipe.time}</p>
                             </article>
                         ))
                     )}

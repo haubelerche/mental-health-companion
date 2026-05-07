@@ -24,9 +24,11 @@ def get_engine():
 
         pool_size = max(1, int(settings.db_pool_size))
         max_overflow = max(0, int(settings.db_max_overflow))
-        # Supabase session pooler on :5432 has a strict max-client cap (often 15).
-        if host.endswith("pooler.supabase.com") and port == 5432:
-            soft_cap = 10
+        # Supabase session pooler can have a very small project-level client cap.
+        # Keep the application pool below that cap because background workers share
+        # the same singleton engine with request handlers.
+        if "supabase.com" in host:
+            soft_cap = 5
             if pool_size > soft_cap:
                 pool_size = soft_cap
                 max_overflow = 0
@@ -47,6 +49,7 @@ def get_engine():
             pool_recycle=settings.db_pool_recycle_seconds,
             pool_pre_ping=settings.db_pool_pre_ping,
             pool_use_lifo=True,
+            connect_args={"options": "-c search_path=app,public,extensions"},
         )
     return create_engine(database_url, future=True)
 

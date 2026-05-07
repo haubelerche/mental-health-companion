@@ -9,6 +9,7 @@ import {
     Music,
     Paperclip,
     Play,
+    Send,
     Sprout,
     UserRound,
     Wind,
@@ -90,6 +91,50 @@ type ChatApiData = {
     followup_priority?: boolean
     routing_history?: string[]
     intervention?: ProactiveVoiceIntervention | null
+    // Crisis plan fields (from serene_sos_voice_intervention_plan.md)
+    crisis_plan?: CrisisPlan | null
+    scoring_debug?: ScoringDebug | null
+}
+
+type CrisisActionCard = {
+    id: string
+    type:
+        | 'voice_grounding'
+        | 'breathing_timer'
+        | 'trusted_contact'
+        | 'hotline'
+        | 'clinic_map'
+        | 'video_grounding'
+        | 'continue_chat'
+    title: string
+    description: string
+    action: string
+    route?: string | null
+    priority: number
+}
+
+type CrisisPlan = {
+    visible_text: string
+    voice_script?: string
+    action_cards: CrisisActionCard[]
+    follow_up_question?: string
+    safety_reason_codes?: string[]
+    should_enqueue_voice?: boolean
+    source?: 'llm' | 'fallback_template'
+}
+
+type ScoringDebug = {
+    sos_triggered: boolean
+    distress_score: number
+    harm_risk_score?: number | null
+    current_turn_score: number
+    rolling_score: number
+    trend_boost: number
+    delta_score: number
+    rolling_window_turns: number
+    reason_codes: string[]
+    keyword_hits: string[]
+    safety_tier_hint?: string | null
 }
 
 type QuickReply = string | { label?: string; message?: string; reason?: string; type?: string }
@@ -100,6 +145,7 @@ type UiMessage = {
     content: string
     timestamp?: number
     apiData?: ChatApiData
+    isPending?: boolean
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
@@ -192,88 +238,119 @@ const ATTACHMENT_ICONS: Record<string, typeof Wind> = {
     clinic_map: MapPin,
 }
 
+const ATTACHMENT_META: Record<string, { badge: string; action: string }> = {
+    breathing_exercise: { badge: 'BÀI TẬP ĐỀ XUẤT', action: 'Bắt đầu' },
+    grounding_exercise: { badge: 'BÀI TẬP ĐỀ XUẤT', action: 'Bắt đầu' },
+    body_scan: { badge: 'BÀI TẬP ĐỀ XUẤT', action: 'Bắt đầu' },
+    meditation: { badge: 'BÀI TẬP ĐỀ XUẤT', action: 'Bắt đầu' },
+    music: { badge: 'NHẠC ĐỀ XUẤT', action: 'Mở' },
+    recipe: { badge: 'CÔNG THỨC GỢI Ý', action: 'Xem' },
+    nutrition: { badge: 'CÔNG THỨC GỢI Ý', action: 'Xem' },
+    resource: { badge: 'NỘI DUNG ĐỀ XUẤT', action: 'Mở' },
+    clinic_map: { badge: 'HỖ TRỢ GẦN BẠN', action: 'Xem' },
+}
+
 function AttachmentCard({ item, onOpen }: { item: TheDinhKem; onOpen: (item: TheDinhKem) => void }) {
     const IconCmp = ATTACHMENT_ICONS[item.type] ?? Paperclip
+    const meta = ATTACHMENT_META[item.type] ?? ATTACHMENT_META.resource
     const duration = item.duration_sec ? `${Math.max(1, Math.round(item.duration_sec / 60))} phút` : item.type.replace(/_/g, ' ')
+    const title = item.title?.trim() ? item.title.trim() : 'Gợi ý cho bạn'
+    const subtitle = item.description?.trim() ? item.description.trim() : duration
     return (
         <button
             type="button"
             onClick={() => onOpen(item)}
-            className="mt-2 grid max-w-sm grid-cols-[40px_1fr_auto] items-center gap-3 rounded-2xl border border-theme-border/30 bg-theme-surface/60 px-3 py-2.5 text-left transition hover:bg-theme-accent/20"
+            className="mt-2 grid w-full max-w-xl grid-cols-[56px_1fr_auto] items-center gap-3 rounded-full border border-theme-border/35 bg-theme-surface/90 px-3 py-2.5 text-left shadow-sm transition hover:bg-theme-accent/10"
         >
-            <span className="flex h-10 w-10 items-center justify-center text-theme-accent">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-theme-bg-secondary text-theme-accent">
                 <IconCmp className="h-5 w-5" aria-hidden />
             </span>
-            <div>
-                <p className="text-xs font-semibold text-theme-text-primary">{item.title}</p>
-                <p className="mt-0.5 line-clamp-2 text-[10px] leading-relaxed text-theme-text-secondary">
-                    {item.description || duration}
+            <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-theme-text-secondary/70">{meta.badge}</p>
+                <p className="truncate text-lg font-bold leading-tight text-theme-text-primary">{title}</p>
+                <p className="mt-0.5 line-clamp-1 text-[11px] leading-relaxed text-theme-text-secondary">
+                    {subtitle}
                 </p>
             </div>
-            <span className="rounded-full bg-theme-accent/10 px-2 py-1 text-[10px] font-medium text-theme-accent">
-                Mở
+            <span className="rounded-full bg-theme-accent px-4 py-2 text-sm font-semibold text-white shadow-sm">
+                {meta.action}
             </span>
         </button>
     )
 }
 
-function CrisisPanel({ data }: { data: ChatApiData }) {
+function CrisisStepper({ data, onAction, onSend }: {
+    data: ChatApiData
+    onAction?: (card: CrisisActionCard) => void
+    onSend?: (text: string) => void
+}) {
     const { effectiveTheme } = useThemeContext()
     const isDark = effectiveTheme === 'dark'
     if (!data.sos_triggered) return null
+
+    const plan = data.crisis_plan
+    const actionCards: CrisisActionCard[] = plan?.action_cards?.length
+        ? plan.action_cards
+        : [
+              { id: 'breathing_timer_478', type: 'breathing_timer', title: 'Hít thở 4-7-8', description: 'Hít vào 4 giây, giữ 7, thở ra 8', action: 'start_breathing_timer', priority: 90 },
+              { id: 'hotline_cta', type: 'hotline', title: 'Gọi đường dây hỗ trợ', description: 'Miễn phí, bảo mật, 24/7', action: 'open_hotline_sheet', priority: 80 },
+          ]
+
+    const followUp = plan?.follow_up_question
+
+    // Compact icon per action type
+    function ActionIcon({ type }: { type: string }) {
+        if (type === 'breathing_timer') return <Wind className="h-4 w-4" aria-hidden />
+        if (type === 'hotline' || type === 'trusted_contact') return <span className="text-base" aria-hidden>📞</span>
+        if (type === 'clinic_map') return <MapPin className="h-4 w-4" aria-hidden />
+        if (type === 'video_grounding') return <Play className="h-4 w-4" aria-hidden />
+        if (type === 'voice_grounding') return <Music className="h-4 w-4" aria-hidden />
+        return <Eye className="h-4 w-4" aria-hidden />
+    }
+
+    const border = isDark ? 'border-red-500/25 bg-red-500/8' : 'border-red-200 bg-red-50/80'
+    const headerText = isDark ? 'text-red-400' : 'text-red-600'
+    const cardBorder = isDark ? 'border-red-500/20 bg-theme-surface/50 hover:bg-red-500/10' : 'border-red-200 bg-white/70 hover:bg-red-50'
+
     return (
-        <div className={`mt-3 space-y-2.5 rounded-2xl border-2 ${isDark ? 'border-red-500/30 bg-red-500/10' : 'border-red-300 bg-red-50/90'} p-4`}>
-            <div className="flex items-center gap-2">
-                <span className={`text-xs font-black uppercase tracking-tighter ${isDark ? 'text-red-400' : 'text-red-600'}`} aria-hidden>
+        <div className={`mt-2 rounded-2xl border ${border} p-3 space-y-2`}>
+            {/* Header — minimal */}
+            <div className="flex items-center gap-1.5">
+                <span className={`text-[10px] font-black uppercase tracking-widest ${headerText}`}>Hỗ trợ khủng hoảng</span>
+                <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-medium ${isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-600'}`}>
                     SOS
                 </span>
-                <div>
-                    <p className={`text-xs font-semibold ${isDark ? 'text-red-400' : 'text-red-700'}`}>CHẾ ĐỘ HỖ TRỢ KHỦNG HOẢNG</p>
-                    <p className={`text-[10px] ${isDark ? 'text-red-400/70' : 'text-red-500/70'}`}>
-                        risk_level: {data.risk_level ?? '—'} · tier: {data.safety_tier}
-                    </p>
-                </div>
             </div>
-            {data.assistant_strategy && (
-                <div className="flex flex-wrap gap-1.5">
-                    {data.assistant_strategy.keep_engaged && (
-                        <span className={`rounded-full border ${isDark ? 'border-green-500/30 bg-green-500/10 text-green-400' : 'border-green-300 bg-green-50 text-green-700'} px-2 py-0.5 text-[10px]`}>
-                            Đã chọn · Giữ kết nối
-                        </span>
-                    )}
-                    {data.assistant_strategy.encourage_external_help && (
-                        <span className={`rounded-full border ${isDark ? 'border-blue-500/30 bg-blue-500/10 text-blue-400' : 'border-blue-300 bg-blue-50 text-blue-700'} px-2 py-0.5 text-[10px]`}>
-                            Đã chọn · Gợi hỗ trợ ngoài
-                        </span>
-                    )}
-                </div>
+
+            {/* Action cards — max 3 */}
+            {actionCards.slice(0, 3).map((card) => (
+                <button
+                    key={card.id}
+                    type="button"
+                    onClick={() => onAction?.(card)}
+                    className={`w-full flex items-center gap-2.5 rounded-xl border ${cardBorder} px-3 py-2 text-left transition active:scale-[0.98]`}
+                >
+                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${isDark ? 'bg-red-500/15 text-red-400' : 'bg-red-100 text-red-600'}`}>
+                        <ActionIcon type={card.type} />
+                    </span>
+                    <div className="min-w-0">
+                        <p className={`text-xs font-semibold truncate ${isDark ? 'text-red-300' : 'text-red-700'}`}>{card.title}</p>
+                        <p className={`text-[10px] leading-snug line-clamp-1 ${isDark ? 'text-red-400/70' : 'text-red-500/80'}`}>{card.description}</p>
+                    </div>
+                    <span className={`ml-auto shrink-0 text-[10px] font-medium ${isDark ? 'text-red-400' : 'text-red-500'}`}>›</span>
+                </button>
+            ))}
+
+            {/* Follow-up question */}
+            {followUp && onSend && (
+                <button
+                    type="button"
+                    onClick={() => onSend(followUp)}
+                    className={`w-full mt-0.5 rounded-xl border border-dashed ${isDark ? 'border-red-500/25 text-red-400/70 hover:bg-red-500/8' : 'border-red-300/60 text-red-500/80 hover:bg-red-50'} px-3 py-1.5 text-left text-[11px] transition`}
+                >
+                    {followUp}
+                </button>
             )}
-            {data.micro_actions?.length ? (
-                <div className="space-y-1.5">
-                    {data.micro_actions.map((a, i) => (
-                        <div key={i} className={`flex items-start gap-2 rounded-xl border ${isDark ? 'border-red-500/20 bg-theme-surface/40' : 'border-red-200 bg-white/60'} px-3 py-2`}>
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center text-theme-accent">
-                                {a.type === 'breathing' ? <Wind className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
-                            </span>
-                            <span className={`text-xs ${isDark ? 'text-red-400' : 'text-red-700'}`}>{a.label}</span>
-                        </div>
-                    ))}
-                </div>
-            ) : null}
-            {data.hotline_cards?.length ? (
-                <div className="space-y-1.5">
-                    {data.hotline_cards.map((h, i) => (
-                        <a
-                            key={i}
-                            href={`tel:${h.phone.replace(/\s/g, '')}`}
-                            className={`flex items-center justify-between rounded-xl border ${isDark ? 'border-red-500/30 bg-red-500/5 hover:bg-red-500/10' : 'border-red-200 bg-white/70 hover:bg-red-50'} px-3 py-2 transition`}
-                        >
-                            <span className={`text-xs ${isDark ? 'text-red-400' : 'text-red-700'}`}>{h.label}</span>
-                            <span className={`font-bold ${isDark ? 'text-red-400' : 'text-red-600'}`}>{h.phone}</span>
-                        </a>
-                    ))}
-                </div>
-            ) : null}
         </div>
     )
 }
@@ -543,7 +620,7 @@ export default function Chat() {
                     if (currentEvent === 'delta') {
                         streamedText += String(payload.text ?? '')
                         setMessages((prev) =>
-                            prev.map((m) => (m.id === pendingId ? { ...m, content: streamedText || '...' } : m)),
+                            prev.map((m) => (m.id === pendingId ? { ...m, content: streamedText || '...', isPending: false } : m)),
                         )
                     } else if (currentEvent === 'heartbeat') {
                         const stage = String(payload.stage ?? 'pre_llm')
@@ -576,7 +653,7 @@ export default function Chat() {
         setMessages((prev) =>
             prev.map((m) =>
                 m.id === pendingId
-                    ? { id: `a_${Date.now()}`, role: 'assistant', content: assistantText, apiData: finalData ?? undefined }
+                    ? { id: `a_${Date.now()}`, role: 'assistant', content: assistantText, apiData: finalData ?? undefined, isPending: false }
                     : m,
             ),
         )
@@ -597,7 +674,7 @@ export default function Chat() {
         setMessages((prev) => [
             ...prev,
             { id: `u_${now}`, role: 'user', content: text, timestamp: now },
-            { id: pendingId, role: 'assistant', content: 'Mây đang lắng nghe và viết lại thật cẩn thận cho bạn...', timestamp: now },
+            { id: pendingId, role: 'assistant', content: '', timestamp: now, isPending: true },
         ])
         setSending(true)
 
@@ -622,7 +699,7 @@ export default function Chat() {
                     setMessages((prev) =>
                         prev.map((m) =>
                             m.id === pendingId
-                                ? { id: `a_${Date.now()}`, role: 'assistant', content: assistantText, apiData: data }
+                                ? { id: `a_${Date.now()}`, role: 'assistant', content: assistantText, apiData: data, isPending: false }
                                 : m,
                         ),
                     )
@@ -647,7 +724,7 @@ export default function Chat() {
                 setMessages((prev) =>
                     prev.map((m) =>
                         m.id === pendingId
-                            ? { id: `a_${Date.now()}`, role: 'assistant', content: assistantText, apiData: data }
+                            ? { id: `a_${Date.now()}`, role: 'assistant', content: assistantText, apiData: data, isPending: false }
                             : m,
                     ),
                 )
@@ -744,6 +821,30 @@ export default function Chat() {
         navigate(ROUTE_PATHS.resources)
     }
 
+    const handleCrisisAction = (card: CrisisActionCard) => {
+        switch (card.action) {
+            case 'play_voice_grounding':
+                // Voice is handled by the TTS poll path; focus input as fallback
+                break
+            case 'start_breathing_timer':
+                navigate(`${ROUTE_PATHS.exercises}?exercise=breath_478`)
+                break
+            case 'open_hotline_sheet':
+                setSosActive(true)
+                break
+            case 'open_clinic_map':
+                navigate(card.route ?? ROUTE_PATHS.support)
+                break
+            case 'open_grounding_video':
+                navigate(card.route ?? ROUTE_PATHS.resources)
+                break
+            case 'continue_chat':
+                break
+            default:
+                if (import.meta.env.DEV) console.warn('Unknown crisis action:', card.action)
+        }
+    }
+
     // Derived display values
     const lastData = [...messages].reverse().find((m) => m.role === 'assistant' && m.apiData)?.apiData
     const modeLabel =
@@ -756,10 +857,10 @@ export default function Chat() {
     // ─── Render ────────────────────────────────────────────────────────────────
     return (
         <div>
-            <div className="h-[92dvh] flex flex-col bg-theme-surface/80 backdrop-blur-3xl rounded-[2.5rem] p-4 shadow-xl border border-theme-border/50">
+            <div className="h-[92dvh] flex flex-col bg-theme-surface/80 backdrop-blur-3xl rounded-4xl p-4 shadow-xl border border-theme-border/50">
 
                 {/* ── Header ───────────────────────────────────────────── */}
-                <div className="flex shrink-0 items-center justify-between mb-3 border-b border-theme-border/50 px-5 py-3">
+                <div className="flex shrink-0 items-center justify-between mb-3 border-b border-theme-accent/10 px-5 py-3">
                     <div className="flex items-center gap-3">
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-theme-accent/20 text-theme-accent">
                             <Leaf className="h-7 w-7" aria-hidden />
@@ -850,7 +951,7 @@ export default function Chat() {
 
                 {/* ── Tab bar (Chat / Ký ức) — chỉ hiện khi đăng nhập ───────────────── */}
                 {!isGuestMode && (
-                    <div className="flex shrink-0 gap-1 border-b border-theme-border/30 px-5 pb-0">
+                    <div className="flex shrink-0 gap-1 px-5 pb-0">
                         {(['chat', 'memory'] as const).map((tab) => (
                             <button
                                 key={tab}
@@ -904,19 +1005,29 @@ export default function Chat() {
                                                 {isAI ? <Leaf className="h-5 w-5" /> : <UserRound className="h-5 w-5" />}
                                             </div>
                                             <div className={`flex max-w-[70%] flex-col gap-2 ${isAI ? 'items-start' : 'items-end'}`}>
-                                                <article
-                                                    className={[
-                                                        'rounded-2xl px-4 py-3 leading-relaxed whitespace-pre-line border',
-                                                        isAI
-                                                            ? m.apiData?.sos_triggered
-                                                                ? 'bg-red-50 text-red-800 border-red-200'
-                                                                : 'bg-theme-surface/80 text-theme-text-primary border-theme-border/30 shadow-sm'
-                                                            : 'bg-theme-accent text-white border-transparent',
-                                                    ].join(' ')}
-                                                >
-                                                    {m.content}
-                                                </article>
-                                                {m.apiData && <CrisisPanel data={m.apiData} />}
+                                                {isAI && m.isPending ? (
+                                                    <TypingIndicator visible className="border-theme-border/30 bg-theme-surface px-4 py-3" />
+                                                ) : (
+                                                    <article
+                                                        className={[
+                                                            'rounded-2xl px-4 py-3 leading-relaxed whitespace-pre-line border',
+                                                            isAI
+                                                                ? m.apiData?.sos_triggered
+                                                                    ? 'bg-red-50 text-red-800 border-red-200'
+                                                                    : 'bg-theme-surface/80 text-theme-text-primary border-theme-border/30 shadow-sm'
+                                                                : 'bg-theme-accent text-white border-transparent',
+                                                        ].join(' ')}
+                                                    >
+                                                        {m.content}
+                                                    </article>
+                                                )}
+                                                {m.apiData?.sos_triggered && (
+                                                    <CrisisStepper
+                                                        data={m.apiData}
+                                                        onAction={handleCrisisAction}
+                                                        onSend={(text) => void doSend(text)}
+                                                    />
+                                                )}
                                                 {m.apiData?.the_dinh_kem?.map((item, i) => (
                                                     <AttachmentCard key={`${item.type}-${item.id}-${i}`} item={item} onOpen={openAttachment} />
                                                 ))}
@@ -943,7 +1054,6 @@ export default function Chat() {
                                 )
                             })
                         )}
-                        <TypingIndicator visible={sending} />
                         <div ref={bottomRef} />
                     </div>
                 </div>
@@ -965,7 +1075,7 @@ export default function Chat() {
                 {/* ── Input bar ─────────────────────────────────────────── */}
                 <form
                     onSubmit={handleSend}
-                    className="sticky bottom-15 rounded-full bg-theme-surface px-4 py-3 backdrop-blur-sm border border-theme-border/50 shadow-2xl"
+                    className="sticky bottom-15 rounded-full bg-theme-surface px-4 py-2 backdrop-blur-sm border border-theme-border/50 shadow-xl "
                 >
                     {/* overlay */}
 
@@ -975,14 +1085,14 @@ export default function Chat() {
                             onChange={(e) => setInput(e.target.value)}
                             disabled={isGuestMode && guestSecondsLeft <= 0}
                             placeholder="Chia sẻ điều bạn đang cảm thấy..."
-                            className="flex-1 rounded-full bg-transparent px-4 py-3 text-md text-theme-text-primary focus:outline-none"
+                            className="flex-1 rounded-full  px-4 py-3 text-md text-theme-text-primary focus:outline-none"
                         />
                         <button
                             type="submit"
                             disabled={!canSend}
-                            className="shrink-0 rounded-full bg-theme-accent px-5 py-2.5 font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="shrink-0 rounded-full bg-theme-accent px-5 py-2 font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                            {sending ? '···' : 'Gửi'}
+                            <Send className='w-5 h-5'/>
                         </button>
                     </div>
                 </form>

@@ -7,6 +7,9 @@ import { ApiRequestError } from '../../api/types'
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { ArrowLeft } from 'lucide-react'
+import { authService } from '@/services/authService'
+import LogoGoogle from '../../assets/icons8-google-logo-100.png'
+import LogoFacebook from '../../assets/icons8-facebook-96.png'
 
 export default function Register() {
     type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
@@ -17,7 +20,14 @@ export default function Register() {
     const [voiceConsent] = useState<boolean>(false)
     const navigate = useNavigate()
     const { signup, isLoading } = useAuth()
+    const [oauthLoading, setOauthLoading] = useState<null | 'google' | 'facebook'>(null)
 
+    const handleOAuthLogin = (provider: 'google' | 'facebook') => {
+        const returnTo = `${window.location.origin}${ROUTE_PATHS.oauthCallback}`
+        const startUrl = authService.startOAuth(provider, returnTo)
+        setOauthLoading(provider)
+        window.location.assign(startUrl)
+    }
 
     const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
 
@@ -165,6 +175,32 @@ export default function Register() {
                         >
                             {isLoading ? 'Đang tạo tài khoản...' : 'Bắt đầu hành trình'}
                         </button>
+                         <div className="my-8 flex items-center gap-4 text-[10px] uppercase tracking-[0.32em] text-serene-muted">
+                        <span className="h-px flex-1 bg-serene-outline" />
+                        <span>Hoặc</span>
+                        <span className="h-px flex-1 bg-serene-outline" />
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                        <button
+                            type="button"
+                            onClick={() => handleOAuthLogin('google')}
+                            disabled={Boolean(oauthLoading)}
+                            className="inline-flex items-center justify-center gap-3 rounded-2xl border border-serene-outline/70 cursor-pointer bg-white/70 px-4 py-2 text-sm font-medium text-serene-ink transition hover:border-serene-primary/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                            <img src={LogoGoogle} alt="Google" className="h-7 w-7" />
+                            {oauthLoading === 'google' ? 'Đang mở Google...' : 'Tiếp tục với Google'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleOAuthLogin('facebook')}
+                            disabled={Boolean(oauthLoading)}
+                            className="inline-flex items-center justify-center gap-3 rounded-2xl border border-serene-outline/70 cursor-pointer bg-white/70 px-4 py-2 text-sm font-medium text-serene-ink transition hover:border-serene-primary/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                            <img src={LogoFacebook} alt="Facebook" className="h-7 w-7" />
+                            {oauthLoading === 'facebook' ? 'Đang mở Facebook...' : 'Tiếp tục với Facebook'}
+                        </button>
+                    </div>
 
                         <p className="pt-1 text-center text-sm text-serene-muted">
                             Đã có tài khoản?{' '}

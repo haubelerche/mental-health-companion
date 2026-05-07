@@ -26,7 +26,7 @@ function formatDateLabel(ts: number): string {
 
 export function DateDivider({ timestamp }: Props) {
   return (
-    <div className="flex items-center gap-3 py-1">
+    <div className="flex items-center gap-3 py-1 mb-3">
       <div className="h-px flex-1 bg-theme-border/60" />
       <span className="rounded-full bg-theme-surface/60 border border-theme-border/30 px-3 py-1 text-[11px] font-medium text-theme-text-secondary shadow-sm backdrop-blur-sm">
         {formatDateLabel(timestamp)}

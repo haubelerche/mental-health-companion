@@ -1,15 +1,4 @@
-import {
-    Activity,
-    BookOpen,
-    LayoutGrid,
-    Moon,
-    Music,
-    Search,
-    Sparkles,
-    Wind,
-    Target,
-    type LucideIcon,
-} from 'lucide-react'
+import { Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -23,21 +12,19 @@ import Loading from '../../ui/Loading'
 import { useThemeContext } from '../../../contexts/ThemeContext'
 import { ExerciseTab } from './ExerciseTab'
 // ── Vietnamese category labels ────────────────────────────────────────────────
-const VI_LABELS: Record<string, { label: string; Icon: LucideIcon }> = {
-    all: { label: 'Tất cả', Icon: LayoutGrid },
-    meditate: { label: 'Thiền định', Icon: Sparkles },
-    sleep: { label: 'Ngủ', Icon: Moon },
-    music: { label: 'Âm nhạc', Icon: Music },
-    wisdom: { label: 'Trí tuệ', Icon: BookOpen },
-    movement: { label: 'Vận động', Icon: Activity },
-    work_study: { label: 'Tập trung', Icon: Target },
-    exercises: { label: 'Bài tập', Icon: Wind },
+const VI_LABELS: Record<string, { label: string; icon: string }> = {
+    all: { label: 'Tất cả', icon: '✦' },
+    meditate: { label: 'Thiền định', icon: '♧' },
+    sleep: { label: 'Ngủ', icon: '🌙' },
+    music: { label: 'Âm nhạc', icon: '♪' },
+    wisdom: { label: 'Trí tuệ', icon: '◌' },
+    movement: { label: 'Vận động', icon: '↟' },
+    work_study: { label: 'Tập trung', icon: '◎' },
+    exercises: { label: 'Bài tập', icon: '🌬️' },
 }
 
-const FALLBACK_CAT_ICON = LayoutGrid
-
 function localizeCategory(id: string, fallbackLabel: string) {
-    return VI_LABELS[id] ?? { label: fallbackLabel, Icon: FALLBACK_CAT_ICON }
+    return VI_LABELS[id] ?? { label: fallbackLabel, icon: '○' }
 }
 
 const RESOURCE_CATEGORY_IDS = ['all', 'exercises', 'meditate', 'sleep', 'music', 'wisdom', 'movement', 'work_study']
@@ -52,7 +39,7 @@ export default function Resources() {
     const requestedCategory = searchParams.get('category') || 'all'
     const initialCategory = RESOURCE_CATEGORY_IDS.includes(requestedCategory) ? requestedCategory : 'sleep'
 
-    const [categories, setCategories] = useState([{ id: 'all', label: 'Tất cả' }])
+    const [categories, setCategories] = useState([{ id: 'all', label: 'Tất cả', icon: '✦' }])
     const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory)
     const [items, setItems] = useState<ResourceItem[]>([])
     const [query, setQuery] = useState(searchParams.get('q') || '')
@@ -64,7 +51,11 @@ export default function Resources() {
         resourceService
             .getCategories()
             .then((data) => {
-                setCategories([{ id: 'all', label: 'Tất cả' }, { id: 'exercises', label: 'Bài tập' }, ...data.categories])
+                setCategories([
+                    { id: 'all', label: 'Tất cả', icon: '✦' },
+                    { id: 'exercises', label: 'Bài tập', icon: '🌬️' },
+                    ...data.categories
+                ])
             })
             .catch(() => undefined)
     }, [])
@@ -132,11 +123,11 @@ export default function Resources() {
 
     return (
         <section className={`mx-auto max-w-6xl rounded-[2.5rem] border bg-theme-surface/60 border-white/10 backdrop-blur-2xl sm:p-8 lg:p-10 transition-colors duration-200`}>
-
+            
             {/* Header */}
             <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                    <h1 className={`mt-1 font-display text-4xl ${isDark ? 'text-white' : 'text-serene-ink'} md:text-5xl`}> Thư viện tài nguyên</h1>
+                    <h1 className={`mt-1 font-display text-4xl text-theme-text-secondary md:text-5xl`}> Thư viện tài nguyên</h1>
                 </div>
                 <label className={`flex items-center gap-2 border border-white/10 bg-theme-surface rounded-full px-4 py-3 text-sm ${isDark ? 'text-white/60' : 'text-serene-muted'} shadow-inner`}>
                     <Search className="h-4 w-4 shrink-0" />
@@ -153,7 +144,6 @@ export default function Resources() {
             <div className="mb-8 flex flex-wrap gap-2">
                 {categories.map((cat) => {
                     const vi = localizeCategory(cat.id, cat.label)
-                    const CatIcon = vi.Icon
                     const isActive = selectedCategory === cat.id
                     return (
                         <button
@@ -165,7 +155,7 @@ export default function Resources() {
                                 : 'bg-theme-surface text-theme-text-primary'
                                 }`}
                         >
-                            <CatIcon className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
+                            <span>{vi.icon}</span>
                             <span>{vi.label}</span>
                         </button>
                     )

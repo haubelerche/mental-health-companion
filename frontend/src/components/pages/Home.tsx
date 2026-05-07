@@ -13,22 +13,23 @@ import {
     Info,
     ChevronRight,
     X,
+    CalendarCheck,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import quotesJson from '../../../famous-quotes.json'
-import beachMessageBg from '../../assets/beach-message-bg.avif'
-import exerciseImg from '../../assets/exercise.png'
-import morningRhythmImg from '../../assets/morning_rhythm.png'
-import dayRhythmImg from '../../assets/day_rhythm.png'
-import eveningRhythmImg from '../../assets/evening_rhythm.png'
-import healingImg from '../../assets/healing.jpg'
-import nutritionImg from '../../assets/nutrition-a1.jpg'
+import beachMessageBg from '../../assets_gif/nature-dark.gif'
+import exerciseImg from '../../assets_gif/cau-ca.gif'
+import morningRhythmImg from '../../assets_gif/chao-mung.gif'
+import dayRhythmImg from '../../assets_gif/cau-ca-3.gif'
+import eveningRhythmImg from '../../assets_gif/3.gif'
+import healingImg from '../../assets_gif/hai-meo-cam-den.gif'
+import nutritionImg from '../../assets_gif/meo.gif'
 import { Link, useNavigate } from 'react-router-dom'
 import { homeService } from '../../services/homeService'
 import { rewardsService } from '../../services/rewardsService'
-import { httpClient } from '../../api/httpClient'
 import { ROUTE_PATHS } from '../../routes/paths'
+import { CheckinHistoryModal } from '../dashboard/CheckinHistoryModal'
 import { MoodWordChips } from '../common/MoodWordChips'
 import { StreakBar } from '../common/StreakBar'
 import { WellnessRadar, type WellnessScores } from '../wellness/WellnessRadar'
@@ -68,10 +69,17 @@ const RECO_CARDS: RecoCard[] = [
         accentClass: 'bg-theme-accent/10 text-theme-accent',
     },
     {
-        icon: ClipboardList,
+        icon: CalendarCheck,
         label: 'Check-in buổi tối',
         desc: 'Nhìn lại ngày hôm nay',
         route: `${ROUTE_PATHS.checkin}?variant=evening`,
+        accentClass: 'bg-theme-accent/10 text-theme-accent',
+    },
+    {
+        icon: ClipboardList,
+        label: 'Làm bài Test ',
+        desc: 'Sàng lọc sức khỏe tinh thần',
+        route: `${ROUTE_PATHS.screening}`,
         accentClass: 'bg-theme-accent/10 text-theme-accent',
     },
 ]
@@ -288,6 +296,7 @@ export default function Home() {
     const [quote, setQuote] = useState<{ text: string; author?: string | null } | null>(null)
     const [hearts, setHearts] = useState<number>(0)
     const [backendStreakDays, setBackendStreakDays] = useState<number | null>(null)
+    const [checkinHistoryOpen, setCheckinHistoryOpen] = useState(false)
     const streak = backendStreakDays ?? 0
     const [wellnessScores, setWellnessScores] = useState<WellnessScores | null>(null)
     const [nutritionTip, setNutritionTip] = useState<NutritionDailyTip | null>(null)
@@ -336,25 +345,22 @@ export default function Home() {
             })
             .catch(() => undefined)
 
-        // Fetch wellness mini-preview in background (non-blocking)
-        httpClient
-            .get<{ wellness_score: number; coping_stats: { breathing_sessions?: number; effective_rate: number | null }; session_stats: { streak_days: number; days_active_last_30: number }; clinical_snapshot: { phq9_score: number | null } }>('/reflect/mental-health-summary')
+        dashboardService
+            .getReflectSummary()
             .then((data) => {
                 if (!mounted) return
-                const w = data.wellness_score ?? 50
-                const phq9 = data.clinical_snapshot.phq9_score
-                const breath = data.coping_stats.breathing_sessions ?? 0
-                const active = data.session_stats.days_active_last_30 ?? 0
-                const rate = data.coping_stats.effective_rate
-                const streak30 = data.session_stats.streak_days ?? 0
-                setBackendStreakDays(streak30)
+                setBackendStreakDays(data.progress.streak_days ?? 0)
+                const scoreOf = (dim: string, fb: number) => {
+                    const row = data.wellness_dimensions.find((x) => x.dimension === dim)
+                    return row?.score != null ? Math.round(row.score) : fb
+                }
                 setWellnessScores({
-                    emotional: Math.round(w),
-                    sleep: phq9 !== null ? Math.max(5, Math.round(100 - phq9 * 3.7)) : Math.round(w * 0.85),
-                    mindfulness: Math.round(Math.min(100, 30 + breath * 3.5)),
-                    social: Math.round(Math.min(100, (active / 30) * 100)),
-                    physical: rate !== null ? Math.round(rate * 100) : Math.round(w * 0.9),
-                    growth: Math.round(Math.min(100, 20 + streak30 * 2.67)),
+                    emotional: scoreOf('emotion', 55),
+                    sleep: scoreOf('sleep', 55),
+                    mindfulness: scoreOf('mindfulness', 55),
+                    social: scoreOf('connection', 55),
+                    physical: scoreOf('body', 55),
+                    growth: scoreOf('growth', 55),
                 })
             })
             .catch(() => undefined)
@@ -397,23 +403,22 @@ export default function Home() {
 
     return (
         <div className="space-y-6 pb-8 lg:space-y-8">
+            <CheckinHistoryModal open={checkinHistoryOpen} onClose={() => setCheckinHistoryOpen(false)} isDark={isDark} />
 
             {/* ── Greeting header ── */}
             <header className="flex items-start justify-between gap-4">
                 <div>
-                    <p className="font-display text-2xl font-medium uppercase tracking-wide text-theme-text-primary">
-                        {getGreeting()}
-                    </p>
-                    <h1 className="mt-1 font-display text-3xl italic text-theme-text-primary sm:text-4xl">
-                        {displayName}
+
+                    <h1 className={`mt-1 font-display text-2xl italic ${isDark ? 'text-theme-text-primary' : 'text-white'} sm:text-3xl`}>
+                        {getGreeting()}! {displayName}
                     </h1>
                 </div>
-                <div className="flex items-center gap-3 rounded-full bg-theme-surface/60 px-4 py-2 backdrop-blur-sm border border-theme-border/50 shadow-sm">
+                <div className="flex items-center gap-3 rounded-full bg-theme-surface/80 px-4 py-2 backdrop-blur-sm border border-theme-border/50 shadow-sm">
                     <span className="flex items-center gap-1 text-sm font-bold text-rose-500 dark:text-rose-400">
                         <Heart className="h-4 w-4 fill-current" />
                         {hearts}
                     </span>
-                    <span className="h-4 w-px bg-theme-border" />
+                    <span className="h-4 w-px bg-theme-secondary" />
                     <span className="flex items-center gap-1 text-sm font-bold text-amber-600 dark:text-amber-400">
                         <Flame className="h-4 w-4 fill-current" />
                         {streak}
@@ -463,9 +468,13 @@ export default function Home() {
                         </div>
 
                         <div className="mt-5 border-t border-theme-border/50 pt-5">
-                            <p className="mb-3 text-xs uppercase tracking-[0.22em] text-theme-text-secondary">
+                            <button
+                                type="button"
+                                onClick={() => setCheckinHistoryOpen(true)}
+                                className="mb-3 text-left text-xs uppercase tracking-[0.22em] text-theme-text-secondary underline-offset-4 hover:underline"
+                            >
                                 Chuỗi tuần này
-                            </p>
+                            </button>
                             <StreakBar streak={streak} />
                         </div>
                     </div>
@@ -474,13 +483,13 @@ export default function Home() {
                         <img
                             src={TIME_SLOT_BG[currentSlot]}
                             alt="Khung cảnh thiên nhiên dịu nhẹ cho phần nhịp hôm nay"
-                            className={`absolute inset-0 h-full w-full object-cover ${isDark ? 'brightness-75' : ''}`}
+                            className="absolute inset-0 h-full w-full object-cover "
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
-                        <div className="absolute inset-x-0 bottom-0 p-5 text-white">
-                            <p className="text-lg uppercase tracking-[0.22em] text-white/75">Khoảnh khắc hiện tại</p>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent" />
+                        <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                            <p className="text-lg uppercase tracking-[0.22em] text-white">Khoảnh khắc hiện tại</p>
                             <p className="mt-2 text-lg font-semibold">{TIME_SLOT_META[currentSlot].label}</p>
-                            <p className="mt-1 text-sm leading-relaxed text-white/85">{TIME_SLOT_META[currentSlot].intro}</p>
+                            <p className="mt-1 text-sm leading-relaxed text-white/90">{TIME_SLOT_META[currentSlot].intro}</p>
                         </div>
                     </div>
                 </div>
@@ -511,9 +520,9 @@ export default function Home() {
                         alt="Một hình minh họa cho các gợi ý bắt đầu nhanh"
                         className={`absolute inset-0 h-full w-full object-cover ${isDark ? 'brightness-75' : ''}`}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-tr from-black/70 via-transparent to-transparent" />
-                    <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                        <p className="text-sm font-bold uppercase tracking-[0.2em] text-white/75">Bắt đầu từ một hơi thở</p>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/30 to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+                        <p className="text-sm font-bold uppercase tracking-[0.2em] text-theme-text-secondary">Bắt đầu từ một hơi thở</p>
                         <p className="mt-1 text-sm ">Một chạm là có thể bắt đầu ngay</p>
                     </div>
                 </div>
@@ -556,9 +565,9 @@ export default function Home() {
                                     alt="Không gian chữa lành dịu nhẹ cho phần chọn từ mô tả tâm trạng"
                                     className={`absolute inset-0 h-full w-full object-cover ${isDark ? 'brightness-75' : ''}`}
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-tr from-black/70 via-transparent to-transparent" />
-                                <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                                    <p className="text-xs uppercase tracking-[0.22em] text-white/75">Lắng dịu</p>
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+                                <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+                                    <p className="text-xs uppercase tracking-[0.22em] text-theme-text-secondary">Lắng dịu</p>
                                     <p className="mt-1 text-sm font-semibold">Nhìn vào ảnh, rồi gọi tên cảm xúc của mình</p>
                                 </div>
                             </div>
@@ -595,7 +604,7 @@ export default function Home() {
                             <img
                                 src={beachMessageBg}
                                 alt="Nền sóng biển dịu để làm nổi bật câu nhắc"
-                                className="absolute inset-0 h-full w-full object-cover opacity-10"
+                                className="absolute inset-0 h-full w-full object-cover opacity-20"
                             />
                             <div className="absolute inset-0 bg-theme-bg-primary/20" />
 
@@ -622,7 +631,7 @@ export default function Home() {
                                                     type="button"
                                                     aria-label={`Chuyển sang câu ${index + 1}`}
                                                     onClick={() => setQuoteIndex(index)}
-                                                    className={`h-2.5 rounded-full transition-all duration-200 ease-in-out ${index === quoteIndex % Math.max(quotes.length, 1) ? 'w-8 bg-theme-accent' : 'w-2.5 bg-theme-border/30'}`}
+                                                    className={`h-2.5 rounded-full transition-all duration-200 ease-in-out ${index === quoteIndex % Math.max(quotes.length, 1) ? 'w-8 bg-theme-accent' : 'w-2.5 bg-theme-secondary'}`}
                                                 />
                                             ))}
                                         </div>
@@ -644,10 +653,7 @@ export default function Home() {
                             onClick={() =>
                                 navigate(ROUTE_PATHS.checkin, { state: { moodWords: homeMoodWords } })
                             }
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                            className="mt-4 inline-flex items-center gap-2 rounded-full bg-theme-accent/20 px-5 py-2.5 text-sm font-semibold text-theme-accent transition duration-200 ease-in-out hover:bg-theme-accent/30"
+                            className="mt-4 inline-flex items-center gap-2 rounded-full bg-theme-accent text-white px-5 py-2.5 text-sm font-semibold transition duration-200 ease-in-out hover:bg-theme-accent/80 cursor-pointer"
                         >
                             Ghi chép thêm
                             <motion.div animate={{ x: [0, 3, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
@@ -670,12 +676,12 @@ export default function Home() {
                         <img
                             src={nutritionImg}
                             alt="Món ăn gợi ý cho phần dinh dưỡng"
-                            className={`absolute inset-0 h-full w-full object-cover ${isDark ? 'brightness-75' : ''}`}
+                            className={`absolute inset-0 h-full w-full object-cover`}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent" />
                         <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                            <p className="text-xs uppercase tracking-[0.19em] text-white">Nuôi dưỡng cơ thể</p>
-                            <p className="mt-1 text-sm font-semibold">Ăn đủ để mood cũng được nâng lên</p>
+                            <p className="text-xs uppercase tracking-[0.19em] text-theme-text-secondary">Nuôi dưỡng cơ thể</p>
+                            <p className="mt-1 text-xs font-semibold">Ăn đủ để mood cũng được nâng lên</p>
                         </div>
                     </div>
 
@@ -781,7 +787,7 @@ export default function Home() {
                                     >
                                         <Leaf className="h-10 w-10 opacity-90" aria-hidden />
                                     </motion.div>
-                                    <p className="text-center text-[11px] text-white/70 leading-relaxed font-medium">
+                                    <p className="text-center text-[11px] text-theme-text-secondary leading-relaxed font-medium">
                                         Hãy check-in cảm xúc để khám phá sức khỏe của bạn
                                     </p>
                                 </div>
