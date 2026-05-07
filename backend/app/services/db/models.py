@@ -5,7 +5,6 @@ from typing import Any
 
 from sqlalchemy import (
     BIGINT,
-    BigInteger,
     JSON,
     Boolean,
     CheckConstraint,
@@ -123,8 +122,8 @@ class Message(Base):
     __table_args__ = (
         CheckConstraint("role IN ('user','assistant')", name="chk_role"),
         CheckConstraint(
-            "tone_cam_xuc IS NULL OR tone_cam_xuc IN ('ho_tro','xac_nhan','vui_tuoi','lam_diu')",
-            name="chk_tone",
+            "assistant_tone IS NULL OR assistant_tone IN ('supportive','validating','cheerful','calming','mentor','neutral')",
+            name="ck_messages_assistant_tone",
         ),
         CheckConstraint("length(content) <= 2000", name="chk_content_length"),
     )
@@ -134,14 +133,22 @@ class Message(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    tone_cam_xuc: Mapped[str | None] = mapped_column(String(20))
+    assistant_tone: Mapped[str | None] = mapped_column(
+        String(20),
+        CheckConstraint(
+            "assistant_tone IN ('supportive','validating','cheerful','calming','mentor','neutral')",
+            name="ck_messages_assistant_tone",
+        ),
+    )
     sos_triggered: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
 class MoodCheckin(Base):
     __tablename__ = "mood_checkins"
-    __table_args__ = (UniqueConstraint("user_id", "logged_date", name="uq_mood_per_day"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "logged_date", "time_bucket", name="uq_mood_checkin_bucket"),
+    )
 
     checkin_id: Mapped[str] = mapped_column(String(50), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
@@ -153,6 +160,7 @@ class MoodCheckin(Base):
     logged_date: Mapped[date] = mapped_column(Date, nullable=False)
     logged_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime)
+    time_bucket: Mapped[str] = mapped_column(String(20), nullable=False, default="other", server_default="other")
 
 
 class ClinicalProfile(Base):
@@ -181,7 +189,14 @@ class CrisisLog(Base):
     log_id: Mapped[str] = mapped_column(String(50), primary_key=True)
     session_id: Mapped[str] = mapped_column(ForeignKey("conversations.session_id"), nullable=False)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
-    muc_do: Mapped[str] = mapped_column(String(20), nullable=False)
+    severity_level: Mapped[str] = mapped_column(
+        String(20),
+        CheckConstraint(
+            "severity_level IN ('low','moderate','high','imminent','unknown')",
+            name="ck_crisis_logs_severity_level",
+        ),
+        nullable=False,
+    )
     context_summary: Mapped[str | None] = mapped_column(Text)
     reviewed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     triggered_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
@@ -331,11 +346,10 @@ class CounselingKnowledge(Base):
 class SyncOutbox(Base):
     __tablename__ = "sync_outbox"
 
-    # SQLite autoincrement requires INTEGER PK; PostgreSQL keeps 64-bit IDs.
     outbox_id: Mapped[int] = mapped_column(
-        BigInteger().with_variant(Integer, "sqlite"),
+        BIGINT().with_variant(Integer, "sqlite"),
+        Identity(),
         primary_key=True,
-        autoincrement=True,
     )
     user_id: Mapped[str | None] = mapped_column(ForeignKey("users.user_id"), nullable=True)
     event_type: Mapped[str] = mapped_column(String(80), nullable=False)

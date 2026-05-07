@@ -121,7 +121,7 @@ class MessageRow:
     message_id: str
     role: str
     content: str
-    tone_cam_xuc: str | None
+    assistant_tone: str | None
     sos_triggered: bool
     created_at: datetime
 
@@ -250,7 +250,7 @@ class SessionSummarizer:
             )
             rows = await conn.fetch(
                 """
-                SELECT message_id, role, content, tone_cam_xuc, sos_triggered, created_at
+                SELECT message_id, role, content, assistant_tone, sos_triggered, created_at
                 FROM messages
                 WHERE session_id = $1 AND user_id = $2
                 ORDER BY created_at ASC
@@ -262,7 +262,7 @@ class SessionSummarizer:
                 message_id=r["message_id"],
                 role=r["role"],
                 content=r["content"],
-                tone_cam_xuc=r["tone_cam_xuc"],
+                assistant_tone=r["assistant_tone"],
                 sos_triggered=r["sos_triggered"],
                 created_at=r["created_at"],
             )
@@ -297,14 +297,16 @@ class SessionSummarizer:
         return f"Phiên một lượt. Người dùng chia sẻ: {msg.content[:100]}..."
 
     def _extract_dominant_emotion(self, messages: list[MessageRow]) -> str | None:
-        """Infer dominant emotion from tone_cam_xuc distribution."""
+        """Infer dominant emotion from assistant_tone distribution."""
         tone_map = {
-            "ho_tro": "hopeful",
-            "xac_nhan": "neutral",
-            "vui_tuoi": "happy",
-            "lam_diu": "stressed",
+            "supportive": "hopeful",
+            "validating": "neutral",
+            "cheerful": "happy",
+            "calming": "stressed",
+            "mentor": "neutral",
+            "neutral": "neutral",
         }
-        tones = [tone_map.get(m.tone_cam_xuc) for m in messages if m.tone_cam_xuc]
+        tones = [tone_map.get(m.assistant_tone) for m in messages if m.assistant_tone]
         if not tones:
             return None
         # Simple majority vote
@@ -570,7 +572,7 @@ class TestSessionSummarizer:
             message_id="msg_test_01",
             role="user",
             content="Hôm nay mệt quá.",
-            tone_cam_xuc=None,
+            assistant_tone=None,
             sos_triggered=False,
             created_at=datetime.now(timezone.utc),
         )
