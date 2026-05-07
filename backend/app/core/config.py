@@ -42,7 +42,7 @@ class Settings(BaseSettings):
 
     access_token_ttl_seconds: int = 3600
     refresh_token_ttl_days: int = 30
-    admin_token_ttl_seconds: int = 900
+    admin_token_ttl_seconds: int = 7200
 
     jwt_private_key: str = ""
     jwt_public_key: str = ""
