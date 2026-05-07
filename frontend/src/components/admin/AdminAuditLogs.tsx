@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { adminService } from '../../services/adminService'
+import { ApiRequestError } from '../../api/types'
 import { toast } from 'react-toastify'
 import { Shield, Clock, User } from 'lucide-react'
 
@@ -14,7 +15,7 @@ export default function AdminAuditLogs() {
             console.log("Audit Logs Data:", data)
             setLogs(data?.items || [])
         } catch (err) {
-            console.error("Audit Logs Error:", err)
+            if (err instanceof ApiRequestError && err.handledByModal) return
             toast.error('Không thể tải nhật ký hoạt động')
         } finally {
             setLoading(false)
