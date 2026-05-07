@@ -6,6 +6,9 @@
 
 ## [Unreleased] — Sprint A Phase 5 · 2026-04-30
 
+### Removed
+- Dropped `COMMIT_PLAYBOOK.MD` from version control; added `.gitignore` rules so local AI-agent commit playbooks (e.g. Claude Code / Cursor) are not pushed to GitHub.
+
 ### Docs
 - Added `docs/GLOSSARY_RUNTIME.md` as the canonical runtime naming map between product role names, orchestration identifiers, graph keys, routing tokens, and trace spans.
 - Linked runtime naming guidance from `docs/PRD.md`, `docs/SEQUENCE_DIAGRAMS.md`, `docs/API_SPEC.md`, and `CLAUDE.md` to keep terminology synchronized across specs and execution plans.
