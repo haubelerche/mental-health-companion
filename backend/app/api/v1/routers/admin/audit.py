@@ -28,7 +28,7 @@ def admin_list_audit_logs(
         
     total = db.scalar(select(func.count(AdminAuditLog.audit_id)).where(*where_conditions)) if where_conditions else db.scalar(select(func.count(AdminAuditLog.audit_id)))
     
-    logs = db.scalars(stmt.order_by(AdminAuditLog.timestamp.desc()).offset(offset).limit(limit)).all()
+    logs = db.scalars(stmt.order_by(AdminAuditLog.created_at.desc()).offset(offset).limit(limit)).all()
     
     return ok({
         "items": [{
@@ -36,8 +36,8 @@ def admin_list_audit_logs(
             "admin_id": l.admin_id,
             "action": l.action,
             "resource_accessed": l.resource_accessed,
-            "ip_address": l.ip_address,
-            "created_at": l.timestamp.isoformat() + "Z"
+            "ip_address": str(l.ip_address),
+            "created_at": l.created_at.strftime('%Y-%m-%dT%H:%M:%SZ')
         } for l in logs],
         "total": total or 0
     })
