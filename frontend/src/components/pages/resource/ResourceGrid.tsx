@@ -61,7 +61,11 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                 </div>
                 <div className="mt-5 flex items-end justify-between gap-4 p-5">
                     <div>
-                        <h2 className={`font-display font-semibold text-4xl ${isDark ? 'text-white' : 'text-serene-ink'}`}>{featured.title}</h2>
+                        <h2
+                            dangerouslySetInnerHTML={{ __html: featured.title }}
+                            className={`font-display font-semibold text-4xl ${isDark ? 'text-white' : 'text-serene-ink'}`}>
+                        </h2>
+
                         <p className={`mt-1.5 ml-1.5 text-sm ${isDark ? 'text-white/60' : 'text-serene-muted'}`}>
                             <span>{minutes(featured.duration_sec)}</span> · <span className='font-semibold capitalize'>{featured.format.replace(/_/g, ' ')}</span>
                         </p>
@@ -92,8 +96,9 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                                 <div>
                                     <h3 
                                     title={item.title}
+                                    dangerouslySetInnerHTML={{ __html: item.title }}    
                                     className={`font-display font-semibold line-clamp-2 leading-tight ${isDark ? 'text-white' : 'text-serene-ink'}`}>
-                                        {item.title}
+                                      
                                     </h3>
                                     <p className={`mt-1 text-xs ${isDark ? 'text-white/60' : 'text-serene-muted'}`}>
                                         <span>{minutes(item.duration_sec)}</span> · <span className='font-semibold capitalize'>{item.format.replace(/_/g, ' ')}</span>
