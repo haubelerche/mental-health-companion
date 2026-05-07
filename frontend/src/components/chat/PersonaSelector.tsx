@@ -1,15 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { PersonaProgress } from '../../services/rewardsService'
 import { rewardsService } from '../../services/rewardsService'
 import { personasService } from '../../services/personasService'
 import { ApiRequestError } from '../../api/types'
+import { ROUTE_PATHS } from '../../routes/paths'
 
-const PERSONA_DISPLAY: Record<string, { label: string; note: string }> = {
-    ban_than: { label: 'Bạn Tốt', note: 'Luôn sẵn sàng' },
-    nguoi_thay: { label: 'Người Thầy', note: 'Luôn sẵn sàng' },
-    cun: { label: 'Cún', note: 'Người đồng hành vui vẻ' },
-    meo: { label: 'Mèo', note: 'Người đồng hành độc lập' },
-    crush: { label: 'Người đặc biệt', note: 'Người đồng hành thân thiết' },
+const PERSONA_ORDER = ['ban_than', 'nguoi_thay', 'cun', 'meo', 'crush'] as const
+
+const PERSONA_LABEL: Record<string, string> = {
+    ban_than: 'Bạn Tốt',
+    nguoi_thay: 'Người Thầy',
+    cun: 'Cún',
+    meo: 'Mèo',
+    crush: 'Crush',
 }
 
 type Props = {
@@ -18,64 +22,82 @@ type Props = {
 
 export default function PersonaSelector({ onSelect }: Props) {
     const [progress, setProgress] = useState<PersonaProgress[]>([])
-    const [balance, setBalance] = useState(0)
+    const [activePersonaId, setActivePersonaId] = useState<string>('ban_than')
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
+    const selectablePersonas = useMemo(() => {
+        const byId = new Map(progress.map((p) => [p.persona_id, p]))
+        return PERSONA_ORDER.map((id) => byId.get(id)).filter(
+            (p): p is PersonaProgress => Boolean(p && (p.is_core || p.unlocked)),
+        )
+    }, [progress])
+
     useEffect(() => {
         let cancelled = false
-        Promise.all([rewardsService.getPersonasProgress(), rewardsService.getBalance()])
-            .then(([prog, bal]) => {
+        setLoading(true)
+        setError(null)
+        Promise.all([personasService.getMe(), rewardsService.getPersonasProgress()])
+            .then(([me, prog]) => {
                 if (cancelled) return
                 setProgress(prog.personas)
-                setBalance(bal.balance)
+                const sel = me.persona_id?.trim()
+                setActivePersonaId(sel && sel.length > 0 ? sel : 'ban_than')
             })
-            .catch(() => { if (!cancelled) setError('Không tải được danh sách nhân vật.') })
-            .finally(() => { if (!cancelled) setLoading(false) })
-        return () => { cancelled = true }
+            .catch(() => {
+                if (!cancelled) setError('Không tải được danh sách nhân vật.')
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false)
+            })
+        return () => {
+            cancelled = true
+        }
     }, [])
 
     async function handleSelect(personaId: string) {
+        if (personaId === activePersonaId) return
+        setError(null)
         try {
-            await personasService.select(personaId)
+            const res = await personasService.select(personaId)
+            setActivePersonaId(res.persona_id || personaId)
             onSelect?.(personaId)
         } catch (err) {
-            if (err instanceof ApiRequestError) {
-                setError(err.message)
-            }
+            if (err instanceof ApiRequestError) setError(err.message)
+            else setError('Không đổi được nhân vật lúc này.')
         }
     }
 
-    if (loading) return <p className="text-sm text-gray-400">Đang tải nhân vật…</p>
+    if (loading) return <p className="text-sm text-theme-text-secondary">Đang tải nhân vật…</p>
     if (error) return <p className="text-sm text-red-500">{error}</p>
 
+    const value =
+        selectablePersonas.some((p) => p.persona_id === activePersonaId) ? activePersonaId : selectablePersonas[0]?.persona_id
+
     return (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {progress.map((p) => {
-                const display = PERSONA_DISPLAY[p.persona_id] ?? { label: p.persona_id, note: '' }
-                const affordable = balance >= p.price_hearts
-                return (
-                    <button
-                        key={p.persona_id}
-                        type="button"
-                        onClick={() => p.unlocked && handleSelect(p.persona_id)}
-                        disabled={!p.unlocked}
-                        className="rounded-xl border p-3 text-left transition-colors
-                            disabled:opacity-60 disabled:cursor-default
-                            enabled:border-indigo-300 enabled:hover:bg-indigo-50"
-                        title={p.unlocked ? undefined : `Mở khoá: ${p.price_hearts.toLocaleString('vi-VN')} Tim`}
-                    >
-                        <p className="text-sm font-semibold">{display.label}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{display.note}</p>
-                        {!p.unlocked && (
-                            <p className="text-xs text-indigo-500 mt-1">
-                                🔒 {p.price_hearts.toLocaleString('vi-VN')} Tim
-                                {!affordable && <span className="text-gray-400"> (chưa đủ)</span>}
-                            </p>
-                        )}
-                    </button>
-                )
-            })}
+        <div className="space-y-2">
+            <label className="sr-only" htmlFor="persona-select">
+                Chọn nhân vật
+            </label>
+            <select
+                id="persona-select"
+                value={value || 'ban_than'}
+                onChange={(e) => void handleSelect(e.target.value)}
+                className="w-full rounded-lg border border-theme-border/40 bg-theme-bg-secondary/80 px-3 py-2 text-sm text-theme-text-primary"
+            >
+                {selectablePersonas.map((p) => (
+                    <option key={p.persona_id} value={p.persona_id}>
+                        {PERSONA_LABEL[p.persona_id] ?? p.persona_id}
+                    </option>
+                ))}
+            </select>
+            <p className="text-[11px] leading-snug text-theme-text-secondary">
+                Cún, Mèo, Crush chỉ hiện sau khi bạn mở khoá trong{' '}
+                <Link to={ROUTE_PATHS.rewards} className="font-medium text-theme-accent underline underline-offset-2">
+                    Cửa hàng Thưởng
+                </Link>
+                .
+            </p>
         </div>
     )
 }

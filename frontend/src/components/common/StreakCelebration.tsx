@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Flame } from 'lucide-react'
+import { Check, Heart, Sprout, X, Flame } from 'lucide-react'
 
 type Props = {
   open: boolean
@@ -74,7 +74,7 @@ export function StreakCelebration({
 
             {/* Headline */}
             <div className="mb-6 text-center">
-              <h2 className="font-display text-3xl text-serene-ink">Xuất sắc! 🎉</h2>
+              <h2 className="font-display text-3xl text-serene-ink">Xuất sắc!</h2>
               <p className="mt-1.5 text-lg font-semibold text-amber-500">
                 {streakDays} ngày liên tiếp
               </p>
@@ -102,7 +102,7 @@ export function StreakCelebration({
                             : 'bg-serene-border/50 text-serene-muted'
                       }`}
                     >
-                      {isDone ? '✓' : day.charAt(0)}
+                      {isDone ? <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden /> : day.charAt(0)}
                     </motion.div>
                     <span className={`text-[10px] font-medium ${isToday ? 'text-serene-primary' : 'text-serene-muted'}`}>
                       {day}
@@ -118,9 +118,9 @@ export function StreakCelebration({
                 initial={{ scale: 0 }}
                 animate={{ scale: [0, 1.3, 1] }}
                 transition={{ delay: 0.5, duration: 0.4 }}
-                className="text-2xl"
+                className="inline-flex text-rose-500"
               >
-                ♥
+                <Heart className="h-6 w-6 fill-rose-400/30" aria-hidden />
               </motion.span>
               <p className="font-semibold text-rose-500">+{heartsEarned} tim nhận được!</p>
             </div>
@@ -131,7 +131,10 @@ export function StreakCelebration({
               onClick={onClaim ?? onClose}
               className="w-full rounded-full bg-serene-primary py-3.5 font-semibold text-serene-on-primary shadow-lg shadow-serene-primary/20 transition hover:brightness-105 active:scale-[0.97]"
             >
-              Nhận phần thưởng 🌱
+              <span className="inline-flex items-center justify-center gap-2">
+                <Sprout className="h-4 w-4" aria-hidden />
+                Nhận phần thưởng
+              </span>
             </button>
           </motion.div>
         </>

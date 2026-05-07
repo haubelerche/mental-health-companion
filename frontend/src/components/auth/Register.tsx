@@ -14,7 +14,7 @@ export default function Register() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
-    const [voiceConsent, setVoiceConsent] = useState(true)
+    const [voiceConsent] = useState<boolean>(false)
     const navigate = useNavigate()
     const { signup, isLoading } = useAuth()
 
@@ -156,20 +156,7 @@ export default function Register() {
                             </div>
                         </div>
 
-                        <div className="auth-disclaimer">
-                            <label className="flex items-start gap-3 text-xs leading-relaxed text-serene-muted sm:text-sm" htmlFor="voiceConsent">
-                                <input
-                                    id="voiceConsent"
-                                    type="checkbox"
-                                    checked={voiceConsent}
-                                    onChange={(event) => setVoiceConsent(event.target.checked)}
-                                    className="mt-0.5 h-5 w-5 rounded border-serene-outline bg-serene-bg/50 text-serene-primary focus:ring-serene-primary"
-                                />
-                                <span>
-                                    Cho phép hỗ trợ bằng voice khi mức căng thẳng tăng cao.
-                                </span>
-                            </label>
-                        </div>
+                      
 
                         <button
                             type="submit"

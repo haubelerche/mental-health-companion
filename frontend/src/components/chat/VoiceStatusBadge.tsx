@@ -1,5 +1,7 @@
 /** TTS job status display. Polling must stop on terminal statuses. */
 
+import { Mic } from 'lucide-react'
+
 export type TtsStatus =
     | 'queued'
     | 'processing'
@@ -8,6 +10,8 @@ export type TtsStatus =
     | 'skipped_duplicate'
     | 'cache_hit'
     | 'provider_disabled'
+    | 'cancelled'
+    | 'expired'
 
 export const TTS_TERMINAL_STATUSES: ReadonlySet<TtsStatus> = new Set([
     'ready',
@@ -15,6 +19,8 @@ export const TTS_TERMINAL_STATUSES: ReadonlySet<TtsStatus> = new Set([
     'skipped_duplicate',
     'cache_hit',
     'provider_disabled',
+    'cancelled',
+    'expired',
 ])
 
 const STATUS_LABELS: Record<TtsStatus, string> = {
@@ -25,6 +31,8 @@ const STATUS_LABELS: Record<TtsStatus, string> = {
     skipped_duplicate: 'Đã có sẵn',
     cache_hit: 'Dùng bản lưu',
     provider_disabled: 'Giọng đọc tạm ngưng',
+    cancelled: 'Đã hủy',
+    expired: 'Hết hạn',
 }
 
 type Props = {
@@ -48,7 +56,7 @@ export default function VoiceStatusBadge({ status, className = '' }: Props) {
             className={`inline-flex items-center gap-1 text-xs ${colorClass} ${className}`}
             aria-live={isTerminal ? 'off' : 'polite'}
         >
-            <span aria-hidden="true">🎙</span>
+            <Mic className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
             {label}
         </span>
     )
