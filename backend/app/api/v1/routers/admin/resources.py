@@ -67,7 +67,7 @@ def admin_list_resources(
                     "thumbnail_key": row.thumbnail_key,
                     "tags": row.tags,
                     "is_active": row.is_active,
-                    "created_at": row.created_at.isoformat() + "Z",
+                    "created_at": row.created_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
                 }
                 for row in rows
             ],
@@ -131,7 +131,7 @@ def admin_create_resource(
     return ok(
         {
             "resource_id": row.resource_id,
-            "created_at": row.created_at.isoformat() + "Z",
+            "created_at": row.created_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
         },
         status_code=201,
     )
