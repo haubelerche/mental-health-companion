@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Optional
 
 from sqlalchemy import (
     BIGINT,
-    BigInteger,
     JSON,
     Boolean,
     CheckConstraint,
@@ -16,6 +15,7 @@ from sqlalchemy import (
     Identity,
     Integer,
     String,
+    TIMESTAMP,
     Text,
     UniqueConstraint,
     func,
@@ -122,10 +122,6 @@ class Message(Base):
     __tablename__ = "messages"
     __table_args__ = (
         CheckConstraint("role IN ('user','assistant')", name="chk_role"),
-        CheckConstraint(
-            "tone_cam_xuc IS NULL OR tone_cam_xuc IN ('ho_tro','xac_nhan','vui_tuoi','lam_diu')",
-            name="chk_tone",
-        ),
         CheckConstraint("length(content) <= 2000", name="chk_content_length"),
     )
 
@@ -134,14 +130,22 @@ class Message(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    tone_cam_xuc: Mapped[str | None] = mapped_column(String(20))
+    assistant_tone: Mapped[str | None] = mapped_column(
+        String(20),
+        CheckConstraint(
+            "assistant_tone IN ('supportive','validating','cheerful','calming','mentor','neutral')",
+            name="ck_messages_assistant_tone",
+        ),
+    )
     sos_triggered: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
 class MoodCheckin(Base):
     __tablename__ = "mood_checkins"
-    __table_args__ = (UniqueConstraint("user_id", "logged_date", name="uq_mood_per_day"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "logged_date", "time_bucket", name="uq_mood_checkin_bucket"),
+    )
 
     checkin_id: Mapped[str] = mapped_column(String(50), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
@@ -149,10 +153,21 @@ class MoodCheckin(Base):
     emoji: Mapped[str | None] = mapped_column(String(10))
     emotions: Mapped[list[Any] | None] = mapped_column(JSON)
     triggers: Mapped[list[Any] | None] = mapped_column(JSON)
+    source: Mapped[str] = mapped_column(
+        String(20),
+        CheckConstraint(
+            "source IN ('self_report','imported','system')",
+            name="ck_mood_checkins_source",
+        ),
+        default="self_report",
+        server_default="self_report",
+        nullable=False,
+    )
     note: Mapped[str | None] = mapped_column(Text)
     logged_date: Mapped[date] = mapped_column(Date, nullable=False)
     logged_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime)
+    time_bucket: Mapped[str] = mapped_column(String(20), nullable=False, default="other", server_default="other")
 
 
 class ClinicalProfile(Base):
@@ -171,6 +186,15 @@ class ClinicalProfile(Base):
     phq9_coverage: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     gad7_coverage: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     crisis_level: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    score_source: Mapped[Optional[str]] = mapped_column(
+        String(30),
+        CheckConstraint(
+            "score_source IN ('self_report','questionnaire','analyst_inference','clinician_review','system')",
+            name="ck_clinical_profiles_score_source",
+        ),
+        nullable=True,
+    )
+    model_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     last_scored_at: Mapped[datetime | None] = mapped_column(DateTime)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
@@ -181,7 +205,14 @@ class CrisisLog(Base):
     log_id: Mapped[str] = mapped_column(String(50), primary_key=True)
     session_id: Mapped[str] = mapped_column(ForeignKey("conversations.session_id"), nullable=False)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
-    muc_do: Mapped[str] = mapped_column(String(20), nullable=False)
+    severity_level: Mapped[str] = mapped_column(
+        String(20),
+        CheckConstraint(
+            "severity_level IN ('low','moderate','high','imminent','unknown')",
+            name="ck_crisis_logs_severity_level",
+        ),
+        nullable=False,
+    )
     context_summary: Mapped[str | None] = mapped_column(Text)
     reviewed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     triggered_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
@@ -280,6 +311,18 @@ class ConversationMemory(Base):
         embedding: Mapped[list[float]] = mapped_column(JSON, nullable=False)
     importance_score: Mapped[float | None] = mapped_column(Float)
     confidence: Mapped[float | None] = mapped_column(Float)
+    pii_checked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    source: Mapped[str] = mapped_column(
+        String(20),
+        CheckConstraint(
+            "source IN ('chat_turn','session_summary','checkin','manual','system')",
+            name="ck_conv_memories_source",
+        ),
+        default="chat_turn",
+        server_default="chat_turn",
+        nullable=False,
+    )
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
@@ -301,6 +344,17 @@ class UserProfile(Base):
 
     user_id: Mapped[str] = mapped_column(String(50), ForeignKey("users.user_id"), primary_key=True)
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    schema_version: Mapped[str] = mapped_column(String(10), default="v1", server_default="v1", nullable=False)
+    last_active_session_id: Mapped[Optional[str]] = mapped_column(
+        String, ForeignKey("conversations.session_id", ondelete="SET NULL"), nullable=True
+    )
+    summary_count: Mapped[int] = mapped_column(
+        Integer,
+        CheckConstraint("summary_count >= 0", name="ck_user_profiles_summary_count_gte0"),
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
     profile: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
@@ -331,11 +385,10 @@ class CounselingKnowledge(Base):
 class SyncOutbox(Base):
     __tablename__ = "sync_outbox"
 
-    # SQLite autoincrement requires INTEGER PK; PostgreSQL keeps 64-bit IDs.
     outbox_id: Mapped[int] = mapped_column(
-        BigInteger().with_variant(Integer, "sqlite"),
+        BIGINT().with_variant(Integer, "sqlite"),
+        Identity(),
         primary_key=True,
-        autoincrement=True,
     )
     user_id: Mapped[str | None] = mapped_column(ForeignKey("users.user_id"), nullable=True)
     event_type: Mapped[str] = mapped_column(String(80), nullable=False)
