@@ -112,10 +112,10 @@ export function ProgressStats({ data }: Props) {
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.25 + i * 0.05, type: 'spring', stiffness: 300 }}
                   className={`h-2 w-2 rounded-full transition-colors ${
-                    filled ? 'bg-theme-primary' : 'bg-serene-border/60'
+                    filled ? 'bg-theme-primary' : 'bg-serene-border'
                   }`}
                 />
-                <span className={`text-[10px] ${filled ? 'text-serene-primary font-semibold' : 'text-serene-muted/50'}`}>
+                <span className={`text-[10px] ${filled ? 'text-theme-text-primary font-semibold' : 'text-serene-muted'}`}>
                   {day}
                 </span>
               </div>

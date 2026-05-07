@@ -39,32 +39,45 @@ export default function RewardCard({ item, balance, owned, onPurchase }: Props) 
     }
 
     return (
-        <div className="rounded-xl border border-theme-surface/20 bg-theme-surface/60 p-4 flex flex-col gap-2 shadow-sm">
-            {item.icon_key ? (
-                <Gift className="h-7 w-7 text-amber-500/90" aria-hidden />
-            ) : null}
-            <p className="font-semibold text-theme-text-primary text-sm">{sanitizeTitle(item.title)}</p>
-            {item.subtitle && (
-                <p className="text-xs text-theme-text-secondary">{item.subtitle}</p>
+        <div className={`relative flex flex-col gap-3 rounded-2xl border p-4 shadow-xl transition-all hover:-translate-y-1 hover:shadow-md border-theme-text-secondary bg-theme-surface`}>
+            {owned && (
+                <div className="absolute right-0 top-0 rounded-bl-xl bg-theme-accent/20 px-3 py-1 backdrop-blur-sm">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-theme-accent">Đã sở hữu</span>
+                </div>
             )}
-            <p className={`text-xs font-medium mt-auto flex items-center gap-1 ${isDark ? 'text-rose-300' : 'text-rose-500'}`}>
-                {item.price_hearts.toLocaleString('vi-VN')} <Heart className="h-4 w-4" />
-            </p>
-            {owned ? (
-                <span className="text-xs text-green-600 font-medium">Đã sở hữu</span>
-            ) : (
-                <button
-                    type="button"
-                    disabled={disabled}
-                    onClick={handleClick}
-                    className="mt-1 w-full rounded-lg py-1.5 text-xs font-medium transition-colors
-                        disabled:opacity-40 disabled:cursor-not-allowed
-                        enabled:bg-indigo-600 enabled:text-white enabled:hover:bg-indigo-700"
-                    title={!canAfford ? 'Không đủ Tim' : !requirementsMet ? 'Chưa đủ điều kiện' : undefined}
-                >
-                    Mua
-                </button>
-            )}
+            
+            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${isDark ? 'bg-amber-500/10' : 'bg-amber-100'}`}>
+                <Gift className={`h-6 w-6 ${item.icon_key ? 'text-amber-500' : 'text-amber-500/50'}`} aria-hidden />
+            </div>
+            
+            <div className="flex-1">
+                <p className="font-semibold text-theme-text-primary text-base leading-tight">{sanitizeTitle(item.title)}</p>
+                {item.subtitle && (
+                    <p className="text-[13px] text-theme-text-secondary mt-1.5 leading-relaxed">{item.subtitle}</p>
+                )}
+            </div>
+            
+            <div className="mt-2 flex items-center justify-between border-t border-theme-border/20 pt-3">
+                <p className={`text-sm font-bold flex items-center gap-1.5 ${isDark ? 'text-rose-400' : 'text-rose-500'}`}>
+                    {item.price_hearts.toLocaleString('vi-VN')} <Heart className="h-4 w-4" />
+                </p>
+                
+                {!owned && (
+                    <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={handleClick}
+                        className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-medium transition-all ${
+                            disabled
+                                ? 'cursor-not-allowed bg-theme-surface/50 text-theme-text-secondary opacity-60'
+                                : 'bg-theme-accent text-white hover:bg-theme-accent/90 active:scale-95'
+                        }`}
+                        title={!canAfford ? 'Không đủ Tim' : !requirementsMet ? 'Chưa đủ điều kiện' : undefined}
+                    >
+                        Mua
+                    </button>
+                )}
+            </div>
         </div>
     )
 }

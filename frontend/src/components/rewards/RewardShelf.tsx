@@ -22,7 +22,7 @@ export default function RewardShelf({ shelf, balance, ownedItemIds, onPurchase }
 
     return (
         <section className="mb-6 p-3 ">
-            <h2 className="text-base font-semibold text-theme-text-secondary mb-3">
+            <h2 className="text-2xl  font-display font-semibold text-theme-text-secondary text-shadow-2xl mb-3">
                 {SHELF_LABELS[shelf.shelf] ?? shelf.shelf}
             </h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">

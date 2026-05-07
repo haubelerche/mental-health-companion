@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { MemoryCard } from '../../services/memoryCardsService'
 import { memoryCardsService } from '../../services/memoryCardsService'
 import { ApiRequestError } from '../../api/types'
+import Loading from '../ui/Loading'
 
 const STATUS_LABELS: Record<string, string> = {
     active: 'Đang dùng',
@@ -29,10 +30,10 @@ function MemoryCardItem({ card, onAction }: {
     if (card.status === 'deleted_by_user') return null
 
     return (
-        <div className="rounded-lg border border-gray-200 bg-white p-3 text-sm">
+        <div className="rounded-lg border border-gray-200 bg-theme-surface/60 p-3 text-sm">
             <div className="flex items-start justify-between gap-2">
                 <div>
-                    <p className="font-medium text-gray-800">{card.title}</p>
+                    <p className="font-medium text-theme-text-primary">{card.title}</p>
                     {editing ? (
                         <textarea
                             className="mt-1 w-full rounded border border-gray-300 p-1.5 text-xs"
@@ -41,9 +42,9 @@ function MemoryCardItem({ card, onAction }: {
                             onChange={(e) => setEditContent(e.target.value)}
                         />
                     ) : (
-                        <p className="text-gray-600 mt-0.5">{card.content}</p>
+                        <p className="text-theme-text-secondary mt-0.5">{card.content}</p>
                     )}
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-theme-text-secondary mt-1">
                         {STATUS_LABELS[card.status] ?? card.status}
                     </p>
                 </div>
@@ -53,7 +54,7 @@ function MemoryCardItem({ card, onAction }: {
                             type="button"
                             disabled={busy}
                             onClick={() => act('keep')}
-                            className="text-xs text-indigo-600 hover:underline disabled:opacity-50"
+                            className="text-xs text-theme-accent hover:underline disabled:opacity-50"
                         >
                             Lưu
                         </button>
@@ -140,13 +141,13 @@ export default function MemoryCardsTab() {
         }
     }
 
-    if (loading) return <p className="text-sm text-gray-400 p-4">Đang tải ký ức…</p>
+    if (loading) return <Loading/>
     if (error) return <p className="text-sm text-red-500 p-4">{error}</p>
 
     const visible = cards.filter((c) => c.status !== 'deleted_by_user')
     if (visible.length === 0) {
         return (
-            <p className="text-sm text-gray-400 p-4">
+            <p className="text-sm text-theme-text-secondary p-4">
                 Chưa có ký ức nào. Serene sẽ ghi nhớ những điều quan trọng từ các cuộc trò chuyện của bạn.
             </p>
         )

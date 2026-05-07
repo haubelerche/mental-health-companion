@@ -385,7 +385,7 @@ export default function Reflect() {
                                             </AreaChart>
                                         </ResponsiveContainer>
                                     ) : (
-                                        <div className="flex min-h-72 items-center justify-center rounded-3xl border border-white/30 bg-white/20 px-6 text-center text-sm text-serene-muted md:min-h-80">
+                                        <div className="flex min-h-72 items-center justify-center rounded-3xl border border-white/30 bg-white/20 px-6 text-center text-sm text-theme-text-primary md:min-h-80">
                                             Chưa có đủ mood check-in để vẽ biểu đồ. Hãy check-in thêm để Serene cập nhật xu hướng.
                                         </div>
                                     )}
@@ -531,7 +531,7 @@ export default function Reflect() {
                             </aside>
                         </section>
 
-                         {prompts.length > 0 && (
+                         {/* {prompts.length > 0 && (
                             <section className="mt-6">
                                 <h3 className={`flex items-center gap-2 font-semibold ${isDark ? 'text-theme-text-primary/90' : 'text-[var(--color-serene-ink)]'} mb-3 text-sm`}>
                                     <PenLine className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
@@ -548,7 +548,7 @@ export default function Reflect() {
                                     ))}
                                 </div>
                             </section>
-                        )}
+                        )} */}
 
                         <div className={`mt-6 border-t ${isDark ? 'border-theme-border/50' : 'border-serene-primary/5'} pt-7 text-center`}>
                             <p className={`font-display text-base italic ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary'} md:text-lg`}>

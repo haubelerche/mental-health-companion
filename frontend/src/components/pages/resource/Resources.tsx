@@ -132,11 +132,11 @@ export default function Resources() {
 
     return (
         <section className={`mx-auto max-w-6xl rounded-[2.5rem] border bg-theme-surface/60 border-white/10 backdrop-blur-2xl sm:p-8 lg:p-10 transition-colors duration-200`}>
-
+            
             {/* Header */}
             <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                    <h1 className={`mt-1 font-display text-4xl ${isDark ? 'text-white' : 'text-serene-ink'} md:text-5xl`}> Thư viện tài nguyên</h1>
+                    <h1 className={`mt-1 font-display text-4xl text-theme-text-secondary md:text-5xl`}> Thư viện tài nguyên</h1>
                 </div>
                 <label className={`flex items-center gap-2 border border-white/10 bg-theme-surface rounded-full px-4 py-3 text-sm ${isDark ? 'text-white/60' : 'text-serene-muted'} shadow-inner`}>
                     <Search className="h-4 w-4 shrink-0" />

@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react'
+import { Heart, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { rewardsService } from '../../services/rewardsService'
 
@@ -26,9 +26,9 @@ export default function HeartBalanceBadge({ balance: externalBalance, className 
     if (balance === null) return null
 
     return (
-        <span className={`inline-flex items-center gap-1 text-sm font-medium ${className}`}>
-            <Sparkles className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
-            <span>{balance.toLocaleString('vi-VN')} Tim</span>
-        </span>
+        <div className={`inline-flex items-center gap-1.5 rounded-full bg-theme-surface px-4 py-2 border border-theme-border shadow-sm ${className}`}>
+            <Heart className="h-4 w-4 text-rose-500" aria-hidden />
+            <span className="font-bold text-rose-500">{balance.toLocaleString('vi-VN')}</span>
+        </div>
     )
 }
