@@ -718,7 +718,8 @@ create table app.sync_outbox (
 create table app.admin_audit_log (
   audit_id bigint generated always as identity primary key,
 
-  admin_id text references app.users(user_id) on delete set null,
+  -- admin_id is a virtual ID (e.g., adm_...) generated on login, not present in app.users
+  admin_id text,
   action text not null,
   resource_accessed text,
 
