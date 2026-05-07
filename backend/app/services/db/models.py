@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Any, Optional
+from uuid import uuid4
 
 from sqlalchemy import (
     BIGINT,
@@ -21,6 +22,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.types import JSON as SAJSON
 
 from app.services.db.session import Base
 
@@ -28,6 +30,11 @@ try:
     from pgvector.sqlalchemy import Vector
 except ImportError:  # pragma: no cover
     Vector = None
+
+try:
+    from sqlalchemy.dialects.postgresql import JSONB
+except ImportError:  # pragma: no cover
+    JSONB = SAJSON
 
 
 class User(Base):
@@ -325,6 +332,221 @@ class ConversationMemory(Base):
     )
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class SessionSummaryArchive(Base):
+    __tablename__ = "session_summaries_archive"
+
+    archive_id: Mapped[int] = mapped_column(BIGINT, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(
+        String, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+    )
+    session_id: Mapped[Optional[str]] = mapped_column(
+        String, ForeignKey("conversations.session_id", ondelete="SET NULL"), nullable=True
+    )
+    summary: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    session_started_at: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    dominant_emotion: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    sos_triggered: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
+    archived_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=func.now(), server_default=func.now(), nullable=False
+    )
+
+
+class RiskInferenceLog(Base):
+    __tablename__ = "risk_inference_log"
+
+    log_id: Mapped[int] = mapped_column(BIGINT, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(
+        String, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+    )
+    session_id: Mapped[Optional[str]] = mapped_column(
+        String, ForeignKey("conversations.session_id", ondelete="SET NULL"), nullable=True
+    )
+    inferred_signal: Mapped[str] = mapped_column(String, nullable=False)
+    model_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    score: Mapped[Optional[float]] = mapped_column(
+        Float,
+        CheckConstraint("score IS NULL OR (score >= 0 AND score <= 1)", name="ck_risk_log_score"),
+        nullable=True,
+    )
+    detail: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, default=dict, server_default="{}", nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=func.now(), server_default=func.now(), nullable=False
+    )
+
+
+class SessionRiskSnapshot(Base):
+    __tablename__ = "session_risk_snapshots"
+
+    snapshot_id: Mapped[int] = mapped_column(BIGINT, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(
+        String, ForeignKey("conversations.session_id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+    )
+    risk_score: Mapped[float] = mapped_column(
+        Float,
+        CheckConstraint("risk_score >= 0 AND risk_score <= 1", name="ck_session_risk_score"),
+        nullable=False,
+    )
+    intent_severity: Mapped[float] = mapped_column(
+        Float,
+        CheckConstraint("intent_severity >= 0 AND intent_severity <= 1", name="ck_session_risk_severity"),
+        nullable=False,
+    )
+    intent_immediacy: Mapped[float] = mapped_column(
+        Float,
+        CheckConstraint("intent_immediacy >= 0 AND intent_immediacy <= 1", name="ck_session_risk_immediacy"),
+        nullable=False,
+    )
+    crisis_mode: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    escalation_flag: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
+    components: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, default=dict, server_default="{}", nullable=False
+    )
+    source: Mapped[str] = mapped_column(
+        String(20),
+        CheckConstraint(
+            "source IN ('supervisor','sos_override','batch_recalc','system','safety_agent')",
+            name="ck_session_risk_source",
+        ),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=func.now(), server_default=func.now(), nullable=False
+    )
+
+
+class AnalystSignal(Base):
+    __tablename__ = "analyst_signals"
+
+    signal_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(
+        String, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+    )
+    session_id: Mapped[Optional[str]] = mapped_column(
+        String, ForeignKey("conversations.session_id", ondelete="SET NULL"), nullable=True
+    )
+    message_id: Mapped[Optional[str]] = mapped_column(
+        String, ForeignKey("messages.message_id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=func.now(), server_default=func.now(), nullable=False
+    )
+    emotional_theme: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    suggested_focus: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    clinical_note_internal: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    risk_indicators: Mapped[list[Any]] = mapped_column(
+        JSONB, default=list, server_default="[]", nullable=False
+    )
+    distress_score: Mapped[Optional[float]] = mapped_column(
+        Float,
+        CheckConstraint(
+            "distress_score IS NULL OR (distress_score >= 0 AND distress_score <= 1)",
+            name="ck_analyst_signals_distress",
+        ),
+        nullable=True,
+    )
+    confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    model_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    graph_context_used: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
+    source: Mapped[str] = mapped_column(
+        String(30),
+        CheckConstraint(
+            "source IN ('analyst_node','batch_rollup','manual_review','system')",
+            name="ck_analyst_signals_source",
+        ),
+        default="analyst_node",
+        server_default="analyst_node",
+        nullable=False,
+    )
+    display_allowed: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
+
+
+class InsightHypothesis(Base):
+    __tablename__ = "insight_hypotheses"
+
+    insight_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(
+        String, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=func.now(), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=func.now(), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    hypothesis_type: Mapped[str] = mapped_column(
+        String(40),
+        CheckConstraint(
+            "hypothesis_type IN ('stress_pattern','sleep_disruption','social_withdrawal',"
+            "'low_mood_trend','anxiety_like_worry_loop','coping_success','engagement_pattern','other')",
+            name="ck_insight_hyp_type",
+        ),
+        nullable=False,
+    )
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    user_safe_summary: Mapped[str] = mapped_column(Text, nullable=False)
+    internal_rationale: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, default=dict, server_default="{}", nullable=False
+    )
+    evidence_window_start: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    evidence_window_end: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    evidence_count: Mapped[int] = mapped_column(
+        Integer,
+        CheckConstraint("evidence_count >= 0", name="ck_insight_hyp_ev_count"),
+        default=0,
+        server_default="0",
+        nullable=False,
+    )
+    confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    severity_band: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        CheckConstraint(
+            "severity_band IS NULL OR severity_band IN ('low','moderate','elevated')",
+            name="ck_insight_hyp_severity",
+        ),
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        CheckConstraint(
+            "status IN ('active','dismissed','expired','superseded')",
+            name="ck_insight_hyp_status",
+        ),
+        default="active",
+        server_default="active",
+        nullable=False,
+    )
+    display_allowed: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    source: Mapped[str] = mapped_column(
+        String(30),
+        CheckConstraint(
+            "source IN ('analyst_pipeline','weekly_rollup','manual_review','system')",
+            name="ck_insight_hyp_src",
+        ),
+        default="analyst_pipeline",
+        server_default="analyst_pipeline",
+        nullable=False,
+    )
 
 
 class AdminAuditLog(Base):
