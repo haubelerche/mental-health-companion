@@ -156,10 +156,10 @@ export function CheckinFlow() {
     <div className="relative min-h-screen overflow-hidden text-theme-text-primary">
       <div className="fixed inset-0 z-0">
           <img src={bg} alt="Background" className="h-full w-full object-cover" />
-          <div className={`absolute inset-0 ${isDark ? 'bg-theme-bg-primary/60' : 'bg-theme-surface/40'} backdrop-blur-sm`} />
+          <div className={`absolute inset-0 `} />
       </div>
       
-      <div className="relative z-10 px-4 pb-12 pt-7 sm:px-6">
+      <div className="relative z-10  px-4 pb-12 pt-7 sm:px-6">
         <StreakCelebration
           open={showStreak}
           streakDays={checkinStreak?.current ?? 0}
@@ -172,7 +172,7 @@ export function CheckinFlow() {
         />
         <AnimatePresence mode="wait">
         {step === 'mood' && (
-          <motion.div key="mood" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mx-auto w-full max-w-[460px]">
+          <motion.div key="mood" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mx-auto w-full max-w-[460px] bg-theme-surface/80 backdrop-blur-xs rounded-4xl p-5">
             <header className="mb-5 flex items-center justify-between">
               <button type="button" onClick={() => navigate(ROUTE_PATHS.home)} className="rounded-full p-2 text-theme-text-primary transition hover:bg-white/60" aria-label="Quay lại trang chủ">
                 <ChevronLeft className="h-6 w-6" />
@@ -199,7 +199,7 @@ export function CheckinFlow() {
         )}
 
         {step === 'triggers' && selectedMood != null && moodWords.length > 0 && (
-          <motion.div key="triggers" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="mx-auto w-full max-w-[460px]">
+          <motion.div key="triggers" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="mx-auto w-full max-w-[460px] bg-theme-surface/80 backdrop-blur-xs rounded-4xl p-5">
             <header className="mb-5 flex items-center justify-between">
               <button type="button" onClick={() => setStep('mood')} className="rounded-full p-2 text-serene-muted transition hover:bg-white/60" aria-label="Quay lại">
                 <ChevronLeft className="h-6 w-6" />
