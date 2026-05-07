@@ -122,7 +122,7 @@ export default function NotificationsPage() {
                   {!n.is_read && (
                     <div className="mt-3 flex items-center gap-1.5">
                       <div className="w-3 h-3 rounded-full bg-theme-accent animate-pulse" />
-                      <span className="text-sm font-medium text-sern-primary">Mới</span>
+                      <span className="text-sm font-medium text-serene-primary">Mới</span>
                     </div>
                   )}
                 </div>
