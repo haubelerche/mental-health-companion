@@ -155,6 +155,8 @@ export const adminService = {
     },
     reviewLetter: (letterId: string, action: 'keep' | 'delete') =>
         httpClient.patch<any>(`/admin/letters/${encodeURIComponent(letterId)}/review?action=${action}`, {}),
+    aiAnalyzeLetter: (letterId: string) =>
+        httpClient.post<any>(`/admin/letters/${encodeURIComponent(letterId)}/ai-analyze`, {}),
 
     // Task 3.6: Emotion-Driven Agent
     getEmotionResourceSuggestion: () => httpClient.get<any>('/admin/analytics/emotion-resource-suggestion'),
@@ -172,4 +174,13 @@ export const adminService = {
     // Task 3.10: Bulk Notifications
     broadcastNotification: (payload: { title?: string; body: string; category?: string }) =>
         httpClient.post<any>('/admin/notifications/broadcast', payload),
+
+    // Task 3.11: Automation (Milestone 7)
+    getAutomationStatus: () => httpClient.get<Record<string, any>>('/admin/automation/status'),
+    toggleWorker: (worker_name: string, active: boolean) => 
+        httpClient.post<any>('/admin/automation/toggle', { worker_name, active }),
+    updateWorkerConfig: (worker_name: string, interval_min: number) =>
+        httpClient.patch<any>('/admin/automation/config', { worker_name, interval_min }),
+    runWorkerNow: (worker_name: string) =>
+        httpClient.post<any>('/admin/automation/run-now', { worker_name }),
 }
