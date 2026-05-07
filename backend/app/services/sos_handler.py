@@ -9,6 +9,8 @@ import re
 import unicodedata
 from typing import Any
 
+from pydantic import BaseModel
+
 from app.core.product_constants import CHAT_AGENT_DISPLAY_NAME, DISTRESS_CRITICAL, DISTRESS_VOICE_HINT
 from app.services.vn_hotlines import hotline_cards_sos
 from app.services.safety_scoring import SafetySnapshot, build_snapshot, clamp01
@@ -233,24 +235,137 @@ def contextual_distress(message: str, recent_user_messages: list[str] | None = N
     return clamp01(max(current, rolling + trend_boost))
 
 
-def decide_sos(message: str, recent_user_messages: list[str] | None = None) -> tuple[bool, float]:
+# ─── DistressScoreDebug — auditable scoring trace ────────────────────────────
+
+
+class DistressScoreDebug(BaseModel):
+    """Full scoring trace returned by decide_sos_debug."""
+
+    sos_triggered: bool
+    distress_score: float
+    harm_risk_score: float | None = None
+    current_turn_score: float
+    rolling_score: float
+    trend_boost: float
+    delta_score: float
+    rolling_window_turns: int
+    reason_codes: list[str]
+    keyword_hits: list[str]
+    safety_tier_hint: str | None = None
+
+
+def decide_sos_debug(
+    message: str,
+    recent_user_messages: list[str] | None = None,
+) -> DistressScoreDebug:
     """
-    Returns (sos_triggered, distress_score).
-    SOS = explicit keyword path OR distress at/above critical heuristic.
-    recent_user_messages: optional context for future pattern analysis (reserved).
+    Full scoring trace — returns DistressScoreDebug with reason codes, hits, scores.
+    Spec: serene_sos_voice_intervention_plan.md §6
     """
     current = heuristic_distress(message)
-    combined = contextual_distress(message, recent_user_messages)
+    recent = [m for m in (recent_user_messages or []) if str(m or "").strip()]
+    history = [heuristic_distress(m) for m in recent]
+
+    # ── Rolling / contextual score ──────────────────────────────────────────
+    max_turns = 4
+    if history:
+        window = history[-max_turns:] + [current]
+        weighted_total = 0.0
+        weighted_sum = 0.0
+        for idx, score in enumerate(window, start=1):
+            weight = 1.45 ** idx
+            weighted_total += score * weight
+            weighted_sum += weight
+        rolling = weighted_total / weighted_sum if weighted_sum else current
+        trend_boost = 0.0
+        if len(window) >= 3 and window[-1] >= window[-2] >= window[-3]:
+            trend_boost += 0.08
+        if len(window) >= 3 and all(v >= 0.72 for v in window[-3:]):
+            trend_boost += 0.12
+        if window[:-1]:
+            spike = max(0.0, current - min(window[:-1]))
+            if spike >= 0.25:
+                trend_boost += 0.07
+        severe_history_count = sum(1 for v in history[-max_turns:] if v >= 0.9)
+        if severe_history_count >= 2 and current >= 0.1:
+            combined = 0.94
+        else:
+            combined = clamp01(max(current, rolling + trend_boost))
+    else:
+        rolling = current
+        trend_boost = 0.0
+        combined = current
+
+    delta_score = combined - (history[-1] if history else current)
+    rolling_window_turns = min(len(history), max_turns)
+
+    # ── SOS decision + reason codes ────────────────────────────────────────
+    reason_codes: list[str] = []
+    keyword_hits_out: list[str] = []
+    sos_triggered = False
+    harm_risk: float | None = None
+
     if violence_keyword_hit(message):
-        return True, max(combined, 0.97)
-    if keyword_hit(message):
-        return True, max(combined, 0.96)
-    if combined >= 0.9:
-        return True, combined
-    if current >= 0.86 and combined >= 0.84:
-        return True, combined
-    # Elevated text without explicit SOS keywords stays in LLM path
-    return False, combined
+        sos_triggered = True
+        harm_risk = max(combined, 0.97)
+        reason_codes.append("violence_risk_keyword")
+        keyword_hits_out.append("violence_category")
+        combined = max(combined, 0.97)
+    elif keyword_hit(message):
+        sos_triggered = True
+        combined = max(combined, 0.96)
+        reason_codes.append("explicit_high_risk_keyword")
+        keyword_hits_out.append("sos_keyword_category")
+    elif combined >= 0.9:
+        sos_triggered = True
+        reason_codes.append("critical_threshold_crossed")
+    elif current >= 0.86 and combined >= 0.84:
+        sos_triggered = True
+        reason_codes.append("critical_threshold_crossed")
+
+    if not sos_triggered:
+        if combined >= 0.72:
+            reason_codes.append("elevated_but_not_sos")
+        else:
+            reason_codes.append("normal_distress")
+
+    if trend_boost > 0:
+        reason_codes.append("rolling_distress_escalation")
+    if history and sum(1 for v in history[-max_turns:] if v >= 0.9) >= 2:
+        reason_codes.append("severe_history_count")
+
+    # ── Safety tier hint ────────────────────────────────────────────────────
+    if sos_triggered:
+        tier_hint = "critical"
+    elif combined >= 0.72:
+        tier_hint = "voice_recommended"
+    elif combined >= 0.5:
+        tier_hint = "elevated"
+    else:
+        tier_hint = "normal"
+
+    return DistressScoreDebug(
+        sos_triggered=sos_triggered,
+        distress_score=combined,
+        harm_risk_score=harm_risk,
+        current_turn_score=current,
+        rolling_score=rolling,
+        trend_boost=trend_boost,
+        delta_score=delta_score,
+        rolling_window_turns=rolling_window_turns,
+        reason_codes=reason_codes,
+        keyword_hits=keyword_hits_out,
+        safety_tier_hint=tier_hint,
+    )
+
+
+def decide_sos(message: str, recent_user_messages: list[str] | None = None) -> tuple[bool, float]:
+    """
+    Backward-compat wrapper around decide_sos_debug.
+    Returns (sos_triggered, distress_score).
+    """
+    dbg = decide_sos_debug(message, recent_user_messages)
+    return dbg.sos_triggered, dbg.distress_score
 
 
 # --- SOS message variants (rule-based, no LLM) ---

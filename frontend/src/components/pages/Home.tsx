@@ -28,8 +28,8 @@ import nutritionImg from '../../assets_gif/meo.gif'
 import { Link, useNavigate } from 'react-router-dom'
 import { homeService } from '../../services/homeService'
 import { rewardsService } from '../../services/rewardsService'
-import { httpClient } from '../../api/httpClient'
 import { ROUTE_PATHS } from '../../routes/paths'
+import { CheckinHistoryModal } from '../dashboard/CheckinHistoryModal'
 import { MoodWordChips } from '../common/MoodWordChips'
 import { StreakBar } from '../common/StreakBar'
 import { WellnessRadar, type WellnessScores } from '../wellness/WellnessRadar'
@@ -296,6 +296,7 @@ export default function Home() {
     const [quote, setQuote] = useState<{ text: string; author?: string | null } | null>(null)
     const [hearts, setHearts] = useState<number>(0)
     const [backendStreakDays, setBackendStreakDays] = useState<number | null>(null)
+    const [checkinHistoryOpen, setCheckinHistoryOpen] = useState(false)
     const streak = backendStreakDays ?? 0
     const [wellnessScores, setWellnessScores] = useState<WellnessScores | null>(null)
     const [nutritionTip, setNutritionTip] = useState<NutritionDailyTip | null>(null)
@@ -344,25 +345,22 @@ export default function Home() {
             })
             .catch(() => undefined)
 
-        // Fetch wellness mini-preview in background (non-blocking)
-        httpClient
-            .get<{ wellness_score: number; coping_stats: { breathing_sessions?: number; effective_rate: number | null }; session_stats: { streak_days: number; days_active_last_30: number }; clinical_snapshot: { phq9_score: number | null } }>('/reflect/mental-health-summary')
+        dashboardService
+            .getReflectSummary()
             .then((data) => {
                 if (!mounted) return
-                const w = data.wellness_score ?? 50
-                const phq9 = data.clinical_snapshot.phq9_score
-                const breath = data.coping_stats.breathing_sessions ?? 0
-                const active = data.session_stats.days_active_last_30 ?? 0
-                const rate = data.coping_stats.effective_rate
-                const streak30 = data.session_stats.streak_days ?? 0
-                setBackendStreakDays(streak30)
+                setBackendStreakDays(data.progress.streak_days ?? 0)
+                const scoreOf = (dim: string, fb: number) => {
+                    const row = data.wellness_dimensions.find((x) => x.dimension === dim)
+                    return row?.score != null ? Math.round(row.score) : fb
+                }
                 setWellnessScores({
-                    emotional: Math.round(w),
-                    sleep: phq9 !== null ? Math.max(5, Math.round(100 - phq9 * 3.7)) : Math.round(w * 0.85),
-                    mindfulness: Math.round(Math.min(100, 30 + breath * 3.5)),
-                    social: Math.round(Math.min(100, (active / 30) * 100)),
-                    physical: rate !== null ? Math.round(rate * 100) : Math.round(w * 0.9),
-                    growth: Math.round(Math.min(100, 20 + streak30 * 2.67)),
+                    emotional: scoreOf('emotion', 55),
+                    sleep: scoreOf('sleep', 55),
+                    mindfulness: scoreOf('mindfulness', 55),
+                    social: scoreOf('connection', 55),
+                    physical: scoreOf('body', 55),
+                    growth: scoreOf('growth', 55),
                 })
             })
             .catch(() => undefined)
@@ -405,6 +403,7 @@ export default function Home() {
 
     return (
         <div className="space-y-6 pb-8 lg:space-y-8">
+            <CheckinHistoryModal open={checkinHistoryOpen} onClose={() => setCheckinHistoryOpen(false)} isDark={isDark} />
 
             {/* ── Greeting header ── */}
             <header className="flex items-start justify-between gap-4">
@@ -469,9 +468,13 @@ export default function Home() {
                         </div>
 
                         <div className="mt-5 border-t border-theme-border/50 pt-5">
-                            <p className="mb-3 text-xs uppercase tracking-[0.22em] text-theme-text-secondary">
+                            <button
+                                type="button"
+                                onClick={() => setCheckinHistoryOpen(true)}
+                                className="mb-3 text-left text-xs uppercase tracking-[0.22em] text-theme-text-secondary underline-offset-4 hover:underline"
+                            >
                                 Chuỗi tuần này
-                            </p>
+                            </button>
                             <StreakBar streak={streak} />
                         </div>
                     </div>

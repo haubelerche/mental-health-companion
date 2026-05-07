@@ -41,6 +41,7 @@ from app.services.sos_handler import (
     assistant_text_for_sos,
     build_sos_chat_response_data,
     decide_sos,
+    decide_sos_debug,
     heuristic_distress,
     is_alone_signal,
     snapshot_for_sos,
@@ -153,7 +154,7 @@ def _record_sos_side_effects(
             log_id=make_id("cl"),
             session_id=session_id,
             user_id=user_id,
-            muc_do="cao",
+            severity_level="high",
             context_summary=context_summary[:2000],
             reviewed=False,
         )
@@ -200,7 +201,7 @@ def _queue_human_review(
         log_id=make_id("cl"),
         session_id=session_id,
         user_id=user_id,
-        muc_do="cao",
+        severity_level="high",
         context_summary=f"[pending_review distress={distress_score:.2f}] {mask_pii(message)[:1800]}",
         reviewed=False,
     )
@@ -411,6 +412,29 @@ def _maybe_enqueue_voice(
     )
 
 
+def _compact_recommendation_attachments(items: list[dict] | None) -> list[dict]:
+    """Normalize recommendation cards so frontend can render a compact layout."""
+    if not items:
+        return []
+    compact: list[dict] = []
+    for raw in items:
+        if not isinstance(raw, dict):
+            continue
+        item = dict(raw)
+        item_type = str(item.get("type") or "").strip().lower()
+        title = str(item.get("title") or "").strip()
+        description = str(item.get("description") or "").strip()
+        if len(title) > 48:
+            title = title[:45].rstrip() + "..."
+        if len(description) > 90:
+            description = description[:87].rstrip() + "..."
+        item["type"] = item_type or "resource"
+        item["title"] = title or "Gợi ý cho bạn"
+        item["description"] = description or None
+        compact.append(item)
+    return compact
+
+
 _PERSONA_GREETINGS: dict[str, str] = {
     "ban_than": "Wassupp, hôm nay cậu ổn không? Tui luôn ở đây lắng nghe chia sẻ của cậu.",
     "nguoi_thay": "Chào em, hôm nay em có điều gì muốn kể cho thầy nghe không?",
@@ -502,7 +526,8 @@ def send_message(
     previous_user_messages = [str(m.get("content") or "") for m in ctx.recent_messages if m.get("role") == "user"]
     if previous_user_messages and previous_user_messages[-1] == stored_user_content:
         previous_user_messages = previous_user_messages[:-1]
-    sos, distress0 = decide_sos(raw_text, recent_user_messages=previous_user_messages)
+    _sos_debug = decide_sos_debug(raw_text, recent_user_messages=previous_user_messages)
+    sos, distress0 = _sos_debug.sos_triggered, _sos_debug.distress_score
     _mark_stage(latency_trace, "safety_gate_ms", stage_started)
     stage_started = time.perf_counter()
     cooldown_is_active, cooldown_seconds = cooldown_active(
@@ -528,7 +553,7 @@ def send_message(
             user_id=current_user.user_id,
             role="assistant",
             content=assistant_content,
-            tone_cam_xuc=None,
+            assistant_tone=None,
             sos_triggered=True,
             created_at=now,
         )
@@ -550,6 +575,8 @@ def send_message(
         )
         data = build_sos_chat_response_data(session.session_id, snap, assistant_text=crisis_plan.visible_text)
         data["voice_script"] = crisis_plan.voice_script
+        data["crisis_plan"] = crisis_plan.model_dump()
+        data["scoring_debug"] = _sos_debug.model_dump()
         data["intervention"] = _build_voice_intervention(
             db=db,
             user_id=current_user.user_id,
@@ -624,9 +651,9 @@ def send_message(
 
     snap = turn["session_fields"]
     assistant_content = turn["reply"]
-    tone = turn["tone_cam_xuc"]
+    tone = turn["assistant_tone"]
     goi_y = turn["goi_y_nhanh"] #gợi ý
-    the_dinh = turn["the_dinh_kem"] 
+    the_dinh = _compact_recommendation_attachments(turn["the_dinh_kem"])
     routing_hist: list[str] = turn.get("routing_history") or []
 
     assistant_msg = Message(
@@ -635,7 +662,7 @@ def send_message(
         user_id=current_user.user_id,
         role="assistant",
         content=mask_pii(assistant_content),
-        tone_cam_xuc=tone if tone in ("ho_tro", "xac_nhan", "vui_tuoi", "an_ui") else "xac_nhan",
+        assistant_tone=tone if tone in ("supportive", "validating", "cheerful", "calming", "mentor", "neutral") else "validating",
         sos_triggered=False,
         created_at=now,
     )
@@ -689,7 +716,7 @@ def send_message(
         session.session_id,
         snap=snap,
         reply=assistant_content,
-        tone_cam_xuc=tone,
+        assistant_tone=tone,
         goi_y_nhanh=goi_y,
         the_dinh_kem=the_dinh,
         voice_hint=vhint,
@@ -819,7 +846,8 @@ def send_message_stream(
             if previous_user_messages and previous_user_messages[-1] == stored_user_content:
                 previous_user_messages = previous_user_messages[:-1]
 
-            sos, distress0 = decide_sos(raw_text, recent_user_messages=previous_user_messages)
+            _sos_debug = decide_sos_debug(raw_text, recent_user_messages=previous_user_messages)
+            sos, distress0 = _sos_debug.sos_triggered, _sos_debug.distress_score
             last_heartbeat, hb = _build_heartbeat_event(
                 started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_safety_scored"
             )
@@ -848,7 +876,7 @@ def send_message_stream(
                     user_id=current_user.user_id,
                     role="assistant",
                     content=assistant_content,
-                    tone_cam_xuc=None,
+                    assistant_tone=None,
                     sos_triggered=True,
                     created_at=now,
                 )
@@ -870,6 +898,8 @@ def send_message_stream(
                 )
                 data = build_sos_chat_response_data(session.session_id, snap, assistant_text=crisis_plan.visible_text)
                 data["voice_script"] = crisis_plan.voice_script
+                data["crisis_plan"] = crisis_plan.model_dump()
+                data["scoring_debug"] = _sos_debug.model_dump()
                 data["intervention"] = _build_voice_intervention(
                     db=db,
                     user_id=current_user.user_id,
@@ -947,9 +977,9 @@ def send_message_stream(
 
             snap = turn["session_fields"]
             assistant_content = turn["reply"]
-            tone = turn["tone_cam_xuc"]
+            tone = turn["assistant_tone"]
             goi_y = turn["goi_y_nhanh"]
-            the_dinh = turn["the_dinh_kem"]
+            the_dinh = _compact_recommendation_attachments(turn["the_dinh_kem"])
             routing_hist: list[str] = turn.get("routing_history") or []
 
             assistant_msg = Message(
@@ -958,7 +988,7 @@ def send_message_stream(
                 user_id=current_user.user_id,
                 role="assistant",
                 content=mask_pii(assistant_content),
-                tone_cam_xuc=tone if tone in ("ho_tro", "xac_nhan", "vui_tuoi", "an_ui") else "xac_nhan",
+                assistant_tone=tone if tone in ("supportive", "validating", "cheerful", "calming", "mentor", "neutral") else "validating",
                 sos_triggered=False,
                 created_at=now,
             )
@@ -1010,7 +1040,7 @@ def send_message_stream(
                 session.session_id,
                 snap=snap,
                 reply=assistant_content,
-                tone_cam_xuc=tone,
+                assistant_tone=tone,
                 goi_y_nhanh=goi_y,
                 the_dinh_kem=the_dinh,
                 voice_hint=vhint,
@@ -1090,6 +1120,7 @@ def send_guest_message(payload: GuestChatMessageRequest, _: None = Depends(requi
             )
             data = build_sos_chat_response_data(session_id, snap, assistant_text=guest_crisis_plan.visible_text)
             data["voice_script"] = guest_crisis_plan.voice_script
+            data["crisis_plan"] = guest_crisis_plan.model_dump()
             data["intervention"] = None
             return ok(data)
 
@@ -1128,16 +1159,18 @@ def send_guest_message(payload: GuestChatMessageRequest, _: None = Depends(requi
             )
 
         assistant_content = str(turn.get("reply") or "")
-        tone = str(turn.get("tone_cam_xuc") or "xac_nhan")
+        tone = str(turn.get("assistant_tone") or "validating")
         goi_y = turn.get("goi_y_nhanh") if isinstance(turn.get("goi_y_nhanh"), list) else []
-        the_dinh = turn.get("the_dinh_kem") if isinstance(turn.get("the_dinh_kem"), list) else []
+        the_dinh = _compact_recommendation_attachments(
+            turn.get("the_dinh_kem") if isinstance(turn.get("the_dinh_kem"), list) else []
+        )
         routing_hist: list[str] = turn.get("routing_history") if isinstance(turn.get("routing_history"), list) else []
 
         data = build_normal_envelope(
             session_id,
             snap=snap,
             reply=assistant_content,
-            tone_cam_xuc=tone,
+            assistant_tone=tone,
             goi_y_nhanh=goi_y,
             the_dinh_kem=the_dinh,
             voice_hint=None,
@@ -1288,7 +1321,7 @@ def get_session_messages(
             "message_id": m.message_id,
             "role": m.role,
             "content": m.content,
-            "tone_cam_xuc": m.tone_cam_xuc,
+            "assistant_tone": m.assistant_tone,
             "the_dinh_kem": [],
             "created_at": m.created_at.isoformat() + "Z",
         }

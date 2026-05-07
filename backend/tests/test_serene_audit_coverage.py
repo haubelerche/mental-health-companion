@@ -100,8 +100,9 @@ def test_enqueue_turn_mem0_masks_vn_phone(monkeypatch):
 
 
 def test_build_fallback_plan_voice_script_differs_from_visible():
-    visible = "Đây là nội dung chat dài cho người dùng đọc trên màn hình."
-    plan = build_fallback_plan(visible, session_sos_count=0, is_alone=False)
-    assert plan.visible_text == visible
+    # build_fallback_plan now generates its own visible_text; the key invariant
+    # is that voice_script is non-empty and differs from visible_text.
+    plan = build_fallback_plan("", session_sos_count=0, is_alone=False)
+    assert plan.visible_text.strip()
     assert plan.voice_script.strip()
     assert plan.voice_script != plan.visible_text

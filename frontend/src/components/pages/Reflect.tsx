@@ -15,42 +15,14 @@ import {
 import { httpClient } from '../../api/httpClient'
 import { useAuth } from '../../hooks/useAuth'
 import { WellnessRadar, type WellnessScores } from '../wellness/WellnessRadar'
-import { MoodCalendar } from '../wellness/MoodCalendar'
+import { MoodCalendar, type MoodPoint } from '../wellness/MoodCalendar'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import { DayDetailSheet, type DayDetail } from '../wellness/DayDetailSheet'
 import { ProgressStats } from '../wellness/ProgressStats'
-
-type MoodPoint = {
-    date: string
-    mood_score: number
-    label: string
-    emoji: string | null
-}
-
-type MoodTrendPayload = {
-    period: { from: string; to: string }
-    points: MoodPoint[]
-    days_missing: string[]
-    summary: string
-}
-
-type TopCoping = {
-    action: string
-    tried_count: number
-}
-
-type MentalHealthSummary = {
-    wellness_score: number
-    wellness_label: string
-    mood_trend: MoodTrendPayload
-    dominant_emotions: Array<{ emotion: string; count: number }>
-    top_triggers: Array<{ tag: string; count: number; last_seen: string | null }>
-    coping_stats: { total_attempts: number; effective_rate: number | null; top_coping: TopCoping[]; breathing_sessions?: number }
-    session_stats: { total_sessions: number; streak_days: number; days_active_last_30: number }
-    clinical_snapshot: { phq9_score: number | null; gad7_score: number | null; crisis_level: number; last_scored_at: string | null }
-    goals: Array<{ goal_id: string; text: string; status: string }>
-    has_enough_data: boolean
-}
+import { dashboardService, type DashboardReflectSummary } from '../../services/dashboardService'
+import { TinHieuCard } from '../dashboard/TinHieuCard'
+import { WellnessDimensionCards } from '../dashboard/WellnessDimensionCards'
+import { CheckinHistoryModal } from '../dashboard/CheckinHistoryModal'
 
 type WeeklyNotePayload = {
     week_of: string
@@ -70,21 +42,20 @@ type JournalsPayload = {
     has_more: boolean
 }
 
-function deriveWellnessScores(summary: MentalHealthSummary): WellnessScores {
-    const wellness = summary.wellness_score ?? 50
-    const phq9 = summary.clinical_snapshot.phq9_score
-    const breathSessions = summary.coping_stats.breathing_sessions ?? 0
-    const daysActive = summary.session_stats.days_active_last_30 ?? 0
-    const effectiveRate = summary.coping_stats.effective_rate
-    const streak = summary.session_stats.streak_days ?? 0
-
+function dimsToRadarScores(dimensions: DashboardReflectSummary['wellness_dimensions']): WellnessScores {
+    const by = Object.fromEntries(dimensions.map((d) => [d.dimension, d.score])) as Record<
+        string,
+        number | null | undefined
+    >
+    const pick = (key: string, fallback: number) =>
+        typeof by[key] === 'number' ? Math.round(by[key] as number) : fallback
     return {
-        emotional: Math.round(wellness),
-        sleep: phq9 !== null ? Math.max(5, Math.round(100 - phq9 * 3.7)) : Math.round(wellness * 0.85),
-        mindfulness: Math.round(Math.min(100, 30 + breathSessions * 3.5)),
-        social: Math.round(Math.min(100, (daysActive / 30) * 100)),
-        physical: effectiveRate !== null ? Math.round(effectiveRate * 100) : Math.round(wellness * 0.9),
-        growth: Math.round(Math.min(100, 20 + streak * 2.67)),
+        emotional: pick('emotion', 50),
+        sleep: pick('sleep', 50),
+        mindfulness: pick('mindfulness', 50),
+        social: pick('connection', 50),
+        physical: pick('body', 50),
+        growth: pick('growth', 50),
     }
 }
 
@@ -116,24 +87,20 @@ function formatPercent(value: number | null | undefined): string {
     return `${Math.round(value * 100)}%`
 }
 
-function normalizeTag(tag: string): string {
-    return tag.replaceAll('_', ' ')
-}
-
 export default function Reflect() {
     const { user } = useAuth()
     const { effectiveTheme } = useThemeContext()
     const isDark = effectiveTheme === 'dark'
     const navigate = useNavigate()
 
-    const [summary, setSummary] = useState<MentalHealthSummary | null>(null)
+    const [reflectSummary, setReflectSummary] = useState<DashboardReflectSummary | null>(null)
     const [weeklyNote, setWeeklyNote] = useState<WeeklyNotePayload | null>(null)
-    const [moodTrend, setMoodTrend] = useState<MoodTrendPayload | null>(null)
     const [recentJournal, setRecentJournal] = useState<JournalsPayload['journals'][number] | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [prompts, setPrompts] = useState<Array<{ id: string; text: string }>>([])
     const [selectedDay, setSelectedDay] = useState<DayDetail | null>(null)
+    const [historyOpen, setHistoryOpen] = useState(false)
 
     useEffect(() => {
         if (!user) {
@@ -146,16 +113,14 @@ export default function Reflect() {
             setLoading(true)
             setError(null)
             try {
-                const [summaryData, weeklyNoteData, moodTrendData, journalsData] = await Promise.all([
-                    httpClient.get<MentalHealthSummary>('/reflect/mental-health-summary'),
+                const [dashSummary, weeklyNoteData, journalsData] = await Promise.all([
+                    dashboardService.getReflectSummary(),
                     httpClient.get<WeeklyNotePayload>('/reflect/weekly-note'),
-                    httpClient.get<MoodTrendPayload>('/reflect/mood-trend?days=28'),
                     httpClient.get<JournalsPayload>('/reflect/journals?limit=1&offset=0'),
                 ])
                 if (!mounted) return
-                setSummary(summaryData)
+                setReflectSummary(dashSummary)
                 setWeeklyNote(weeklyNoteData)
-                setMoodTrend(moodTrendData)
                 setRecentJournal(journalsData.journals[0] || null)
                 httpClient.get<{ prompts: Array<{ id: string; text: string }> }>('/reflect/journal-prompts')
                     .then(d => {
@@ -166,7 +131,7 @@ export default function Reflect() {
                     })
             } catch {
                 if (!mounted) return
-                setError('Không tải được dữ liệu Nhìn Lại. Vui lòng thử lại sau.')
+                setError('Không tải được dữ liệu. Vui lòng thử lại sau.')
             } finally {
                 if (mounted) setLoading(false)
             }
@@ -177,35 +142,57 @@ export default function Reflect() {
         }
     }, [user])
 
-    const peaceScore = summary?.wellness_score ?? 0
+    const moodCalendarPoints: MoodPoint[] = useMemo(() => {
+        const series = reflectSummary?.mood_series || []
+        return series.map((p) => ({
+            date: typeof p.date === 'string' ? p.date : String(p.date),
+            mood_score: typeof p.mood_score === 'number' ? p.mood_score : Number(p.mood_score),
+            label: p.label,
+            emoji: null,
+        }))
+    }, [reflectSummary])
+
     const chartData = useMemo(
         () =>
-            (moodTrend?.points || []).map((point) => ({
-                day: toShortWeekday(point.date),
-                mood: Math.round((point.mood_score / 5) * 100),
-                note: point.label,
+            (reflectSummary?.mood_series || []).map((p) => ({
+                day: toShortWeekday(typeof p.date === 'string' ? p.date : String(p.date)),
+                mood: p.mood_score_pct,
+                note: p.label,
             })),
-        [moodTrend],
+        [reflectSummary],
     )
+
+    const distinctMoodDays = useMemo(() => new Set(moodCalendarPoints.map((p) => p.date.slice(0, 10))).size, [moodCalendarPoints])
+
+    const showSparseMoodNote = distinctMoodDays > 0 && distinctMoodDays < 4
+
     const milestones = useMemo(() => {
-        if (!summary) return []
+        if (!reflectSummary) return []
         const chips: Array<{ Icon: LucideIcon; label: string }> = []
-        const streak = summary.session_stats?.streak_days ?? 0
+        const streak = reflectSummary.progress.streak_days ?? 0
         if (streak >= 3) chips.push({ Icon: Flame, label: `${streak} ngày liên tiếp` })
-        const breathSessions = summary.coping_stats?.breathing_sessions ?? 0
+        const breathSessions = reflectSummary.progress.breathing_sessions ?? 0
         if (breathSessions > 0) chips.push({ Icon: Wind, label: `${breathSessions} lần thở` })
-        if ((summary.wellness_score ?? 0) > 60) chips.push({ Icon: Sprout, label: 'Ổn hơn tuần trước' })
-        if ((summary.session_stats?.total_sessions ?? 0) >= 10) chips.push({ Icon: Star, label: '10 lần trò chuyện' })
+        if (reflectSummary.sufficiency.readiness_level === 'weekly_trend' || reflectSummary.sufficiency.readiness_level === 'stable_pattern') {
+            chips.push({ Icon: Sprout, label: 'Có xu hướng nhẹ trong khung thời gian gần đây' })
+        }
+        if ((reflectSummary.progress.total_sessions ?? 0) >= 10) chips.push({ Icon: Star, label: '10 lần trò chuyện' })
         return chips
-    }, [summary])
+    }, [reflectSummary])
 
-    const wellnessScores = useMemo<WellnessScores | null>(
-        () => (summary ? deriveWellnessScores(summary) : null),
-        [summary],
-    )
+    const radarScores = useMemo<WellnessScores | null>(() => {
+        if (!reflectSummary?.radar_available) return null
+        return dimsToRadarScores(reflectSummary.wellness_dimensions)
+    }, [reflectSummary])
 
-    const ringCircumference = 2 * Math.PI * 82
-    const ringOffset = ringCircumference - (Math.max(0, Math.min(100, peaceScore)) / 100) * ringCircumference
+    const completedDateSet = useMemo(() => {
+        const s = new Set<string>()
+        for (const d of reflectSummary?.checkin_history_preview || []) {
+            if (d.completed) s.add(d.date.slice(0, 10))
+        }
+        return s
+    }, [reflectSummary])
+
     const displayName = user?.displayName || 'bạn'
 
     return (
@@ -213,6 +200,7 @@ export default function Reflect() {
 
             {/* DayDetailSheet rendered outside stacking context */}
             <DayDetailSheet detail={selectedDay} onClose={() => setSelectedDay(null)} />
+            <CheckinHistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} isDark={isDark} />
 
             <div className="flex-1">
 
@@ -243,102 +231,34 @@ export default function Reflect() {
                             </div>
                         )}
 
-                        {!loading && summary && !summary.has_enough_data && (
-                            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                                Chưa đủ dữ liệu để đánh giá sâu. Hãy tiếp tục trò chuyện thêm để nhận insight cá nhân hóa.
+                        {!loading && reflectSummary && (
+                            <div className="mt-6">
+                                <TinHieuCard sufficiency={reflectSummary.sufficiency} insights={reflectSummary.top_insights} isDark={isDark} />
                             </div>
                         )}
 
-                        {/* ── Wellness Radar — Hero Section ── */}
-                        {wellnessScores && (
-                            <section className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-white/25 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
-                                <div className="mb-1 flex items-end justify-between gap-4">
-                                    <div>
-                                        <p className={`text-[10px] uppercase tracking-[0.3em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary/70'}`}>Wellness Radar</p>
-                                        <h2 className={`mt-1 font-display text-xl ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'} md:text-2xl`}>6 chiều sức khoẻ</h2>
-                                    </div>
-                                    <p className={`text-right text-[10px] ${isDark ? 'text-theme-text-secondary/60' : 'text-serene-muted/60'} max-w-[120px] leading-relaxed`}>
-                                        Ước tính từ dữ liệu của bạn
-                                    </p>
-                                </div>
-
-                                <WellnessRadar scores={wellnessScores} className="mt-2" />
-
-                                <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
-                                    {(
-                                        [
-                                            { label: 'Cảm xúc', value: wellnessScores.emotional },
-                                            { label: 'Giấc ngủ', value: wellnessScores.sleep },
-                                            { label: 'Tỉnh thức', value: wellnessScores.mindfulness },
-                                            { label: 'Kết nối', value: wellnessScores.social },
-                                            { label: 'Thể chất', value: wellnessScores.physical },
-                                            { label: 'Phát triển', value: wellnessScores.growth },
-                                        ] as const
-                                    ).map(({ label, value }) => (
-                                        <div key={label} className={`rounded-2xl ${isDark ? 'bg-theme-surface/60 border border-theme-border/20' : 'bg-white/50'} px-2.5 py-2 text-center`}>
-                                            <p className={`text-[11px] font-semibold ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>{value}%</p>
-                                            <p className={`mt-0.5 text-[9px] ${isDark ? 'text-theme-text-secondary' : 'text-serene-muted/70'}`}>{label}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </section>
-                        )}
-
-                        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-5">
-                            <div className={`rounded-[1.75rem] border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-white/25 bg-white/30'} p-4 text-center backdrop-blur-md md:p-6 shadow-sm`}>
-                                <p className={`mb-4 text-[10px] uppercase tracking-[0.3em] ${isDark ? 'text-theme-accent' : 'text-primary'}`}>Peace Score</p>
-                                <div className="relative mx-auto flex h-40 w-40 items-center justify-center md:h-48 md:w-48">
-                                    <svg viewBox="0 0 224 224" className="h-full w-full -rotate-90 transform">
-                                        <circle cx="112" cy="112" r="82" fill="transparent" className={isDark ? "text-white/5" : "text-white/40"} stroke="currentColor" strokeWidth="12" />
-                                        <circle
-                                            cx="112"
-                                            cy="112"
-                                            r="82"
-                                            fill="transparent"
-                                            stroke="url(#peaceGradient)"
-                                            strokeDasharray={ringCircumference}
-                                            strokeDashoffset={ringOffset}
-                                            strokeLinecap="round"
-                                            strokeWidth="12"
-                                        />
-                                        <defs>
-                                            <linearGradient id="peaceGradient" x1="0%" x2="100%" y1="0%" y2="100%">
-                                                <stop offset="0%" style={{ stopColor: isDark ? '#58a6ff' : '#4d6359', stopOpacity: 1 }} />
-                                                <stop offset="100%" style={{ stopColor: isDark ? '#1f6feb' : '#c2dacd', stopOpacity: 1 }} />
-                                            </linearGradient>
-                                        </defs>
-                                    </svg>
-
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                        <span className={`font-display text-4xl font-light ${isDark ? 'text-theme-text-primary' : 'text-serene-primary'} md:text-5xl`}>
-                                            {loading ? '--' : peaceScore}
-                                            <span className="text-lg opacity-40 md:text-xl">%</span>
-                                        </span>
-                                        <span className={`mt-2 text-[10px] uppercase tracking-[0.3em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary-dim'}`}>
-                                            {loading ? 'Đang cập nhật' : summary?.wellness_label || 'Đang cập nhật'}
-                                        </span>
-                                    </div>
-                                </div>
-                                <p className={`mx-auto mt-4 max-w-sm text-xs leading-relaxed ${isDark ? 'text-theme-text-secondary' : ''} md:text-sm`}>
-                                    {loading
-                                        ? 'Đang tổng hợp dữ liệu từ mood check-in và các phiên trò chuyện...'
-                                        : `Bạn đã có ${summary?.session_stats.total_sessions || 0} phiên, chuỗi duy trì hiện tại là ${summary?.session_stats.streak_days || 0} ngày.`}
-                                </p>
-                            </div>
-
-                            <div className={`rounded-[1.75rem] border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-white/25 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
-                                <div className="mb-4 flex items-end justify-between gap-4">
+                        <div className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-white/25 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
+                                <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
                                     <div>
                                         <h2 className={`font-display text-xl ${isDark ? 'text-theme-text-primary' : 'text-serene-primary'} md:text-2xl`}>Biểu đồ cảm xúc</h2>
                                         <p className={`text-[10px] uppercase tracking-[0.28em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary/60'}`}>
-                                            7 ngày qua
+                                            14 ngày gần nhất (theo check-in)
                                         </p>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className={`h-2.5 w-2.5 rounded-full ${isDark ? 'bg-theme-accent' : 'bg-primary'}`} />
-                                        <span className={`h-2.5 w-2.5 rounded-full ${isDark ? 'bg-theme-surface/40 border border-theme-border/30' : 'bg-white/50'}`} />
+                                    <div className="flex flex-col items-end gap-1 text-[10px] text-theme-text-secondary">
+                                        {reflectSummary && (
+                                            <span className="rounded-full bg-black/5 px-2 py-1 dark:bg-white/10">
+                                                {reflectSummary.mood_series.length} ngày có điểm mood
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
+
+                                {showSparseMoodNote && chartData.length > 0 && (
+                                    <div className="mb-3 rounded-2xl border border-amber-200/60 bg-amber-50/80 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+                                        Dữ liệu hiện có ít ngày hoạt động — Serene chỉ xem đây là tín hiệu ban đầu, chưa phải xu hướng dài.
+                                    </div>
+                                )}
 
                                 <div className="min-h-60 min-w-0 md:min-h-68">
                                     {chartData.length > 0 ? (
@@ -369,7 +289,7 @@ export default function Reflect() {
                                                     labelStyle={{ color: '#2f342e', fontWeight: 700 }}
                                                     formatter={(value, name) => [
                                                         `${value ?? 0}%`,
-                                                        name === 'mood' ? 'Mức ổn định cảm xúc' : String(name ?? ''),
+                                                        name === 'mood' ? 'Mức ổn định cảm xúc (ước lượng)' : String(name ?? ''),
                                                     ]}
                                                     labelFormatter={(label) => `Ngày ${label}`}
                                                 />
@@ -385,38 +305,86 @@ export default function Reflect() {
                                             </AreaChart>
                                         </ResponsiveContainer>
                                     ) : (
-                                        <div className="flex min-h-72 items-center justify-center rounded-3xl border border-white/30 bg-white/20 px-6 text-center text-sm text-theme-text-primary md:min-h-80">
-                                            Chưa có đủ mood check-in để vẽ biểu đồ. Hãy check-in thêm để Serene cập nhật xu hướng.
+                                        <div className="flex min-h-72 flex-col items-center justify-center gap-2 rounded-3xl border border-white/30 bg-white/20 px-6 text-center text-sm text-serene-muted md:min-h-80">
+                                            <p>Chưa đủ dữ liệu để vẽ xu hướng.</p>
+                                            <p className="text-xs leading-relaxed md:text-sm">
+                                                Cần ít nhất 3 ngày có check-in hoặc 5 check-in để Serene vẽ mood trend đáng tin hơn.
+                                            </p>
                                         </div>
                                     )}
                                 </div>
 
                                 <div className="mt-3 flex justify-between px-1 text-[9px] uppercase tracking-wider text-theme-text-primary md:text-[10px]">
-                                    <span>{moodTrend?.period.from || ''}</span>
-                                    <span className="font-bold text-theme-text-secondary">{moodTrend?.summary || ''}</span>
-                                    <span>{moodTrend?.period.to || ''}</span>
+                                    <span>{reflectSummary?.sufficiency.evidence_window_start || ''}</span>
+                                    <span className="font-bold text-theme-text-secondary">Xu hướng từ check-in</span>
+                                    <span>{reflectSummary?.sufficiency.evidence_window_end || ''}</span>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* ── Mood Calendar — 28 ngày ── */}
-                        {moodTrend && moodTrend.points.length > 0 && (
+                        {reflectSummary && (
                             <section className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-white/25 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
-                                <div className="mb-4 flex items-end justify-between gap-4">
+                                <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
                                     <div>
-                                        <p className={`text-[10px] uppercase tracking-[0.3em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary/70'}`}>Lịch tâm trạng</p>
-                                        <h2 className={`mt-1 font-display text-xl ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'} md:text-2xl`}>28 ngày qua</h2>
+                                        <p className={`text-[10px] uppercase tracking-[0.3em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary/70'}`}>
+                                            Tiến trình của bạn
+                                        </p>
+                                        <h2 className={`mt-1 font-display text-xl ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'} md:text-2xl`}>
+                                            Check-in 28 ngày qua
+                                        </h2>
                                     </div>
-                                    <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px] ${isDark ? 'text-theme-text-secondary/60' : 'text-serene-muted/60'} md:text-[10px]`}>
-                                        <span>Tốt · Ổn · Bình · Thấp</span>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setHistoryOpen(true)}
+                                        className={`text-xs font-semibold underline underline-offset-4 ${isDark ? 'text-theme-accent' : 'text-primary'}`}
+                                    >
+                                        Xem lịch sử đầy đủ
+                                    </button>
                                 </div>
+                                <p className={`mb-3 text-xs ${isDark ? 'text-theme-text-secondary/90' : 'text-serene-muted'}`}>
+                                    Ô xanh là ngày đã có ít nhất một check-in. Chạm vào lịch để mở chi tiết các lần check-in.
+                                </p>
                                 <MoodCalendar
-                                    points={moodTrend.points}
-                                    onDayClick={(date, score, label) =>
-                                        setSelectedDay({ date, score, label })
-                                    }
+                                    mode="completion"
+                                    completedDates={completedDateSet}
+                                    onOpenHistory={() => setHistoryOpen(true)}
                                 />
+                                {moodCalendarPoints.length > 0 && (
+                                    <div className="mt-8 border-t border-white/20 pt-6 dark:border-theme-border/30">
+                                        <p className={`mb-3 text-[10px] uppercase tracking-[0.28em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-muted'}`}>
+                                            Chi tiết mood theo ngày (ước lượng)
+                                        </p>
+                                        <MoodCalendar
+                                            points={moodCalendarPoints}
+                                            mode="score"
+                                            onDayClick={(date, score, label) => setSelectedDay({ date, score, label })}
+                                        />
+                                    </div>
+                                )}
+                            </section>
+                        )}
+
+                        {reflectSummary && (
+                            <div className="mt-6">
+                                <WellnessDimensionCards dimensions={reflectSummary.wellness_dimensions} isDark={isDark} />
+                            </div>
+                        )}
+
+                        {reflectSummary && radarScores && (
+                            <section className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-white/25 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
+                                <div className="mb-1 flex items-end justify-between gap-4">
+                                    <div>
+                                        <p className={`text-[10px] uppercase tracking-[0.3em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary/70'}`}>
+                                            Radar (phụ)
+                                        </p>
+                                        <h2 className={`mt-1 font-display text-xl ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'} md:text-2xl`}>
+                                            Tổng quan 6 chiều
+                                        </h2>
+                                    </div>
+                                    <p className={`text-right text-[10px] ${isDark ? 'text-theme-text-secondary/60' : 'text-serene-muted/60'} max-w-[140px] leading-relaxed`}>
+                                        Chỉ hiển thị khi dữ liệu đủ dày — không phải điểm chẩn đoán.
+                                    </p>
+                                </div>
+                                <WellnessRadar scores={radarScores} className="mt-2" />
                             </section>
                         )}
 
@@ -437,22 +405,29 @@ export default function Reflect() {
                         )}
 
                         {/* ── Progress Stats ── */}
-                        {summary && (
+                        {reflectSummary && (
                             <section className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-theme-border/20 bg-theme-surface/60' : 'border-white/25 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
-                                <div className="mb-4">
-                                    <p className={`text-[10px] uppercase tracking-[0.3em] text-theme-text-secondary`}>Tiến trình</p>
-                                    <h2 className={`mt-1 font-display text-xl ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'} md:text-2xl`}>Thống kê của bạn</h2>
+                                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                        <p className={`text-[10px] uppercase tracking-[0.3em] text-theme-text-secondary`}>Tiến trình</p>
+                                        <h2 className={`mt-1 font-display text-xl ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'} md:text-2xl`}>Thống kê của bạn</h2>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setHistoryOpen(true)}
+                                        className={`text-xs font-semibold underline underline-offset-4 ${isDark ? 'text-theme-accent' : 'text-primary'}`}
+                                    >
+                                        Lịch sử check-in
+                                    </button>
                                 </div>
                                 <ProgressStats
                                     data={{
-                                        streakDays: summary.session_stats.streak_days ?? 0,
-                                        bestStreak: summary.session_stats.streak_days ?? 0,
-                                        weeklyCheckins: Math.min(7, summary.session_stats.days_active_last_30
-                                            ? Math.round(summary.session_stats.days_active_last_30 / 4)
-                                            : 0),
-                                        totalSessions: summary.session_stats.total_sessions ?? 0,
-                                        breathingSessions: summary.coping_stats.breathing_sessions ?? 0,
-                                        daysActive30d: summary.session_stats.days_active_last_30 ?? 0,
+                                        streakDays: reflectSummary.progress.streak_days ?? 0,
+                                        bestStreak: reflectSummary.progress.streak_days ?? 0,
+                                        weeklyCheckins: reflectSummary.checkin_history_preview.filter((d) => d.completed).length,
+                                        totalSessions: reflectSummary.progress.total_sessions ?? 0,
+                                        breathingSessions: reflectSummary.progress.breathing_sessions ?? 0,
+                                        heartsThisWeek: (reflectSummary.progress.days_active_last_30 ?? 0) * 5,
                                     }}
                                 />
                             </section>
@@ -493,6 +468,15 @@ export default function Reflect() {
                                         ? `“${recentJournal.content_preview}”`
                                         : '“Hãy viết vài dòng cảm nhận để hệ thống hiểu bạn sâu hơn.”'}
                                 </blockquote>
+
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(ROUTE_PATHS.reflect)}
+                                    className={`inline-flex items-center gap-2 text-xs uppercase tracking-widest ${isDark ? 'text-theme-accent' : 'text-serene-primary'} transition-transform hover:translate-x-0.5`}
+                                >
+                                    Đọc toàn bộ
+                                    <ArrowRight className="h-4 w-4" />
+                                </button>
                             </div>
 
                             <aside className={`rounded-3xl border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-white/25 bg-white/10'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
@@ -520,12 +504,12 @@ export default function Reflect() {
                                     })}
                                 </div>
                                 <div className={`mt-4 rounded-2xl ${isDark ? 'bg-theme-surface/40 border border-theme-border/20' : 'bg-white/60'} p-3 text-[11px] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary'}`}>
-                                    <p>Tỷ lệ coping hiệu quả: {formatPercent(summary?.coping_stats.effective_rate)}</p>
+                                    <p>Tỷ lệ coping hiệu quả (tự báo cáo): {formatPercent(reflectSummary?.progress.effective_rate)}</p>
                                     <p className="mt-2">
-                                        Trigger gần đây:{' '}
-                                        {summary?.top_triggers?.length
-                                            ? summary.top_triggers.slice(0, 2).map((item) => normalizeTag(item.tag)).join(', ')
-                                            : 'chưa có'}
+                                        Insight gần đây:{' '}
+                                        {reflectSummary?.top_insights?.length
+                                            ? reflectSummary.top_insights[0].title
+                                            : 'Serene đang chờ thêm check-in hoặc trò chuyện nhẹ'}
                                     </p>
                                 </div>
                             </aside>

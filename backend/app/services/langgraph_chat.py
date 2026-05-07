@@ -83,7 +83,7 @@ class ChatGraphState(TypedDict, total=False):
 
     # === SERENE CONVERSATION AGENT (`FriendNode`) OUTPUT ===
     reply: str
-    tone_cam_xuc: str
+    assistant_tone: str
     goi_y_nhanh: list[str]
     the_dinh_kem: list[dict[str, Any]]
 
@@ -1079,7 +1079,7 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         "Mỗi lượt tối đa một câu hỏi nếu người dùng chưa xin phân tích sâu. "
         "Không dùng giọng trị liệu khuôn mẫu, không chẩn đoán, không hứa hẹn phi thực tế. "
         "Không tự xưng là Friend hay thực thể con người ngoài đời. "
-        "Trả lời JSON với các khóa: reply, tone_cam_xuc (ho_tro|xac_nhan|vui_tuoi|lam_diu), "
+        "Trả lời JSON với các khóa: reply, assistant_tone (supportive|validating|cheerful|calming|mentor|neutral), "
         "goi_y_nhanh (3 chuỗi), the_dinh_kem (mảng object {type,id,title,description,duration_sec,action,route,thumbnail}). "
         "Chỉ dùng route bắt đầu bằng /serene/ và action thuộc open_exercise|open_resource|open_connect_map."
         + (f"\n{memory_card_hint}" if memory_card_hint else "")
@@ -1127,7 +1127,7 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
 
     payload: dict[str, Any] = {
         "reply": _persona_fallback_reply(persona_id, distress_now),
-        "tone_cam_xuc": "xac_nhan",
+        "assistant_tone": "validating",
         "goi_y_nhanh": ["Kể thêm đi cậu", "Mình nên làm gì bây giờ?", "Chỉ cần lắng nghe thôi"],
         "the_dinh_kem": [],
     }
@@ -1226,7 +1226,7 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
     return {
         "routing_history": hist,
         "reply": safe_reply,
-        "tone_cam_xuc": str(payload.get("tone_cam_xuc") or "xac_nhan"),
+        "assistant_tone": str(payload.get("assistant_tone") or "validating"),
         "goi_y_nhanh": _normalize_user_quick_replies(
             list(payload.get("goi_y_nhanh") or []),
             user_message=user_text,
@@ -1342,7 +1342,7 @@ def run_non_sos_turn(
     result = {
         "session_fields": snap,
         "reply": out.get("reply", ""),
-        "tone_cam_xuc": out.get("tone_cam_xuc", "xac_nhan"),
+        "assistant_tone": out.get("assistant_tone", "validating"),
         "goi_y_nhanh": out.get("goi_y_nhanh", []),
         "the_dinh_kem": out.get("the_dinh_kem", []),
         "routing_history": out.get("routing_history", []),
@@ -1443,7 +1443,7 @@ def stream_non_sos_turn_events(
     persona_id_active = str(state.get("active_persona_id") or DEFAULT_PERSONA_ID)
     hist = list(state.get("routing_history") or [])
     hist.append("friend")
-    tone = "xac_nhan"
+    tone = "validating"
     attachments: list[dict[str, Any]] = []
 
     reply_text = ""
@@ -1591,7 +1591,7 @@ def stream_non_sos_turn_events(
         "turn": {
             "session_fields": snap,
             "reply": safe_reply,
-            "tone_cam_xuc": tone,
+            "assistant_tone": tone,
             "goi_y_nhanh": _default_user_quick_replies(user_text, distress_now),
             "the_dinh_kem": _normalize_attachments(attachments, user_text, distress_now),
             "routing_history": hist,
@@ -1604,7 +1604,7 @@ def build_normal_envelope(
     *,
     snap,
     reply: str,
-    tone_cam_xuc: str,
+    assistant_tone: str,
     goi_y_nhanh: list[str],
     the_dinh_kem: list[dict[str, Any]],
     voice_hint: str | None = None,
@@ -1625,7 +1625,7 @@ def build_normal_envelope(
         "voice_hint": voice_hint,
         "emergency_actions": None,
         "reply": reply,
-        "tone_cam_xuc": tone_cam_xuc,
+        "assistant_tone": assistant_tone,
         "goi_y_nhanh": goi_y_nhanh if show_quick_replies else [],
         "the_dinh_kem": the_dinh_kem,
         "sos_triggered": False,

@@ -3,7 +3,7 @@ from __future__ import annotations
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
 from app.core.config import get_settings
 from app.services.db import models  # noqa: F401
@@ -40,7 +40,15 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+        connection.execute(text("CREATE SCHEMA IF NOT EXISTS app"))
+        connection.execute(text("SET search_path TO app, public, extensions"))
+        connection.commit()
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            version_table_schema="app",
+        )
 
         with context.begin_transaction():
             context.run_migrations()
