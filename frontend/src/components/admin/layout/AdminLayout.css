@@ -1,0 +1,152 @@
+/* ═══════════════════════════════════════════════════════════════
+   Admin Layout – Premium Dark Theme
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Layout Shell ── */
+.admin-layout {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    background: #0b1120;
+    color: #e2e8f0;
+    font-family: 'Inter', sans-serif;
+}
+
+.admin-main-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 32px;
+    background: linear-gradient(160deg, #0b1120 0%, #0f172a 50%, #0b1120 100%);
+}
+
+/* ═══════ SIDEBAR ═══════ */
+.admin-sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(180deg, #0f172a, #0c1222);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 24px 16px;
+}
+
+.admin-sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 8px;
+    margin-bottom: 32px;
+}
+
+.admin-sidebar-brand-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #34d399, #059669);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(52, 211, 153, 0.3);
+}
+
+.admin-sidebar-brand-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin: 0;
+    letter-spacing: -0.3px;
+}
+
+.admin-sidebar-brand-sub {
+    font-size: 10px;
+    font-weight: 500;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin: 0;
+}
+
+.admin-sidebar-nav {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.admin-sidebar-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 0 12px;
+    margin: 0 0 10px 0;
+}
+
+.admin-sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #94a3b8;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.admin-sidebar-link:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: #cbd5e1;
+}
+
+.admin-sidebar-link.active {
+    background: rgba(52, 211, 153, 0.1);
+    color: #6ee7b7;
+    box-shadow: inset 3px 0 0 #34d399;
+}
+
+.admin-sidebar-footer {
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.admin-sidebar-logout {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.admin-sidebar-logout:hover {
+    background: rgba(239, 68, 68, 0.08);
+    color: #f87171;
+}
+
+/* ═══════ SCROLLBAR ═══════ */
+.admin-main-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.admin-main-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.admin-main-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+}
+
+.admin-main-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
