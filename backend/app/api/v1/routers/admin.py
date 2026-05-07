@@ -9,12 +9,16 @@ from app.core.errors import AppError
 from app.core.responses import ok
 from app.services.db.models import AdminAuditLog, Conversation, CrisisLog, Resource
 from app.services.db.session import get_db
+from fastapi.responses import StreamingResponse
+
 from app.services.schemas.payloads import (
     AdminLoginRequest,
     AdminResourceCreateRequest,
     AdminResourceUpdateRequest,
+    AdminAgentCrawlRequest,
+    CrisisReviewRequest,
 )
-from app.services.schemas.payloads import AdminLoginRequest, CrisisReviewRequest
+from app.services.youtube_agent import run_youtube_crawl_agent
 from app.services.chat_cost_metrics import get_chat_cost_snapshot
 from app.services.cookies import set_auth_cookies
 from app.services.auth_latency_metrics import get_auth_latency_snapshot
@@ -235,6 +239,30 @@ def admin_list_resources(
             "total": total,
             "has_more": offset + len(rows) < total,
         }
+    )
+
+
+@router.post("/resources/agent-crawl")
+async def admin_agent_crawl_resources(
+    payload: AdminAgentCrawlRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(get_admin_claims),
+):
+    enforce_admin_ip(request)
+
+    if payload.category not in RESOURCE_CATEGORIES:
+        raise AppError("INVALID_PARAMETER", "Category không hợp lệ", 400)
+
+    _audit(db, claims["sub"], "AGENT_CRAWL_RESOURCES", request)
+
+    return StreamingResponse(
+        run_youtube_crawl_agent(payload.category, payload.limit, db),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
