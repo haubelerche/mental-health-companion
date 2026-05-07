@@ -15,6 +15,7 @@ import AgentFlowDiagram, {
     type AgentStepData,
     type AgentResult,
 } from './AgentFlowDiagram'
+import { Brain, Info } from 'lucide-react'
 
 /* ─────────── helpers ─────────── */
 function toTagList(value: string): string[] {
@@ -81,6 +82,8 @@ export default function AdminResources() {
     const [agentStepStatuses, setAgentStepStatuses] = useState<Record<AgentStep, StepStatus>>({ ...INITIAL_STEP_STATUSES })
     const [agentStepData, setAgentStepData] = useState<Record<string, AgentStepData>>({})
     const [agentResults, setAgentResults] = useState<AgentResult[]>([])
+    const [suggestion, setSuggestion] = useState<any>(null)
+    const [loadingSuggestion, setLoadingSuggestion] = useState(false)
 
     const submitLabel = useMemo(() => (editingId ? 'Cập nhật' : 'Tạo resource'), [editingId])
 
@@ -177,6 +180,22 @@ export default function AdminResources() {
             else toast.error('Không thể xóa resource.')
         } finally {
             setBusy(false)
+        }
+    }
+
+    const getSmartSuggestion = async () => {
+        setLoadingSuggestion(true)
+        try {
+            const data = await adminService.getEmotionResourceSuggestion()
+            setSuggestion(data)
+            if (data.suggestions && data.suggestions.length > 0) {
+                setAgentCategory(data.suggestions[0].category)
+                toast.info(`Hệ thống gợi ý bổ sung thêm tài nguyên: ${CATEGORY_LABELS[data.suggestions[0].category]}`)
+            }
+        } catch (err) {
+            toast.error('Không thể lấy gợi ý thông minh')
+        } finally {
+            setLoadingSuggestion(false)
         }
     }
 
@@ -382,11 +401,52 @@ export default function AdminResources() {
                     {/* Control Panel */}
                     <div className="admin-agent-control-panel">
                         <div className="admin-agent-control-header">
-                            <h2 className="admin-agent-control-title">🤖 YouTube Auto Crawl Agent</h2>
-                            <p className="admin-agent-control-desc">
-                                Chỉ cần chọn chủ đề và số lượng, AI Agent sẽ tự động tìm kiếm, kiểm duyệt và lưu video phù hợp.
-                            </p>
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h2 className="admin-agent-control-title">🤖 YouTube Auto Crawl Agent</h2>
+                                    <p className="admin-agent-control-desc">
+                                        Chỉ cần chọn chủ đề và số lượng, AI Agent sẽ tự động tìm kiếm, kiểm duyệt và lưu video phù hợp.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    className={`admin-agent-smart-btn ${loadingSuggestion ? 'loading' : ''}`}
+                                    disabled={loadingSuggestion || agentRunning}
+                                    onClick={() => void getSmartSuggestion()}
+                                >
+                                    {loadingSuggestion ? <span className="admin-agent-spinner-sm" /> : <Brain size={18} />}
+                                    <span>🧠 Gợi ý thông minh</span>
+                                </button>
+                            </div>
                         </div>
+
+                        {suggestion && (
+                            <div className="admin-agent-suggestion-panel">
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400">
+                                        <Info size={20} />
+                                    </div>
+                                    <div className="space-y-2 flex-1">
+                                        <p className="text-sm text-slate-300">
+                                            Dựa trên phân tích <b>7 ngày gần nhất</b>, hệ thống nhận thấy:
+                                        </p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {suggestion.suggestions.map((s: any, idx: number) => (
+                                                <div key={idx} className="bg-white/5 p-3 rounded-lg border border-white/5">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${s.priority === 'high' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                                                            {s.priority} priority
+                                                        </span>
+                                                        <span className="text-sm font-bold text-white">{CATEGORY_LABELS[s.category]}</span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-400 leading-relaxed">{s.reason}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         <div className="admin-agent-control-body">
                             <div className="admin-agent-field">
                                 <label className="admin-agent-label">Chủ đề (Category)</label>
