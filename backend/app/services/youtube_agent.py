@@ -149,10 +149,15 @@ async def run_youtube_crawl_agent(category: str, limit: int, db: Session):
     for i, v in enumerate(videos_to_moderate):
         prompt_items.append(f"ID {i}: Title: {v['title']}\nDesc: {v['description'][:200]}")
     
-    moderation_prompt = f"""Bạn là một chuyên gia kiểm duyệt nội dung cho một ứng dụng trị liệu tâm lý và sức khỏe tinh thần.
+    moderation_prompt = f"""Bạn là một chuyên gia tâm lý học lâm sàng chịu trách nhiệm tuyển chọn tài nguyên số cho ứng dụng Serene.
 Chủ đề đang xét: {context}.
-Hãy đánh giá danh sách video dưới đây. Chỉ CHẤP NHẬN những video phù hợp với chủ đề, nội dung an toàn, không chứa thông tin độc hại, kích động, hoặc quảng cáo rác.
-Với mỗi video, trả về 'ACCEPT' hoặc 'REJECT'.
+Hãy đánh giá danh sách video dưới đây một cách khắt khe. 
+Yêu cầu:
+1. Video phải có giá trị trị liệu, hỗ trợ sức khỏe tinh thần hoặc cung cấp kiến thức tâm lý chính thống.
+2. Không chấp nhận các video rác, quảng cáo thuốc không rõ nguồn gốc, hoặc nội dung mang tính chất mê tín duy tâm.
+3. Ưu tiên các nội dung có âm thanh êm dịu, hình ảnh đẹp hoặc kiến thức khoa học.
+
+Trả về 'ACCEPT' nếu video thực sự có ích cho người đang gặp vấn đề tâm lý, 'REJECT' nếu ngược lại.
 Định dạng trả về:
 ID 0: ACCEPT
 ID 1: REJECT
