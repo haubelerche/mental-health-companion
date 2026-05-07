@@ -83,15 +83,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     }
 
     const payload = await parseJsonSafely(response)
+    const isAdminEndpoint = path.includes('/admin')
 
     if (!response.ok) {
-        if (response.status === 401) {
+        if (response.status === 401 || (response.status === 403 && isAdminEndpoint)) {
             const isAuthEndpoint =
                 path.includes('/auth/refresh') || path.includes('/auth/login') || path.includes('/auth/logout')
-            const isAdminEndpoint = path.includes('/admin')
 
-            // 1. Nếu là User bình thường (không phải admin) và không phải đang login/refresh -> Thử auto-refresh
-            if (!isAuthEndpoint && !isAdminEndpoint) {
+            // 1. Nếu là User bình thường (không phải admin) và bị 401 -> Thử auto-refresh
+            if (response.status === 401 && !isAuthEndpoint && !isAdminEndpoint) {
                 if (isRefreshing) {
                     return new Promise((resolve, reject) => {
                         refreshQueue.push((success) => {
@@ -129,7 +129,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
                 }
             }
 
-            // 2. Nếu là Admin hoặc Refresh thất bại -> Phát sự kiện 401 để UI xử lý (hiện modal hoặc văng)
+            // 2. Nếu là Admin (401/403) hoặc Refresh thất bại -> Phát sự kiện để UI hiện Re-auth Modal
             if (typeof window !== 'undefined') {
                 const now = Date.now()
                 if (now - lastUnauthorizedAt > 1200) {
@@ -147,11 +147,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
             throw new ApiRequestError(payload.error.message, {
                 code: payload.error.code,
                 status: response.status,
+                handledByModal: isAdminEndpoint && (response.status === 401 || response.status === 403),
             })
         }
 
         throw new ApiRequestError('Không thể kết nối đến máy chủ.', {
             status: response.status,
+            handledByModal: isAdminEndpoint && (response.status === 401 || response.status === 403),
         })
     }
 
