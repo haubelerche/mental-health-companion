@@ -452,7 +452,7 @@ export default function Reflect() {
                                             : 0),
                                         totalSessions: summary.session_stats.total_sessions ?? 0,
                                         breathingSessions: summary.coping_stats.breathing_sessions ?? 0,
-                                        heartsThisWeek: (summary.session_stats.days_active_last_30 ?? 0) * 5,
+                                        daysActive30d: summary.session_stats.days_active_last_30 ?? 0,
                                     }}
                                 />
                             </section>
@@ -493,15 +493,6 @@ export default function Reflect() {
                                         ? `“${recentJournal.content_preview}”`
                                         : '“Hãy viết vài dòng cảm nhận để hệ thống hiểu bạn sâu hơn.”'}
                                 </blockquote>
-
-                                <button
-                                    type="button"
-                                    onClick={() => navigate(ROUTE_PATHS.reflect)}
-                                    className={`inline-flex items-center gap-2 text-xs uppercase tracking-widest ${isDark ? 'text-theme-accent' : 'text-serene-primary'} transition-transform hover:translate-x-0.5`}
-                                >
-                                    Đọc toàn bộ
-                                    <ArrowRight className="h-4 w-4" />
-                                </button>
                             </div>
 
                             <aside className={`rounded-3xl border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-white/25 bg-white/10'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
