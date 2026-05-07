@@ -71,5 +71,15 @@ backend/data/emotion_centroids.pkl
 
 # Local design reference / screenshots (not shipped with app; app assets live under frontend/src/assets)
 reference-images/
+tham-khao/
 
 .agent/skills/
+
+test-results/
+tests/
+
+# Ignore all Markdown files at repository root only
+/*.md
+/*.MD
+.ts
+/*.yaml 
