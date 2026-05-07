@@ -179,8 +179,8 @@ export const adminService = {
     getAutomationStatus: () => httpClient.get<Record<string, any>>('/admin/automation/status'),
     toggleWorker: (worker_name: string, active: boolean) => 
         httpClient.post<any>('/admin/automation/toggle', { worker_name, active }),
-    updateWorkerConfig: (worker_name: string, interval_min: number) =>
-        httpClient.patch<any>('/admin/automation/config', { worker_name, interval_min }),
+    updateWorkerConfig: (worker_name: string, interval_min?: number, daily_time?: string) =>
+        httpClient.patch<any>('/admin/automation/config', { worker_name, interval_min, daily_time }),
     runWorkerNow: (worker_name: string) =>
         httpClient.post<any>('/admin/automation/run-now', { worker_name }),
 }
