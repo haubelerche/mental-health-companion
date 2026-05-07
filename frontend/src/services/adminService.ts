@@ -92,6 +92,8 @@ export const ADMIN_RESOURCE_CATEGORIES = ['meditate', 'sleep', 'music', 'work_st
 export const ADMIN_RESOURCE_FORMATS = ['audio', 'video', 'article'] as const
 
 export const adminService = {
+    login: (payload: { email: string; password: string; totp_code: string }) =>
+        httpClient.post<any>('/admin/auth/login', payload),
     getDashboardAggregate: () => httpClient.get<AdminDashboardAggregate>('/admin/dashboard/aggregate'),
     getAuthLatencySla: () => httpClient.get<AdminAuthLatencyResponse>('/admin/auth/latency-sla'),
     getCostDashboard: () => httpClient.get<AdminCostDashboardResponse>('/admin/cost-dashboard'),

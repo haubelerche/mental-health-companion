@@ -106,13 +106,13 @@ def ensure_policy_acknowledged(user: User = Depends(get_current_user)) -> User:
 
 def get_admin_claims(access_token: str | None = Cookie(default=None, alias="access_token")) -> dict:
     if not access_token:
-        raise AppError("ADMIN_FORBIDDEN", "Bạn không có quyền truy cập", 403)
+        raise AppError("ADMIN_SESSION_EXPIRED", "Phiên làm việc hết hạn. Vui lòng đăng nhập lại.", 401)
     try:
         payload = decode_token(access_token)
     except Exception as exc:
-        raise AppError("ADMIN_FORBIDDEN", "Bạn không có quyền truy cập", 403) from exc
+        raise AppError("ADMIN_SESSION_EXPIRED", "Phiên làm việc không hợp lệ hoặc đã hết hạn.", 401) from exc
     if payload.get("role") != "admin" or payload.get("scope") != "admin_only":
-        raise AppError("ADMIN_FORBIDDEN", "Bạn không có quyền truy cập", 403)
+        raise AppError("ADMIN_ROLE_REQUIRED", "Yêu cầu quyền quản trị viên để truy cập.", 403)
     return payload
 
 
@@ -120,19 +120,20 @@ def enforce_admin_ip(request: Request) -> None:
     settings = get_settings()
     allowed_raw = [item.strip() for item in settings.admin_allowed_ips.split(",") if item.strip()]
     if not allowed_raw:
-        raise AppError("ADMIN_FORBIDDEN", "Bạn không có quyền truy cập", 403)
+        # Nếu không cấu hình IP nào, coi như cấm toàn bộ (hoặc log cảnh báo)
+        raise AppError("ADMIN_IP_RESTRICTED", "Hệ thống chưa cấu hình IP cho phép truy cập Admin.", 403)
 
     client_ip = request.client.host if request.client else ""
     try:
         addr = ipaddress.ip_address(client_ip)
     except ValueError as exc:
-        raise AppError("ADMIN_FORBIDDEN", "Bạn không có quyền truy cập", 403) from exc
+        raise AppError("ADMIN_IP_RESTRICTED", f"Không thể xác định địa chỉ IP: {client_ip}", 403) from exc
 
     for cidr in allowed_raw:
         if addr in ipaddress.ip_network(cidr, strict=False):
             return
 
-    raise AppError("ADMIN_FORBIDDEN", "Bạn không có quyền truy cập", 403)
+    raise AppError("ADMIN_IP_RESTRICTED", f"Địa chỉ IP {client_ip} không có quyền truy cập vùng Admin.", 403)
 
 
 async def get_current_user_ws(

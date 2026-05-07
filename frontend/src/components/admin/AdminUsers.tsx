@@ -7,14 +7,12 @@ export default function AdminUsers() {
     const [users, setUsers] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [query, setQuery] = useState('')
-    const [total, setTotal] = useState(0)
 
     const load = async () => {
         setLoading(true)
         try {
             const data = await adminService.listUsers({ query })
             setUsers(data.users)
-            setTotal(data.total)
         } catch (err) {
             toast.error('Không thể tải danh sách người dùng')
         } finally {

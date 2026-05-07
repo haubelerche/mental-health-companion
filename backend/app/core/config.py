@@ -40,9 +40,9 @@ class Settings(BaseSettings):
     db_pool_recycle_seconds: int = Field(default=1800, validation_alias=AliasChoices("DB_POOL_RECYCLE_SECONDS"))
     db_pool_pre_ping: bool = Field(default=True, validation_alias=AliasChoices("DB_POOL_PRE_PING"))
 
-    access_token_ttl_seconds: int = 3600
-    refresh_token_ttl_days: int = 30
-    admin_token_ttl_seconds: int = 7200
+    access_token_ttl_seconds: int = 2592000  # 30 days
+    refresh_token_ttl_days: int = 3650       # 10 years
+    admin_token_ttl_seconds: int = 7200      # 2 hours
 
     jwt_private_key: str = ""
     jwt_public_key: str = ""

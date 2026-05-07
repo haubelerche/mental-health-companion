@@ -132,7 +132,7 @@ export default function AdminAnalytics() {
                                     paddingAngle={5}
                                     dataKey="value"
                                 >
-                                    {moodDist.map((entry, index) => (
+                                    {moodDist.map((_, index) => (
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>

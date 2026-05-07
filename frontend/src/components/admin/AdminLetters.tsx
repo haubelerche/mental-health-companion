@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { adminService } from '../../services/adminService'
 import { toast } from 'react-toastify'
+import { ApiRequestError } from '../../api/types'
 import { Check, Trash2, Mail, AlertCircle, Clock, Sparkles } from 'lucide-react'
 
 export default function AdminLetters() {
@@ -14,7 +15,7 @@ export default function AdminLetters() {
             const data = await adminService.listLetters({ status: 'reported' })
             setLetters(data.letters)
         } catch (err) {
-            toast.error('Không thể tải danh sách thư bị báo cáo')
+            toast.error(err instanceof ApiRequestError ? err.message : 'Không thể tải danh sách thư bị báo cáo')
         } finally {
             setLoading(false)
         }
@@ -30,7 +31,7 @@ export default function AdminLetters() {
             setLetters(letters.filter(l => l.letter_id !== letterId))
             toast.success(action === 'keep' ? 'Đã giữ lại thư' : 'Đã xóa thư')
         } catch (err) {
-            toast.error('Thao tác thất bại')
+            toast.error(err instanceof ApiRequestError ? err.message : 'Thao tác thất bại')
         }
     }
 
@@ -41,7 +42,7 @@ export default function AdminLetters() {
             toast.success(`AI đã xử lý xong ${res.processed_count} lá thư chờ quá 6 tiếng.`)
             load()
         } catch (err) {
-            toast.error('Không thể chạy AI Responder')
+            toast.error(err instanceof ApiRequestError ? err.message : 'Không thể chạy AI Responder')
         } finally {
             setRunningAi(false)
         }

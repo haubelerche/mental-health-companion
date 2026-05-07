@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { adminService } from '../../services/adminService'
 import { toast } from 'react-toastify'
-import { Shield, Clock, Terminal, User } from 'lucide-react'
+import { Shield, Clock, User } from 'lucide-react'
 
 export default function AdminAuditLogs() {
     const [logs, setLogs] = useState<any[]>([])

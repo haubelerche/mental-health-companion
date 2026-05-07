@@ -72,7 +72,7 @@ export default function AdminResources() {
     const [editingId, setEditingId] = useState<string | null>(null)
     const [form, setForm] = useState(defaultForm)
     const [tagsInput, setTagsInput] = useState('')
-    const [activeTab, setActiveTab] = useState<TabMode>('manual')
+    const [activeTab, setActiveTab] = useState<TabMode>('agent')
 
     /* ───── agent state ───── */
     const [agentCategory, setAgentCategory] = useState('meditate')
@@ -285,18 +285,18 @@ export default function AdminResources() {
                 {/* Tab Switcher */}
                 <div className="admin-res-tabs">
                     <button
-                        className={`admin-res-tab ${activeTab === 'manual' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('manual')}
-                    >
-                        <span className="admin-res-tab-icon">✏️</span>
-                        Manual Mode
-                    </button>
-                    <button
                         className={`admin-res-tab ${activeTab === 'agent' ? 'active' : ''}`}
                         onClick={() => setActiveTab('agent')}
                     >
                         <span className="admin-res-tab-icon">🤖</span>
                         Agent Mode
+                    </button>
+                    <button
+                        className={`admin-res-tab ${activeTab === 'manual' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('manual')}
+                    >
+                        <span className="admin-res-tab-icon">✏️</span>
+                        Manual Mode
                     </button>
                 </div>
             </header>

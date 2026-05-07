@@ -84,7 +84,7 @@ export default function AgentFlowDiagram({ currentStep, stepStatuses, stepData }
                 )}
             </div>
 
-            <svg className="agent-flow-svg" viewBox="0 0 540 430" preserveAspectRatio="xMidYMid meet">
+            <svg className="agent-flow-svg" viewBox="0 0 600 430" preserveAspectRatio="xMidYMid meet">
                 {/* Definitions */}
                 <defs>
                     {/* Glow filter for active nodes */}
