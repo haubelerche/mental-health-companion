@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { adminService } from '../../services/adminService'
+import { ApiRequestError } from '../../api/types'
 import { 
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, LineChart, Line, Legend
 } from 'recharts'
 import { toast } from 'react-toastify'
 import { Activity, Heart, Package, TrendingUp } from 'lucide-react'
+
+import './AdminCommon.css'
 
 const COLORS = ['#10b981', '#3b82f6', '#fbbf24', '#f87171', '#8b5cf6', '#ec4899', '#06b6d4']
 
@@ -45,8 +48,9 @@ export default function AdminAnalytics() {
 
             // We wait a bit or just assume they are loading in background
             // To keep the loading state simple, we can use a small delay or track all
-            await new Promise(resolve => setTimeout(resolve, 800))
+            await new Promise(resolve => setTimeout(resolve, 1200))
         } catch (err) {
+            if (err instanceof ApiRequestError && err.handledByModal) return
             toast.error('Không thể tải một số dữ liệu phân tích')
         } finally {
             setLoading(false)
@@ -57,7 +61,55 @@ export default function AdminAnalytics() {
         loadData()
     }, [])
 
-    if (loading) return <div className="text-white p-10 animate-pulse">Đang tải phân tích toàn diện...</div>
+    const SkeletonCard = () => (
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+            <div className="flex items-center gap-4">
+                <div className="w-12 h-12 admin-skeleton !rounded-xl" />
+                <div className="flex-1 space-y-2">
+                    <div className="h-3 w-2/3 admin-skeleton" />
+                    <div className="h-6 w-1/2 admin-skeleton" />
+                </div>
+            </div>
+        </div>
+    )
+
+    const SkeletonChart = () => (
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 h-[320px]">
+            <div className="h-4 w-1/3 admin-skeleton mb-8" />
+            <div className="space-y-4">
+                {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="flex items-center gap-4">
+                        <div className="w-12 h-3 admin-skeleton" />
+                        <div className="flex-1 h-3 admin-skeleton !rounded-full" />
+                    </div>
+                ))}
+            </div>
+            <div className="mt-12 h-32 w-full admin-skeleton !rounded-xl opacity-20" />
+        </div>
+    )
+
+    if (loading) return (
+        <div className="space-y-10 animate-in fade-in duration-700">
+            <header>
+                <div className="h-9 w-64 admin-skeleton mb-2" />
+                <div className="h-4 w-96 admin-skeleton" />
+            </header>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <SkeletonChart />
+                <SkeletonChart />
+                <SkeletonChart />
+                <SkeletonChart />
+            </div>
+        </div>
+    )
 
     return (
         <div className="space-y-10 pb-20">
