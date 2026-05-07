@@ -5,14 +5,17 @@ from typing import Dict, Any, Optional
 from app.services.db.session import get_session_factory
 from app.services.letter_ai_worker import run_ai_reply_worker
 from app.services.youtube_agent import run_youtube_crawl_agent, CATEGORIES
+from app.services.db.models import User, SyncOutbox
+from sqlalchemy import select
 import random
 
 logger = logging.getLogger(__name__)
 
 class AdminWorker:
-    def __init__(self, name: str, interval_min: int, task_func):
+    def __init__(self, name: str, interval_min: Optional[int], task_func, daily_time: Optional[str] = None):
         self.name = name
         self.interval_min = interval_min
+        self.daily_time = daily_time # e.g. "08:00"
         self.task_func = task_func
         self.active = False
         self.running = False
@@ -20,13 +23,30 @@ class AdminWorker:
         self.next_run: Optional[datetime] = None
         self._task: Optional[asyncio.Task] = None
 
+    def _calculate_next_run(self):
+        now = datetime.now(timezone.utc)
+        if self.daily_time:
+            try:
+                hour, minute = map(int, self.daily_time.split(':'))
+                # Create a datetime for today at that time (using UTC for consistency, though user might mean local)
+                # For now let's assume UTC to avoid timezone hell, but real apps should use local.
+                next_run = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                if next_run <= now:
+                    next_run += timedelta(days=1)
+                return next_run
+            except:
+                return now + timedelta(hours=24) # Fallback
+        elif self.interval_min:
+            return now + timedelta(minutes=self.interval_min)
+        return None
+
     def start(self):
         if self.active:
             return
         self.active = True
-        self.next_run = datetime.now(timezone.utc)
+        self.next_run = self._calculate_next_run()
         self._task = asyncio.create_task(self._loop())
-        logger.info(f"Worker {self.name} started with interval {self.interval_min}min")
+        logger.info(f"Worker {self.name} started (Daily: {self.daily_time}, Interval: {self.interval_min}m)")
 
     def stop(self):
         self.active = False
@@ -48,7 +68,7 @@ class AdminWorker:
                     logger.error(f"Worker {self.name} error: {e}")
                 finally:
                     self.running = False
-                    self.next_run = datetime.now(timezone.utc) + timedelta(minutes=self.interval_min)
+                    self.next_run = self._calculate_next_run()
             
             await asyncio.sleep(10) # Check every 10 seconds
 
@@ -58,6 +78,7 @@ class AdminWorker:
             "active": self.active,
             "running": self.running,
             "interval_min": self.interval_min,
+            "daily_time": self.daily_time,
             "last_run": self.last_run.strftime('%Y-%m-%dT%H:%M:%SZ') if self.last_run else None,
             "next_run": self.next_run.strftime('%Y-%m-%dT%H:%M:%SZ') if self.next_run else None,
             "seconds_until_next": int((self.next_run - datetime.now(timezone.utc)).total_seconds()) if self.next_run else None
@@ -88,13 +109,71 @@ async def resource_task():
     finally:
         db.close()
 
+async def notification_morning_task():
+    await _send_templated_notification(NOTIFICATION_TEMPLATES[0])
+
+async def notification_reminder_task():
+    await _send_templated_notification(NOTIFICATION_TEMPLATES[1])
+
+async def notification_letters_task():
+    await _send_templated_notification(NOTIFICATION_TEMPLATES[2])
+
+async def _send_templated_notification(tpl: dict):
+    db = get_session_factory()()
+    try:
+        users = db.scalars(select(User).where(User.is_active == True)).all()
+        outbox_entries = []
+        for user in users:
+            outbox_entries.append(
+                SyncOutbox(
+                    user_id=user.user_id,
+                    event_type="admin.broadcast",
+                    payload={
+                        "title": tpl["title"],
+                        "message": tpl["body"],
+                        "category": tpl["category"]
+                    },
+                    status="pending"
+                )
+            )
+        db.add_all(outbox_entries)
+        db.commit()
+        worker_manager.add_log(f"notif_{tpl['category']}", f"Hoàn thành: Đã gửi thông báo '{tpl['title']}' đến {len(outbox_entries)} người.")
+    except Exception as e:
+        worker_manager.add_log(f"notif_{tpl['category']}", f"Lỗi: {str(e)}")
+    finally:
+        db.close()
+
+# --- Templates ---
+
+NOTIFICATION_TEMPLATES = [
+    {
+        "title": "Chào buổi sáng",
+        "body": "Chào buổi sáng bạn nhé! Đừng quên dành 5 phút check-in tâm trạng hôm nay cùng Serene nhé. 🌿",
+        "category": "morning"
+    },
+    {
+        "title": "Nhắc nhở tự chăm sóc",
+        "body": "Bạn ơi, hôm nay bạn đã dành thời gian cho bản thân chưa? Một chút nhạc thư giãn có thể giúp bạn cảm thấy tốt hơn đấy. ❤️",
+        "category": "reminder"
+    },
+    {
+        "title": "Gửi trao tâm tình",
+        "body": "Hôm nay có rất nhiều lá thư ẩn danh đang đợi được hồi đáp. Hãy ghé qua hòm thư để chia sẻ sự thấu cảm cùng mọi người nhé! 💌",
+        "category": "letters"
+    }
+]
+
 # --- Manager ---
 
 class WorkerManager:
     def __init__(self):
         self.workers: Dict[str, AdminWorker] = {
             "letter": AdminWorker("Letter Responder", 20, letter_task),
-            "resource": AdminWorker("Resource Crawler", 60, resource_task)
+            "resource": AdminWorker("Resource Crawler", 60, resource_task),
+            "notif_morning": AdminWorker("Chào buổi sáng", None, notification_morning_task, daily_time="07:00"),
+            "notif_reminder": AdminWorker("Nhắc nhở tự chăm sóc", None, notification_reminder_task, daily_time="14:00"),
+            "notif_letters": AdminWorker("Gửi trao tâm tình", None, notification_letters_task, daily_time="20:00")
         }
         self.logs = []
 
@@ -124,15 +203,25 @@ class WorkerManager:
             return True
         return False
 
-    def update_config(self, name: str, interval_min: int):
+    def update_config(self, name: str, interval_min: Optional[int] = None, daily_time: Optional[str] = None):
         if name in self.workers:
             old_interval = self.workers[name].interval_min
-            self.workers[name].interval_min = interval_min
-            # If running, restart to apply new interval correctly
+            old_time = self.workers[name].daily_time
+            
+            if interval_min is not None:
+                self.workers[name].interval_min = interval_min
+            if daily_time is not None:
+                self.workers[name].daily_time = daily_time
+                
+            # If running, restart to apply new config
             if self.workers[name].active:
                 self.workers[name].stop()
                 self.workers[name].start()
-            self.add_log(name, f"Thay đổi tần suất: {old_interval}m -> {interval_min}m")
+                
+            msg = f"Cập nhật config: "
+            if interval_min: msg += f"Interval {old_interval}m -> {interval_min}m. "
+            if daily_time: msg += f"Time {old_time} -> {daily_time}. "
+            self.add_log(name, msg)
             return True
         return False
 
