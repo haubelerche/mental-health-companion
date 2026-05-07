@@ -47,6 +47,7 @@ def get_engine():
             pool_recycle=settings.db_pool_recycle_seconds,
             pool_pre_ping=settings.db_pool_pre_ping,
             pool_use_lifo=True,
+            connect_args={"options": "-csearch_path=app,public,extensions"},
         )
     return create_engine(database_url, future=True)
 
