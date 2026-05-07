@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     openai_api_key: str = ""
+    youtube_api_key: str = Field(default="", validation_alias=AliasChoices("YOUTUBE_API_KEY"))
     openai_model_analyst: str = "gpt-4o-mini"
     openai_model_friend: str = "gpt-4o-mini"
     openai_model_friend_fast: str = "gpt-4o-mini"
