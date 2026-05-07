@@ -119,4 +119,6 @@ export const adminService = {
         ),
     deleteResource: (resourceId: string) =>
         httpClient.delete<{ resource_id: string; deleted_at: string }>(`/admin/resources/${encodeURIComponent(resourceId)}`),
+    agentCrawlResources: (payload: { category: string; limit: number }) =>
+        httpClient.postStreamWithCsrf('/admin/resources/agent-crawl', payload),
 }
