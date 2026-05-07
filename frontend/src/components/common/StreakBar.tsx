@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Check } from 'lucide-react'
 import { useThemeContext } from '../../contexts/ThemeContext'
 type Props = {
     streak: number
@@ -42,7 +42,7 @@ export function StreakBar({ streak, className }: Props) {
                                         : `${isDark ? 'border-white/10 bg-white/5 text-white/40' : 'border-white/40 bg-white/50 text-serene-muted'}`,
                             ].join(' ')}
                         >
-                            {isCompleted ? '✓' : day.charAt(0)}
+                            {isCompleted ? <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden /> : day.charAt(0)}
                         </div>
                         <span className={`text-sm ${isDark ? 'text-white/40' : 'text-serene-muted'}`}>{day}</span>
                     </div>

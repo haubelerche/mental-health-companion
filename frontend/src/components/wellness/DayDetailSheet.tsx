@@ -14,14 +14,6 @@ type Props = {
   onClose: () => void
 }
 
-function scoreToEmoji(score: number): string {
-  if (score >= 80) return '😊'
-  if (score >= 60) return '😌'
-  if (score >= 40) return '😐'
-  if (score >= 20) return '😔'
-  return '😟'
-}
-
 function scoreToLabel(score: number): string {
   if (score >= 80) return 'Rất tốt'
   if (score >= 60) return 'Khá ổn'
@@ -95,14 +87,14 @@ export function DayDetailSheet({ detail, onClose }: Props) {
 
             {/* Mood headline */}
             <div className="mt-3 flex items-center gap-4">
-              <motion.span
+              <motion.div
                 initial={{ scale: 0.5 }}
                 animate={{ scale: 1 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 18 }}
-                className="text-5xl"
+                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-2 border-serene-border/60 bg-serene-surface-2 font-display text-2xl font-semibold tabular-nums text-serene-ink"
               >
-                {scoreToEmoji(detail.score)}
-              </motion.span>
+                {Math.round(detail.score)}
+              </motion.div>
               <div>
                 <p
                   className="font-display text-3xl"

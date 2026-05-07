@@ -1,4 +1,15 @@
-import { Search } from 'lucide-react'
+import {
+    Activity,
+    BookOpen,
+    LayoutGrid,
+    Moon,
+    Music,
+    Search,
+    Sparkles,
+    Wind,
+    Target,
+    type LucideIcon,
+} from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -12,19 +23,21 @@ import Loading from '../../ui/Loading'
 import { useThemeContext } from '../../../contexts/ThemeContext'
 import { ExerciseTab } from './ExerciseTab'
 // ── Vietnamese category labels ────────────────────────────────────────────────
-const VI_LABELS: Record<string, { label: string; icon: string }> = {
-    all: { label: 'Tất cả', icon: '✦' },
-    meditate: { label: 'Thiền định', icon: '♧' },
-    sleep: { label: 'Ngủ', icon: '🌙' },
-    music: { label: 'Âm nhạc', icon: '♪' },
-    wisdom: { label: 'Trí tuệ', icon: '◌' },
-    movement: { label: 'Vận động', icon: '↟' },
-    work_study: { label: 'Tập trung', icon: '◎' },
-    exercises: { label: 'Bài tập', icon: '🌬️' },
+const VI_LABELS: Record<string, { label: string; Icon: LucideIcon }> = {
+    all: { label: 'Tất cả', Icon: LayoutGrid },
+    meditate: { label: 'Thiền định', Icon: Sparkles },
+    sleep: { label: 'Ngủ', Icon: Moon },
+    music: { label: 'Âm nhạc', Icon: Music },
+    wisdom: { label: 'Trí tuệ', Icon: BookOpen },
+    movement: { label: 'Vận động', Icon: Activity },
+    work_study: { label: 'Tập trung', Icon: Target },
+    exercises: { label: 'Bài tập', Icon: Wind },
 }
 
+const FALLBACK_CAT_ICON = LayoutGrid
+
 function localizeCategory(id: string, fallbackLabel: string) {
-    return VI_LABELS[id] ?? { label: fallbackLabel, icon: '○' }
+    return VI_LABELS[id] ?? { label: fallbackLabel, Icon: FALLBACK_CAT_ICON }
 }
 
 const RESOURCE_CATEGORY_IDS = ['all', 'exercises', 'meditate', 'sleep', 'music', 'wisdom', 'movement', 'work_study']
@@ -39,7 +52,7 @@ export default function Resources() {
     const requestedCategory = searchParams.get('category') || 'all'
     const initialCategory = RESOURCE_CATEGORY_IDS.includes(requestedCategory) ? requestedCategory : 'sleep'
 
-    const [categories, setCategories] = useState([{ id: 'all', label: 'Tất cả', icon: '✦' }])
+    const [categories, setCategories] = useState([{ id: 'all', label: 'Tất cả' }])
     const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory)
     const [items, setItems] = useState<ResourceItem[]>([])
     const [query, setQuery] = useState(searchParams.get('q') || '')
@@ -51,11 +64,7 @@ export default function Resources() {
         resourceService
             .getCategories()
             .then((data) => {
-                setCategories([
-                    { id: 'all', label: 'Tất cả', icon: '✦' },
-                    { id: 'exercises', label: 'Bài tập', icon: '🌬️' },
-                    ...data.categories
-                ])
+                setCategories([{ id: 'all', label: 'Tất cả' }, { id: 'exercises', label: 'Bài tập' }, ...data.categories])
             })
             .catch(() => undefined)
     }, [])
@@ -144,6 +153,7 @@ export default function Resources() {
             <div className="mb-8 flex flex-wrap gap-2">
                 {categories.map((cat) => {
                     const vi = localizeCategory(cat.id, cat.label)
+                    const CatIcon = vi.Icon
                     const isActive = selectedCategory === cat.id
                     return (
                         <button
@@ -155,7 +165,7 @@ export default function Resources() {
                                 : 'bg-theme-surface text-theme-text-primary'
                                 }`}
                         >
-                            <span>{vi.icon}</span>
+                            <CatIcon className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
                             <span>{vi.label}</span>
                         </button>
                     )

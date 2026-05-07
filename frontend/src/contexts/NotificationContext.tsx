@@ -3,7 +3,7 @@
  * Global state management for real-time notifications
  */
 
-import React, { createContext, useContext, useCallback, useState, useEffect } from "react";
+import React, { createContext, useContext, useCallback, useState } from "react";
 import type { Notification } from "./NotificationTypes";
 
 interface NotificationContextType {

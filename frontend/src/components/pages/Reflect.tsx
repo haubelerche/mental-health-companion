@@ -1,5 +1,8 @@
-import { ArrowRight, ChevronRight, Leaf, Sparkles, Wind } from 'lucide-react'
+import { ArrowRight, ChevronRight, Flame, Leaf, PenLine, Sparkles, Sprout, Star, Wind } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { ROUTE_PATHS } from '../../routes/paths'
 import {
     Area,
     AreaChart,
@@ -121,6 +124,7 @@ export default function Reflect() {
     const { user } = useAuth()
     const { effectiveTheme } = useThemeContext()
     const isDark = effectiveTheme === 'dark'
+    const navigate = useNavigate()
 
     const [summary, setSummary] = useState<MentalHealthSummary | null>(null)
     const [weeklyNote, setWeeklyNote] = useState<WeeklyNotePayload | null>(null)
@@ -185,13 +189,13 @@ export default function Reflect() {
     )
     const milestones = useMemo(() => {
         if (!summary) return []
-        const chips: Array<{ emoji: string; label: string }> = []
+        const chips: Array<{ Icon: LucideIcon; label: string }> = []
         const streak = summary.session_stats?.streak_days ?? 0
-        if (streak >= 3) chips.push({ emoji: '🔥', label: `${streak} ngày liên tiếp` })
+        if (streak >= 3) chips.push({ Icon: Flame, label: `${streak} ngày liên tiếp` })
         const breathSessions = summary.coping_stats?.breathing_sessions ?? 0
-        if (breathSessions > 0) chips.push({ emoji: '🌬️', label: `${breathSessions} lần thở` })
-        if ((summary.wellness_score ?? 0) > 60) chips.push({ emoji: '🌱', label: 'Ổn hơn tuần trước' })
-        if ((summary.session_stats?.total_sessions ?? 0) >= 10) chips.push({ emoji: '⭐', label: '10 lần trò chuyện' })
+        if (breathSessions > 0) chips.push({ Icon: Wind, label: `${breathSessions} lần thở` })
+        if ((summary.wellness_score ?? 0) > 60) chips.push({ Icon: Sprout, label: 'Ổn hơn tuần trước' })
+        if ((summary.session_stats?.total_sessions ?? 0) >= 10) chips.push({ Icon: Star, label: '10 lần trò chuyện' })
         return chips
     }, [summary])
 
@@ -403,11 +407,8 @@ export default function Reflect() {
                                         <p className={`text-[10px] uppercase tracking-[0.3em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary/70'}`}>Lịch tâm trạng</p>
                                         <h2 className={`mt-1 font-display text-xl ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'} md:text-2xl`}>28 ngày qua</h2>
                                     </div>
-                                    <div className={`flex items-center gap-2 text-[9px] ${isDark ? 'text-theme-text-secondary/60' : 'text-serene-muted/60'} md:text-[10px]`}>
-                                        <span>😊 Tốt</span>
-                                        <span>😌 Ổn</span>
-                                        <span>😐 Bình</span>
-                                        <span>😔 Thấp</span>
+                                    <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px] ${isDark ? 'text-theme-text-secondary/60' : 'text-serene-muted/60'} md:text-[10px]`}>
+                                        <span>Tốt · Ổn · Bình · Thấp</span>
                                     </div>
                                 </div>
                                 <MoodCalendar
@@ -421,15 +422,17 @@ export default function Reflect() {
 
                         {milestones.length > 0 && (
                             <div className="flex gap-2 overflow-x-auto pb-2 mt-4 scrollbar-hide">
-                                {milestones.map((m) => (
+                                {milestones.map((m) => {
+                                    const Mi = m.Icon
+                                    return (
                                     <div
                                         key={m.label}
                                         className={`flex-shrink-0 flex items-center gap-1.5 ${isDark ? 'bg-theme-surface/60 border border-theme-border/20' : 'bg-[var(--color-guong-bg)]'} rounded-full px-3 py-1.5 text-xs font-medium ${isDark ? 'text-theme-text-primary' : 'text-[var(--color-serene-ink)]'}`}
                                     >
-                                        <span aria-hidden="true">{m.emoji}</span>
+                                        <Mi className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
                                         <span>{m.label}</span>
                                     </div>
-                                ))}
+                                )})}
                             </div>
                         )}
 
@@ -443,7 +446,7 @@ export default function Reflect() {
                                 <ProgressStats
                                     data={{
                                         streakDays: summary.session_stats.streak_days ?? 0,
-                                        bestStreak: Math.max(summary.session_stats.streak_days ?? 0, 7),
+                                        bestStreak: summary.session_stats.streak_days ?? 0,
                                         weeklyCheckins: Math.min(7, summary.session_stats.days_active_last_30
                                             ? Math.round(summary.session_stats.days_active_last_30 / 4)
                                             : 0),
@@ -493,6 +496,7 @@ export default function Reflect() {
 
                                 <button
                                     type="button"
+                                    onClick={() => navigate(ROUTE_PATHS.reflect)}
                                     className={`inline-flex items-center gap-2 text-xs uppercase tracking-widest ${isDark ? 'text-theme-accent' : 'text-serene-primary'} transition-transform hover:translate-x-0.5`}
                                 >
                                     Đọc toàn bộ
@@ -538,8 +542,9 @@ export default function Reflect() {
 
                          {prompts.length > 0 && (
                             <section className="mt-6">
-                                <h3 className={`font-semibold ${isDark ? 'text-theme-text-primary/90' : 'text-[var(--color-serene-ink)]'} mb-3 text-sm`}>
-                                    <span aria-hidden="true">✍️</span> Gợi ý ghi chép hôm nay
+                                <h3 className={`flex items-center gap-2 font-semibold ${isDark ? 'text-theme-text-primary/90' : 'text-[var(--color-serene-ink)]'} mb-3 text-sm`}>
+                                    <PenLine className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+                                    Gợi ý ghi chép hôm nay
                                 </h3>
                                 <div className="flex flex-col gap-2">
                                     {prompts.slice(0, 3).map(p => (

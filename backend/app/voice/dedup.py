@@ -44,6 +44,7 @@ def _normalize_script(text: str) -> str:
 
 def compute_event_signature(
     *,
+    user_id: str = "",
     session_id: str,
     voice_style_id: str,
     voice_script: str,
@@ -55,10 +56,12 @@ def compute_event_signature(
     """Return a hex SHA-256 event signature for TTS dedup.
 
     Stable for identical inputs; distinct for any meaningful difference.
+    Includes user_id so one user's cache never collides with another's.
     """
     normalized = _normalize_script(voice_script)
+    uid = str(user_id or "").strip()
     key = (
-        f"{session_id}|{voice_style_id}|{normalized}"
+        f"{uid}|{session_id}|{voice_style_id}|{normalized}"
         f"|{provider}|{voice_id}|{locale}|{speech_rate:.2f}"
     )
     return hashlib.sha256(key.encode("utf-8")).hexdigest()

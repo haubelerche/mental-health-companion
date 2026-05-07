@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { useThemeContext } from '../../contexts/ThemeContext'
 type Props = {
     words?: string[]
@@ -9,7 +8,7 @@ type Props = {
 
 const DEFAULT_WORDS = [
     'Bình yên', 'Hứng khởi', 'Biết ơn', 'Tự tin',
-    'Mệt mỏi', 'Lo âu', 'Buồn', 'Căng thẳng',
+    'Mệt mỏi', 'Lo âu', 'Buồn rầu', 'Căng thẳng',
     'Vui vẻ', 'Trống rỗng', 'Cô đơn', 'Bối rối',
 ]
 

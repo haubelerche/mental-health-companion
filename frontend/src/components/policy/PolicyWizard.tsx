@@ -1,31 +1,41 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { BadgeCheck, HeartHandshake, Lock, MessageCircle } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { policyService } from '../../services/policyService'
 import { toast } from 'react-toastify'
 import { ROUTE_PATHS } from '../../routes/paths'
 
-const SLIDES = [
+type Slide = {
+  icon: LucideIcon
+  heading: string
+  body: string
+  persona?: string
+}
+
+const SLIDES: Slide[] = [
   {
-    icon: '🤝',
+    icon: HeartHandshake,
     heading: 'Nơi mọi cảm xúc được lắng nghe',
-    body: 'Serene được xây dựng để trở thành người bạn đồng hành, giúp bạn thấu hiểu bản thân và tìm thấy sự bình yên trong tâm trí. Tuy nhiên, các nhân vật AI không có chức năng thay thế bác sĩ hay các lộ trình trị liệu chuyên sâu. Hãy tìm đến chuyên gia y tế khi bạn cần một chẩn đoán y khoa chính thức.',
+    body:
+      'Serene được xây dựng để trở thành người bạn đồng hành, giúp bạn thấu hiểu bản thân và tìm thấy sự bình yên trong tâm trí. Tuy nhiên, các nhân vật AI không có chức năng thay thế bác sĩ hay các lộ trình trị liệu chuyên sâu. Hãy tìm đến chuyên gia y tế khi bạn cần một chẩn đoán y khoa chính thức.',
   },
-  
+
   {
-    icon: '🔒',
+    icon: Lock,
     persona: 'Nhìn Lại',
     heading: 'Dữ liệu của bạn, an toàn với bạn',
     body: 'Thông tin nhạy cảm được mã hoá và ẩn danh hoá trước khi lưu. Bạn có thể xoá dữ liệu bất cứ lúc nào trong Cài đặt.',
   },
   {
-    icon: '🗣️',
+    icon: MessageCircle,
     persona: 'Trò Chuyện',
     heading: 'AI vẫn có thể nhầm',
     body: 'Phản hồi của AI dựa trên ngữ cảnh cuộc trò chuyện — không phải chẩn đoán lâm sàng. Luôn tham khảo chuyên gia khi nghi ngờ.',
   },
   {
-    icon: '✅',
+    icon: BadgeCheck,
     persona: 'Bạn',
     heading: 'Bạn đã sẵn sàng',
     body: 'Bằng cách nhấn "Tôi đồng ý", bạn xác nhận đã đọc và hiểu các điều trên. Serene sẽ cố gắng hết sức đồng hành cùng bạn.',
@@ -38,10 +48,11 @@ export function PolicyWizard() {
   const navigate = useNavigate()
   const isLast = step === SLIDES.length - 1
   const slide = SLIDES[step]
+  const SlideIcon = slide.icon
 
   const handleNext = async () => {
     if (!isLast) {
-      setStep(s => s + 1)
+      setStep((s) => s + 1)
       return
     }
     setLoading(true)
@@ -67,8 +78,8 @@ export function PolicyWizard() {
                 i === step
                   ? 'w-6 bg-[var(--color-serene-primary)]'
                   : i < step
-                  ? 'w-3 bg-[var(--color-serene-primary)]/40'
-                  : 'w-3 bg-[var(--color-serene-outline)]'
+                    ? 'w-3 bg-[var(--color-serene-primary)]/40'
+                    : 'w-3 bg-[var(--color-serene-outline)]'
               }`}
             />
           ))}
@@ -83,10 +94,14 @@ export function PolicyWizard() {
             transition={{ duration: 0.22 }}
             className="bg-white rounded-3xl p-8 shadow-sm text-center"
           >
-            <div className="text-5xl mb-4">{slide.icon}</div>
-            <p className="text-[10px] font-semibold text-[var(--color-serene-muted)] mb-2 tracking-widest uppercase">
-              {slide.persona}
-            </p>
+            <div className="mb-4 flex justify-center">
+              <SlideIcon className="h-14 w-14 text-[var(--color-serene-primary)]" aria-hidden />
+            </div>
+            {slide.persona ? (
+              <p className="text-[10px] font-semibold text-[var(--color-serene-muted)] mb-2 tracking-widest uppercase">
+                {slide.persona}
+              </p>
+            ) : null}
             <h2 className="font-[var(--font-display)] text-2xl text-[var(--color-serene-ink)] mb-4 leading-snug">
               {slide.heading}
             </h2>
@@ -95,20 +110,22 @@ export function PolicyWizard() {
         </AnimatePresence>
 
         <button
+          type="button"
           onClick={handleNext}
           disabled={loading}
           className="mt-5 w-full bg-[var(--color-serene-primary)] hover:bg-[var(--color-serene-primary-dim)] text-[var(--color-serene-on-primary)] py-3.5 rounded-2xl font-semibold text-sm transition-all disabled:opacity-50"
         >
-          {isLast ? (loading ? 'Đang lưu…' : 'Tôi đồng ý ✓') : 'Tiếp theo →'}
+          {isLast ? (loading ? 'Đang lưu…' : 'Tôi đồng ý') : 'Tiếp theo'}
         </button>
 
         {step > 0 && (
           <button
-            onClick={() => setStep(s => s - 1)}
+            type="button"
+            onClick={() => setStep((s) => s - 1)}
             disabled={loading}
             className="mt-3 w-full text-sm text-[var(--color-serene-muted)] hover:text-[var(--color-serene-ink)] transition"
           >
-            ← Quay lại
+            Quay lại
           </button>
         )}
       </div>

@@ -3,9 +3,9 @@ import RewardCard from './RewardCard'
 
 const SHELF_LABELS: Record<string, string> = {
     persona: 'Người đồng hành',
-    knowledge: 'Tri thức',
+    knowledge: 'Tri thức của Người đồng hành',
     mood_room: 'Không gian',
-    micro_style: 'Phong cách',
+    micro_style: 'Tính cách của Người đồng hành',
     badge: 'Huy hiệu',
     special: 'Đặc biệt',
 }

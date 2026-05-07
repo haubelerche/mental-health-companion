@@ -40,7 +40,7 @@ export function GuestBanner() {
         onClick={() => navigate(REGISTER_PATH)}
         className="rounded-full bg-white/20 hover:bg-white/30 px-3 py-0.5 text-xs transition-all"
       >
-        Lưu hành trình →
+        Lưu hành trình
       </button>
     </div>
   )

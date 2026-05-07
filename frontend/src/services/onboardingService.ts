@@ -20,35 +20,47 @@ export type OnboardingProfile = {
     skipped?: boolean
 }
 
+/** Lucide-backed plan step icon (resolved in UI). */
+export type DailyPlanIconId =
+    | 'sun'
+    | 'wind'
+    | 'notebook'
+    | 'message'
+    | 'heart'
+    | 'footprints'
+    | 'moon'
+    | 'target'
+    | 'brain'
+
 export type DailyPlanItem = {
     id: string
     label: string
-    icon: string
+    icon: DailyPlanIconId
     route: string
 }
 
 type DailyPlanTemplate = {
     id: string
-    icon: string
+    icon: DailyPlanIconId
     label: string
     route: string
 }
 
 const PRACTICE_PLAN_MAP: Record<string, DailyPlanTemplate> = {
-    breathing: { id: 'breathing', icon: '🌬️', label: 'Thở hộp 4-4-4', route: `${ROUTE_PATHS.exercises}?exercise=box_breath` },
-    meditation: { id: 'meditation', icon: '🧘', label: 'Thiền 5 phút', route: `${ROUTE_PATHS.exercises}?type=meditation&id=morning_5` },
-    journaling: { id: 'journaling', icon: '📓', label: 'Viết 3 dòng biết ơn', route: `${ROUTE_PATHS.checkin}?variant=evening` },
-    mood_tracking: { id: 'mood_tracking', icon: '🙂', label: 'Check-in cảm xúc', route: ROUTE_PATHS.checkin },
-    gratitude: { id: 'gratitude', icon: '💛', label: 'Ghi 1 điều biết ơn', route: `${ROUTE_PATHS.checkin}?variant=gratitude` },
-    physical_activity: { id: 'physical_activity', icon: '🚶', label: 'Đi bộ 10 phút', route: `${ROUTE_PATHS.exercises}?type=movement` },
-    better_sleep: { id: 'better_sleep', icon: '🌙', label: 'Bài thở trước giờ ngủ', route: `${ROUTE_PATHS.exercises}?exercise=sleep_breath` },
-    productivity: { id: 'productivity', icon: '🎯', label: 'Tập trung Pomodoro 10 phút', route: `${ROUTE_PATHS.exercises}?type=focus` },
+    breathing: { id: 'breathing', icon: 'wind', label: 'Thở hộp 4-4-4', route: `${ROUTE_PATHS.exercises}?exercise=box_breath` },
+    meditation: { id: 'meditation', icon: 'brain', label: 'Thiền 5 phút', route: `${ROUTE_PATHS.exercises}?type=meditation&id=morning_5` },
+    journaling: { id: 'journaling', icon: 'notebook', label: 'Viết 3 dòng biết ơn', route: `${ROUTE_PATHS.checkin}?variant=evening` },
+    mood_tracking: { id: 'mood_tracking', icon: 'message', label: 'Check-in cảm xúc', route: ROUTE_PATHS.checkin },
+    gratitude: { id: 'gratitude', icon: 'heart', label: 'Ghi 1 điều biết ơn', route: `${ROUTE_PATHS.checkin}?variant=gratitude` },
+    physical_activity: { id: 'physical_activity', icon: 'footprints', label: 'Đi bộ 10 phút', route: `${ROUTE_PATHS.exercises}?type=movement` },
+    better_sleep: { id: 'better_sleep', icon: 'moon', label: 'Bài thở trước giờ ngủ', route: `${ROUTE_PATHS.exercises}?exercise=sleep_breath` },
+    productivity: { id: 'productivity', icon: 'target', label: 'Tập trung Pomodoro 10 phút', route: `${ROUTE_PATHS.exercises}?type=focus` },
 }
 
 const DEFAULT_PLAN: DailyPlanItem[] = [
-    { id: 'checkin_morning', label: 'Check-in sáng', icon: '🌅', route: ROUTE_PATHS.checkin },
-    { id: 'meditation', label: 'Thiền 5 phút', icon: '🧘', route: `${ROUTE_PATHS.exercises}?type=meditation&id=morning_5` },
-    { id: 'journal_evening', label: 'Nhật ký tối', icon: '📓', route: `${ROUTE_PATHS.checkin}?variant=evening` },
+    { id: 'checkin_morning', label: 'Check-in sáng', icon: 'sun', route: ROUTE_PATHS.checkin },
+    { id: 'meditation', label: 'Thiền 5 phút', icon: 'brain', route: `${ROUTE_PATHS.exercises}?type=meditation&id=morning_5` },
+    { id: 'journal_evening', label: 'Nhật ký tối', icon: 'notebook', route: `${ROUTE_PATHS.checkin}?variant=evening` },
 ]
 
 const EXCLUDED_TODAY_PRACTICES = new Set(['breathing', 'mood_tracking'])
@@ -69,7 +81,7 @@ export function buildDailyPlan(profile: OnboardingProfile | null | undefined): D
     picks.push({
         id: 'checkin_morning',
         label: `Check-in sáng (${profile.wake_time || '07:30'})`,
-        icon: '🌅',
+        icon: 'sun',
         route: ROUTE_PATHS.checkin,
     })
 
@@ -79,7 +91,12 @@ export function buildDailyPlan(profile: OnboardingProfile | null | undefined): D
         const mapped = PRACTICE_PLAN_MAP[practiceId]
         if (!mapped) continue
         if (!picks.some((item) => item.id === mapped.id)) {
-            picks.push(mapped)
+            picks.push({
+                id: mapped.id,
+                label: mapped.label,
+                icon: mapped.icon,
+                route: mapped.route,
+            })
         }
         if (picks.length >= 3) break
     }
@@ -89,14 +106,14 @@ export function buildDailyPlan(profile: OnboardingProfile | null | undefined): D
             picks.push({
                 id: 'journal_evening',
                 label: `Nhìn lại cuối ngày (${profile.bed_time || '22:30'})`,
-                icon: '🌙',
+                icon: 'moon',
                 route: `${ROUTE_PATHS.checkin}?variant=evening`,
             })
         } else {
             picks.push({
                 id: 'checkin_evening',
                 label: 'Check-in buổi tối',
-                icon: '📓',
+                icon: 'notebook',
                 route: `${ROUTE_PATHS.checkin}?variant=evening`,
             })
         }

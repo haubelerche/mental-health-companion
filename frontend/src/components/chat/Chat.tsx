@@ -1,6 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentProps } from 'react'
-import { History, MoreVertical } from 'lucide-react'
+import {
+    Eye,
+    History,
+    Leaf,
+    MapPin,
+    MoreVertical,
+    Music,
+    Paperclip,
+    Play,
+    Sprout,
+    UserRound,
+    Wind,
+} from 'lucide-react'
 import { TypingIndicator } from './TypingIndicator'
 import { DateDivider } from './DateDivider'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -15,6 +27,11 @@ import { Switch } from '../ui/switch'
 import { HotlineBar } from '../crisis/HotlineBar'
 import { ChatHistoryModal } from './ChatHistoryModal'
 import { useThemeContext } from '../../contexts/ThemeContext'
+import MemoryCardsTab from './MemoryCardsTab'
+import PersonaSelector from './PersonaSelector'
+import ChatEntryCheckIn from './ChatEntryCheckIn'
+import VoiceStatusBadge, { TTS_TERMINAL_STATUSES } from './VoiceStatusBadge'
+import type { TtsStatus } from './VoiceStatusBadge'
 
 // ─── API response types ────────────────────────────────────────────────────────
 
@@ -119,7 +136,7 @@ function RoutingBadge({ history }: { history?: string[] }) {
                     <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-medium capitalize ${nodeColors[node] ?? 'bg-theme-bg-secondary text-theme-text-secondary'}`}>
                         {node}
                     </span>
-                    {i < history.length - 1 && <span className="text-[10px] text-theme-text-secondary/30">→</span>}
+                    {i < history.length - 1 && <span className="text-[10px] text-theme-text-secondary/30">/</span>}
                 </span>
             ))}
         </div>
@@ -165,16 +182,18 @@ function QuickReplies({ replies, onSelect }: { replies?: QuickReply[]; onSelect:
     )
 }
 
+const ATTACHMENT_ICONS: Record<string, typeof Wind> = {
+    breathing_exercise: Wind,
+    grounding_exercise: Sprout,
+    body_scan: Leaf,
+    meditation: Leaf,
+    music: Music,
+    resource: Play,
+    clinic_map: MapPin,
+}
+
 function AttachmentCard({ item, onOpen }: { item: TheDinhKem; onOpen: (item: TheDinhKem) => void }) {
-    const icons: Record<string, string> = {
-        breathing_exercise: '🌬️',
-        grounding_exercise: '🌱',
-        body_scan: '🧘',
-        meditation: '🧘',
-        music: '🎵',
-        resource: '▶️',
-        clinic_map: '📍',
-    }
+    const IconCmp = ATTACHMENT_ICONS[item.type] ?? Paperclip
     const duration = item.duration_sec ? `${Math.max(1, Math.round(item.duration_sec / 60))} phút` : item.type.replace(/_/g, ' ')
     return (
         <button
@@ -182,7 +201,9 @@ function AttachmentCard({ item, onOpen }: { item: TheDinhKem; onOpen: (item: The
             onClick={() => onOpen(item)}
             className="mt-2 grid max-w-sm grid-cols-[40px_1fr_auto] items-center gap-3 rounded-2xl border border-theme-border/30 bg-theme-surface/60 px-3 py-2.5 text-left transition hover:bg-theme-accent/20"
         >
-            <span className="flex h-10 w-10 items-center justify-center text-lg">{icons[item.type] ?? '📎'}</span>
+            <span className="flex h-10 w-10 items-center justify-center text-theme-accent">
+                <IconCmp className="h-5 w-5" aria-hidden />
+            </span>
             <div>
                 <p className="text-xs font-semibold text-theme-text-primary">{item.title}</p>
                 <p className="mt-0.5 line-clamp-2 text-[10px] leading-relaxed text-theme-text-secondary">
@@ -203,7 +224,9 @@ function CrisisPanel({ data }: { data: ChatApiData }) {
     return (
         <div className={`mt-3 space-y-2.5 rounded-2xl border-2 ${isDark ? 'border-red-500/30 bg-red-500/10' : 'border-red-300 bg-red-50/90'} p-4`}>
             <div className="flex items-center gap-2">
-                <span className="text-xl">🆘</span>
+                <span className={`text-xs font-black uppercase tracking-tighter ${isDark ? 'text-red-400' : 'text-red-600'}`} aria-hidden>
+                    SOS
+                </span>
                 <div>
                     <p className={`text-xs font-semibold ${isDark ? 'text-red-400' : 'text-red-700'}`}>CHẾ ĐỘ HỖ TRỢ KHỦNG HOẢNG</p>
                     <p className={`text-[10px] ${isDark ? 'text-red-400/70' : 'text-red-500/70'}`}>
@@ -215,12 +238,12 @@ function CrisisPanel({ data }: { data: ChatApiData }) {
                 <div className="flex flex-wrap gap-1.5">
                     {data.assistant_strategy.keep_engaged && (
                         <span className={`rounded-full border ${isDark ? 'border-green-500/30 bg-green-500/10 text-green-400' : 'border-green-300 bg-green-50 text-green-700'} px-2 py-0.5 text-[10px]`}>
-                            ✓ Giữ kết nối
+                            Đã chọn · Giữ kết nối
                         </span>
                     )}
                     {data.assistant_strategy.encourage_external_help && (
                         <span className={`rounded-full border ${isDark ? 'border-blue-500/30 bg-blue-500/10 text-blue-400' : 'border-blue-300 bg-blue-50 text-blue-700'} px-2 py-0.5 text-[10px]`}>
-                            ✓ Gợi hỗ trợ ngoài
+                            Đã chọn · Gợi hỗ trợ ngoài
                         </span>
                     )}
                 </div>
@@ -229,7 +252,9 @@ function CrisisPanel({ data }: { data: ChatApiData }) {
                 <div className="space-y-1.5">
                     {data.micro_actions.map((a, i) => (
                         <div key={i} className={`flex items-start gap-2 rounded-xl border ${isDark ? 'border-red-500/20 bg-theme-surface/40' : 'border-red-200 bg-white/60'} px-3 py-2`}>
-                            <span className="text-sm">{a.type === 'breathing' ? '🌬️' : '👁️'}</span>
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center text-theme-accent">
+                                {a.type === 'breathing' ? <Wind className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
+                            </span>
                             <span className={`text-xs ${isDark ? 'text-red-400' : 'text-red-700'}`}>{a.label}</span>
                         </div>
                     ))}
@@ -266,13 +291,15 @@ export default function Chat() {
     const [voiceConsent, setVoiceConsent] = useState(false)
     const [voiceStatus, setVoiceStatus] = useState('')
     const [lastFailedText, setLastFailedText] = useState<string | null>(null)
-    const [showDebug, setShowDebug] = useState(true)
+    const [showDebug, setShowDebug] = useState(false)
     const [showOptions, setShowOptions] = useState(false)
     const [showHistory, setShowHistory] = useState(false)
     const [historyLoading, setHistoryLoading] = useState(false)
     const [sessions, setSessions] = useState<Array<{ session_id: string; preview: string | null; last_message_at: string }>>([])
     const [guestSecondsLeft, setGuestSecondsLeft] = useState<number>(FALLBACK_GUEST_CHAT_DURATION_SECONDS)
     const [guestSessionLoading, setGuestSessionLoading] = useState(false)
+    const [activeTab, setActiveTab] = useState<'chat' | 'memory'>('chat')
+    const [checkInDone, setCheckInDone] = useState(false)
     const pollRef = useRef<number | null>(null)
     const bottomRef = useRef<HTMLDivElement | null>(null)
     const optionsRef = useRef<HTMLDivElement | null>(null)
@@ -301,6 +328,25 @@ export default function Chat() {
         const state = location.state as { crisisMode?: boolean } | null
         if (state?.crisisMode) setSosActive(true)
     }, [location.state])
+
+    // Show Serene's greeting on fresh session (no messages loaded yet).
+    useEffect(() => {
+        if (!user || isGuestMode) return
+        let cancelled = false
+        chatService.getGreeting().then((res) => {
+            if (cancelled) return
+            setMessages((prev) => {
+                if (prev.length > 0) return prev
+                return [{
+                    id: 'greeting-0',
+                    role: 'assistant' as const,
+                    content: res.text,
+                    timestamp: Date.now(),
+                }]
+            })
+        }).catch(() => undefined)
+        return () => { cancelled = true }
+    }, [user, isGuestMode])
 
     useEffect(() => {
         let cancelled = false
@@ -408,19 +454,28 @@ export default function Chat() {
         }
         try {
             const job = await chatService.getVoiceJob(ttsJobId)
-            setVoiceStatus(`Voice: ${job.status}`)
-            if (job.status === 'ready' && job.audio_url) {
-                playAudioUrl(job.audio_url)
-                setVoiceStatus('')
-                return
-            }
-            if (job.status === 'failed') {
-                setVoiceStatus(job.error_message ? `Voice lỗi: ${job.error_message}` : 'Voice lỗi, chuyển về text.')
-                if (fallbackScript) {
-                    setMessages((prev) => [
-                        ...prev,
-                        { id: `vs_fail_${Date.now()}`, role: 'assistant', content: fallbackScript },
-                    ])
+            setVoiceStatus(job.status)
+            // Dừng poll khi gặp bất kỳ terminal status nào
+            if (TTS_TERMINAL_STATUSES.has(job.status as TtsStatus)) {
+                if (job.status === 'ready' && job.audio_url) {
+                    playAudioUrl(job.audio_url)
+                    setVoiceStatus('')
+                } else if (job.status === 'failed') {
+                    setVoiceStatus(job.error_message ? `failed:${job.error_message}` : 'failed')
+                    if (fallbackScript) {
+                        setMessages((prev) => [
+                            ...prev,
+                            { id: `vs_fail_${Date.now()}`, role: 'assistant', content: fallbackScript },
+                        ])
+                    }
+                } else {
+                    // cache_hit, skipped_duplicate, provider_disabled, cancelled, expired
+                    if (fallbackScript && (job.status === 'provider_disabled' || job.status === 'expired' || job.status === 'cancelled')) {
+                        setMessages((prev) => [
+                            ...prev,
+                            { id: `vs_term_${Date.now()}`, role: 'assistant', content: fallbackScript },
+                        ])
+                    }
                 }
                 return
             }
@@ -680,7 +735,7 @@ export default function Chat() {
 
     const openAttachment = (item: TheDinhKem) => {
         if (item.route) { navigate(item.route); return }
-        if (item.action === 'open_connect_map' || item.type === 'clinic_map') { navigate(ROUTE_PATHS.connect); return }
+        if (item.action === 'open_connect_map' || item.type === 'clinic_map') { navigate(ROUTE_PATHS.support); return }
         if (item.action === 'open_resource' || item.type === 'resource') { navigate(ROUTE_PATHS.resources); return }
         if (item.type.includes('exercise') || item.type === 'body_scan') {
             navigate(`${ROUTE_PATHS.exercises}?exercise=${encodeURIComponent(item.id)}`)
@@ -693,9 +748,9 @@ export default function Chat() {
     const lastData = [...messages].reverse().find((m) => m.role === 'assistant' && m.apiData)?.apiData
     const modeLabel =
         lastData?.conversation_mode === 'de_escalation'
-            ? { text: '🆘 Khủng hoảng', cls: 'text-red-700 border-red-300 bg-red-50' }
+            ? { text: 'Khủng hoảng', cls: 'text-red-700 border-red-300 bg-red-50' }
             : lastData?.conversation_mode === 'supportive'
-                ? { text: '🤗 Hỗ trợ', cls: 'text-amber-700 border-amber-300 bg-amber-50' }
+                ? { text: 'Hỗ trợ', cls: 'text-amber-700 border-amber-300 bg-amber-50' }
                 : null
 
     // ─── Render ────────────────────────────────────────────────────────────────
@@ -706,8 +761,8 @@ export default function Chat() {
                 {/* ── Header ───────────────────────────────────────────── */}
                 <div className="flex shrink-0 items-center justify-between mb-3 border-b border-theme-border/50 px-5 py-3">
                     <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-theme-accent/20 text-2xl">
-                            🌿
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-theme-accent/20 text-theme-accent">
+                            <Leaf className="h-7 w-7" aria-hidden />
                         </div>
                         <div>
                             <p className="text-2xl font-display font-semibold text-theme-text-primary">Serene</p>
@@ -717,9 +772,10 @@ export default function Chat() {
 
                     <div className="flex items-center gap-2" ref={optionsRef}>
                         {voiceStatus && (
-                            <span className="rounded-full bg-theme-bg-secondary px-2.5 py-1 text-[10px] text-theme-text-secondary">
-                                {voiceStatus}
-                            </span>
+                            <VoiceStatusBadge
+                                status={voiceStatus}
+                                className="rounded-full bg-theme-bg-secondary px-2.5 py-1"
+                            />
                         )}
                         {isGuestMode && (
                             <span className="rounded-full border border-amber-300/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium text-amber-500">
@@ -749,7 +805,7 @@ export default function Chat() {
                                 <MoreVertical className="h-6 w-6" />
                             </button>
                             {showOptions && (
-                                <div className="absolute right-0 top-10 z-50 w-72 rounded-2xl border border-theme-border/50 bg-theme-surface p-3 shadow-xl backdrop-blur-xl">
+                                <div className="absolute right-0 top-10 z-50 w-80 rounded-2xl border border-theme-border/50 bg-theme-surface p-3 shadow-xl backdrop-blur-xl">
                                     <p className="mb-3 text-[10px] uppercase tracking-[0.22em] text-theme-text-secondary">Tùy chọn</p>
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between rounded-xl border border-theme-border/20 bg-theme-bg-secondary/50 px-3 py-2.5">
@@ -771,6 +827,12 @@ export default function Chat() {
                                             </div>
                                             <Switch checked={showDebug} onCheckedChange={setShowDebug} aria-label="Debug" />
                                         </div>
+                                        {!isGuestMode && (
+                                            <div className="rounded-xl border border-theme-border/20 bg-theme-bg-secondary/50 px-3 py-2.5">
+                                                <p className="mb-2 text-sm font-semibold text-theme-text-primary">Chọn nhân vật</p>
+                                                <PersonaSelector onSelect={() => setShowOptions(false)} />
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -786,13 +848,44 @@ export default function Chat() {
                     onSelectSession={(sessionId) => void loadSessionMessages(sessionId)}
                 />
 
-                {/* ── Message feed ──────────────────────────────────────── */}
+                {/* ── Tab bar (Chat / Ký ức) — chỉ hiện khi đăng nhập ───────────────── */}
+                {!isGuestMode && (
+                    <div className="flex shrink-0 gap-1 border-b border-theme-border/30 px-5 pb-0">
+                        {(['chat', 'memory'] as const).map((tab) => (
+                            <button
+                                key={tab}
+                                type="button"
+                                onClick={() => setActiveTab(tab)}
+                                className={[
+                                    'rounded-t-xl px-4 py-2 text-sm font-medium transition-colors',
+                                    activeTab === tab
+                                        ? 'border-b-2 border-theme-accent text-theme-accent'
+                                        : 'text-theme-text-secondary hover:text-theme-text-primary',
+                                ].join(' ')}
+                            >
+                                {tab === 'chat' ? 'Chat' : 'Ký ức'}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {/* ── Tab content ───────────────────────────────────────── */}
+                {activeTab === 'memory' ? (
+                    <div className="flex-1 overflow-y-auto">
+                        <MemoryCardsTab />
+                    </div>
+                ) : (
                 <div className="flex-1 mb-8 overflow-y-auto p-4 sm:px-6">
                     <div className="flex min-h-full flex-col justify-end gap-3">
                         {messages.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                                <div className="text-4xl">🌿</div>
+                                <Leaf className="h-14 w-14 text-theme-accent opacity-90" aria-hidden />
                                 <p className=" text-theme-text-secondary">Chia sẻ điều bạn đang cảm thấy, mình lắng nghe.</p>
+                                {!isGuestMode && !checkInDone && (
+                                    <div className="mt-2 w-full max-w-sm">
+                                        <ChatEntryCheckIn onComplete={() => setCheckInDone(true)} />
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             messages.map((m, idx) => {
@@ -807,8 +900,8 @@ export default function Chat() {
                                     <div key={m.id}>
                                         {showDivider && m.timestamp != null && <DateDivider timestamp={m.timestamp} />}
                                         <div className={`flex gap-3 ${isAI ? '' : 'flex-row-reverse'}`}>
-                                            <div className="mt-1 shrink-0 select-none text-xl leading-none" aria-hidden="true">
-                                                {isAI ? '🌿' : '🙂'}
+                                            <div className="mt-1 flex h-9 w-9 shrink-0 select-none items-center justify-center rounded-full bg-theme-accent/15 text-theme-accent" aria-hidden="true">
+                                                {isAI ? <Leaf className="h-5 w-5" /> : <UserRound className="h-5 w-5" />}
                                             </div>
                                             <div className={`flex max-w-[70%] flex-col gap-2 ${isAI ? 'items-start' : 'items-end'}`}>
                                                 <article
@@ -854,6 +947,7 @@ export default function Chat() {
                         <div ref={bottomRef} />
                     </div>
                 </div>
+                )}
 
                 {/* ── Retry notice ──────────────────────────────────────── */}
                 {lastFailedText && (

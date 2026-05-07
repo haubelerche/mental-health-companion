@@ -5,7 +5,7 @@ import OAuthCallback from '../components/auth/OAuthCallback.tsx'
 import Register from '../components/auth/Register.tsx'
 import Chat from '../components/chat/Chat.tsx'
 import Main from '../components/layout/Main.tsx'
-import Connect from '../components/pages/Connect.tsx'
+import Support from '../components/pages/Support.tsx'
 
 import Landing from '../components/pages/landing/Landing.tsx'
 import Reflect from '../components/pages/Reflect.tsx'
@@ -35,7 +35,11 @@ import NotificationsPage from '../components/pages/Notifications.tsx'
 function RequireAuth({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()
     if (isLoading) {
-        return null
+        return (
+            <div className="flex h-screen items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-theme-accent border-t-transparent" />
+            </div>
+        )
     }
     if (!user) {
         return <Navigate to={ROUTE_PATHS.login} replace />
@@ -46,7 +50,11 @@ function RequireAuth({ children }: { children: ReactElement }) {
 function RequireOnboarding({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()
     if (isLoading) {
-        return null
+        return (
+            <div className="flex h-screen items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-theme-accent border-t-transparent" />
+            </div>
+        )
     }
     if (user && !user.onboardingCompleted) {
         return <Navigate to={ROUTE_PATHS.onboarding} replace />
@@ -120,9 +128,9 @@ export default function AppRoutes() {
                     }
                 />
                 <Route
-                    path={ROUTE_PATHS.connect}
+                    path={ROUTE_PATHS.support}
                     element={
-                        <Connect />
+                        <Support />
                     }
                 />
                 <Route

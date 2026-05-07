@@ -67,7 +67,6 @@ def mark_persona_unlocked(
         state.updated_at = now
     db.flush()
     logger.info("[Unlocks] user=%s persona=%s source=%s", user_id, persona_id, source)
-    
     # Push real-time notification
     try:
         from app.services.notification_service import enqueue_notification
@@ -83,7 +82,6 @@ def mark_persona_unlocked(
         )
     except Exception:
         pass
-
     return state
 
 

@@ -4,7 +4,7 @@ import { ApiRequestError } from '../../../api/types'
 import { anonymousShareService, type ReplyArchiveItem, type SentLetterItem } from '../../../services/anonymousShareService'
 import { formatRelativeTime, getUi, type Letter } from './shared'
 import { ReportLetterModal } from './ReportLetterModal.tsx'
-import { X, CornerDownRight, Send, Heart, RotateCcw, AlertTriangle } from 'lucide-react'
+import { AlertTriangle, CornerDownRight, Heart, RotateCcw, Send, Shell, Sparkles, X } from 'lucide-react'
 
 export function LetterOverlay({
     letter,
@@ -250,7 +250,9 @@ export function WriteOverlay({ onClose, dark }: { onClose: () => void; dark?: bo
                         </div>
                     ) : (
                         <div className="text-center py-12" style={{ animation: 'fadeUpCard 0.6s ease' }}>
-                            <p className="text-theme-accent text-4xl mb-4">✨</p>
+                            <div className="mb-4 flex justify-center text-theme-accent">
+                                <Sparkles className="h-12 w-12" aria-hidden />
+                            </div>
                             <p className={`${ui.textPrimary} font-display text-2xl italic font-bold leading-relaxed`}>Lá thư đã trôi theo con sóng...</p>
                         </div>
                     )}
@@ -327,7 +329,7 @@ export function SentLetterDialog({
                             {item.reply ? (
                                 <>
                                     <div className="flex items-center gap-2 mb-4 border-b border-theme-border/5 pb-3">
-                                        <span className="text-xl">🐚</span>
+                                        <Shell className="h-5 w-5 shrink-0 text-emerald-600/80" aria-hidden />
                                         <p className="text-theme-text-primary text-[11px] font-bold uppercase tracking-widest">
                                             {item.reply.anonymous_name ? item.reply.anonymous_name : 'Người lạ ẩn danh'}
                                         </p>
@@ -409,7 +411,7 @@ export function ReceivedLetterDialog({
                                 {item.has_reaction && (
                                     <div className="flex items-center gap-1.5 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20">
                                         <Heart size={10} fill="#f43f5e" className="text-rose-500" />
-                                        <span className="text-[10px] font-bold text-rose-500 uppercase tracking-tighter">Đã nhận ❤️</span>
+                                        <span className="text-[10px] font-bold text-rose-500 uppercase tracking-tighter">Đã nhận</span>
                                     </div>
                                 )}
                             </div>

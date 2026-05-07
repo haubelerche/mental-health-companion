@@ -1,5 +1,5 @@
 import { Play, ChevronDown, ChevronUp, BookOpen, Volume2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { type ResourceItem } from '../../../services/resourceService'
 import { useThemeContext } from '../../../contexts/ThemeContext'
 function minutes(durationSec: number): string {

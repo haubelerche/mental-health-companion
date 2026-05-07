@@ -40,8 +40,9 @@ export type PersonaProgress = {
     persona_id: string
     unlocked: boolean
     price_hearts: number
-    progress: number
-    requirements: Record<string, unknown>
+    is_core?: boolean
+    progress?: number
+    requirements?: Record<string, unknown>
 }
 
 export const rewardsService = {

@@ -65,7 +65,7 @@ export default function MealCheckInCard({ claimedSlots = [], onCheckin }: Props)
                                 data-[claimed=false]:border-gray-200 data-[claimed=false]:hover:border-indigo-400 data-[claimed=false]:hover:bg-indigo-50"
                             data-claimed={claimed}
                         >
-                            {busy === slot ? '…' : claimed ? `${SLOT_LABELS[slot]} ✓` : SLOT_LABELS[slot]}
+                            {busy === slot ? '…' : claimed ? `${SLOT_LABELS[slot]} · đã ghi` : SLOT_LABELS[slot]}
                         </button>
                     )
                 })}

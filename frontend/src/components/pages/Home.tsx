@@ -19,7 +19,6 @@ import { AnimatePresence, motion } from 'framer-motion'
 import quotesJson from '../../../famous-quotes.json'
 import beachMessageBg from '../../assets/beach-message-bg.avif'
 import exerciseImg from '../../assets/exercise.png'
-import forestImg from '../../assets/forest.png'
 import morningRhythmImg from '../../assets/morning_rhythm.png'
 import dayRhythmImg from '../../assets/day_rhythm.png'
 import eveningRhythmImg from '../../assets/evening_rhythm.png'
@@ -27,6 +26,7 @@ import healingImg from '../../assets/healing.jpg'
 import nutritionImg from '../../assets/nutrition-a1.jpg'
 import { Link, useNavigate } from 'react-router-dom'
 import { homeService } from '../../services/homeService'
+import { rewardsService } from '../../services/rewardsService'
 import { httpClient } from '../../api/httpClient'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { MoodWordChips } from '../common/MoodWordChips'
@@ -35,14 +35,10 @@ import { WellnessRadar, type WellnessScores } from '../wellness/WellnessRadar'
 import { useAuth } from '../../hooks/useAuth'
 import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
 import { useThemeContext } from '../../contexts/ThemeContext'
-import {
-    getRewardProgress,
-    REWARD_UPDATED_EVENT,
-} from '../../utils/rewardProgress'
+import { REWARD_UPDATED_EVENT } from '../../utils/rewardProgress'
 
 type RecoCard = {
     icon: typeof Wind
-    emoji: string
     label: string
     desc: string
     route: string
@@ -52,7 +48,6 @@ type RecoCard = {
 const RECO_CARDS: RecoCard[] = [
     {
         icon: Wind,
-        emoji: '🌬️',
         label: 'Thở hộp 4-4-4',
         desc: '3 phút · Giảm lo âu',
         route: `${ROUTE_PATHS.exercises}?exercise=box_breath`,
@@ -60,7 +55,6 @@ const RECO_CARDS: RecoCard[] = [
     },
     {
         icon: Leaf,
-        emoji: '🧘',
         label: 'Thiền buổi sáng',
         desc: '5 phút · Bắt đầu ngày mới',
         route: `${ROUTE_PATHS.exercises}?type=meditation&id=morning_5`,
@@ -68,7 +62,6 @@ const RECO_CARDS: RecoCard[] = [
     },
     {
         icon: Headphones,
-        emoji: '🌊',
         label: 'Tiếng sóng biển',
         desc: 'Âm thanh · Thư giãn',
         route: `${ROUTE_PATHS.exercises}?type=sound&id=ocean`,
@@ -76,7 +69,6 @@ const RECO_CARDS: RecoCard[] = [
     },
     {
         icon: ClipboardList,
-        emoji: '📓',
         label: 'Check-in buổi tối',
         desc: 'Nhìn lại ngày hôm nay',
         route: `${ROUTE_PATHS.checkin}?variant=evening`,
@@ -294,10 +286,9 @@ export default function Home() {
     const isDark = effectiveTheme === 'dark'
 
     const [quote, setQuote] = useState<{ text: string; author?: string | null } | null>(null)
-    const [rewardProgress, setRewardProgress] = useState(() => getRewardProgress())
-    const hearts = rewardProgress.hearts
+    const [hearts, setHearts] = useState<number>(0)
     const [backendStreakDays, setBackendStreakDays] = useState<number | null>(null)
-    const streak = backendStreakDays ?? rewardProgress.streakDays
+    const streak = backendStreakDays ?? 0
     const [wellnessScores, setWellnessScores] = useState<WellnessScores | null>(null)
     const [nutritionTip, setNutritionTip] = useState<NutritionDailyTip | null>(null)
     const [homeMoodWords, setHomeMoodWords] = useState<string[]>([])
@@ -337,6 +328,13 @@ export default function Home() {
                 setNutritionTip(data)
             })
             .catch(() => undefined)
+        rewardsService
+            .getBalance()
+            .then((data) => {
+                if (!mounted) return
+                setHearts(data.balance)
+            })
+            .catch(() => undefined)
 
         // Fetch wellness mini-preview in background (non-blocking)
         httpClient
@@ -368,22 +366,15 @@ export default function Home() {
 
     useEffect(() => {
         const onRewardUpdated = (event: Event) => {
-            const custom = event as CustomEvent<{ hearts: number; streakDays: number }>
-            if (custom.detail) {
-                setRewardProgress(custom.detail)
-            }
-        }
-        const onStorage = (event: StorageEvent) => {
-            if (event.key) {
-                setRewardProgress(getRewardProgress())
+            const custom = event as CustomEvent<{ balance: number }>
+            if (custom.detail?.balance !== undefined) {
+                setHearts(custom.detail.balance)
             }
         }
 
         window.addEventListener(REWARD_UPDATED_EVENT, onRewardUpdated as EventListener)
-        window.addEventListener('storage', onStorage)
         return () => {
             window.removeEventListener(REWARD_UPDATED_EVENT, onRewardUpdated as EventListener)
-            window.removeEventListener('storage', onStorage)
         }
     }, [])
 
@@ -529,6 +520,7 @@ export default function Home() {
 
                 <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide mt-5">
                     {RECO_CARDS.map((card) => {
+                        const RecoIcon = card.icon
                         return (
                             <button
                                 key={card.label}
@@ -536,8 +528,8 @@ export default function Home() {
                                 onClick={() => navigate(card.route)}
                                 className="cursor-pointer flex min-w-[148px] shrink-0 flex-col gap-3 rounded-[22px] bg-theme-surface/70 p-4 text-left border border-theme-border/30 backdrop-blur-xl transition-all hover:bg-theme-accent/10 active:scale-[0.97]"
                             >
-                                <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl text-xl ${card.accentClass}`}>
-                                    {card.emoji}
+                                <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl ${card.accentClass}`}>
+                                    <RecoIcon className="h-6 w-6" aria-hidden />
                                 </div>
                                 <div>
                                     <p className=" font-semibold text-theme-text-primary leading-tight">{card.label}</p>
@@ -785,12 +777,12 @@ export default function Home() {
                                     <motion.div
                                         animate={{ y: [-2, 2, -2] }}
                                         transition={{ duration: 2, repeat: Infinity }}
-                                        className="text-3xl mb-2"
+                                        className="mb-2 flex justify-center text-theme-accent"
                                     >
-                                        🌱
+                                        <Leaf className="h-10 w-10 opacity-90" aria-hidden />
                                     </motion.div>
                                     <p className="text-center text-[11px] text-white/70 leading-relaxed font-medium">
-                                        Hãy check-in để khám phá sức khỏe của bạn
+                                        Hãy check-in cảm xúc để khám phá sức khỏe của bạn
                                     </p>
                                 </div>
                             </motion.div>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, Sparkles } from 'lucide-react'
+import { Brain, ChevronLeft, HeartPulse, Leaf, Lock, Sparkles } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { screeningService } from '../../services/screeningService'
 import type { ScreeningInstrument, ScreeningId } from '../../services/screeningService'
 import { ROUTE_PATHS } from '../../routes/paths'
@@ -42,15 +43,15 @@ const FALLBACK_INSTRUMENTS: ScreeningInstrument[] = [
   { id: 'gad7', title: 'Lo âu & Căng thẳng', item_count: 7 },
 ]
 
-const INSTRUMENT_META: Record<ScreeningId, { icon: string; desc: string; color: string; bg: string }> = {
+const INSTRUMENT_META: Record<ScreeningId, { icon: LucideIcon; desc: string; color: string; bg: string }> = {
   phq9: {
-    icon: '💙',
+    icon: HeartPulse,
     desc: '9 câu · ~3 phút · Đánh giá mức độ trầm cảm',
     color: 'var(--color-may)',
     bg: 'var(--color-may-bg)',
   },
   gad7: {
-    icon: '🌿',
+    icon: Leaf,
     desc: '7 câu · ~2 phút · Đánh giá mức độ lo âu',
     color: 'var(--color-an)',
     bg: 'var(--color-an-bg)',
@@ -191,6 +192,7 @@ export function ScreeningFlow() {
         <div className="flex flex-col gap-4">
           {displayInstruments.map((inst, i) => {
             const meta = INSTRUMENT_META[inst.id as ScreeningId]
+            const InstIcon = meta?.icon ?? Brain
             return (
               <motion.button
                 key={inst.id}
@@ -202,10 +204,10 @@ export function ScreeningFlow() {
                 className="flex items-center gap-4 rounded-3xl bg-white p-5 text-left shadow-sm transition hover:shadow-md active:scale-[0.98]"
               >
                 <div
-                  className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl text-3xl"
+                  className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl text-[var(--color-serene-primary)]"
                   style={{ backgroundColor: meta?.bg ?? '#f3f5f2' }}
                 >
-                  {meta?.icon ?? '🧠'}
+                  <InstIcon className="h-7 w-7" aria-hidden />
                 </div>
                 <div className="flex-1">
                   <div className="font-semibold text-serene-ink">{inst.title}</div>
@@ -221,8 +223,9 @@ export function ScreeningFlow() {
 
         {/* Disclaimer */}
         <div className="mt-8 rounded-2xl border border-serene-border bg-white/60 p-4">
-          <p className="text-xs leading-relaxed text-serene-muted">
-            🔒 Kết quả chỉ dùng để gợi ý hỗ trợ — không phải chẩn đoán lâm sàng. Serene không lưu thông tin nhận dạng.
+          <p className="flex items-start gap-2 text-xs leading-relaxed text-serene-muted">
+            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-serene-primary/70" aria-hidden />
+            <span>Kết quả chỉ dùng để gợi ý hỗ trợ — không phải chẩn đoán lâm sàng. Serene không lưu thông tin nhận dạng.</span>
           </p>
         </div>
       </div>
@@ -240,7 +243,7 @@ export function ScreeningFlow() {
             onClick={() => setSelected(null)}
             className="font-medium text-sm text-serene-primary"
           >
-            ← Chọn lại
+            Chọn lại
           </button>
         </div>
       </div>

@@ -5,10 +5,10 @@ import { ApiRequestError } from '../../api/types'
 
 const STATUS_LABELS: Record<string, string> = {
     active: 'Đang dùng',
-    pending_review: 'Đang xét duyệt',
-    rejected_by_guardrail: 'Không lưu (nội dung không phù hợp)',
+    pending_user_review: 'Chờ xác nhận',
+    edited_by_user: 'Đã chỉnh sửa',
+    rejected_by_guardrail: 'Không lưu',
     deleted_by_user: 'Đã xoá',
-    disabled_personalization: 'Tắt cá nhân hoá',
 }
 
 function MemoryCardItem({ card, onAction }: {
@@ -47,6 +47,26 @@ function MemoryCardItem({ card, onAction }: {
                         {STATUS_LABELS[card.status] ?? card.status}
                     </p>
                 </div>
+                {!editing && card.status === 'pending_user_review' && (
+                    <div className="flex gap-1.5 shrink-0">
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => act('keep')}
+                            className="text-xs text-indigo-600 hover:underline disabled:opacity-50"
+                        >
+                            Lưu
+                        </button>
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => act('delete')}
+                            className="text-xs text-red-500 hover:underline disabled:opacity-50"
+                        >
+                            Xoá
+                        </button>
+                    </div>
+                )}
                 {!editing && card.status === 'active' && (
                     <div className="flex gap-1.5 shrink-0">
                         <button

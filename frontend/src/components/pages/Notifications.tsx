@@ -23,7 +23,7 @@ function timeAgo(dateParam: any) {
   }
 }
 
-export default function NotificationsPage({ dark = false }: { dark?: boolean }) {
+export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<UserNotification[]>([])
   const [loading, setLoading] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)

@@ -52,6 +52,8 @@ from app.services.security import (
     verify_password,
 )
 from app.services.utils import make_id, now_plus, utc_now
+from app.personas.aliases import is_known_persona, resolve_alias
+from app.services.persona_unlock_persistence import is_persona_unlocked
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -76,14 +78,23 @@ def _allow_local_signup_without_smtp() -> bool:
     )
 
 
-def _read_profile(db: Session, user_id: str) -> tuple[UserProfile, dict]:
+def _read_profile(db: Session, user_id: str) -> tuple[UserProfile, dict, bool]:
     row = db.scalar(select(UserProfile).where(UserProfile.user_id == user_id))
+    mutated = False
     if row is None:
         row = UserProfile(user_id=user_id, profile={})
         db.add(row)
         db.flush()
+        mutated = True
     profile_data = dict(row.profile or {})
-    return row, profile_data
+    persona_data = dict(profile_data.get("persona") or {})
+    if not persona_data.get("selected"):
+        persona_data["selected"] = DEFAULT_PERSONA_ID
+        persona_data["updated_by"] = "system_default"
+        profile_data["persona"] = persona_data
+        row.profile = profile_data
+        mutated = True
+    return row, profile_data, mutated
 
 
 def _issue_login_session(user: User, response: Response, request: Request, db: Session):
@@ -535,10 +546,12 @@ def logout(response: Response, refresh_token: str | None = Cookie(default=None),
 
 @router.get("/me")
 def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    profile_row = db.scalar(select(UserProfile).where(UserProfile.user_id == current_user.user_id))
-    profile_data = dict(profile_row.profile or {}) if profile_row else {}
+    profile_row, profile_data, profile_mutated = _read_profile(db, current_user.user_id)
     onboarding = dict(profile_data.get("onboarding") or {})
     persona = dict(profile_data.get("persona") or {})
+    if profile_mutated and profile_row is not None:
+        profile_row.updated_at = _utc_naive_now()
+        db.commit()
     return ok(
         {
             "user_id": current_user.user_id,
@@ -547,7 +560,7 @@ def me(current_user: User = Depends(get_current_user), db: Session = Depends(get
             "policy_version_ack": current_user.policy_version_ack,
             "onboarding_completed": bool(onboarding.get("completed_at")),
             "onboarding_skipped": bool(onboarding.get("skipped", False)),
-            "persona_id": persona.get("selected"),
+            "persona_id": persona.get("selected") or DEFAULT_PERSONA_ID,
             "persona_selected_at": persona.get("selected_at"),
         }
     )
@@ -559,15 +572,21 @@ def update_persona(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    row, profile_data = _read_profile(db, current_user.user_id)
+    if not is_known_persona(payload.persona_id):
+        raise AppError("persona_unknown", f"Unknown persona: {payload.persona_id}", 400)
+    canonical_persona_id = resolve_alias(payload.persona_id)
+    if not is_persona_unlocked(db, user_id=current_user.user_id, persona_id=canonical_persona_id):
+        raise AppError("persona_locked", "Persona not unlocked. Purchase it in the store first.", 403)
+
+    row, profile_data, _ = _read_profile(db, current_user.user_id)
     now = _utc_naive_now()
     persona_data = dict(profile_data.get("persona") or {})
     previous = str(persona_data.get("selected") or DEFAULT_PERSONA_ID)
 
-    persona_data["selected"] = payload.persona_id
+    persona_data["selected"] = canonical_persona_id
     persona_data["selected_at"] = now.isoformat() + "Z"
     persona_data["updated_by"] = "user"
-    if previous != payload.persona_id:
+    if previous != canonical_persona_id:
         persona_data["previous"] = previous
 
     profile_data["persona"] = persona_data
@@ -576,7 +595,7 @@ def update_persona(
     db.commit()
     return ok(
         {
-            "persona_id": payload.persona_id,
+            "persona_id": canonical_persona_id,
             "persona_selected_at": persona_data["selected_at"],
         }
     )

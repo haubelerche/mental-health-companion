@@ -1,5 +1,5 @@
-import { useEffect, type MouseEvent } from 'react'
-import { Bell, Book, Compass, HelpCircle, HomeIcon, Library, MessageSquare, Sailboat, Settings, Sparkles, Utensils } from 'lucide-react'
+import { type MouseEvent } from 'react'
+import { Bell, HelpCircle, HomeIcon, Library, MessageSquare, Sailboat, Settings, Sparkles, Utensils } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { useThemeContext } from '../../contexts/ThemeContext'
@@ -14,9 +14,8 @@ const navItems = [
     { icon: MessageSquare, label: 'Chat', route: ROUTE_PATHS.chat },
     { icon: Sparkles, label: 'Nhìn lại', route: ROUTE_PATHS.reflect },
     { icon: Library, label: 'Tài nguyên', route: ROUTE_PATHS.resources },
-    // { icon: Book, label: 'Bài tập', route: ROUTE_PATHS.exercises },
+
     { icon: Utensils, label: 'Dinh dưỡng', route: ROUTE_PATHS.nutrition },
-    { icon: Compass, label: 'Kết nối', route: ROUTE_PATHS.connect },
     { icon: Sailboat, label: 'Thư', route: ROUTE_PATHS.bamboo },
 ]
 
@@ -116,7 +115,7 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                         <span>Cài đặt</span>
                     </NavLink>
                     <NavLink
-                        to={ROUTE_PATHS.connect}
+                        to={ROUTE_PATHS.support}
                         className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition ${hoverTextClass}`}
                     >
                         <HelpCircle className="h-4 w-4" />
@@ -134,7 +133,7 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
             )}
 
             {/* ── Mobile bottom nav ── */}
-            <nav className={`fixed bottom-4 left-1/2 z-50 flex w-[min(94vw,520px)] -translate-x-1/2 items-center justify-between rounded-3xl border px-3 py-2 shadow-[0_8px_32px_rgba(47,52,46,0.14)] backdrop-blur-xl lg:hidden ${isDark ? 'border-white/25 bg-black/55' : 'border-white/45 bg-white/75'}`}>
+            <nav className={`fixed bottom-4 left-1/2 z-50 flex w-[min(94vw,560px)] -translate-x-1/2 items-center justify-between rounded-3xl border px-3 py-2 shadow-[0_8px_32px_rgba(47,52,46,0.14)] backdrop-blur-xl lg:hidden ${isDark ? 'border-white/25 bg-black/55' : 'border-white/45 bg-white/75'}`}>
                 {navItems.slice(0, 5).map((item) => {
                     const Icon = item.icon
                     return (

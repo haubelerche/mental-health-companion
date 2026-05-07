@@ -1,3 +1,4 @@
+import { Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { rewardsService } from '../../services/rewardsService'
 
@@ -26,7 +27,7 @@ export default function HeartBalanceBadge({ balance: externalBalance, className 
 
     return (
         <span className={`inline-flex items-center gap-1 text-sm font-medium ${className}`}>
-            <span aria-hidden="true">🌟</span>
+            <Sparkles className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
             <span>{balance.toLocaleString('vi-VN')} Tim</span>
         </span>
     )

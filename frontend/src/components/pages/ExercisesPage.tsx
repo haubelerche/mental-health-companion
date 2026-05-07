@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Pause, Play, Settings, Waves, X, Wind, Focus, Accessibility, LayoutGrid, Clock } from 'lucide-react'
+import { Pause, Play, Waves, X, Wind, Focus, Accessibility, LayoutGrid, Clock } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import ocean from '../../assets/bg-reflect.png'
 import { ROUTE_PATHS } from '../../routes/paths'

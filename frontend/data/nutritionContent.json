@@ -1,0 +1,391 @@
+{
+  "dailyFacts": [
+    "Não bộ tiêu thụ khoảng 20% năng lượng cơ thể mỗi ngày, nên chất lượng bữa ăn ảnh hưởng trực tiếp đến năng lượng tinh thần và khả năng tập trung.",
+    "Bữa sáng có protein và chất xơ giúp đường huyết ổn định hơn so với bữa sáng nhiều đường tinh luyện.",
+    "Chất xơ từ rau, đậu, ngũ cốc nguyên hạt là nguồn thức ăn cho lợi khuẩn đường ruột.",
+    "Thực phẩm lên men như sữa chua, kimchi, miso và dưa cải có thể hỗ trợ đa dạng hệ vi sinh đường ruột khi dùng đúng lượng.",
+    "Omega-3 trong cá béo, hạt lanh và óc chó là nhóm chất béo quan trọng cho màng tế bào thần kinh.",
+    "Magiê trong hạt bí, hạnh nhân, rau lá xanh và cacao giúp hỗ trợ hoạt động thần kinh - cơ và chất lượng nghỉ ngơi.",
+    "Vitamin D có trong cá béo, trứng và được tổng hợp qua ánh nắng; mức thiếu hụt kéo dài có thể ảnh hưởng đến miễn dịch và tâm trạng.",
+    "Đường tinh luyện hấp thụ nhanh có thể tạo cảm giác tỉnh táo ngắn hạn nhưng dễ kéo theo tụt năng lượng sau đó.",
+    "Uống đủ nước là điều kiện cơ bản để duy trì sự tỉnh táo; mất nước nhẹ cũng có thể làm giảm khả năng chú ý.",
+    "Carbohydrate phức hợp như khoai lang, yến mạch, gạo lứt giúp cung cấp năng lượng đều hơn so với bánh kẹo ngọt.",
+    "Trứng chứa choline, một chất dinh dưỡng liên quan đến chức năng ghi nhớ và hoạt động của não.",
+    "Việt quất, dâu tây và nho tím chứa polyphenol, nhóm hợp chất thực vật có lợi cho sức khỏe tổng thể.",
+    "Rau lá xanh như cải bó xôi, cải xoăn và rau dền giàu folate, chất hỗ trợ quá trình tạo tế bào và chuyển hóa thần kinh.",
+    "Các loại đậu cung cấp đồng thời protein thực vật, chất xơ và khoáng chất, phù hợp cho bữa ăn no lâu.",
+    "Một đĩa ăn cân bằng có thể bắt đầu từ công thức 1/2 rau, 1/4 protein, 1/4 tinh bột tốt.",
+    "Ăn quá sát giờ ngủ có thể làm hệ tiêu hóa hoạt động mạnh, khiến một số người khó ngủ hơn.",
+    "Caffeine trong cà phê và trà có thể hỗ trợ tỉnh táo, nhưng nên dùng có kiểm soát nếu bạn dễ lo âu hoặc mất ngủ.",
+    "Socola đen giàu cacao có polyphenol và magiê, nhưng nên chọn loại ít đường và ăn lượng nhỏ.",
+    "Nhai chậm giúp cơ thể nhận tín hiệu no tốt hơn và làm bữa ăn trở thành một khoảng nghỉ tinh thần.",
+    "Một bữa phụ tốt nên có chất xơ hoặc protein, ví dụ sữa chua không đường với hạt hoặc trái cây tươi.",
+    "Hạt chia và hạt lanh hút nước tốt, nên dùng kèm đủ chất lỏng để dễ tiêu hóa hơn.",
+    "Màu sắc đa dạng trên đĩa ăn thường phản ánh sự đa dạng của vitamin, khoáng chất và hợp chất thực vật.",
+    "Không có một món ăn đơn lẻ nào chữa lành mọi vấn đề; hiệu quả đến từ nhịp ăn ổn định và tổng thể lối sống.",
+    "Khi căng thẳng, bữa ăn đơn giản nhưng đủ chất thường tốt hơn việc bỏ bữa rồi ăn bù quá nhiều vào cuối ngày.",
+    "Canh nóng, cháo, súp và món mềm dễ ăn có thể phù hợp vào những ngày người dùng mệt hoặc ít cảm giác thèm ăn.",
+    "Gia vị như gừng, nghệ, tỏi và quế giúp món ăn thơm hơn, từ đó giảm nhu cầu dùng quá nhiều muối hoặc đường.",
+    "Bữa ăn giàu chất xơ nên tăng dần, vì tăng quá nhanh có thể gây đầy bụng ở một số người.",
+    "Nếu đang dùng thuốc hoặc có bệnh nền, người dùng nên hỏi chuyên gia y tế trước khi thay đổi chế độ ăn quá mạnh.",
+    "Ăn uống hỗ trợ sức khỏe tinh thần, nhưng không thay thế chẩn đoán, điều trị hoặc tư vấn từ chuyên gia y tế."
+  ],
+  "tags": [
+    "Buổi sáng",
+    "Bữa trưa",
+    "Bữa tối",
+    "Bữa phụ",
+    "Chay",
+    "Dễ nấu",
+    "Tăng năng lượng",
+    "Tập trung",
+    "Ổn định đường huyết",
+    "Ngủ ngon",
+    "Protein cao",
+    "Ít đường",
+    "Omega-3",
+    "Đường ruột",
+    "Giảm căng thẳng",
+    "No lâu",
+    "Việt Nam",
+    "Meal prep"
+  ],
+  "scienceSection": {
+    "eyebrow": "Khoa học nền tảng",
+    "titleLines": ["Dinh dưỡng", "định hình", "tâm trí"],
+    "paragraphs": [
+      "Não bộ cần năng lượng ổn định, amino acid, chất béo tốt, vitamin và khoáng chất để duy trì hoạt động nhận thức, cảm xúc và giấc ngủ. Vì vậy, một bữa ăn cân bằng không chỉ là nhiên liệu, mà còn là nền tảng sinh học cho sức khỏe tinh thần.",
+      "Hướng tiếp cận an toàn là ưu tiên nhịp ăn đều, protein vừa đủ, tinh bột phức hợp, rau quả đa dạng màu sắc, chất béo tốt và thực phẩm ít chế biến. Dinh dưỡng có vai trò hỗ trợ, không thay thế tư vấn y tế hoặc trị liệu chuyên môn."
+    ]
+  },
+  "moodFoods": [
+    {
+      "food": "Cá hồi, cá mòi, cá thu",
+      "why": "Giàu Omega-3, phù hợp cho bữa ăn hỗ trợ trí não, tâm trạng và sức khỏe tim mạch.",
+      "tags": ["Omega-3", "Protein cao"]
+    },
+    {
+      "food": "Việt quất, dâu tây, nho tím",
+      "why": "Cung cấp polyphenol và chất xơ, giúp bữa ăn nhẹ ngọt tự nhiên mà không cần nhiều đường tinh luyện.",
+      "tags": ["Ít đường", "Bữa phụ"]
+    },
+    {
+      "food": "Óc chó, hạt lanh, hạt chia",
+      "why": "Bổ sung chất béo tốt, chất xơ và khoáng chất; dễ thêm vào yến mạch, sữa chua hoặc smoothie.",
+      "tags": ["Omega-3", "No lâu"]
+    },
+    {
+      "food": "Sữa chua, kimchi, miso",
+      "why": "Thực phẩm lên men hỗ trợ hệ vi sinh đường ruột khi dùng điều độ và phù hợp cơ địa.",
+      "tags": ["Đường ruột", "Dễ nấu"]
+    },
+    {
+      "food": "Yến mạch, gạo lứt, khoai lang",
+      "why": "Tinh bột phức hợp giúp cung cấp năng lượng bền hơn và giảm cảm giác đói nhanh.",
+      "tags": ["Ổn định đường huyết", "No lâu"]
+    },
+    {
+      "food": "Rau lá xanh, đậu, nấm",
+      "why": "Giàu folate, chất xơ và khoáng chất; phù hợp để tăng mật độ dinh dưỡng cho bữa chính.",
+      "tags": ["Chay", "Bữa tối"]
+    }
+  ],
+  "recipes": [
+    {
+      "name": "Smoothie xanh gừng & cải bó xôi",
+      "mood": "Năng lượng",
+      "time": "5 phút",
+      "tags": ["Buổi sáng", "Chay", "Tăng năng lượng", "Dễ nấu"],
+      "ingredients": "Cải bó xôi, chuối, gừng tươi, sữa hạnh nhân, hạt lanh",
+      "benefit": "Nhanh, nhẹ bụng, có chất xơ và vị cay ấm giúp tỉnh táo buổi sáng."
+    },
+    {
+      "name": "Bơ toast + trứng lòng đào",
+      "mood": "Tập trung",
+      "time": "10 phút",
+      "tags": ["Buổi sáng", "Protein cao", "No lâu"],
+      "ingredients": "Bánh mì đen, bơ trái, trứng, tiêu đen, ớt khô",
+      "benefit": "Kết hợp protein, chất béo tốt và tinh bột phức hợp để giữ năng lượng ổn định."
+    },
+    {
+      "name": "Yến mạch qua đêm & quả mọng",
+      "mood": "Ổn định",
+      "time": "8 phút",
+      "tags": ["Buổi sáng", "Ít đường", "Chay", "Meal prep"],
+      "ingredients": "Yến mạch rolled, sữa hạt, việt quất, dâu tây, hạt chia, mật ong ít",
+      "benefit": "Giàu chất xơ hòa tan, phù hợp chuẩn bị trước để tránh bỏ bữa."
+    },
+    {
+      "name": "Cá hồi nướng & quinoa xanh",
+      "mood": "Vui vẻ",
+      "time": "25 phút",
+      "tags": ["Omega-3", "Protein cao", "Bữa tối"],
+      "ingredients": "Cá hồi, quinoa, bông cải xanh, chanh, dầu olive, tỏi",
+      "benefit": "Bữa chính giàu protein và chất béo tốt, phù hợp sau ngày làm việc căng."
+    },
+    {
+      "name": "Salad óc chó táo xanh",
+      "mood": "Trí nhớ",
+      "time": "10 phút",
+      "tags": ["Chay", "Giảm căng thẳng", "Bữa phụ"],
+      "ingredients": "Rau arugula, táo xanh, óc chó, phô mai mềm, giấm balsamic",
+      "benefit": "Vị giòn, chua nhẹ, giúp bữa phụ có chất xơ thay vì chỉ ăn đồ ngọt."
+    },
+    {
+      "name": "Cháo đậu đỏ nấm hương",
+      "mood": "Thư giãn",
+      "time": "30 phút",
+      "tags": ["Chay", "Ngủ ngon", "Bữa tối", "Việt Nam"],
+      "ingredients": "Đậu đỏ, nấm hương, gạo lứt, dầu mè, rong biển khô",
+      "benefit": "Mềm, ấm, dễ ăn trong ngày mệt; có chất xơ và đạm thực vật."
+    },
+    {
+      "name": "Dark chocolate & berry bark",
+      "mood": "Hạnh phúc",
+      "time": "15 phút",
+      "tags": ["Ít đường", "Bữa phụ", "Dễ nấu"],
+      "ingredients": "Socola đen 75%, quả mâm xôi, hạt lanh, một ít muối biển",
+      "benefit": "Món ngọt có kiểm soát, ưu tiên cacao và trái cây thay vì đường tinh luyện."
+    },
+    {
+      "name": "Miso soup đậu hũ & wakame",
+      "mood": "Bình yên",
+      "time": "12 phút",
+      "tags": ["Chay", "Ngủ ngon", "Đường ruột", "Dễ nấu"],
+      "ingredients": "Tương miso trắng, đậu hũ non, rong wakame, nấm enoki, hành lá",
+      "benefit": "Canh ấm, nhẹ, có thực phẩm lên men; phù hợp bữa tối đơn giản."
+    },
+    {
+      "name": "Overnight chia pudding xoài",
+      "mood": "Năng lượng",
+      "time": "5 phút",
+      "tags": ["Buổi sáng", "Chay", "Ít đường", "Meal prep"],
+      "ingredients": "Hạt chia, sữa dừa loãng, xoài tươi, vani, ít mật ong",
+      "benefit": "Dễ chuẩn bị trước, giàu chất xơ và tạo cảm giác no lâu."
+    },
+    {
+      "name": "Cơm gạo lứt gà & rau xào",
+      "mood": "Ổn định",
+      "time": "20 phút",
+      "tags": ["Protein cao", "Bữa trưa", "Ổn định đường huyết", "Meal prep"],
+      "ingredients": "Gạo lứt, ức gà, bông cải xanh, dưa leo, mè đen",
+      "benefit": "Cấu trúc 1/2 rau, 1/4 protein, 1/4 tinh bột tốt, dễ đóng hộp đi học/đi làm."
+    },
+    {
+      "name": "Matcha latte sữa yến mạch",
+      "mood": "Tập trung",
+      "time": "5 phút",
+      "tags": ["Buổi sáng", "Ít đường", "Tập trung"],
+      "ingredients": "Bột matcha, sữa yến mạch, ít mật ong, bột quế",
+      "benefit": "Caffeine nhẹ hơn cà phê với vị êm; nên dùng sớm nếu dễ mất ngủ."
+    },
+    {
+      "name": "Salad cá ngừ avocado",
+      "mood": "Trí nhớ",
+      "time": "8 phút",
+      "tags": ["Omega-3", "Protein cao", "Bữa trưa", "Dễ nấu"],
+      "ingredients": "Cá ngừ, bơ, dưa chuột, chanh, rau mùi tây, tiêu đen",
+      "benefit": "Nhanh, giàu đạm, phù hợp khi cần bữa trưa không quá nặng."
+    },
+    {
+      "name": "Phở gà phiên bản nhẹ",
+      "mood": "Bình yên",
+      "time": "25 phút",
+      "tags": ["Việt Nam", "Protein cao", "Bữa sáng", "Bữa tối"],
+      "ingredients": "Ức gà, bánh phở vừa đủ, hành, gừng, rau thơm, giá đỗ",
+      "benefit": "Món nước ấm, dễ ăn; tăng rau thơm và protein để no lâu hơn."
+    },
+    {
+      "name": "Bún cá hồi rau thì là",
+      "mood": "Vui vẻ",
+      "time": "25 phút",
+      "tags": ["Omega-3", "Việt Nam", "Bữa trưa", "Protein cao"],
+      "ingredients": "Cá hồi, bún vừa đủ, cà chua, thì là, hành lá, rau sống",
+      "benefit": "Kết hợp hương vị Việt với nguồn Omega-3, phù hợp bữa chính thanh nhẹ."
+    },
+    {
+      "name": "Canh rau ngót thịt băm",
+      "mood": "Thư giãn",
+      "time": "15 phút",
+      "tags": ["Việt Nam", "Bữa tối", "Dễ nấu", "Protein cao"],
+      "ingredients": "Rau ngót, thịt nạc băm, hành tím, tiêu, nước mắm vừa đủ",
+      "benefit": "Canh mềm, dễ ăn, giúp bữa tối có rau và protein mà không quá cầu kỳ."
+    },
+    {
+      "name": "Đậu hũ sốt nấm mè rang",
+      "mood": "Ổn định",
+      "time": "18 phút",
+      "tags": ["Chay", "Bữa tối", "Protein cao", "Dễ nấu"],
+      "ingredients": "Đậu hũ, nấm đùi gà, mè rang, xì dầu ít muối, hành lá",
+      "benefit": "Đạm thực vật mềm, dễ tiêu, phù hợp ngày muốn ăn nhẹ."
+    },
+    {
+      "name": "Khoai lang trứng luộc & sữa chua",
+      "mood": "Tập trung",
+      "time": "12 phút",
+      "tags": ["Buổi sáng", "Ổn định đường huyết", "No lâu", "Dễ nấu"],
+      "ingredients": "Khoai lang, trứng luộc, sữa chua không đường, hạt bí",
+      "benefit": "Bữa sáng tối giản, có tinh bột chậm, protein và lợi khuẩn."
+    },
+    {
+      "name": "Cơm cá thu sốt cà chua",
+      "mood": "Vui vẻ",
+      "time": "22 phút",
+      "tags": ["Omega-3", "Việt Nam", "Bữa trưa", "Protein cao"],
+      "ingredients": "Cá thu, cà chua, gạo lứt hoặc cơm trắng vừa đủ, rau luộc",
+      "benefit": "Món quen thuộc, dễ ăn, tăng chất béo tốt và protein cho bữa chính."
+    },
+    {
+      "name": "Sữa chua Hy Lạp chuối cacao",
+      "mood": "Hạnh phúc",
+      "time": "5 phút",
+      "tags": ["Bữa phụ", "Protein cao", "Ít đường", "Đường ruột"],
+      "ingredients": "Sữa chua Hy Lạp, chuối, cacao nguyên chất, hạnh nhân lát",
+      "benefit": "Món ngọt cân bằng hơn nhờ protein, cacao và chất béo tốt."
+    },
+    {
+      "name": "Cơm đậu lăng cà ri nhẹ",
+      "mood": "Năng lượng",
+      "time": "25 phút",
+      "tags": ["Chay", "Protein cao", "Meal prep", "No lâu"],
+      "ingredients": "Đậu lăng, gạo lứt, bột cà ri, cà rốt, hành tây, sữa dừa loãng",
+      "benefit": "Giàu đạm thực vật và chất xơ, phù hợp nấu một lần ăn nhiều bữa."
+    },
+    {
+      "name": "Salad gà xé cam mè",
+      "mood": "Năng lượng",
+      "time": "15 phút",
+      "tags": ["Bữa trưa", "Protein cao", "Ít đường"],
+      "ingredients": "Ức gà xé, cam, xà lách, dưa leo, mè rang, dầu olive",
+      "benefit": "Vị tươi, nhẹ, có protein và vitamin C từ trái cây."
+    },
+    {
+      "name": "Trứng cuộn rau củ",
+      "mood": "Tập trung",
+      "time": "10 phút",
+      "tags": ["Buổi sáng", "Protein cao", "Dễ nấu"],
+      "ingredients": "Trứng, cà rốt, hành lá, nấm, tiêu, dầu olive ít",
+      "benefit": "Bữa nhanh có choline, protein và rau củ thái nhỏ."
+    },
+    {
+      "name": "Súp bí đỏ hạt điều",
+      "mood": "Thư giãn",
+      "time": "25 phút",
+      "tags": ["Chay", "Bữa tối", "Ngủ ngon"],
+      "ingredients": "Bí đỏ, hạt điều, hành tây, sữa tươi hoặc sữa hạt, nhục đậu khấu",
+      "benefit": "Món mềm, ấm, phù hợp ngày mệt và cần bữa tối dễ nuốt."
+    },
+    {
+      "name": "Miến gà nấm hương",
+      "mood": "Bình yên",
+      "time": "20 phút",
+      "tags": ["Việt Nam", "Bữa tối", "Protein cao", "Dễ nấu"],
+      "ingredients": "Miến dong, gà xé, nấm hương, rau cải, hành lá",
+      "benefit": "Món nước nhẹ, dễ ăn, có thể tăng rau để cân bằng hơn."
+    },
+    {
+      "name": "Bánh mì đen cá mòi",
+      "mood": "Trí nhớ",
+      "time": "7 phút",
+      "tags": ["Omega-3", "Buổi sáng", "Protein cao", "Dễ nấu"],
+      "ingredients": "Bánh mì đen, cá mòi, cà chua, rau rocket, chanh",
+      "benefit": "Nguồn Omega-3 nhanh gọn, phù hợp ngày không có thời gian nấu."
+    },
+    {
+      "name": "Cơm nắm rong biển cá ngừ",
+      "mood": "Ổn định",
+      "time": "15 phút",
+      "tags": ["Meal prep", "Bữa trưa", "Protein cao", "Dễ nấu"],
+      "ingredients": "Cơm, cá ngừ, rong biển, mè, dưa leo, sốt sữa chua",
+      "benefit": "Dễ mang đi, giúp tránh bỏ bữa khi lịch học/làm dày."
+    },
+    {
+      "name": "Đậu gà rang paprika",
+      "mood": "Năng lượng",
+      "time": "20 phút",
+      "tags": ["Chay", "Bữa phụ", "No lâu", "Meal prep"],
+      "ingredients": "Đậu gà, paprika, tiêu, dầu olive, một ít muối",
+      "benefit": "Bữa phụ giòn, giàu chất xơ và đạm thực vật, thay thế snack nhiều muối."
+    },
+    {
+      "name": "Sinh tố bơ cacao ít đường",
+      "mood": "Hạnh phúc",
+      "time": "6 phút",
+      "tags": ["Bữa phụ", "Ít đường", "Tăng năng lượng"],
+      "ingredients": "Bơ, cacao nguyên chất, sữa hạt, chuối nhỏ, hạt chia",
+      "benefit": "Béo mịn, no lâu, giảm nhu cầu dùng món ngọt nhiều đường."
+    },
+    {
+      "name": "Cơm tôm bông cải xào tỏi",
+      "mood": "Tập trung",
+      "time": "18 phút",
+      "tags": ["Bữa trưa", "Protein cao", "Dễ nấu"],
+      "ingredients": "Tôm, bông cải xanh, tỏi, cơm vừa đủ, dầu olive",
+      "benefit": "Bữa nhanh, giàu protein nạc và rau xanh."
+    },
+    {
+      "name": "Rau củ nướng hummus",
+      "mood": "Ổn định",
+      "time": "25 phút",
+      "tags": ["Chay", "Bữa tối", "No lâu", "Đường ruột"],
+      "ingredients": "Cà rốt, bí ngòi, ớt chuông, hummus, dầu olive, tiêu",
+      "benefit": "Nhiều màu sắc, chất xơ và đạm từ đậu gà."
+    },
+    {
+      "name": "Cháo yến mạch trứng nấm",
+      "mood": "Bình yên",
+      "time": "12 phút",
+      "tags": ["Buổi sáng", "Bữa tối", "Protein cao", "Dễ nấu"],
+      "ingredients": "Yến mạch, trứng, nấm, hành lá, tiêu, nước dùng nhạt",
+      "benefit": "Phiên bản mặn của yến mạch, ấm bụng và dễ tiêu."
+    },
+    {
+      "name": "Gỏi cuốn tôm bơ",
+      "mood": "Vui vẻ",
+      "time": "18 phút",
+      "tags": ["Việt Nam", "Bữa trưa", "Protein cao", "Ít đường"],
+      "ingredients": "Bánh tráng, tôm, bơ, bún ít, rau sống, sốt đậu phộng loãng",
+      "benefit": "Tươi, nhiều rau, ít dầu mỡ hơn các món chiên."
+    },
+    {
+      "name": "Đậu phụ non sốt mè gừng",
+      "mood": "Thư giãn",
+      "time": "8 phút",
+      "tags": ["Chay", "Dễ nấu", "Bữa tối"],
+      "ingredients": "Đậu phụ non, mè rang, gừng, xì dầu ít muối, hành lá",
+      "benefit": "Mềm, nhẹ, hợp ngày cần món tối giản nhưng vẫn có đạm."
+    },
+    {
+      "name": "Pasta nguyên cám sốt cà chua cá ngừ",
+      "mood": "Tập trung",
+      "time": "20 phút",
+      "tags": ["Protein cao", "Omega-3", "Bữa tối", "No lâu"],
+      "ingredients": "Pasta nguyên cám, cá ngừ, cà chua, tỏi, basil, dầu olive",
+      "benefit": "Tinh bột phức hợp kết hợp protein, phù hợp bữa tối sau học/làm."
+    },
+    {
+      "name": "Trà gừng mật ong chanh nhẹ",
+      "mood": "Thư giãn",
+      "time": "5 phút",
+      "tags": ["Bữa phụ", "Dễ nấu", "Giảm căng thẳng"],
+      "ingredients": "Gừng tươi, chanh, nước ấm, mật ong ít",
+      "benefit": "Đồ uống ấm, phù hợp như nghi thức nghỉ ngắn; không nên dùng quá nhiều mật ong."
+    },
+    {
+      "name": "Bát cơm tofu kimchi",
+      "mood": "Bình yên",
+      "time": "15 phút",
+      "tags": ["Chay", "Đường ruột", "Bữa trưa", "Dễ nấu"],
+      "ingredients": "Cơm, đậu hũ áp chảo, kimchi, dưa leo, mè, rong biển",
+      "benefit": "Có thực phẩm lên men, protein thực vật và rau tươi trong một bát đơn giản."
+    },
+    {
+      "name": "Salad trứng khoai tây sữa chua",
+      "mood": "Ổn định",
+      "time": "18 phút",
+      "tags": ["Protein cao", "Bữa trưa", "No lâu", "Ít đường"],
+      "ingredients": "Trứng, khoai tây, sữa chua không đường, dưa leo, thì là",
+      "benefit": "No lâu hơn salad chỉ có rau, dùng sữa chua thay sốt béo nặng."
+    }
+  ]
+}

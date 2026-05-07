@@ -12,7 +12,7 @@ export const ROUTE_PATHS = {
     reflect: '/serene/reflect',
     resources: '/serene/resources',
     nutrition: '/serene/nutrition',
-    connect: '/serene/connect',
+    support: '/serene/support',
     profile: '/serene/profile',
     setting: '/serene/setting',
     notifications: '/serene/notifications',

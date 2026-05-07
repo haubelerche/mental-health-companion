@@ -16,6 +16,8 @@ TTSStatus = Literal[
     "skipped_duplicate",
     "cache_hit",
     "provider_disabled",
+    "cancelled",
+    "expired",
 ]
 
 # Statuses at which frontend polling should stop.
@@ -25,6 +27,8 @@ TTS_TERMINAL_STATUSES: frozenset[str] = frozenset({
     "skipped_duplicate",
     "cache_hit",
     "provider_disabled",
+    "cancelled",
+    "expired",
 })
 
 # Statuses considered healthy (reusable for cache_hit path).

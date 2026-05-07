@@ -9,7 +9,7 @@ const PAGE_NAMES: Record<string, string> = {
     [ROUTE_PATHS.reflect]: 'Nhìn lại',
     [ROUTE_PATHS.resources]: 'Tài nguyên',
     [ROUTE_PATHS.nutrition]: 'Dinh dưỡng',
-    [ROUTE_PATHS.connect]: 'Kết nối',
+    [ROUTE_PATHS.support]: 'Hỗ trợ',
     [ROUTE_PATHS.setting]: 'Cài đặt',
     [ROUTE_PATHS.checkin]: 'Check-in',
     [ROUTE_PATHS.exercises]: 'Bài tập',
@@ -78,9 +78,7 @@ export function AppHeader() {
                     <NavLink
                         to={ROUTE_PATHS.setting}
                         aria-label="Cài đặt"
-                        className={`transition-opacity ${
-                            isDark ? 'text-white/45 hover:text-white/80' : 'text-serene-ink/40 hover:text-serene-ink/80'
-                        }`}
+                        className="text-theme-text-secondary/50 hover:text-theme-text-primary transition-opacity"
                     >
                         <Settings className="h-4 w-4" />
                     </NavLink>
