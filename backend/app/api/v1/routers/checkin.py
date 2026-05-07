@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import ensure_policy_acknowledged
 from app.core.responses import ok
-from app.hearts.service import grant_hearts
+from app.hearts.service import grant_hearts, get_balance
 from app.hearts.streaks import update_mood_streak
 from app.services.db.models import MoodCheckin, User
 from app.services.db.session import get_db
@@ -40,17 +40,25 @@ def checkin_quick(
         "triggers": payload.triggers,
     }
     note_blob = json.dumps({"extra": extra, "note": payload.note}, ensure_ascii=False)
+
     if existing:
         existing.mood = payload.mood
         existing.emotions = payload.emotions
         existing.triggers = payload.triggers
         existing.note = note_blob[:10000]
         existing.updated_at = utc_now().replace(tzinfo=None)
+        streak_result = update_mood_streak(db, user_id=current_user.user_id, checkin_date=logged_date)
         db.commit()
         return ok({
             "checkin_id": existing.checkin_id,
             "updated": True,
-            "reward": {"granted": False, "reason": "already_claimed_today", "amount": 0},
+            "reward": {
+                "granted": False,
+                "amount": 0,
+                "reason": "already_claimed_today",
+                "new_balance": get_balance(db, current_user.user_id)
+            },
+            "streak": streak_result,
         })
 
     row = MoodCheckin(
@@ -78,7 +86,6 @@ def checkin_quick(
         metadata={"mood": payload.mood, "logged_date": logged_date.isoformat()},
     )
     streak_result = update_mood_streak(db, user_id=user_id, checkin_date=logged_date)
-
     db.commit()
     return ok(
         {
