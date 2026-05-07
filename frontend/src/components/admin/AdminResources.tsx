@@ -15,7 +15,8 @@ import AgentFlowDiagram, {
     type AgentStepData,
     type AgentResult,
 } from './AgentFlowDiagram'
-import { Brain, Info } from 'lucide-react'
+import { Brain, Info, Zap, Activity } from 'lucide-react'
+import WorkerAutomationCard from './automation/WorkerAutomationCard'
 
 /* ─────────── helpers ─────────── */
 function toTagList(value: string): string[] {
@@ -84,6 +85,21 @@ export default function AdminResources() {
     const [agentResults, setAgentResults] = useState<AgentResult[]>([])
     const [suggestion, setSuggestion] = useState<any>(null)
     const [loadingSuggestion, setLoadingSuggestion] = useState(false)
+    const [logs, setLogs] = useState<any[]>([])
+
+    const fetchLogs = async () => {
+        try {
+            const res = await adminService.getAutomationStatus()
+            const resourceLogs = (res.logs || []).filter((l: any) => l.worker === 'resource').slice(0, 5)
+            setLogs(resourceLogs)
+        } catch (err) {}
+    }
+
+    useEffect(() => {
+        fetchLogs()
+        const inv = setInterval(fetchLogs, 15000)
+        return () => clearInterval(inv)
+    }, [])
 
     const submitLabel = useMemo(() => (editingId ? 'Cập nhật' : 'Tạo resource'), [editingId])
 
@@ -403,6 +419,35 @@ export default function AdminResources() {
             {/* ═════════ TAB: AGENT MODE ═════════ */}
             {activeTab === 'agent' && (
                 <div className="admin-agent-section">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        <div className="lg:col-span-1">
+                            <WorkerAutomationCard 
+                                workerKey="resource" 
+                                icon={Zap} 
+                                description="Tự động quét và cập nhật tài nguyên từ YouTube dựa trên xu hướng tâm trạng người dùng."
+                            />
+                        </div>
+                        <div className="lg:col-span-2 bg-black/40 border border-white/10 rounded-2xl p-6 flex flex-col">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                    <Activity size={14} className="text-indigo-400" /> Nhật ký Crawler mới nhất
+                                </h3>
+                            </div>
+                            <div className="space-y-2 flex-1 overflow-y-auto max-h-[140px] custom-scrollbar pr-2">
+                                {logs.length > 0 ? (
+                                    logs.map((log, i) => (
+                                        <div key={i} className="flex gap-3 text-[11px] border-l border-indigo-500/20 pl-3 py-1 hover:bg-white/5 transition-all">
+                                            <span className="text-slate-600 shrink-0">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
+                                            <span className="text-slate-300 line-clamp-1">{log.message}</span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-xs text-slate-600 italic py-4 text-center">Chưa có hoạt động nào được ghi nhận.</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Control Panel */}
                     <div className="admin-agent-control-panel">
                         <div className="admin-agent-control-header">
