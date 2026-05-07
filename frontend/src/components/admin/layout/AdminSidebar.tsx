@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, BarChart3, Bell, LayoutDashboard, LogOut, Mail, Package, Shield, Users } from 'lucide-react'
+import { Activity, AlertTriangle, BarChart3, Bell, LayoutDashboard, LogOut, Mail, Package, Shield, Users, Cpu } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { ROUTE_PATHS } from '../../../routes/paths'
 
