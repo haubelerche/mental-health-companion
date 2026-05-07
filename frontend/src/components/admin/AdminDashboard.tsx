@@ -1,4 +1,5 @@
 import './AdminDashboard.css'
+import './AdminCommon.css'
 import { useEffect, useState } from 'react'
 import { ApiRequestError } from '../../api/types'
 import {
@@ -177,32 +178,48 @@ export default function AdminDashboard() {
             <div className="dash-kpi-grid">
                 <div className="dash-kpi-card">
                     <div className="dash-kpi-icon" style={{ background: 'rgba(96,165,250,0.12)', color: '#60a5fa' }}>📊</div>
-                    <div>
+                    <div className="flex-1">
                         <p className="dash-kpi-label">Tổng phiên trò chuyện</p>
-                        <p className="dash-kpi-value">{loading ? '...' : numberOrDash(aggregate?.total_sessions)}</p>
+                        {loading ? (
+                            <div className="admin-skeleton admin-skeleton-value" />
+                        ) : (
+                            <p className="dash-kpi-value">{numberOrDash(aggregate?.total_sessions)}</p>
+                        )}
                     </div>
                 </div>
                 <div className="dash-kpi-card">
                     <div className="dash-kpi-icon" style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>🚨</div>
-                    <div>
+                    <div className="flex-1">
                         <p className="dash-kpi-label">Sự kiện SOS</p>
-                        <p className="dash-kpi-value">{loading ? '...' : numberOrDash(aggregate?.sos_events)}</p>
+                        {loading ? (
+                            <div className="admin-skeleton admin-skeleton-value" />
+                        ) : (
+                            <p className="dash-kpi-value">{numberOrDash(aggregate?.sos_events)}</p>
+                        )}
                     </div>
                 </div>
                 <div className="dash-kpi-card">
                     <div className="dash-kpi-icon" style={{ background: 'rgba(251,191,36,0.12)', color: '#fbbf24' }}>⚡</div>
-                    <div>
+                    <div className="flex-1">
                         <p className="dash-kpi-label">Auth P95 (Login)</p>
-                        <p className="dash-kpi-value">{loading ? '...' : `${numberOrDash(latency?.login.p95_ms)} ms`}</p>
+                        {loading ? (
+                            <div className="admin-skeleton admin-skeleton-value" />
+                        ) : (
+                            <p className="dash-kpi-value">{numberOrDash(latency?.login.p95_ms)} ms</p>
+                        )}
                     </div>
                 </div>
                 <div className="dash-kpi-card">
                     <div className="dash-kpi-icon" style={{ background: 'rgba(52,211,153,0.12)', color: '#34d399' }}>💰</div>
-                    <div>
+                    <div className="flex-1">
                         <p className="dash-kpi-label">Chi phí ước tính</p>
-                        <p className="dash-kpi-value">
-                            {loading ? '...' : typeof cost?.chat_cost.estimated_cost_usd === 'number' ? `$${cost.chat_cost.estimated_cost_usd.toFixed(4)}` : '-'}
-                        </p>
+                        {loading ? (
+                            <div className="admin-skeleton admin-skeleton-value" />
+                        ) : (
+                            <p className="dash-kpi-value">
+                                {typeof cost?.chat_cost.estimated_cost_usd === 'number' ? `$${cost.chat_cost.estimated_cost_usd.toFixed(4)}` : '-'}
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>
@@ -213,10 +230,19 @@ export default function AdminDashboard() {
                 <div className="dash-card">
                     <h2 className="dash-card-title">Phân bố cảm xúc</h2>
                     <p className="dash-card-desc">Tâm trạng người dùng trong giai đoạn.</p>
-                    {aggregate?.mood_distribution ? (
+                    {loading ? (
+                        <div className="space-y-4">
+                            {[1, 2, 3, 4].map(i => (
+                                <div key={i} className="flex gap-4 items-center">
+                                    <div className="w-20 h-4 admin-skeleton" />
+                                    <div className="flex-1 admin-skeleton admin-skeleton-bar" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : aggregate?.mood_distribution ? (
                         <MoodBarChart data={aggregate.mood_distribution} />
                     ) : (
-                        <p className="dash-placeholder">{loading ? 'Đang tải...' : 'Không có dữ liệu'}</p>
+                        <p className="dash-placeholder">Không có dữ liệu</p>
                     )}
                 </div>
 
@@ -224,7 +250,15 @@ export default function AdminDashboard() {
                 <div className="dash-card">
                     <h2 className="dash-card-title">Sử dụng Token LLM</h2>
                     <p className="dash-card-desc">Phân bố token input/output từ chat AI.</p>
-                    {cost?.chat_cost ? (
+                    {loading ? (
+                        <div className="flex items-center justify-center py-4 gap-8">
+                            <div className="admin-skeleton admin-skeleton-circle" />
+                            <div className="space-y-2 w-32">
+                                <div className="h-4 admin-skeleton" />
+                                <div className="h-4 admin-skeleton w-2/3" />
+                            </div>
+                        </div>
+                    ) : cost?.chat_cost ? (
                         <>
                             <TokenDonut input={cost.chat_cost.total_input_tokens} output={cost.chat_cost.total_output_tokens} />
                             <div className="dash-token-stats">
@@ -239,7 +273,7 @@ export default function AdminDashboard() {
                             </div>
                         </>
                     ) : (
-                        <p className="dash-placeholder">{loading ? 'Đang tải...' : 'Không có dữ liệu'}</p>
+                        <p className="dash-placeholder">Không có dữ liệu</p>
                     )}
                 </div>
             </div>
@@ -248,7 +282,18 @@ export default function AdminDashboard() {
             <div className="dash-card">
                 <h2 className="dash-card-title">Hiệu suất xác thực (SLA)</h2>
                 <p className="dash-card-desc">Giám sát thời gian phản hồi API đăng nhập và đăng ký.</p>
-                {latency ? (
+                {loading ? (
+                    <div className="dash-sla-grid">
+                        <div className="flex flex-col items-center gap-4 py-6">
+                            <div className="admin-skeleton admin-skeleton-circle !h-[70px] !rounded-t-full !rounded-b-none" />
+                            <div className="h-4 w-20 admin-skeleton" />
+                        </div>
+                        <div className="flex flex-col items-center gap-4 py-6">
+                            <div className="admin-skeleton admin-skeleton-circle !h-[70px] !rounded-t-full !rounded-b-none" />
+                            <div className="h-4 w-20 admin-skeleton" />
+                        </div>
+                    </div>
+                ) : latency ? (
                     <div className="dash-sla-grid">
                         <SlaGauge
                             label="Đăng nhập"
@@ -266,7 +311,7 @@ export default function AdminDashboard() {
                         />
                     </div>
                 ) : (
-                    <p className="dash-placeholder">{loading ? 'Đang tải...' : 'Không có dữ liệu'}</p>
+                    <p className="dash-placeholder">Không có dữ liệu</p>
                 )}
             </div>
 
