@@ -121,6 +121,45 @@ create table app.refresh_tokens (
 -- INDEX REMOVED FROM FAST CORE SCRIPT. Run optional index script after core migration.
 create index idx_refresh_tokens_expires_at on app.refresh_tokens(expires_at);
 
+create table app.user_identities (
+  identity_id text primary key default extensions.gen_random_uuid()::text,
+  user_id text not null references app.users(user_id) on delete cascade,
+  provider text not null,
+  provider_user_id text not null,
+  provider_email text,
+  provider_name text,
+  provider_picture_url text,
+  provider_email_verified_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint uq_user_identity_provider_uid unique (provider, provider_user_id),
+  constraint uq_user_identity_user_provider unique (user_id, provider)
+);
+
+create trigger trg_user_identities_updated_at
+before update on app.user_identities
+for each row execute function app.set_updated_at();
+
+create table app.email_verification_tokens (
+  token_id text primary key default extensions.gen_random_uuid()::text,
+  user_id text not null references app.users(user_id) on delete cascade,
+  token_hash text not null unique,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  resend_count integer not null default 0,
+  last_sent_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create table app.password_reset_tokens (
+  token_id text primary key default extensions.gen_random_uuid()::text,
+  user_id text not null references app.users(user_id) on delete cascade,
+  token_hash text not null unique,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
 
 -- ============================================================
 -- 4. CONVERSATION CORE
@@ -208,8 +247,9 @@ create table app.mood_checkins (
   logged_date date not null,
   logged_at timestamptz not null default now(),
   updated_at timestamptz,
+  time_bucket text not null default 'other',
 
-  unique (user_id, logged_date)
+  constraint uq_mood_checkin_bucket unique (user_id, logged_date, time_bucket)
 );
 
 create trigger trg_mood_checkins_updated_at

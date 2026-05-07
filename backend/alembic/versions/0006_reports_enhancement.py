@@ -15,16 +15,33 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(table_name: str) -> bool:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return table_name in inspector.get_table_names()
+
+
 def _column_names(table_name: str) -> set[str]:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
     return {column["name"] for column in inspector.get_columns(table_name)}
 
 
-def upgrade() -> None:
-    cols = _column_names("reports")
+def _index_names(table_name: str) -> set[str]:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return {ix["name"] for ix in inspector.get_indexes(table_name)}
 
-    # Add report_category column (VARCHAR for flexibility, can be converted to ENUM later)
+
+def upgrade() -> None:
+    # Skip silently when the optional `reports` table is not present in this
+    # environment. Older deployments seeded only via Base.metadata.create_all
+    # never received a Report model, so the table genuinely does not exist
+    # and there is nothing to enhance until a future migration creates it.
+    if not _table_exists("reports"):
+        return
+
+    cols = _column_names("reports")
     if "report_category" not in cols:
         op.add_column(
             "reports",
@@ -36,7 +53,6 @@ def upgrade() -> None:
             ),
         )
 
-    # Add report_status column for moderation workflow
     if "report_status" not in cols:
         op.add_column(
             "reports",
@@ -48,29 +64,33 @@ def upgrade() -> None:
             ),
         )
 
-    # Create index for admin queries: filtering by category, status, and sorting by date
-    op.create_index(
-        "idx_reports_category_status",
-        "reports",
-        ["report_category", "report_status", "created_at"],
-    )
+    existing_indexes = _index_names("reports")
+    if "idx_reports_category_status" not in existing_indexes:
+        op.create_index(
+            "idx_reports_category_status",
+            "reports",
+            ["report_category", "report_status", "created_at"],
+        )
 
-    # Create index for querying by reporter_id (for user's own reports)
-    op.create_index(
-        "idx_reports_reporter",
-        "reports",
-        ["reporter_id", "created_at"],
-    )
+    if "idx_reports_reporter" not in existing_indexes:
+        op.create_index(
+            "idx_reports_reporter",
+            "reports",
+            ["reporter_id", "created_at"],
+        )
 
-    # Create index for querying by letter_id (for duplicate prevention)
-    op.create_index(
-        "idx_reports_letter",
-        "reports",
-        ["letter_id"],
-    )
+    if "idx_reports_letter" not in existing_indexes:
+        op.create_index(
+            "idx_reports_letter",
+            "reports",
+            ["letter_id"],
+        )
 
 
 def downgrade() -> None:
+    if not _table_exists("reports"):
+        return
+
     cols = _column_names("reports")
 
     # Drop indexes

@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import timedelta
 from enum import Enum
 
@@ -7,6 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import ensure_policy_acknowledged
 from app.core.responses import ok
+from app.dashboard.service import (
+    build_checkin_history,
+    build_reflect_summary,
+    build_safe_insights_payload,
+)
 from app.services.db.models import ClinicalProfile, Conversation, MoodCheckin, User, UserProfile
 from app.services.db.session import get_db
 from app.services.utils import (
@@ -108,9 +114,11 @@ def overview(
         db.scalar(select(func.count(Conversation.session_id)).where(Conversation.user_id == current_user.user_id)) or 0
     )
     today = local_date_utc7()
-    mood_today = db.scalar(
-        select(MoodCheckin).where(MoodCheckin.user_id == current_user.user_id, MoodCheckin.logged_date == today)
-    )
+    mood_today_row = db.scalars(
+        select(MoodCheckin)
+        .where(MoodCheckin.user_id == current_user.user_id, MoodCheckin.logged_date == today)
+        .order_by(MoodCheckin.logged_at.desc())
+    ).first()
 
     last_session_at = db.scalar(
         select(func.max(Conversation.last_message_at)).where(
@@ -139,7 +147,10 @@ def overview(
         "refreshed_at": refreshed_at,
         "session_count": sessions_total,
         "last_session_at": last_session_at.isoformat() + "Z" if last_session_at else None,
-        "mood_today": {"checked_in": mood_today is not None, "mood": mood_today.mood if mood_today else None},
+        "mood_today": {
+            "checked_in": mood_today_row is not None,
+            "mood": mood_today_row.mood if mood_today_row else None,
+        },
         "assessment": assessment,
         "analyst_insights": _build_dashboard_insights(user_profile.profile if user_profile else {}),
     }
@@ -166,14 +177,17 @@ def overview(
             )
             .order_by(MoodCheckin.logged_date.asc())
         ).all()
-        scores = [_mood_score(r.mood)[0] for r in mood_rows]
-        avg_mood = round(sum(scores) / len(scores), 2) if scores else None
+        by_day_win: dict = defaultdict(list)
+        for r in mood_rows:
+            by_day_win[r.logged_date].append(_mood_score(r.mood)[0])
+        daily_avgs = [sum(v) / len(v) for v in by_day_win.values()]
+        avg_mood = round(sum(daily_avgs) / len(daily_avgs), 2) if daily_avgs else None
         payload["window"] = {
             "kind": window.value,
             "date_from": date_from.isoformat(),
             "date_to": date_to.isoformat(),
             "sessions_with_activity": sessions_in_window,
-            "mood_checkin_days": len(mood_rows),
+            "mood_checkin_days": len(by_day_win),
             "avg_mood_score": avg_mood,
         }
 
@@ -277,17 +291,30 @@ def dashboard_mood_trend(
         )
         .order_by(MoodCheckin.logged_date.asc())
     ).all()
-    point_map = {row.logged_date: row for row in rows}
+    by_day: dict = defaultdict(list)
+    for row in rows:
+        by_day[row.logged_date].append(row)
     points = []
     missing = []
     for idx in range(span):
         day = start + timedelta(days=idx)
-        if day not in point_map:
+        day_rows = by_day.get(day)
+        if not day_rows:
             missing.append(day.isoformat())
             continue
-        item = point_map[day]
-        score, label = _mood_score(item.mood)
-        points.append({"date": day.isoformat(), "mood_score": score, "label": label, "emoji": item.emoji})
+        scores = [_mood_score(r.mood)[0] for r in day_rows]
+        avg_score = round(sum(scores) / len(scores), 2)
+        latest = max(day_rows, key=lambda r: r.logged_at or r.logged_date)
+        _, label = _mood_score(latest.mood)
+        points.append(
+            {
+                "date": day.isoformat(),
+                "mood_score": avg_score,
+                "label": label,
+                "emoji": latest.emoji,
+                "checkin_count": len(day_rows),
+            }
+        )
 
     return ok(
         {
@@ -334,6 +361,47 @@ def history(
             ],
         }
     )
+
+
+@router.get("/reflect-summary")
+def reflect_summary_dashboard(
+    current_user: User = Depends(ensure_policy_acknowledged),
+    db: Session = Depends(get_db),
+):
+    summary = build_reflect_summary(db, user_id=current_user.user_id)
+    return ok(summary.model_dump(mode="json"))
+
+
+@router.get("/checkin-history")
+def dashboard_checkin_history(
+    current_user: User = Depends(ensure_policy_acknowledged),
+    db: Session = Depends(get_db),
+    range_: str = Query("30d", alias="range", description="all | 30d | 90d"),
+):
+    if range_ not in {"30d", "90d", "all"}:
+        range_ = "30d"
+    days = None if range_ == "all" else (90 if range_ == "90d" else 30)
+    rows = db.scalars(
+        select(MoodCheckin)
+        .where(MoodCheckin.user_id == current_user.user_id)
+        .order_by(MoodCheckin.logged_date.asc(), MoodCheckin.logged_at.asc())
+    ).all()
+    history = build_checkin_history(list(rows), days=days)
+    return ok(
+        {
+            "timezone": "Asia/Ho_Chi_Minh",
+            "range": range_,
+            "history": [h.model_dump(mode="json") for h in history],
+        }
+    )
+
+
+@router.get("/safe-insights")
+def dashboard_safe_insights(
+    current_user: User = Depends(ensure_policy_acknowledged),
+    db: Session = Depends(get_db),
+):
+    return ok(build_safe_insights_payload(db, user_id=current_user.user_id))
 
 
 @router.get("/follow-up")
