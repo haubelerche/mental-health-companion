@@ -121,10 +121,6 @@ class Message(Base):
     __tablename__ = "messages"
     __table_args__ = (
         CheckConstraint("role IN ('user','assistant')", name="chk_role"),
-        CheckConstraint(
-            "assistant_tone IS NULL OR assistant_tone IN ('supportive','validating','cheerful','calming','mentor','neutral')",
-            name="ck_messages_assistant_tone",
-        ),
         CheckConstraint("length(content) <= 2000", name="chk_content_length"),
     )
 

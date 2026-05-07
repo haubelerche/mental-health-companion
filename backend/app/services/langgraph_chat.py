@@ -1443,7 +1443,7 @@ def stream_non_sos_turn_events(
     persona_id_active = str(state.get("active_persona_id") or DEFAULT_PERSONA_ID)
     hist = list(state.get("routing_history") or [])
     hist.append("friend")
-    tone = "xac_nhan"
+    tone = "validating"
     attachments: list[dict[str, Any]] = []
 
     reply_text = ""
