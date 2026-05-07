@@ -357,7 +357,7 @@
 
 *No previous releases â€” initial changelog setup.*
 
-## [Unreleased] - Sprint A Phase 5 · 2026-05-07
+## [Unreleased] - Sprint A Phase 5 ï¿½ 2026-05-07
 
 ### Fixed
 - Synced ORM column names with Supabase SQL schema: `tone_cam_xuc` -> `assistant_tone` and `muc_do` -> `severity_level`.
