@@ -64,13 +64,13 @@ const quickExercises = [
         title: 'Thở 4-7-8',
         duration: '2 phút • Thư giãn',
         icon: Wind,
-        tone: 'bg-primary/10 text-primary',
+        tone: 'bg-theme-accent/10 text-theme-accent',
     },
     {
         title: 'Quét cơ thể',
         duration: '5 phút • Nhận thức',
         icon: Leaf,
-        tone: 'bg-secondary-container/50 text-secondary',
+        tone: 'bg-theme-secondary/20 text-theme-text-secondary',
     },
 ]
 
@@ -205,29 +205,29 @@ export default function Reflect() {
             <div className="flex-1">
 
                 <div className="mx-auto flex w-full max-w-5xl flex-col items-center">
-                    <section className={`w-full rounded-[2.5rem] border ${isDark ? 'border-theme-border/50 bg-theme-surface/40' : 'border-white/35 bg-serene-bg/70'} p-4 shadow-md backdrop-blur-3xl md:p-7 lg:p-8`}>
+                    <section className={`w-full rounded-[2.5rem] border ${isDark ? 'border-theme-border/50 bg-theme-surface/40' : 'border-theme-border/10 bg-white/40 shadow-sm'} p-4 backdrop-blur-3xl md:p-7 lg:p-8`}>
                         <div className="text-center">
                             <p className={`mb-3 text-xs font-semibold uppercase tracking-[0.28em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary/70'}`}>
                                 Nhìn Lại
                             </p>
                             <h1 className={`font-display text-4xl font-light leading-tight ${isDark ? 'text-theme-text-primary' : 'text-[#2F342E]'} md:text-5xl lg:text-6xl`}>
-                                Chào <span className={`italic font-medium ${isDark ? 'text-theme-accent' : 'text-theme-text-primary'}`}>{displayName}</span>
+                                Chào <span className={`italic font-medium text-theme-text-primary`}>{displayName}</span>
                             </h1>
-                            <p className={`mx-auto mt-3 max-w-2xl text-xs italic leading-relaxed ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary/80'} md:text-sm`}>
+                            <p className={`mx-auto mt-3 max-w-2xl text-xs italic leading-relaxed ${isDark ? 'text-theme-text-secondary' : 'text-serene-muted'} md:text-sm`}>
                                 Dữ liệu cảm xúc của bạn đang được cập nhật liên tục từ những phiên trò chuyện cùng Serene.
                             </p>
                         </div>
 
                         {error && (
-                            <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            <div className={`mt-6 rounded-2xl border px-4 py-3 text-sm ${isDark ? 'border-red-900/50 bg-red-950/30 text-red-400' : 'border-red-200 bg-red-50 text-red-700'}`}>
                                 {error}
                             </div>
                         )}
 
                         {loading && (
                             <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-                                <div className="h-20 animate-pulse rounded-2xl bg-white/50 lg:col-span-2" />
-                                <div className="h-20 animate-pulse rounded-2xl bg-white/50" />
+                                <div className={`h-20 animate-pulse rounded-2xl lg:col-span-2 ${isDark ? 'bg-theme-surface-alt/50' : 'bg-white/50'}`} />
+                                <div className={`h-20 animate-pulse rounded-2xl ${isDark ? 'bg-theme-surface-alt/50' : 'bg-white/50'}`} />
                             </div>
                         )}
 
@@ -237,7 +237,7 @@ export default function Reflect() {
                             </div>
                         )}
 
-                        <div className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-white/25 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
+                        <div className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-theme-border/20 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
                                 <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
                                     <div>
                                         <h2 className={`font-display text-xl ${isDark ? 'text-theme-text-primary' : 'text-serene-primary'} md:text-2xl`}>Biểu đồ cảm xúc</h2>
@@ -266,48 +266,50 @@ export default function Reflect() {
                                             <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                                                 <defs>
                                                     <linearGradient id="moodGradient" x1="0" x2="0" y1="0" y2="1">
-                                                        <stop offset="5%" stopColor="#4d6359" stopOpacity={0.38} />
-                                                        <stop offset="95%" stopColor="#4d6359" stopOpacity={0.04} />
+                                                        <stop offset="5%" stopColor={isDark ? "var(--color-theme-accent)" : "#4d6359"} stopOpacity={0.38} />
+                                                        <stop offset="95%" stopColor={isDark ? "var(--color-theme-accent)" : "#4d6359"} stopOpacity={0.04} />
                                                     </linearGradient>
                                                 </defs>
-                                                <CartesianGrid stroke={"var(--color-theme-secondary)"} strokeDasharray="4 10" vertical={false} />
+                                                <CartesianGrid stroke={isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"} strokeDasharray="4 10" vertical={false} />
                                                 <XAxis
                                                     dataKey="day"
                                                     axisLine={false}
                                                     tickLine={false}
-                                                    tick={{ fill: isDark ? '#b0b9c3' : '#5c605a', fontSize: 11 }}
+                                                    tick={{ fill: isDark ? 'var(--theme-text-tertiary)' : 'var(--theme-text-secondary)', fontSize: 11 }}
                                                 />
                                                 <YAxis hide domain={[0, 100]} />
                                                 <Tooltip
-                                                    cursor={{ stroke: '#4d6359', strokeOpacity: 0.12, strokeWidth: 1 }}
+                                                    cursor={{ stroke: isDark ? 'var(--color-theme-accent)' : '#4d6359', strokeOpacity: 0.12, strokeWidth: 1 }}
                                                     contentStyle={{
                                                         borderRadius: '1rem',
-                                                        border: '1px solid rgba(255,255,255,0.5)',
-                                                        background: 'rgba(255,255,255,0.85)',
-                                                        boxShadow: '0 18px 40px rgba(47,52,46,0.14)',
+                                                        border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.05)',
+                                                        background: isDark ? 'rgba(22, 27, 34, 0.9)' : 'rgba(255,255,255,0.95)',
+                                                        boxShadow: '0 18px 40px rgba(0,0,0,0.14)',
+                                                        backdropFilter: 'blur(8px)',
                                                     }}
-                                                    labelStyle={{ color: '#2f342e', fontWeight: 700 }}
+                                                    itemStyle={{ color: isDark ? 'var(--color-theme-accent)' : '#4d6359' }}
+                                                    labelStyle={{ color: isDark ? 'var(--theme-text-primary)' : 'var(--theme-text-primary)', fontWeight: 700 }}
                                                     formatter={(value, name) => [
                                                         `${value ?? 0}%`,
-                                                        name === 'mood' ? 'Mức ổn định cảm xúc (ước lượng)' : String(name ?? ''),
+                                                        name === 'mood' ? 'Cảm xúc' : String(name ?? ''),
                                                     ]}
                                                     labelFormatter={(label) => `Ngày ${label}`}
                                                 />
                                                 <Area
                                                     type="monotone"
                                                     dataKey="mood"
-                                                    stroke="#4d6359"
+                                                    stroke={isDark ? "var(--color-theme-accent)" : "#4d6359"}
                                                     strokeWidth={3}
                                                     fill="url(#moodGradient)"
-                                                    dot={{ r: 4, stroke: '#faf9f5', strokeWidth: 2, fill: '#4d6359' }}
-                                                    activeDot={{ r: 6, stroke: '#faf9f5', strokeWidth: 2, fill: '#4d6359' }}
+                                                    dot={{ r: 4, stroke: isDark ? 'var(--theme-bg-secondary)' : '#faf9f5', strokeWidth: 2, fill: isDark ? 'var(--color-theme-accent)' : '#4d6359' }}
+                                                    activeDot={{ r: 6, stroke: isDark ? 'var(--theme-bg-secondary)' : '#faf9f5', strokeWidth: 2, fill: isDark ? 'var(--color-theme-accent)' : '#4d6359' }}
                                                 />
                                             </AreaChart>
                                         </ResponsiveContainer>
                                     ) : (
-                                        <div className="flex min-h-72 flex-col items-center justify-center gap-2 rounded-3xl border border-white/30 bg-white/20 px-6 text-center text-sm text-serene-muted md:min-h-80">
+                                        <div className={`flex min-h-72 flex-col items-center justify-center gap-2 rounded-3xl border px-6 text-center text-sm ${isDark ? 'border-theme-border/30 bg-theme-surface/40 text-theme-text-secondary' : 'border-theme-border/10 bg-theme-surface/50 text-serene-muted'} md:min-h-80`}>
                                             <p>Chưa đủ dữ liệu để vẽ xu hướng.</p>
-                                            <p className="text-xs leading-relaxed md:text-sm">
+                                            <p className="text-xs leading-relaxed opacity-70 md:text-sm">
                                                 Cần ít nhất 3 ngày có check-in hoặc 5 check-in để Serene vẽ mood trend đáng tin hơn.
                                             </p>
                                         </div>
@@ -322,7 +324,7 @@ export default function Reflect() {
                             </div>
 
                         {reflectSummary && (
-                            <section className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-white/25 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
+                            <section className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-theme-border/20 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
                                 <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
                                     <div>
                                         <p className={`text-[10px] uppercase tracking-[0.3em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary/70'}`}>
@@ -370,7 +372,7 @@ export default function Reflect() {
                         )}
 
                         {reflectSummary && radarScores && (
-                            <section className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-white/25 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
+                            <section className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-theme-border/20 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
                                 <div className="mb-1 flex items-end justify-between gap-4">
                                     <div>
                                         <p className={`text-[10px] uppercase tracking-[0.3em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary/70'}`}>
@@ -395,7 +397,7 @@ export default function Reflect() {
                                     return (
                                     <div
                                         key={m.label}
-                                        className={`flex-shrink-0 flex items-center gap-1.5 ${isDark ? 'bg-theme-surface/60 border border-theme-border/20' : 'bg-[var(--color-guong-bg)]'} rounded-full px-3 py-1.5 text-xs font-medium ${isDark ? 'text-theme-text-primary' : 'text-[var(--color-serene-ink)]'}`}
+                                        className={`flex-shrink-0 flex items-center gap-1.5 ${isDark ? 'bg-theme-surface-alt/60 border border-theme-border/20' : 'bg-serene-accent/30'} rounded-full px-3 py-1.5 text-xs font-medium ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}
                                     >
                                         <Mi className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
                                         <span>{m.label}</span>
@@ -406,7 +408,7 @@ export default function Reflect() {
 
                         {/* ── Progress Stats ── */}
                         {reflectSummary && (
-                            <section className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-theme-border/20 bg-theme-surface/60' : 'border-white/25 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
+                            <section className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-theme-border/20 bg-theme-surface/60' : 'border-theme-border/20 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
                                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                                     <div>
                                         <p className={`text-[10px] uppercase tracking-[0.3em] text-theme-text-secondary`}>Tiến trình</p>
@@ -433,112 +435,21 @@ export default function Reflect() {
                             </section>
                         )}
 
-                        <section className={`mt-6 rounded-3xl border-l-4 ${isDark ? 'border-theme-accent bg-theme-accent/10 shadow-sm' : 'border-serene-primary bg-serene-primary/5'} p-4 md:p-6`}>
+                        <section className={`my-6 rounded-3xl border-l-4 ${isDark ? 'border-theme-accent bg-theme-accent/10 shadow-sm' : 'border-serene-primary bg-serene-primary/5'} p-4 md:p-6`}>
                             <div className="mb-4 flex items-center gap-3">
-                                <div className={`rounded-full ${isDark ? 'bg-theme-accent/20 text-theme-accent' : 'bg-primary/10 p-2.5 text-primary'} p-2.5`}>
+                                <div className={`rounded-full ${isDark ? 'bg-theme-accent/20 text-theme-accent' : 'bg-theme-accent/10 p-2.5 text-theme-accent'} p-2.5`}>
                                     <Sparkles className="h-5 w-5" />
                                 </div>
-                                <h2 className={`font-display text-xl italic ${isDark ? 'text-theme-text-primary' : 'text-emerald-900'} md:text-2xl`}>
+                                <h2 className={`font-display text-xl italic ${isDark ? 'text-theme-text-primary' : 'text-theme-text-primary'} md:text-2xl`}>
                                     Lời nhắn tuần từ Serene
                                 </h2>
                             </div>
-                            <p className={`text-sm leading-relaxed ${isDark ? 'text-theme-text-primary/90 font-medium' : 'text-serene-ink/90'} md:text-base`}>
+                            <p className={`text-sm leading-relaxed ${isDark ? 'text-theme-text-primary/90 font-medium' : 'text-theme-text-primary/80'} md:text-base`}>
                                 {loading
                                     ? 'Serene đang phân tích dữ liệu tuần của bạn...'
                                     : `“${weeklyNote?.content || 'Bạn đang duy trì nỗ lực rất tốt. Hãy tiếp tục giữ nhịp nghỉ ngơi và chăm sóc bản thân.'}”`}
                             </p>
                         </section>
-
-                        <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-5">
-                            <div className={`rounded-3xl border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-white/25 bg-white/10'} p-4 backdrop-blur-md lg:col-span-2 md:p-6 shadow-sm`}>
-                                <div className="mb-5 flex items-center justify-between gap-4">
-                                    <div className="flex items-center gap-3">
-                                        <Leaf className={`h-4 w-4 ${isDark ? 'text-theme-accent' : 'text-primary'}`} />
-                                        <h3 className={`font-display text-xl ${isDark ? 'text-theme-text-primary' : 'text-serene-primary'}`}>Nhật ký gần đây</h3>
-                                    </div>
-                                    <span className={`text-[10px] uppercase tracking-widest ${isDark ? 'text-theme-text-secondary/60' : 'text-serene-primary/50'}`}>
-                                        {recentJournal?.created_at
-                                            ? new Date(recentJournal.created_at).toLocaleDateString('vi-VN')
-                                            : 'Chưa có'}
-                                    </span>
-                                </div>
-
-                                <blockquote className={`mb-5 font-display text-lg italic leading-relaxed ${isDark ? 'text-theme-text-primary' : 'text-serene-primary-dim'} md:text-2xl`}>
-                                    {recentJournal
-                                        ? `“${recentJournal.content_preview}”`
-                                        : '“Hãy viết vài dòng cảm nhận để hệ thống hiểu bạn sâu hơn.”'}
-                                </blockquote>
-
-                                <button
-                                    type="button"
-                                    onClick={() => navigate(ROUTE_PATHS.reflect)}
-                                    className={`inline-flex items-center gap-2 text-xs uppercase tracking-widest ${isDark ? 'text-theme-accent' : 'text-serene-primary'} transition-transform hover:translate-x-0.5`}
-                                >
-                                    Đọc toàn bộ
-                                    <ArrowRight className="h-4 w-4" />
-                                </button>
-                            </div>
-
-                            <aside className={`rounded-3xl border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-white/25 bg-white/10'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
-                                <h3 className={`mb-5 font-display text-xl ${isDark ? 'text-theme-text-primary' : 'text-serene-primary'}`}>Bài tập nhanh</h3>
-                                <div className="space-y-3">
-                                    {quickExercises.map((exercise) => {
-                                        const Icon = exercise.icon
-
-                                        return (
-                                            <button
-                                                key={exercise.title}
-                                                type="button"
-                                                className={`group flex w-full items-center gap-3 rounded-full ${isDark ? 'bg-theme-surface/60 hover:bg-theme-accent/10 border border-theme-border/30 shadow-sm' : 'bg-white hover:bg-white/60'} p-3 text-left transition-all`}
-                                            >
-                                                <div className={`flex h-9 w-9 items-center justify-center rounded-full ${isDark ? 'bg-theme-surface/80 text-theme-accent shadow-inner' : exercise.tone} `}>
-                                                    <Icon className="h-4 w-4" />
-                                                </div>
-                                                <div>
-                                                    <p className={`text-[13px] font-bold ${isDark ? 'text-theme-text-primary' : 'text-serene-primary'}`}>{exercise.title}</p>
-                                                    <p className={`text-[10px] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary'}`}>{exercise.duration}</p>
-                                                </div>
-                                                <ChevronRight className={`ml-auto h-4 w-4 ${isDark ? 'text-theme-text-secondary/40' : 'text-serene-primary/30'} transition-transform group-hover:translate-x-1`} />
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                                <div className={`mt-4 rounded-2xl ${isDark ? 'bg-theme-surface/40 border border-theme-border/20' : 'bg-white/60'} p-3 text-[11px] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary'}`}>
-                                    <p>Tỷ lệ coping hiệu quả (tự báo cáo): {formatPercent(reflectSummary?.progress.effective_rate)}</p>
-                                    <p className="mt-2">
-                                        Insight gần đây:{' '}
-                                        {reflectSummary?.top_insights?.length
-                                            ? reflectSummary.top_insights[0].title
-                                            : 'Serene đang chờ thêm check-in hoặc trò chuyện nhẹ'}
-                                    </p>
-                                </div>
-                            </aside>
-                        </section>
-
-                         {/* {prompts.length > 0 && (
-                            <section className="mt-6">
-                                <h3 className={`flex items-center gap-2 font-semibold ${isDark ? 'text-theme-text-primary/90' : 'text-[var(--color-serene-ink)]'} mb-3 text-sm`}>
-                                    <PenLine className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-                                    Gợi ý ghi chép hôm nay
-                                </h3>
-                                <div className="flex flex-col gap-2">
-                                    {prompts.slice(0, 3).map(p => (
-                                        <div
-                                            key={p.id}
-                                            className={`${isDark ? 'bg-theme-surface/60 text-theme-text-secondary border border-theme-border/30' : 'bg-[var(--color-guong-bg)] text-[var(--color-serene-muted)]'} rounded-2xl p-4 text-sm leading-relaxed shadow-sm`}
-                                        >
-                                            {p.text}
-                                        </div>
-                                    ))}
-                                </div>
-                            </section>
-                        )} */}
-
-                        <div className={`mt-6 border-t ${isDark ? 'border-theme-border/50' : 'border-serene-primary/5'} pt-7 text-center`}>
-                            <p className={`font-display text-base italic ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary'} md:text-lg`}>
-                                “Học cách chữa lành là hành trình đẹp đẽ nhất của mỗi con người.”
-                            </p>
-                        </div>
                     </section>
                 </div>
             </div>

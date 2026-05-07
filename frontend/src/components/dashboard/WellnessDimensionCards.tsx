@@ -8,15 +8,15 @@ type Props = {
 function statusStyles(status: WellnessDimension['status']): string {
     switch (status) {
         case 'steady':
-            return 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200'
+            return 'bg-emerald-500/25 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200'
         case 'improving':
-            return 'bg-teal-500/15 text-teal-800 dark:text-teal-200'
+            return 'bg-teal-500/25 text-teal-900 dark:bg-teal-500/15 dark:text-teal-200'
         case 'needs_attention':
-            return 'bg-amber-500/15 text-amber-900 dark:text-amber-100'
+            return 'bg-amber-500/25 text-amber-950 dark:bg-amber-500/15 dark:text-amber-100'
         case 'limited_data':
         case 'unknown':
         default:
-            return 'bg-neutral-500/10 text-neutral-700 dark:text-neutral-300'
+            return 'bg-neutral-500/20 text-neutral-800 dark:bg-neutral-500/10 dark:text-neutral-300'
     }
 }
 
@@ -56,7 +56,7 @@ export function WellnessDimensionCards({ dimensions, isDark }: Props) {
                 {dimensions.map((d) => (
                     <div
                         key={d.dimension}
-                        className={`rounded-2xl border p-4 ${isDark ? 'border-theme-border/25 bg-theme-surface/50' : 'border-white/35 bg-white/40'}`}
+                        className={`rounded-2xl border p-4 ${isDark ? 'border-theme-border/25 bg-theme-surface/50' : 'border-theme-border/10 bg-white/70 shadow-sm'}`}
                     >
                         <div className="flex items-start justify-between gap-2">
                             <p className={`font-semibold ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>{d.label}</p>
@@ -69,7 +69,7 @@ export function WellnessDimensionCards({ dimensions, isDark }: Props) {
                                 <div className="flex items-center gap-2">
                                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
                                         <div
-                                            className="h-full rounded-full bg-primary dark:bg-theme-accent"
+                                            className="h-full rounded-full bg-theme-accent"
                                             style={{ width: `${Math.min(100, Math.max(0, d.score))}%` }}
                                         />
                                     </div>
@@ -86,7 +86,7 @@ export function WellnessDimensionCards({ dimensions, isDark }: Props) {
                             {d.evidence_count > 0 ? `${d.evidence_count} ghi nhận liên quan` : 'Chưa có ghi nhận đủ'}
                         </p>
                         {d.suggested_action && (
-                            <p className={`mt-2 text-xs italic ${isDark ? 'text-theme-accent/90' : 'text-primary/90'}`}>
+                            <p className={`mt-2 text-xs italic ${isDark ? 'text-theme-accent/90' : 'text-theme-accent'}`}>
                                 Gợi ý nhỏ: {d.suggested_action}
                             </p>
                         )}

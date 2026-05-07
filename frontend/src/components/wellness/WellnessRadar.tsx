@@ -58,15 +58,17 @@ export function WellnessRadar({ scores, mini = false, className }: Props) {
                         </radialGradient>
                     </defs>
                     <PolarGrid
-                        stroke="rgba(77,99,89,0.15)"
+                        stroke="currentColor"
+                        className="text-theme-border/30 dark:text-white/10"
                         gridType="polygon"
                         strokeDasharray="3 4"
                     />
                     <PolarAngleAxis
                         dataKey="subject"
                         tick={{
-                            fill: tickFill,
-                            fontSize: 12,
+                            fill: 'currentColor',
+                            className: 'text-theme-text-secondary dark:text-theme-text-tertiary',
+                            fontSize: 11,
                             fontWeight: 500,
                             fontFamily: 'var(--font-body)',
                         }}
@@ -74,10 +76,10 @@ export function WellnessRadar({ scores, mini = false, className }: Props) {
                     <Radar
                         name="Wellness"
                         dataKey="value"
-                        stroke="var(--color-serene-primary)"
+                        stroke="var(--color-theme-accent)"
                         fill="url(#radarFill)"
-                        strokeWidth={2.5}
-                        dot={mini ? false : DOT_STYLE}
+                        strokeWidth={2}
+                        dot={mini ? false : { ...DOT_STYLE, fill: 'var(--color-theme-accent)' }}
                         animationBegin={0}
                         animationDuration={900}
                         animationEasing="ease-out"

@@ -132,7 +132,7 @@ export function TinHieuCard({ sufficiency, insights, isDark }: Props) {
                     <Link
                         to={ROUTE_PATHS.checkin}
                         className={`inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold transition hover:opacity-90 ${
-                            isDark ? 'bg-theme-accent text-white' : 'bg-primary text-white'
+                            isDark ? 'bg-theme-accent text-white' : 'bg-theme-accent text-white'
                         }`}
                     >
                         Check-in cảm xúc

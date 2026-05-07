@@ -25,11 +25,11 @@ function scoreAbbrev(score: number): string {
 }
 
 function scoreToClasses(score: number): string {
-    if (score >= 80) return 'bg-emerald-50 border-emerald-200 text-emerald-700'
-    if (score >= 60) return 'bg-green-50 border-green-200 text-green-700'
-    if (score >= 40) return 'bg-amber-50 border-amber-200 text-amber-700'
-    if (score >= 20) return 'bg-orange-50 border-orange-200 text-orange-700'
-    return 'bg-red-50 border-red-200 text-red-600'
+    if (score >= 80) return 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-800/50 dark:text-emerald-400'
+    if (score >= 60) return 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800/50 dark:text-green-400'
+    if (score >= 40) return 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800/40 dark:text-amber-400'
+    if (score >= 20) return 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/20 dark:border-orange-800/40 dark:text-orange-400'
+    return 'bg-red-50 border-red-200 text-red-600 dark:bg-red-900/20 dark:border-red-800/40 dark:text-red-400'
 }
 
 function buildScoreGrid(points: MoodPoint[]): Array<{ date: string; score: number | null }[]> {
@@ -110,7 +110,7 @@ export function MoodCalendar({
         <div className={className}>
             <div className="mb-2 grid grid-cols-7 gap-1.5 px-0.5">
                 {DAY_LABELS.map((d) => (
-                    <div key={d} className="text-center text-[10px] font-semibold uppercase tracking-wider text-serene-muted/55">
+                    <div key={d} className="text-center text-[10px] font-semibold uppercase tracking-wider text-theme-text-secondary/60 dark:text-theme-text-tertiary">
                         {d}
                     </div>
                 ))}
@@ -140,7 +140,7 @@ export function MoodCalendar({
                                         className={[
                                             'flex aspect-square items-center justify-center rounded-xl border transition',
                                             isClickable ? 'cursor-pointer hover:scale-110 hover:shadow-sm active:scale-95' : 'cursor-default',
-                                            score !== null ? scoreToClasses(score) : 'border-white/30 bg-white/25',
+                                            score !== null ? scoreToClasses(score) : 'border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/5',
                                         ].join(' ')}
                                     >
                                         {score !== null ? (
@@ -181,10 +181,10 @@ export function MoodCalendar({
                                             'flex aspect-square items-center justify-center rounded-xl border transition',
                                             clickable ? 'cursor-pointer hover:scale-105 active:scale-95' : 'cursor-default',
                                             completed
-                                                ? 'border-primary bg-primary text-white shadow-sm dark:border-theme-accent dark:bg-theme-accent'
+                                                ? 'border-theme-accent bg-theme-accent text-white shadow-sm'
                                                 : isFuture
                                                   ? 'border-transparent bg-transparent'
-                                                  : 'border-white/30 bg-white/25',
+                                                  : 'border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/5',
                                         ].join(' ')}
                                     >
                                         {completed ? <span className="text-[10px] font-bold">✓</span> : null}
