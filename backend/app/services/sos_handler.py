@@ -298,6 +298,12 @@ _ALONE_KEYWORDS_NORMALIZED = {
 }
 
 
+def is_alone_signal(user_message: str) -> bool:
+    """Return True when the user message expresses isolation or loneliness."""
+    normalized = _normalize_text(user_message)
+    return any(kw in normalized for kw in _ALONE_KEYWORDS_NORMALIZED)
+
+
 def assistant_text_for_sos(user_message: str = "", session_sos_count: int = 0) -> str:
     """Select an SOS response variant based on user context and turn depth.
 

@@ -41,6 +41,16 @@ def create_cards_from_candidates(
     created: list[MemoryCard] = []
 
     for candidate in extraction["candidate_cards"]:
+        # Skip if a non-deleted, non-rejected card of this type already exists for the user.
+        existing = db.scalars(
+            select(MemoryCard)
+            .where(MemoryCard.user_id == user_id)
+            .where(MemoryCard.memory_type == candidate["memory_type"])
+            .where(MemoryCard.status.notin_({"deleted_by_user", "rejected_by_guardrail"}))
+        ).first()
+        if existing:
+            continue
+
         result = review_memory_candidate(
             memory_type=candidate["memory_type"],
             title=candidate["title"],

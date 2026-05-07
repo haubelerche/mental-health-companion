@@ -179,7 +179,7 @@ class OnboardingCompleteRequest(BaseModel):
 
 class PersonaUpdateRequest(BaseModel):
     persona_id: str = Field(
-        pattern="^(ban_than|nguoi_yeu|nguoi_thay|nguoi_la|nguoi_than|cun|meo)$"
+        pattern="^(ban_than|nguoi_yeu|nguoi_thay|nguoi_la|nguoi_than|cun|meo|crush)$"
     )
 
 

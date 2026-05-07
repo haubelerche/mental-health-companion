@@ -151,7 +151,7 @@ def enqueue_voice_job(
             "provider": provider,
             "tts_job_id": None,
             "audio_url": None,
-            "status": "failed",
+            "status": "provider_disabled",
             "voice_disabled": True,
             "model_id": _model_hint_for_queue(settings),
             "error_code": _VOICE_PROVIDER_BLOCKED_CODE,
@@ -492,17 +492,19 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
             voice_status = "failed"
 
     if row.status == "processing" and age_seconds >= VOICE_JOB_PROCESSING_STALE_SECONDS:
-        row.status = "pending"
-        voice["status"] = "queued"
+        voice["status"] = "failed"
+        voice["error_code"] = "stale_lock"
+        voice["error_message"] = "Voice job xử lý quá lâu; hệ thống đã đánh dấu thất bại."
         payload["voice"] = voice
         _assign_payload(row, payload)
+        row.status = "failed"
         db.commit()
         logger.warning(
-            "voice_job_requeued_stale_processing job_id=%s age_seconds=%s",
+            "voice_job_failed_stale_processing job_id=%s age_seconds=%s",
             outbox_id,
             age_seconds,
         )
-        voice_status = "queued"
+        voice_status = "failed"
 
     settings = get_settings()
     if row.status == "pending" and voice_status == "queued":
@@ -575,7 +577,13 @@ def reclaim_stale_processing_jobs(db: Session, *, stale_after_seconds: int = 180
     ).all()
     count = 0
     for row in rows:
-        row.status = "pending"
+        payload = dict(row.payload or {})
+        payload.setdefault("voice", {})
+        payload["voice"]["status"] = "failed"
+        payload["voice"]["error_code"] = "stale_lock"
+        payload["voice"]["error_message"] = "Voice job processing quá lâu; worker đã giải phóng lock."
+        _assign_payload(row, payload)
+        row.status = "failed"
         count += 1
     if count:
         db.commit()

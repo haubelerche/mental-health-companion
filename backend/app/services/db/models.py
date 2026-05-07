@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy import (
     BIGINT,
+    BigInteger,
     JSON,
     Boolean,
     CheckConstraint,
@@ -330,10 +331,11 @@ class CounselingKnowledge(Base):
 class SyncOutbox(Base):
     __tablename__ = "sync_outbox"
 
+    # SQLite autoincrement requires INTEGER PK; PostgreSQL keeps 64-bit IDs.
     outbox_id: Mapped[int] = mapped_column(
-        BIGINT().with_variant(Integer, "sqlite"),
-        Identity(),
+        BigInteger().with_variant(Integer, "sqlite"),
         primary_key=True,
+        autoincrement=True,
     )
     user_id: Mapped[str | None] = mapped_column(ForeignKey("users.user_id"), nullable=True)
     event_type: Mapped[str] = mapped_column(String(80), nullable=False)
