@@ -10,6 +10,9 @@
 - `backend/app/services/neo4j_client.py` — `get_user_patterns_async(user_id, limit)` async function; wraps sync Neo4j driver via `asyncio.to_thread()` to avoid blocking the event loop; returns `{triggers, emotions, coping, available}` dict; fail-safe — returns `available=False` with empty lists on any error (no driver, query failure, or timeout)
 - `backend/tests/test_db_integration.py` — two new `@pytest.mark.asyncio` unit tests: `test_get_user_patterns_async_no_driver` (driver=None → available=False) and `test_get_user_patterns_async_filters_none_names` (None-name rows are filtered before return)
 
+### Changed
+- `backend/app/services/langgraph_chat.py` — `analyst_node()` now fetches derived behavioral patterns from Neo4j (`_query_user_patterns_sync`) before the OpenAI call; patterns (triggers, emotions, coping strategies) are appended to the system prompt as a `[Lịch sử hành vi từ Neo4j]` block only when `available=True` and at least one list is non-empty; fully fail-safe — if Neo4j is unavailable the prompt is unchanged; `user_id` added to `ChatGraphState` and propagated through both graph invocation paths (non-streaming + streaming); debug log `analyst_node graph_context_used=<bool> user=<id>` emitted on every call
+
 ---
 
 ## [Unreleased] — Database Audit Remediation · 2026-05-08

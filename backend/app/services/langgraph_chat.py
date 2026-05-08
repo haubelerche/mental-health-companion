@@ -24,8 +24,10 @@ from app.personas.registry import PERSONA_REGISTRY, get_persona
 from app.services.chat_cost_metrics import observe_chat_usage
 from app.services.langfuse_tracing import ChatTurnTracer, get_active_tracer, set_active_tracer
 from app.services.exercise_catalog import build_clinic_attachment, build_resource_attachment
+from app.safety.output_validator import validate_output as _safety_validate_output
 from app.services.output_grounding import sanitize_grounded_reply
 from app.services.safety_scoring import build_snapshot
+from app.services.neo4j_client import _query_user_patterns_sync as _get_user_patterns_sync
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +57,7 @@ def _log_token_budget(stage: str, *texts: str) -> int:
 class ChatGraphState(TypedDict, total=False):
     # === IMMUTABLE INPUTS (set once in middleware, never mutated by nodes) ===
     correlation_id: str
+    user_id: str
     user_message: str
     recent_messages: list[dict[str, Any]]
     mood_today: dict[str, Any] | None
@@ -866,6 +869,7 @@ def route_after_distress_router(state: ChatGraphState) -> str:
 def analyst_node(state: ChatGraphState) -> dict[str, Any]:
     span_start = time.perf_counter()
     correlation_id = str(state.get("correlation_id") or "")
+    user_id = str(state.get("user_id") or "")
     settings = get_settings()
     hist = list(state.get("routing_history") or [])
     hist.append("analyst")
@@ -910,6 +914,33 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
         f"Lịch sử gần đây:\n{transcript}\n"
         f"Tin mới: {state.get('user_message', '')}"
     )
+
+    # Fetch derived behavioral context from Neo4j (fail-safe, non-blocking)
+    _graph_raw = _get_user_patterns_sync(user_id, 5) if user_id else {"triggers": [], "emotions": [], "coping": [], "available": False}
+    _graph_context_used = _graph_raw.get("available", False) and any(
+        _graph_raw.get(k) for k in ("triggers", "emotions", "coping")
+    )
+    _graph_context_block = ""
+    if _graph_context_used:
+        _t = ", ".join(
+            f"{x['name']} (×{x['count']})"
+            for x in _graph_raw["triggers"]
+            if x.get("count")
+        ) or "chưa ghi nhận"
+        _e = ", ".join(x["name"] for x in _graph_raw["emotions"]) or "chưa ghi nhận"
+        _c = ", ".join(
+            f"{x['name']} (hiệu quả={x['effectiveness']:.2f})"
+            for x in _graph_raw["coping"]
+            if x.get("effectiveness") is not None
+        ) or "chưa ghi nhận"
+        _graph_context_block = (
+            f"\n\n[Lịch sử hành vi từ Neo4j — derived context]\n"
+            f"Tác nhân hay gặp: {_t}\n"
+            f"Cảm xúc hay gặp: {_e}\n"
+            f"Chiến lược đối phó đã thử: {_c}"
+        )
+    logger.debug("analyst_node graph_context_used=%s user=%s", _graph_context_used, user_id)
+    instruction = instruction + _graph_context_block
 
     analyst_in_tokens = _log_token_budget("analyst_in", instruction, user_payload)
 
@@ -1215,6 +1246,16 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         persona_id=persona_id,
     )
     safe_reply = _enforce_persona_identity(safe_reply, persona_id)
+
+    _ov = _safety_validate_output(safe_reply, surface="chat")
+    if _ov.is_blocked:
+        logger.warning(
+            "SafetyOutputValidator blocked FriendNode reply: %s | fragments=%s",
+            _ov.reason_codes,
+            _ov.flagged_fragments,
+        )
+        safe_reply = "Mình hiểu bạn đang cần hỗ trợ. Hãy chia sẻ thêm để Serene có thể đồng hành cùng bạn nhé."
+
     _trace_span(
         correlation_id,
         "friend_generate",
@@ -1325,6 +1366,7 @@ def run_non_sos_turn(
             "active_persona_id": persona_id or DEFAULT_PERSONA_ID,
             "active_memory_card_text": active_memory_card_text or "",
             "correlation_id": correlation_id,
+            "user_id": user_id or "",
             # Cold-start screening note pre-seeded as a minimal bundle; analyst_node will
             # overwrite with a richer bundle when routed to analyst.
             "analyst_bundle": AnalystBundle(
@@ -1411,6 +1453,7 @@ def stream_non_sos_turn_events(
 
     state: ChatGraphState = {
         "correlation_id": correlation_id,
+        "user_id": user_id or "",
         "user_message": user_message,
         "recent_messages": recent_messages,
         "mood_today": mood_today,
