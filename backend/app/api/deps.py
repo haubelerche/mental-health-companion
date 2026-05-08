@@ -136,7 +136,7 @@ def enforce_admin_ip(request: Request) -> None:
         raise AppError("ADMIN_IP_RESTRICTED", f"Không thể xác định địa chỉ IP: {client_ip}", 403) from exc
 
     for cidr in allowed_raw:
-        if addr in ipaddress.ip_network(cidr, strict=False):
+        if cidr == "*" or addr in ipaddress.ip_network(cidr, strict=False):
             return
 
     raise AppError("ADMIN_IP_RESTRICTED", f"Địa chỉ IP {client_ip} không có quyền truy cập vùng Admin.", 403)
