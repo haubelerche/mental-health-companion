@@ -327,6 +327,7 @@ export default function Home() {
     const [quote, setQuote] = useState<{ text: string; author?: string | null } | null>(null)
     const [hearts, setHearts] = useState<number>(0)
     const [backendStreakDays, setBackendStreakDays] = useState<number | null>(null)
+    const [isTodayCompleted, setIsTodayCompleted] = useState<boolean>(false)
     const [checkinHistoryOpen, setCheckinHistoryOpen] = useState(false)
     const streak = backendStreakDays ?? 0
     const [wellnessScores, setWellnessScores] = useState<WellnessScores | null>(null)
@@ -384,6 +385,7 @@ export default function Home() {
             .then((data) => {
                 if (!mounted) return
                 setBackendStreakDays(data.progress.streak_days ?? 0)
+                setIsTodayCompleted(data.progress.is_today_completed ?? false)
                 const scoreOf = (dim: string, fb: number) => {
                     const row = data.wellness_dimensions.find((x) => x.dimension === dim)
                     return row?.score != null ? Math.round(row.score) : fb
@@ -509,7 +511,7 @@ export default function Home() {
                             >
                                 Chuỗi tuần này
                             </button>
-                            <StreakBar streak={streak} />
+                            <StreakBar streak={streak} isTodayCompleted={isTodayCompleted} />
                         </div>
                     </div>
 
@@ -760,7 +762,7 @@ export default function Home() {
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" /> {/* Overlay */}
                                 <div className="relative z-10 flex flex-col gap-4">
                                     <div
-                                        className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white text-serene-primary`}
+                                        className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white text-serene-primary border-2 border-serene-primary`}
                                     >
                                         <Icon className="h-6 w-6" />
                                     </div>
