@@ -45,43 +45,69 @@ type RecoCard = {
     desc: string
     route: string
     accentClass: string
+    cardClass: string
 }
 
-const getRecoCards = (hour: number): RecoCard[] => {
+const getRecoCards = (hour: number, isDark: boolean): RecoCard[] => {
     const isMorning = hour >= 5 && hour < 16
 
     return [
-        {
-            icon: Wind,
-            label: 'Bài hít thở 4-4-4',
-            desc: '3 phút · Giảm lo âu',
-            route: `${ROUTE_PATHS.exercises}?exercise=box_breath`,
-            accentClass: 'bg-theme-accent/10 text-theme-accent',
-        },
-        {
-            icon: isMorning ? Leaf : Moon,
-            label: isMorning ? 'Thiền buổi sáng' : 'Thiền trước ngủ',
-            desc: isMorning ? '5 phút · Bắt đầu ngày mới' : '10 phút · Dễ đi vào giấc ngủ',
-            route: isMorning 
-                ? `${ROUTE_PATHS.exercises}?type=meditation&id=morning_5`
-                : `${ROUTE_PATHS.exercises}?type=meditation&id=sleep_deep`,
-            accentClass: 'bg-theme-accent/10 text-theme-accent',
-        },
-        {
-            icon: CalendarCheck,
-            label: isMorning ? 'Check-in buổi sáng' : 'Check-in buổi tối',
-            desc: isMorning ? 'Khởi đầu ngày tỉnh thức' : 'Nhìn lại ngày hôm nay',
-            route: `${ROUTE_PATHS.checkin}?variant=${isMorning ? 'morning' : 'evening'}`,
-            accentClass: 'bg-theme-accent/10 text-theme-accent',
-        },
-        {
-            icon: ClipboardList,
-            label: 'Làm bài Test ',
-            desc: 'Sàng lọc sức khỏe tinh thần',
-            route: `${ROUTE_PATHS.screening}`,
-            accentClass: 'bg-theme-accent/10 text-theme-accent',
-        },
-    ]
+    {
+        icon: Wind,
+        label: 'Bài hít thở 4-4-4',
+        desc: '3 phút · Giảm lo âu',
+        route: `${ROUTE_PATHS.exercises}?exercise=box_breath`,
+        accentClass: isDark
+            ? 'bg-emerald-500/12 text-emerald-200 border border-emerald-200'
+            : 'bg-emerald-100 text-emerald-800 border border-emerald-500',
+        cardClass: isDark
+            ? 'bg-emerald-950/18 border border-emerald-800/20'
+            : 'bg-emerald-50/90 border border-emerald-500/60',
+    },
+    {
+        icon: isMorning ? Leaf : Moon,
+        label: isMorning ? 'Thiền buổi sáng' : 'Thiền trước ngủ',
+        desc: isMorning
+            ? '5 phút · Bắt đầu ngày mới'
+            : '10 phút · Dễ đi vào giấc ngủ',
+        route: isMorning
+            ? `${ROUTE_PATHS.exercises}?type=meditation&id=morning_5`
+            : `${ROUTE_PATHS.exercises}?type=meditation&id=sleep_deep`,
+        accentClass: isDark
+            ? 'bg-violet-500/12 text-violet-200 border border-violet-200'
+            : 'bg-violet-100 text-violet-800 border border-violet-500',
+        cardClass: isDark
+            ? 'bg-violet-950/18 border border-violet-800/20'
+            : 'bg-violet-50/90 border border-violet-500/60',
+    },
+    {
+        icon: CalendarCheck,
+        label: isMorning ? 'Check-in buổi sáng' : 'Check-in buổi tối',
+        desc: isMorning
+            ? 'Khởi đầu ngày tỉnh thức'
+            : 'Nhìn lại ngày hôm nay',
+        route: `${ROUTE_PATHS.checkin}?variant=${isMorning ? 'morning' : 'evening'}`,
+        accentClass: isDark
+            ? 'bg-amber-500/12 text-amber-100 border border-amber-200'
+            : 'bg-amber-100 text-amber-900 border border-amber-500',
+        cardClass: isDark
+            ? 'bg-amber-950/18 border border-amber-800/20'
+            : 'bg-amber-50/90 border border-amber-500/60',
+    },
+    {
+        icon: ClipboardList,
+        label: 'Làm bài Test',
+        desc: 'Sàng lọc sức khỏe tinh thần',
+        route: `${ROUTE_PATHS.screening}`,
+        accentClass: isDark
+            ? 'bg-blue-500/12 text-blue-100 border border-blue-200'
+            : 'bg-blue-100 text-blue-900 border border-blue-500',
+        cardClass: isDark
+            ? 'bg-blue-900/50 border border-blue-800/20'
+            : 'bg-blue-50/90 border border-blue-500/60',
+    },
+]
+
 }
 
 type QuickAction = {
@@ -308,7 +334,7 @@ export default function Home() {
     const [homeMoodWords, setHomeMoodWords] = useState<string[]>([])
     const [quoteIndex, setQuoteIndex] = useState(0)
     const currentHour = new Date().getHours()
-    const recoCards = useMemo(() => getRecoCards(currentHour), [currentHour])
+    const recoCards = useMemo(() => getRecoCards(currentHour, isDark), [currentHour, isDark])
     const currentSlot = useMemo<TimeSlot>(() => getCurrentTimeSlot(currentHour), [currentHour])
 
     const currentReminders = useMemo(() => SLOT_REMINDERS[currentSlot], [currentSlot])
@@ -322,6 +348,8 @@ export default function Home() {
     const activeQuote = quotes.length > 0 ? quotes[quoteIndex % quotes.length] : null
     const quoteContent = activeQuote?.content_vi || activeQuote?.content_en || quote?.text || 'Giây phút hiện tại là nơi duy nhất sự sống thực sự tồn tại.'
     const quoteAuthor = activeQuote?.author || quote?.author || 'Thích Nhất Hạnh'
+
+    
 
     useEffect(() => {
         if (!user) {
@@ -541,7 +569,7 @@ export default function Home() {
                                 key={card.label}
                                 type="button"
                                 onClick={() => navigate(card.route)}
-                                className="cursor-pointer flex min-w-[148px] shrink-0 flex-col gap-3 rounded-[22px] bg-theme-surface/70 p-4 text-left border border-theme-border/30 backdrop-blur-xl transition-all hover:bg-theme-accent/10 active:scale-[0.97]"
+                                className={`cursor-pointer flex min-w-[148px] shrink-0 flex-col gap-3 rounded-[22px] p-4 text-left border backdrop-blur-xl transition-all hover:scale-105 active:scale-[0.97] ${card.cardClass}`}
                             >
                                 <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl ${card.accentClass}`}>
                                     <RecoIcon className="h-6 w-6" aria-hidden />
