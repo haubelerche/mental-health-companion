@@ -4,8 +4,8 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { useNotification } from "../../contexts/NotificationContext";
-import type { Notification } from "../../contexts/NotificationTypes";
+import { useNotification } from "../../../contexts/NotificationContext";
+import type { Notification } from "../../../contexts/NotificationTypes";
 import { X, AlertCircle, CheckCircle, Info, MessageSquare } from "lucide-react";
 
 const NotificationToast: React.FC<{ notification: Notification; onClose: () => void }> = ({

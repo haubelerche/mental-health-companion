@@ -1,8 +1,7 @@
-import { ArrowRight, ChevronRight, Flame, Leaf, PenLine, Sparkles, Sprout, Star, Wind } from 'lucide-react'
+import { ArrowRight, ChevronRight, Flame, PenLine, Sparkles, Sprout, Star, Wind } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ROUTE_PATHS } from '../../routes/paths'
 import {
     Area,
     AreaChart,
@@ -12,17 +11,18 @@ import {
     XAxis,
     YAxis,
 } from 'recharts'
-import { httpClient } from '../../api/httpClient'
-import { useAuth } from '../../hooks/useAuth'
-import { WellnessRadar, type WellnessScores } from '../wellness/WellnessRadar'
-import { MoodCalendar, type MoodPoint } from '../wellness/MoodCalendar'
-import { useThemeContext } from '../../contexts/ThemeContext'
-import { DayDetailSheet, type DayDetail } from '../wellness/DayDetailSheet'
-import { ProgressStats } from '../wellness/ProgressStats'
-import { dashboardService, type DashboardReflectSummary } from '../../services/dashboardService'
-import { TinHieuCard } from '../dashboard/TinHieuCard'
-import { WellnessDimensionCards } from '../dashboard/WellnessDimensionCards'
-import { CheckinHistoryModal } from '../dashboard/CheckinHistoryModal'
+import { httpClient } from '../../../api/httpClient'
+import { useAuth } from '../../../hooks/useAuth'
+import { WellnessRadar, type WellnessScores } from '../../wellness/WellnessRadar'
+import { MoodCalendar, type MoodPoint } from '../../wellness/MoodCalendar'
+import { useThemeContext } from '../../../contexts/ThemeContext'
+import { DayDetailSheet, type DayDetail } from '../../wellness/DayDetailSheet'
+import { ProgressStats } from '../../wellness/ProgressStats'
+import { dashboardService, type DashboardReflectSummary } from '../../../services/dashboardService'
+import { TinHieuCard } from '../../dashboard/TinHieuCard'
+import { WellnessDimensionCards } from '../../dashboard/WellnessDimensionCards'
+import { CheckinHistoryModal } from '../../dashboard/CheckinHistoryModal'
+import { Skeleton } from './Skeleton'
 
 type WeeklyNotePayload = {
     week_of: string
@@ -59,20 +59,6 @@ function dimsToRadarScores(dimensions: DashboardReflectSummary['wellness_dimensi
     }
 }
 
-const quickExercises = [
-    {
-        title: 'Thở 4-7-8',
-        duration: '2 phút • Thư giãn',
-        icon: Wind,
-        tone: 'bg-theme-accent/10 text-theme-accent',
-    },
-    {
-        title: 'Quét cơ thể',
-        duration: '5 phút • Nhận thức',
-        icon: Leaf,
-        tone: 'bg-theme-secondary/20 text-theme-text-secondary',
-    },
-]
 
 const WEEKDAY_LABELS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
 
@@ -225,10 +211,7 @@ export default function Reflect() {
                         )}
 
                         {loading && (
-                            <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-                                <div className={`h-20 animate-pulse rounded-2xl lg:col-span-2 ${isDark ? 'bg-theme-surface-alt/50' : 'bg-white/50'}`} />
-                                <div className={`h-20 animate-pulse rounded-2xl ${isDark ? 'bg-theme-surface-alt/50' : 'bg-white/50'}`} />
-                            </div>
+                            <Skeleton />
                         )}
 
                         {!loading && reflectSummary && (
@@ -429,7 +412,7 @@ export default function Reflect() {
                                         weeklyCheckins: reflectSummary.checkin_history_preview.filter((d) => d.completed).length,
                                         totalSessions: reflectSummary.progress.total_sessions ?? 0,
                                         breathingSessions: reflectSummary.progress.breathing_sessions ?? 0,
-                                        heartsThisWeek: (reflectSummary.progress.days_active_last_30 ?? 0) * 5,
+                                        daysActive30d: reflectSummary.progress.days_active_last_30 ?? 0,
                                     }}
                                 />
                             </section>

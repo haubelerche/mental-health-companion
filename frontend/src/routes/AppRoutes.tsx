@@ -3,12 +3,12 @@ import type { ReactElement } from 'react'
 import Login from '../components/auth/Login.tsx'
 import OAuthCallback from '../components/auth/OAuthCallback.tsx'
 import Register from '../components/auth/Register.tsx'
-import Chat from '../components/chat/Chat.tsx'
+import Chat from '../components/pages/chat/Chat.tsx'
 import Main from '../components/layout/Main.tsx'
 import Support from '../components/pages/Support.tsx'
 
 import Landing from '../components/pages/landing/Landing.tsx'
-import Reflect from '../components/pages/Reflect.tsx'
+import Reflect from '../components/pages/reflect/Reflect.tsx'
 import Resources from '../components/pages/resource/Resources.tsx'
 import Nutrition from '../components/nutrition/Nutrition.tsx'
 import { CheckinFlow } from '../components/common/CheckinFlow.tsx'
@@ -35,7 +35,7 @@ import AdminNotifications from '../components/admin/AdminNotifications.tsx'
 import AdminMain from '../components/admin/layout/AdminMain.tsx'
 import Home from '../components/pages/Home.tsx'
 import RewardsPage from '../components/pages/RewardsPage.tsx'
-import NotificationsPage from '../components/pages/Notifications.tsx'
+import NotificationsPage from '../components/pages/notifications/Notifications.tsx'
 
 function RequireAuth({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()

@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { checkinService } from '../../services/checkinService'
-import { ApiRequestError } from '../../api/types'
+import { checkinService } from '../../../services/checkinService'
+import { ApiRequestError } from '../../../api/types'
 
 type Props = {
     onComplete?: (result: unknown) => void
