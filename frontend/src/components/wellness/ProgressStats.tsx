@@ -25,7 +25,7 @@ function StatCard({ icon: Icon, value, label, sub, color, delay = 0 }: StatCardP
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.35, ease: 'easeOut' }}
-      className="flex flex-col gap-1.5 rounded-2xl border border-serene-border/60 bg-white/40 p-3.5 shadow-xl[0_2px_8px_rgba(47,52,46,0.06)]"
+      className="flex flex-col gap-1.5 rounded-2xl border border-theme-primary/40 bg-theme-surface p-3.5 shadow-xl[0_2px_8px_rgba(47,52,46,0.06)]"
     >
       <div
         className="flex h-8 w-8 items-center justify-center rounded-xl"
@@ -87,7 +87,7 @@ export function ProgressStats({ data }: Props) {
       </div>
 
       {/* Weekly check-in bar */}
-      <div className="rounded-2xl border border-serene-border/50 bg-theme-surface px-4 py-3">
+      <div className="rounded-2xl border border-theme-secondary/50 bg-theme-surface px-4 py-3">
         <div className="mb-2 flex items-center justify-between">
           <p className="text-xs font-semibold text-theme-text-primary">Tuần này</p>
           <p className="text-xs text-theme-text-secondary">
