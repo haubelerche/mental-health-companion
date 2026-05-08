@@ -179,6 +179,30 @@ class TestColumnConsistency:
         missing = required_cols - existing
         assert not missing, f"insight_hypotheses missing columns: {missing}"
 
+    def test_sync_outbox_columns_contract(self, real_db) -> None:
+        required_cols = {
+            "outbox_id",
+            "event_type",
+            "payload",
+            "status",
+            "retry_count",
+            "error_message",
+            "created_at",
+            "processing_started_at",
+            "processed_at",
+            "user_id",
+        }
+        result = real_db.execute(
+            text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema='app' AND table_name='sync_outbox'"
+            )
+        )
+        existing = {row[0] for row in result}
+        missing = required_cols - existing
+        assert not missing, f"sync_outbox missing columns: {missing}"
+        assert "attempts" not in existing, "legacy sync_outbox.attempts should not exist"
+
 
 class TestOrmRead:
     def test_orm_can_query_users(self, real_db) -> None:
@@ -240,3 +264,57 @@ class TestStreamingDataFlow:
         assert fetched.source == "self_report"
 
         real_db.rollback()
+
+
+# ---------------------------------------------------------------------------
+# Neo4j pattern query — unit-level (no real Neo4j required)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_user_patterns_async_no_driver(monkeypatch):
+    """Returns empty + available=False when Neo4j driver is None."""
+    import backend.app.services.neo4j_client as nc
+    monkeypatch.setattr(nc, "get_neo4j_driver", lambda: None)
+    result = await nc.get_user_patterns_async("user_test")
+    assert result["available"] is False
+    assert result["triggers"] == []
+    assert result["emotions"] == []
+    assert result["coping"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_user_patterns_async_filters_none_names(monkeypatch):
+    """Rows with name=None are filtered out."""
+    import backend.app.services.neo4j_client as nc
+
+    class FakeRow:
+        def __getitem__(self, key):
+            if key == "triggers":
+                return [{"name": None, "count": 3}, {"name": "academic_pressure", "count": 5}]
+            if key == "emotions":
+                return []
+            return [{"name": "walking", "effectiveness": 0.8}]
+
+    class FakeResult:
+        def single(self):
+            return FakeRow()
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            pass
+
+        def run(self, *a, **kw):
+            return FakeResult()
+
+    class FakeDriver:
+        def session(self):
+            return FakeSession()
+
+    monkeypatch.setattr(nc, "get_neo4j_driver", lambda: FakeDriver())
+    result = await nc.get_user_patterns_async("user_test")
+    assert len(result["triggers"]) == 1
+    assert result["triggers"][0]["name"] == "academic_pressure"
