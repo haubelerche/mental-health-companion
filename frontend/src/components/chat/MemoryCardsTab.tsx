@@ -30,13 +30,13 @@ function MemoryCardItem({ card, onAction }: {
     if (card.status === 'deleted_by_user') return null
 
     return (
-        <div className="rounded-lg border border-gray-200 bg-theme-surface/60 p-3 text-sm">
+        <div className="rounded-2xl border border-theme-primary/30 bg-theme-surface px-5 py-4 text-sm">
             <div className="flex items-start justify-between gap-2">
                 <div>
-                    <p className="font-medium text-theme-text-primary">{card.title}</p>
+                    <p className="font-bold text-theme-text-primary">{card.title}</p>
                     {editing ? (
                         <textarea
-                            className="mt-1 w-full rounded border border-gray-300 p-1.5 text-xs"
+                            className="mt-1 w-full rounded border border-gray-300 p-1.5 text-sm"
                             rows={3}
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
@@ -44,17 +44,17 @@ function MemoryCardItem({ card, onAction }: {
                     ) : (
                         <p className="text-theme-text-secondary mt-0.5">{card.content}</p>
                     )}
-                    <p className="text-xs text-theme-text-secondary mt-1">
+                    <p className="text-xs text-theme-accent mt-1 ml-2">
                         {STATUS_LABELS[card.status] ?? card.status}
                     </p>
                 </div>
                 {!editing && card.status === 'pending_user_review' && (
-                    <div className="flex gap-1.5 shrink-0">
+                    <div className="flex gap-3 shrink-0">
                         <button
                             type="button"
                             disabled={busy}
                             onClick={() => act('keep')}
-                            className="text-xs text-theme-accent hover:underline disabled:opacity-50"
+                            className="text-sm text-theme-accent hover:underline cursor-pointer disabled:opacity-50"
                         >
                             Lưu
                         </button>
@@ -62,19 +62,19 @@ function MemoryCardItem({ card, onAction }: {
                             type="button"
                             disabled={busy}
                             onClick={() => act('delete')}
-                            className="text-xs text-red-500 hover:underline disabled:opacity-50"
+                            className="text-sm text-red-500 hover:underline cursor-pointer disabled:opacity-50"
                         >
                             Xoá
                         </button>
                     </div>
                 )}
                 {!editing && card.status === 'active' && (
-                    <div className="flex gap-1.5 shrink-0">
+                    <div className="flex gap-3 shrink-0">
                         <button
                             type="button"
                             disabled={busy}
                             onClick={() => setEditing(true)}
-                            className="text-xs text-indigo-600 hover:underline disabled:opacity-50"
+                            className="text-sm text-blue-600 hover:underline cursor-pointer disabled:opacity-50"
                         >
                             Sửa
                         </button>
@@ -82,7 +82,7 @@ function MemoryCardItem({ card, onAction }: {
                             type="button"
                             disabled={busy}
                             onClick={() => act('delete')}
-                            className="text-xs text-red-500 hover:underline disabled:opacity-50"
+                            className="text-sm text-red-500 hover:underline cursor-pointer disabled:opacity-50"
                         >
                             Xoá
                         </button>
@@ -102,7 +102,7 @@ function MemoryCardItem({ card, onAction }: {
                     <button
                         type="button"
                         onClick={() => { setEditing(false); setEditContent(card.content) }}
-                        className="text-xs text-gray-500 hover:underline"
+                        className="tsmt-xs text-gray-500 hover:underline cursor-pointer"
                     >
                         Huỷ
                     </button>
