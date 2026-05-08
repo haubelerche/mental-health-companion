@@ -20,7 +20,7 @@ from app.dashboard.types import (
     MoodSeriesPoint,
     WellnessDimensionCard,
 )
-from app.services.db.models import Conversation, InsightHypothesis, MoodCheckin, UserProfile
+from app.services.db.models import Conversation, InsightHypothesis, MoodCheckin, UserProfile, StreakState
 from app.services.utils import VN_TZ, local_date_utc7, utc_now
 
 _MOOD_TO_SCORE: dict[str, tuple[int, str]] = {
@@ -450,6 +450,7 @@ def build_wellness_dimensions(
     checkins: list[MoodCheckin],
     session_count: int,
     sufficiency: DashboardDataSufficiency,
+    streak_days: int,
 ) -> list[WellnessDimensionCard]:
     stats = dict(profile_data.get("stats") or {})
     coping_history = list(profile_data.get("coping_history") or [])
@@ -637,7 +638,6 @@ def build_wellness_dimensions(
             )
         )
 
-    streak_days = int(stats.get("streak_days") or 0)
     growth_evidence = streak_days + min(session_count, 10)
     if growth_evidence <= 0:
         cards.append(
@@ -685,17 +685,18 @@ def build_wellness_dimensions(
     return cards
 
 
-def _progress_snapshot(profile_data: dict[str, Any], *, session_count: int) -> DashboardProgressSnapshot:
+def _progress_snapshot(profile_data: dict[str, Any], *, session_count: int, streak_days: int, is_today_completed: bool) -> DashboardProgressSnapshot:
     stats = dict(profile_data.get("stats") or {})
     coping_history = list(profile_data.get("coping_history") or [])
     tried, effective = _effective_coping_stats(coping_history)
     rate = (effective / tried) if tried > 0 else None
     return DashboardProgressSnapshot(
-        streak_days=int(stats.get("streak_days") or 0),
+        streak_days=streak_days,
         total_sessions=session_count,
         days_active_last_30=int(stats.get("days_active_last_30") or 0),
         breathing_sessions=int(stats.get("breathing_sessions") or 0),
         effective_rate=rate,
+        is_today_completed=is_today_completed,
     )
 
 
@@ -710,6 +711,13 @@ def build_reflect_summary(db: Session, *, user_id: str) -> DashboardReflectSumma
     sufficiency = compute_data_sufficiency(db, user_id=user_id)
     profile_row = db.scalar(select(UserProfile).where(UserProfile.user_id == user_id))
     profile_data: dict[str, Any] = dict(profile_row.profile if profile_row and profile_row.profile else {})
+
+    streak_row = db.scalar(select(StreakState).where(StreakState.user_id == user_id))
+    streak_days = streak_row.current_mood_checkin_streak if streak_row else 0
+
+    is_today_completed = False
+    if streak_row and streak_row.last_mood_checkin_date == local_date_utc7():
+        is_today_completed = True
 
     checkins = db.scalars(
         select(MoodCheckin).where(MoodCheckin.user_id == user_id).order_by(MoodCheckin.logged_date.asc())
@@ -731,11 +739,12 @@ def build_reflect_summary(db: Session, *, user_id: str) -> DashboardReflectSumma
         checkins=list(checkins),
         session_count=len(convs),
         sufficiency=sufficiency,
+        streak_days=streak_days,
     )
     mood_series = build_mood_series(list(checkins), days=14)
     preview = build_checkin_history(list(checkins), days=7)
     radar = _radar_available(sufficiency, dimensions)
-    progress = _progress_snapshot(profile_data, session_count=len(convs))
+    progress = _progress_snapshot(profile_data, session_count=len(convs), streak_days=streak_days, is_today_completed=is_today_completed)
 
     return DashboardReflectSummary(
         sufficiency=sufficiency,
