@@ -102,7 +102,7 @@ function MemoryCardItem({ card, onAction }: {
                     <button
                         type="button"
                         onClick={() => { setEditing(false); setEditContent(card.content) }}
-                        className="tsmt-xs text-gray-500 hover:underline cursor-pointer"
+                        className="text-xs text-gray-500 hover:underline cursor-pointer"
                     >
                         Huỷ
                     </button>
