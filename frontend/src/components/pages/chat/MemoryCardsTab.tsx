@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import type { MemoryCard } from '../../services/memoryCardsService'
-import { memoryCardsService } from '../../services/memoryCardsService'
-import { ApiRequestError } from '../../api/types'
-import Loading from '../ui/Loading'
+import type { MemoryCard } from '../../../services/memoryCardsService'
+import { memoryCardsService } from '../../../services/memoryCardsService'
+import { ApiRequestError } from '../../../api/types'
+import Loading from '../../ui/Loading'
 
 const STATUS_LABELS: Record<string, string> = {
     active: 'Đang dùng',

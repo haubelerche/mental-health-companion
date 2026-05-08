@@ -3,7 +3,7 @@ import type { ReactElement } from 'react'
 import Login from '../components/auth/Login.tsx'
 import OAuthCallback from '../components/auth/OAuthCallback.tsx'
 import Register from '../components/auth/Register.tsx'
-import Chat from '../components/chat/Chat.tsx'
+import Chat from '../components/pages/chat/Chat.tsx'
 import Main from '../components/layout/Main.tsx'
 import Support from '../components/pages/Support.tsx'
 
