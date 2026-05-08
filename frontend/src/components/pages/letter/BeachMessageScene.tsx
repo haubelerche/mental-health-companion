@@ -5,7 +5,7 @@ export function CinematicBg({ dark }: { dark: boolean }) {
     return (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div
-                className={`fixed inset-0 transition-all duration-500 ${dark ? 'brightness-60 saturate-95' : 'brightness-92 saturate-105'}`}
+                className={`fixed inset-0 transition-all duration-500 brightness-80`}
                 style={{
                     backgroundImage: `url(${beachBackgroundImage})`,
                     backgroundSize: 'cover',
@@ -13,7 +13,7 @@ export function CinematicBg({ dark }: { dark: boolean }) {
                 }}
             />
             <div
-                className={`absolute bottom-0 left-0 right-0 h-2/5 transition-all duration-1000 ${dark ? 'bg-linear-to-b from-transparent via-slate-900/50 to-slate-950/90' : 'bg-linear-to-b from-transparent via-blue-900/50 to-blue-950/75'}`}
+                className={`fixed bottom-0 left-0 right-0 h-2/5 transition-all duration-1000 bg-linear-to-b from-transparent via-slate-900/50 to-slate-950/80`}
             />
         </div>
     )
