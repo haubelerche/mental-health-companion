@@ -4,6 +4,7 @@ type Props = {
     streak: number
     className?: string
     isTodayCompleted?: boolean
+    completedDays?: number[]
 }
 
 const DAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
@@ -13,19 +14,21 @@ function getTodayDisplayIndex(): number {
     return day === 0 ? 6 : day - 1  // map Mon=0 ... Sun=6
 }
 
-export function StreakBar({ streak, className, isTodayCompleted = false }: Props) {
+export function StreakBar({ streak, className, isTodayCompleted = false, completedDays }: Props) {
 
     const todayIdx = getTodayDisplayIndex()
     const filledCount = Math.min(streak, 7)
     const completedIndices = new Set<number>()
     
-    // Nếu hôm nay đã hoàn thành, bắt đầu tô màu từ hôm nay.
-    // Nếu hôm nay chưa hoàn thành, bắt đầu tô màu từ hôm qua.
-    const startIdx = isTodayCompleted ? todayIdx : (todayIdx - 1 + 7) % 7
-    
-    for (let offset = 0; offset < filledCount; offset += 1) {
-        const idx = (startIdx - offset + 7) % 7
-        completedIndices.add(idx)
+    if (completedDays) {
+        completedDays.forEach(idx => completedIndices.add(idx))
+    } else {
+        // Fallback to old logic if completedDays is not provided
+        const startIdx = isTodayCompleted ? todayIdx : (todayIdx - 1 + 7) % 7
+        for (let offset = 0; offset < filledCount; offset += 1) {
+            const idx = (startIdx - offset + 7) % 7
+            completedIndices.add(idx)
+        }
     }
 
     return (

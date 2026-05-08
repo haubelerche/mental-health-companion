@@ -79,6 +79,7 @@ export type DashboardProgressSnapshot = {
     breathing_sessions: number
     effective_rate: number | null
     is_today_completed: boolean
+    completed_days?: number[]
 }
 
 export type DashboardReflectSummary = {

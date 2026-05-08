@@ -328,6 +328,7 @@ export default function Home() {
     const [hearts, setHearts] = useState<number>(0)
     const [backendStreakDays, setBackendStreakDays] = useState<number | null>(null)
     const [isTodayCompleted, setIsTodayCompleted] = useState<boolean>(false)
+    const [completedDays, setCompletedDays] = useState<number[]>([])
     const [checkinHistoryOpen, setCheckinHistoryOpen] = useState(false)
     const streak = backendStreakDays ?? 0
     const [wellnessScores, setWellnessScores] = useState<WellnessScores | null>(null)
@@ -386,6 +387,7 @@ export default function Home() {
                 if (!mounted) return
                 setBackendStreakDays(data.progress.streak_days ?? 0)
                 setIsTodayCompleted(data.progress.is_today_completed ?? false)
+                setCompletedDays(data.progress.completed_days ?? [])
                 const scoreOf = (dim: string, fb: number) => {
                     const row = data.wellness_dimensions.find((x) => x.dimension === dim)
                     return row?.score != null ? Math.round(row.score) : fb
@@ -511,7 +513,7 @@ export default function Home() {
                             >
                                 Chuỗi tuần này
                             </button>
-                            <StreakBar streak={streak} isTodayCompleted={isTodayCompleted} />
+                            <StreakBar streak={streak} isTodayCompleted={isTodayCompleted} completedDays={completedDays} />
                         </div>
                     </div>
 

@@ -105,7 +105,13 @@ def build_user_memory_context(
     summaries = list(profile_data.get("session_summaries") or [])
     recent_summaries: list[str] = []
     for item in reversed(summaries):
-        text = str((item or {}).get("summary") or (item or {}).get("text") or "").strip()
+        if isinstance(item, dict):
+            text = str(item.get("summary") or item.get("text") or "").strip()
+        elif isinstance(item, str):
+            text = item.strip()
+        else:
+            text = ""
+            
         if not text:
             continue
         recent_summaries.append(text[:400])
@@ -122,19 +128,31 @@ def build_user_memory_context(
         )[:3]
     ]
     traits = dict(profile_data.get("traits") or {})
-    active_goals = [
-        str((g or {}).get("text") or "").strip()
-        for g in list(profile_data.get("goals") or [])
-        if str((g or {}).get("status") or "active").strip().lower() == "active"
-    ]
-    active_goals = [g for g in active_goals if g][:3]
+    active_goals = []
+    for g in list(profile_data.get("goals") or []):
+        if isinstance(g, dict):
+            text = str(g.get("text") or "").strip()
+            status = str(g.get("status") or "active").strip().lower()
+            if status == "active" and text:
+                active_goals.append(text)
+        elif isinstance(g, str):
+            text = g.strip()
+            if text:
+                active_goals.append(text)
+    active_goals = active_goals[:3]
 
-    effective_coping = [
-        str((c or {}).get("action") or "").strip()
-        for c in list(profile_data.get("coping_history") or [])
-        if int((c or {}).get("self_reported_effective") or 0) > 0
-    ]
-    effective_coping = [c for c in effective_coping if c][:3]
+    effective_coping = []
+    for c in list(profile_data.get("coping_history") or []):
+        if isinstance(c, dict):
+            action = str(c.get("action") or "").strip()
+            effective = int(c.get("self_reported_effective") or 0)
+            if effective > 0 and action:
+                effective_coping.append(action)
+        elif isinstance(c, str):
+            text = c.strip()
+            if text:
+                effective_coping.append(text)
+    effective_coping = effective_coping[:3]
 
     mem0_facts = MemoryManager.instance().search(user_id=user_id, query=current_query, limit=5)
     if not mem0_facts:
