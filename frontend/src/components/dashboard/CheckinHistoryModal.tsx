@@ -60,13 +60,11 @@ export function CheckinHistoryModal({ open, onClose, isDark }: Props) {
                 onClick={onClose}
             />
             <div
-                className={`relative z-[81] flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border shadow-2xl sm:rounded-3xl ${
-                    isDark ? 'border-theme-border/40 bg-theme-surface' : 'border-white/40 bg-serene-bg'
-                }`}
+                className={`relative z-[81] flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border shadow-2xl sm:rounded-3xl border-theme-border bg-theme-surface`}
             >
-                <div className={`flex items-center justify-between border-b px-5 py-4 ${isDark ? 'border-theme-border/40' : 'border-black/5'}`}>
+                <div className={`flex items-center justify-between border-b px-5 py-4 border-theme-border`}>
                     <div>
-                        <p className={`text-[10px] uppercase tracking-[0.28em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary/70'}`}>
+                        <p className={`text-[10px] uppercase tracking-[0.28em] text-theme-text-secondary`}>
                             Lịch sử check-in
                         </p>
                         <h2 className={`font-display text-lg ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>90 ngày gần đây</h2>
@@ -134,7 +132,7 @@ function CheckinCard({ c, isDark }: { c: CheckinHistoryItem; isDark: boolean }) 
 
     return (
         <div
-            className={`rounded-2xl border p-3 text-sm ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-white/50 bg-white/50'}`}
+            className={`rounded-2xl border p-3 text-sm border-theme-primary/30 bg-theme-surface`}
         >
             <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="rounded-full bg-primary/15 px-2 py-0.5 font-semibold text-primary dark:bg-theme-accent/15 dark:text-theme-accent">
@@ -198,12 +196,12 @@ function MiniCompletionCalendar({
 
     return (
         <div>
-            <p className={`mb-2 text-[11px] font-medium ${isDark ? 'text-theme-text-secondary' : 'text-serene-muted'}`}>
+            <p className={`mb-2 text-[11px] font-medium text-theme-primary`}>
                 Các ngày có check-in (màu thương hiệu)
             </p>
             <div className="mb-1 grid grid-cols-7 gap-1">
                 {DAY_LABELS.map((d) => (
-                    <div key={d} className="text-center text-[9px] font-semibold uppercase text-serene-muted/70">
+                    <div key={d} className="text-center text-[9px] font-semibold uppercase text-theme-secondary">
                         {d}
                     </div>
                 ))}
@@ -223,9 +221,7 @@ function MiniCompletionCalendar({
                                             ? 'border-primary bg-primary text-white dark:border-theme-accent dark:bg-theme-accent'
                                             : isFuture
                                               ? 'border-transparent bg-transparent'
-                                              : isDark
-                                                ? 'border-theme-border/20 bg-theme-surface/40'
-                                                : 'border-white/30 bg-white/30',
+                                              : 'border-theme-primary/30 bg-theme-surface'
                                     ].join(' ')}
                                     title={iso}
                                 >

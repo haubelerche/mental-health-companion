@@ -25,11 +25,11 @@ function scoreAbbrev(score: number): string {
 }
 
 function scoreToClasses(score: number): string {
-    if (score >= 80) return 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-800/50 dark:text-emerald-400'
-    if (score >= 60) return 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800/50 dark:text-green-400'
-    if (score >= 40) return 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800/40 dark:text-amber-400'
-    if (score >= 20) return 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/20 dark:border-orange-800/40 dark:text-orange-400'
-    return 'bg-red-50 border-red-200 text-red-600 dark:bg-red-900/20 dark:border-red-800/40 dark:text-red-400'
+    if (score >= 80) return 'bg-emerald-50 dark:bg-emerald-900/30'
+    if (score >= 60) return 'bg-green-50 dark:bg-green-900/30'
+    if (score >= 40) return 'bg-amber-50 dark:bg-amber-900/20'
+    if (score >= 20) return 'bg-orange-50 dark:bg-orange-900/20'
+    return 'bg-red-50 dark:bg-red-900/20'
 }
 
 function buildScoreGrid(points: MoodPoint[]): Array<{ date: string; score: number | null }[]> {
@@ -110,7 +110,7 @@ export function MoodCalendar({
         <div className={className}>
             <div className="mb-2 grid grid-cols-7 gap-1.5 px-0.5">
                 {DAY_LABELS.map((d) => (
-                    <div key={d} className="text-center text-[10px] font-semibold uppercase tracking-wider text-theme-text-secondary/60 dark:text-theme-text-tertiary">
+                    <div key={d} className="text-center text-[10px] font-semibold uppercase tracking-wider text-theme-text-secondary ">
                         {d}
                     </div>
                 ))}
@@ -138,9 +138,9 @@ export function MoodCalendar({
                                         transition={{ delay: idx * 0.012, duration: 0.2, ease: 'backOut' }}
                                         title={score !== null ? `${formatDate(date)}: ${Math.round(score)}%` : formatDate(date)}
                                         className={[
-                                            'flex aspect-square items-center justify-center rounded-xl border transition',
+                                            'flex aspect-square items-center justify-center rounded-xl border transition border-theme-primary/40',
                                             isClickable ? 'cursor-pointer hover:scale-110 hover:shadow-sm active:scale-95' : 'cursor-default',
-                                            score !== null ? scoreToClasses(score) : 'border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/5',
+                                            score !== null ? scoreToClasses(score) : ' bg-theme-surface/80',
                                         ].join(' ')}
                                     >
                                         {score !== null ? (
@@ -148,7 +148,7 @@ export function MoodCalendar({
                                                 {scoreAbbrev(score)}
                                             </span>
                                         ) : (
-                                            <span className="h-1.5 w-1.5 rounded-full bg-serene-outline/25" />
+                                            <span className="h-1.5 w-1.5 rounded-full bg-serene-outline" />
                                         )}
                                     </motion.button>
                                 )
@@ -183,8 +183,8 @@ export function MoodCalendar({
                                             completed
                                                 ? 'border-theme-accent bg-theme-accent text-white shadow-sm'
                                                 : isFuture
-                                                  ? 'border-transparent bg-transparent'
-                                                  : 'border-black/10 bg-black/5 dark:border-white/10 dark:bg-white/5',
+                                                    ? 'border-transparent bg-transparent'
+                                                    : 'border-theme-primary/30 bg-theme-surface/80',
                                         ].join(' ')}
                                     >
                                         {completed ? <span className="text-[10px] font-bold">✓</span> : null}
