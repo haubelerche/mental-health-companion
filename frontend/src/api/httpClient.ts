@@ -2,13 +2,11 @@ import type { ApiEnvelope } from './types'
 import { ApiRequestError } from './types'
 
 /** Production / khi chạy FE tách host — trỏ thẳng FastAPI. */
-const DEFAULT_API_BASE_URL = 'http://127.0.0.1:8000/v1'
+const DEFAULT_API_BASE_URL = 'http://localhost:8000/v1'
 
 function resolveApiBaseUrl(): string {
     const fromEnv = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim()
     if (fromEnv) return fromEnv
-    /** Dev: cùng origin + proxy Vite → tránh CORS và dễ chạy song song `npm run dev` + uvicorn. */
-    if (import.meta.env.DEV) return '/v1'
     return DEFAULT_API_BASE_URL
 }
 
