@@ -9,6 +9,7 @@ import {
     Music,
     Paperclip,
     Play,
+    PlusCircle,
     Send,
     Sprout,
     UserRound,
@@ -361,7 +362,7 @@ export default function Chat() {
     type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
     const FALLBACK_GUEST_CHAT_DURATION_SECONDS = 120
 
-    const [sessionId, setSessionId] = useState<string | null>(null)
+    const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem('serene_chat_session_id'))
     const [messages, setMessages] = useState<UiMessage[]>([])
     const [input, setInput] = useState('')
     const [sending, setSending] = useState(false)
@@ -391,6 +392,14 @@ export default function Chat() {
     const isDark = effectiveTheme === 'dark'
 
     useEffect(() => {
+        if (sessionId) {
+            localStorage.setItem('serene_chat_session_id', sessionId)
+        } else {
+            localStorage.removeItem('serene_chat_session_id')
+        }
+    }, [sessionId])
+
+    useEffect(() => {
         if (!user) {
             setVoiceConsent(false)
             return
@@ -408,7 +417,7 @@ export default function Chat() {
 
     // Show Serene's greeting on fresh session (no messages loaded yet).
     useEffect(() => {
-        if (!user || isGuestMode) return
+        if (!user || isGuestMode || sessionId) return
         let cancelled = false
         chatService.getGreeting().then((res) => {
             if (cancelled) return
@@ -657,8 +666,24 @@ export default function Chat() {
                     : m,
             ),
         )
-        if (finalData.sos_triggered) setSosActive(true)
+        if (finalData?.sos_triggered) setSosActive(true)
         applyIntervention(finalData)
+    }
+
+    const handleNewChat = () => {
+        setSessionId(null)
+        setMessages([])
+        localStorage.removeItem('serene_chat_session_id')
+        if (user && !isGuestMode) {
+            chatService.getGreeting().then((res) => {
+                setMessages([{
+                    id: 'greeting-0',
+                    role: 'assistant' as const,
+                    content: res.text,
+                    timestamp: Date.now(),
+                }])
+            }).catch(() => undefined)
+        }
     }
 
     const doSend = async (text: string) => {
@@ -787,6 +812,12 @@ export default function Chat() {
         }
     }
 
+    useEffect(() => {
+        if (sessionId && messages.length === 0 && !isGuestMode) {
+            void loadSessionMessages(sessionId)
+        }
+    }, [sessionId, isGuestMode])
+
     const handleSend: FormSubmitHandler = async (event) => {
         event.preventDefault()
         if (!canSend) return
@@ -887,6 +918,17 @@ export default function Chat() {
                             <span className={`rounded-full border px-2.5 py-1 text-[10px] font-medium ${isDark ? 'border-amber-500/30 bg-amber-500/10 text-amber-500' : modeLabel.cls}`}>
                                 {modeLabel.text}
                             </span>
+                        )}
+                        {sessionId && (
+                            <button
+                                type="button"
+                                onClick={() => handleNewChat()}
+                                className="flex items-center justify-center rounded-full text-theme-text-secondary transition hover:text-theme-text-primary"
+                                aria-label="Cuộc trò chuyện mới"
+                                title="Cuộc trò chuyện mới"
+                            >
+                                <PlusCircle className="h-6 w-6" />
+                            </button>
                         )}
                         <button
                             type="button"
