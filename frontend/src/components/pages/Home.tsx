@@ -91,6 +91,7 @@ type QuickAction = {
     route: string
     bgClass: string
     iconClass: string
+    gif: string
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
@@ -101,6 +102,7 @@ const QUICK_ACTIONS: QuickAction[] = [
         route: ROUTE_PATHS.chat,
         bgClass: 'bg-theme-accent/10',
         iconClass: 'text-theme-accent',
+        gif: healingImg,
     },
     {
         icon: Wind,
@@ -109,6 +111,7 @@ const QUICK_ACTIONS: QuickAction[] = [
         route: ROUTE_PATHS.exercises,
         bgClass: 'bg-theme-accent/10',
         iconClass: 'text-theme-accent',
+        gif: beachMessageBg,
     },
     {
         icon: BookOpen,
@@ -117,6 +120,7 @@ const QUICK_ACTIONS: QuickAction[] = [
         route: ROUTE_PATHS.checkin,
         bgClass: 'bg-theme-accent/10',
         iconClass: 'text-theme-accent',
+        gif: dayRhythmImg,
     },
     {
         icon: BarChart2,
@@ -125,6 +129,7 @@ const QUICK_ACTIONS: QuickAction[] = [
         route: ROUTE_PATHS.nutrition,
         bgClass: 'bg-theme-accent/10',
         iconClass: 'text-theme-accent',
+        gif: nutritionImg,
     },
 ]
 
@@ -717,17 +722,24 @@ export default function Home() {
                             <Link
                                 key={action.label}
                                 to={action.route}
-                                className="group flex flex-col gap-4 rounded-[22px] bg-theme-surface/80 p-6 text-left border border-theme-border/30 backdrop-blur-xl shadow-sm hover:scale-105 duration-500 transition-all"
+                                className="group relative flex flex-col gap-4 rounded-[22px] overflow-hidden p-6 text-left border border-theme-border/30 shadow-sm hover:scale-105 duration-500 transition-all"
                             >
-                                <motion.div
-                                    className={`inline-flex h-12 w-12 items-center justify-center rounded-xl ${action.bgClass} ${action.iconClass}`}
-                                    whileHover={{ scale: 1.15, rotate: 15 }}
-                                >
-                                    <Icon className="h-6 w-6" />
-                                </motion.div>
-                                <div>
-                                    <p className="text-sm font-bold text-theme-text-primary leading-tight">{action.label}</p>
-                                    <p className="mt-1 text-xs text-theme-text-secondary/80">{action.desc}</p>
+                                <img
+                                    src={action.gif}
+                                    alt={action.label}
+                                    className="absolute inset-0 h-full w-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" /> {/* Overlay */}
+                                <div className="relative z-10 flex flex-col gap-4">
+                                    <div
+                                        className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white text-serene-primary`}
+                                    >
+                                        <Icon className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-white leading-tight">{action.label}</p>
+                                        <p className="mt-1 text-sm text-white/90">{action.desc}</p>
+                                    </div>
                                 </div>
                             </Link>
                         )
