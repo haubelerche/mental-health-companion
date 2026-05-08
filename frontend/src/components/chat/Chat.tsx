@@ -9,7 +9,7 @@ import {
     Music,
     Paperclip,
     Play,
-    PlusCircle,
+    Plus,
     Send,
     Sprout,
     UserRound,
@@ -34,6 +34,7 @@ import PersonaSelector from './PersonaSelector'
 import ChatEntryCheckIn from './ChatEntryCheckIn'
 import VoiceStatusBadge, { TTS_TERMINAL_STATUSES } from './VoiceStatusBadge'
 import type { TtsStatus } from './VoiceStatusBadge'
+import Loading from '../ui/Loading'
 
 // ─── API response types ────────────────────────────────────────────────────────
 
@@ -902,7 +903,7 @@ export default function Chat() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2" ref={optionsRef}>
+                    <div className="flex items-center gap-4" ref={optionsRef}>
                         {voiceStatus && (
                             <VoiceStatusBadge
                                 status={voiceStatus}
@@ -923,17 +924,17 @@ export default function Chat() {
                             <button
                                 type="button"
                                 onClick={() => handleNewChat()}
-                                className="flex items-center justify-center rounded-full text-theme-text-secondary transition hover:text-theme-text-primary"
+                                className="cursor-pointer flex items-center justify-center rounded-full text-theme-text-secondary transition hover:text-theme-text-primary"
                                 aria-label="Cuộc trò chuyện mới"
                                 title="Cuộc trò chuyện mới"
                             >
-                                <PlusCircle className="h-6 w-6" />
+                                <Plus className="h-6 w-6" />
                             </button>
                         )}
                         <button
                             type="button"
                             onClick={() => void openHistory()}
-                            className="flex items-center justify-center rounded-full text-theme-text-secondary transition hover:text-theme-text-primary"
+                            className="cursor-pointer flex items-center justify-center rounded-full text-theme-text-secondary transition hover:text-theme-text-primary"
                             aria-label="Lịch sử chat"
                         >
                             <History className="h-6 w-6" />
@@ -942,7 +943,7 @@ export default function Chat() {
                             <button
                                 type="button"
                                 onClick={() => setShowOptions((prev) => !prev)}
-                                className="flex items-center justify-center rounded-full text-theme-text-secondary transition hover:text-theme-text-primary"
+                                className="cursor-pointer flex items-center justify-center rounded-full text-theme-text-secondary transition hover:text-theme-text-primary"
                                 aria-label="Tùy chọn"
                             >
                                 <MoreVertical className="h-6 w-6" />
@@ -1021,15 +1022,7 @@ export default function Chat() {
                 <div className="flex-1 mb-8 overflow-y-auto p-4 sm:px-6">
                     <div className="flex min-h-full flex-col justify-end gap-3">
                         {messages.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                                <Leaf className="h-14 w-14 text-theme-accent opacity-90" aria-hidden />
-                                <p className=" text-theme-text-secondary">Chia sẻ điều bạn đang cảm thấy, mình lắng nghe.</p>
-                                {!isGuestMode && !checkInDone && (
-                                    <div className="mt-2 w-full max-w-sm">
-                                        <ChatEntryCheckIn onComplete={() => setCheckInDone(true)} />
-                                    </div>
-                                )}
-                            </div>
+                            <Loading />
                         ) : (
                             messages.map((m, idx) => {
                                 const isAI = m.role === 'assistant'
