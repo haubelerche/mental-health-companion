@@ -30,7 +30,7 @@ import AdminResources from '../components/admin/AdminResources'
 import AdminMain from '../components/admin/layout/AdminMain.tsx'
 import Home from '../components/pages/Home.tsx'
 import RewardsPage from '../components/pages/RewardsPage.tsx'
-import NotificationsPage from '../components/notifications/Notifications.tsx'
+import NotificationsPage from '../components/pages/notifications/Notifications.tsx'
 
 function RequireAuth({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()

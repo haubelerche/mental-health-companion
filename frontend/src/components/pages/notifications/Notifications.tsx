@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { notificationService } from '../../services/notificationService'
-import type { UserNotification } from '../../services/notificationService'
-import Loading from '../ui/Loading'
+import { notificationService } from '../../../services/notificationService'
+import type { UserNotification } from '../../../services/notificationService'
+import Loading from '../../ui/Loading'
 
 function timeAgo(dateParam: any) {
   if (!dateParam) return '---'
@@ -80,6 +80,9 @@ export default function NotificationsPage() {
 
   return (
     <div className={`min-h-screen  pb-20 ${ui.bg} ${ui.text} font-sans backdrop-blur-2xl rounded-4xl`}>
+      <div className="w-full h-screen overflow-hidden rounded-4xl shadow-2xl border border-theme-primary/5">
+        <img src={"./src/assets/background_image.png"} alt="" className="w-full h-full object-cover" />
+      </div>
       <div className="sticky top-0 z-20  border-b border-theme-primary/70 bg-theme-surface rounded-t-2xl px-6 py-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold font-display">Thông báo</h1>
         {unreadCount > 0 && (
