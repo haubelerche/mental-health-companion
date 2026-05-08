@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import Modal from 'react-modal'
+import { parseTime } from '@/utils/parseTime'
 
 export type ChatSession = {
     session_id: string
@@ -74,7 +75,7 @@ export function ChatHistoryModal({ open, loading, sessions, onClose, onSelectSes
                                                 {sess.preview || 'Phiên trò chuyện'}
                                             </p>
                                             <p className="mt-1 text-[11px] leading-relaxed text-theme-text-secondary">
-                                                {new Date(sess.last_message_at).toLocaleString('vi-VN')}
+                                                {parseTime(sess.last_message_at)}
                                             </p>
                                         </div>
                                         <span className="mt-0.5 rounded-full bg-theme-accent/10 px-2 py-1 text-[10px] font-medium text-theme-accent">
