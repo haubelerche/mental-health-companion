@@ -22,6 +22,7 @@ NOTIFICATION_EVENT_TYPES = {
     "memory.completed",
     "persona.unlocked",
     "crisis.detected",
+    "admin.broadcast",
 }
 
 

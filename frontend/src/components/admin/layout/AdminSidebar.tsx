@@ -1,23 +1,37 @@
-import { Activity, AlertTriangle, LayoutDashboard, LogOut, Package } from 'lucide-react'
+import { Activity, AlertTriangle, BarChart3, Bell, LayoutDashboard, LogOut, Mail, Package, Shield, Users, Cpu } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { ROUTE_PATHS } from '../../../routes/paths'
 
 const links = [
-    { to: ROUTE_PATHS.adminDashboard, label: 'Dashboard', icon: LayoutDashboard },
-    { to: ROUTE_PATHS.adminCrisisLogs, label: 'Crisis logs', icon: AlertTriangle },
-    { to: ROUTE_PATHS.adminResources, label: 'Resources', icon: Package },
+    { to: ROUTE_PATHS.adminDashboard, label: 'Tổng quan', icon: LayoutDashboard },
+    { to: ROUTE_PATHS.adminAnalytics, label: 'Phân tích', icon: BarChart3 },
+    { to: ROUTE_PATHS.adminUsers, label: 'Người dùng', icon: Users },
+    { to: ROUTE_PATHS.adminNotifications, label: 'Thông báo', icon: Bell },
+    { to: ROUTE_PATHS.adminLetters, label: 'Kiểm duyệt thư', icon: Mail },
+    { to: ROUTE_PATHS.adminAuditLogs, label: 'Nhật ký Admin', icon: Shield },
+    { to: ROUTE_PATHS.adminCrisisLogs, label: 'Nhật ký khẩn', icon: AlertTriangle },
+    { to: ROUTE_PATHS.adminResources, label: 'Tài nguyên', icon: Package },
 ]
 
 const AdminSidebar = () => {
     const navigate = useNavigate()
 
     return (
-        <aside className="w-64 border-r border-serene-primary/15 bg-white/70 p-4 backdrop-blur">
-            <div className="mb-6 flex items-center gap-2 px-2">
-                <Activity className="h-5 w-5 text-serene-primary" />
-                <h2 className="font-display text-xl text-serene-ink">Admin</h2>
+        <aside className="admin-sidebar">
+            {/* Brand */}
+            <div className="admin-sidebar-brand">
+                <div className="admin-sidebar-brand-icon">
+                    <Activity size={20} />
+                </div>
+                <div>
+                    <h2 className="admin-sidebar-brand-title">Serene</h2>
+                    <p className="admin-sidebar-brand-sub">Bảng điều khiển</p>
+                </div>
             </div>
-            <nav className="space-y-1">
+
+            {/* Nav */}
+            <nav className="admin-sidebar-nav">
+                <p className="admin-sidebar-section-label">MENU CHÍNH</p>
                 {links.map((item) => {
                     const Icon = item.icon
                     return (
@@ -25,27 +39,27 @@ const AdminSidebar = () => {
                             key={item.to}
                             to={item.to}
                             className={({ isActive }) =>
-                                `flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${
-                                    isActive
-                                        ? 'bg-serene-primary text-serene-on-primary'
-                                        : 'text-serene-ink hover:bg-serene-primary/10'
-                                }`
+                                `admin-sidebar-link ${isActive ? 'active' : ''}`
                             }
                         >
-                            <Icon className="h-4 w-4" />
-                            {item.label}
+                            <Icon size={18} />
+                            <span>{item.label}</span>
                         </NavLink>
                     )
                 })}
             </nav>
-            <button
-                type="button"
-                onClick={() => navigate(ROUTE_PATHS.adminLogin)}
-                className="mt-8 inline-flex items-center gap-2 rounded-xl border border-serene-primary/20 px-3 py-2 text-sm text-serene-ink hover:bg-serene-primary/10"
-            >
-                <LogOut className="h-4 w-4" />
-                Đổi tài khoản
-            </button>
+
+            {/* Footer */}
+            <div className="admin-sidebar-footer">
+                <button
+                    type="button"
+                    onClick={() => navigate(ROUTE_PATHS.adminLogin)}
+                    className="admin-sidebar-logout"
+                >
+                    <LogOut size={16} />
+                    Đổi tài khoản
+                </button>
+            </div>
         </aside>
     )
 }

@@ -561,14 +561,16 @@ class InsightHypothesis(Base):
 
 class AdminAuditLog(Base):
     __tablename__ = "admin_audit_log"
+    __table_args__ = {"schema": "app"}
 
     audit_id: Mapped[int] = mapped_column(BIGINT, primary_key=True, autoincrement=True)
-    admin_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    # admin_id is a virtual ID generated on-the-fly, not linked to app.users
+    admin_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     resource_accessed: Mapped[str | None] = mapped_column(String(255))
-    ip_address: Mapped[str] = mapped_column(String(45), nullable=False)
+    ip_address: Mapped[str] = mapped_column(INET_COMPAT, nullable=False)
     metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict, nullable=False)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
 class UserProfile(Base):

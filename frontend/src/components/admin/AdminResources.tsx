@@ -1,3 +1,4 @@
+import './AdminResources.css'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'react-toastify'
 import { ApiRequestError } from '../../api/types'
@@ -8,12 +9,30 @@ import {
     type AdminResource,
     type AdminResourceCreatePayload,
 } from '../../services/adminService'
+import AgentFlowDiagram, {
+    type AgentStep,
+    type StepStatus,
+    type AgentStepData,
+    type AgentResult,
+} from './AgentFlowDiagram'
+import { Brain, Info, Zap, Activity } from 'lucide-react'
+import WorkerAutomationCard from './automation/WorkerAutomationCard'
 
+/* ─────────── helpers ─────────── */
 function toTagList(value: string): string[] {
     return value
         .split(',')
         .map((x) => x.trim())
         .filter(Boolean)
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+    meditate: '🧘 Thiền định',
+    sleep: '🌙 Ngủ ngon',
+    music: '🎵 Âm nhạc',
+    work_study: '📚 Tập trung học',
+    wisdom: '💡 Kiến thức tâm lý',
+    movement: '🏃 Vận động nhẹ',
 }
 
 const defaultForm: AdminResourceCreatePayload = {
@@ -29,7 +48,22 @@ const defaultForm: AdminResourceCreatePayload = {
     is_active: true,
 }
 
+type TabMode = 'manual' | 'agent'
+
+const INITIAL_STEP_STATUSES: Record<AgentStep, StepStatus> = {
+    idle: 'pending',
+    keyword_generation: 'pending',
+    youtube_search: 'pending',
+    content_moderation: 'pending',
+    db_insertion: 'pending',
+    done: 'pending',
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AdminResources – Dual-mode: Manual + Agent
+   ═══════════════════════════════════════════════════════════════ */
 export default function AdminResources() {
+    /* ───── shared state ───── */
     const [resources, setResources] = useState<AdminResource[]>([])
     const [categoryFilter, setCategoryFilter] = useState('')
     const [includeInactive, setIncludeInactive] = useState(true)
@@ -39,9 +73,37 @@ export default function AdminResources() {
     const [editingId, setEditingId] = useState<string | null>(null)
     const [form, setForm] = useState(defaultForm)
     const [tagsInput, setTagsInput] = useState('')
+    const [activeTab, setActiveTab] = useState<TabMode>('agent')
+
+    /* ───── agent state ───── */
+    const [agentCategory, setAgentCategory] = useState('meditate')
+    const [agentLimit, setAgentLimit] = useState(5)
+    const [agentRunning, setAgentRunning] = useState(false)
+    const [agentCurrentStep, setAgentCurrentStep] = useState<AgentStep>('idle')
+    const [agentStepStatuses, setAgentStepStatuses] = useState<Record<AgentStep, StepStatus>>({ ...INITIAL_STEP_STATUSES })
+    const [agentStepData, setAgentStepData] = useState<Record<string, AgentStepData>>({})
+    const [agentResults, setAgentResults] = useState<AgentResult[]>([])
+    const [suggestion, setSuggestion] = useState<any>(null)
+    const [loadingSuggestion, setLoadingSuggestion] = useState(false)
+    const [logs, setLogs] = useState<any[]>([])
+
+    const fetchLogs = async () => {
+        try {
+            const res = await adminService.getAutomationStatus()
+            const resourceLogs = (res.logs || []).filter((l: any) => l.worker === 'resource').slice(0, 5)
+            setLogs(resourceLogs)
+        } catch (err) {}
+    }
+
+    useEffect(() => {
+        fetchLogs()
+        const inv = setInterval(fetchLogs, 15000)
+        return () => clearInterval(inv)
+    }, [])
 
     const submitLabel = useMemo(() => (editingId ? 'Cập nhật' : 'Tạo resource'), [editingId])
 
+    /* ───── resource list ───── */
     const load = useCallback(async () => {
         setLoading(true)
         setError('')
@@ -54,6 +116,7 @@ export default function AdminResources() {
             })
             setResources(data.items)
         } catch (err) {
+            if (err instanceof ApiRequestError && err.handledByModal) return
             if (err instanceof ApiRequestError) setError(err.message)
             else setError('Không tải được resources.')
         } finally {
@@ -98,6 +161,7 @@ export default function AdminResources() {
             resetForm()
             await load()
         } catch (err) {
+            if (err instanceof ApiRequestError && err.handledByModal) return
             if (err instanceof ApiRequestError) toast.error(err.message)
             else toast.error('Không thể lưu resource.')
         } finally {
@@ -130,6 +194,7 @@ export default function AdminResources() {
             toast.success('Đã xóa resource.')
             await load()
         } catch (err) {
+            if (err instanceof ApiRequestError && err.handledByModal) return
             if (err instanceof ApiRequestError) toast.error(err.message)
             else toast.error('Không thể xóa resource.')
         } finally {
@@ -137,136 +202,420 @@ export default function AdminResources() {
         }
     }
 
+    const getSmartSuggestion = async () => {
+        setLoadingSuggestion(true)
+        try {
+            const data = await adminService.getEmotionResourceSuggestion()
+            setSuggestion(data)
+            if (data.suggestions && data.suggestions.length > 0) {
+                setAgentCategory(data.suggestions[0].category)
+                toast.info(`Hệ thống gợi ý bổ sung thêm tài nguyên: ${CATEGORY_LABELS[data.suggestions[0].category]}`)
+            }
+        } catch (err) {
+            if (err instanceof ApiRequestError && err.handledByModal) return
+            toast.error('Không thể lấy gợi ý thông minh')
+        } finally {
+            setLoadingSuggestion(false)
+        }
+    }
+
+    /* ═══════ Agent Crawl SSE ═══════ */
+    const startAgentCrawl = async () => {
+        setAgentRunning(true)
+        setAgentCurrentStep('idle')
+        setAgentStepStatuses({ ...INITIAL_STEP_STATUSES })
+        setAgentStepData({})
+        setAgentResults([])
+
+        try {
+            const response = await adminService.agentCrawlResources({
+                category: agentCategory,
+                limit: agentLimit,
+            })
+
+            if (!response.ok) {
+                toast.error('Agent crawl failed.')
+                setAgentRunning(false)
+                return
+            }
+
+            const reader = response.body?.getReader()
+            if (!reader) {
+                toast.error('Không thể đọc stream.')
+                setAgentRunning(false)
+                return
+            }
+
+            const decoder = new TextDecoder()
+            let buffer = ''
+
+            while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
+
+                buffer += decoder.decode(value, { stream: true })
+                const lines = buffer.split('\n')
+                buffer = lines.pop() || ''
+
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue
+                    try {
+                        const parsed = JSON.parse(line.slice(6))
+                        const event = parsed.event as AgentStep
+                        const data = parsed.data as AgentStepData & { status?: string }
+
+                        if (data.status === 'started') {
+                            setAgentCurrentStep(event)
+                            setAgentStepStatuses((prev) => ({ ...prev, [event]: 'active' as StepStatus }))
+                        } else if (data.status === 'completed') {
+                            setAgentStepStatuses((prev) => ({ ...prev, [event]: 'completed' as StepStatus }))
+                            setAgentStepData((prev) => ({ ...prev, [event]: data }))
+
+                            if (event === 'done' && data.results) {
+                                setAgentResults(data.results)
+                            }
+                        }
+                    } catch {
+                        /* skip malformed lines */
+                    }
+                }
+            }
+
+            setAgentCurrentStep('done')
+            toast.success('Agent crawl hoàn tất!')
+            // Refresh resource list
+            void load()
+        } catch (err) {
+            if (err instanceof ApiRequestError && err.handledByModal) return
+            if (err instanceof ApiRequestError) toast.error(err.message)
+            else toast.error('Agent crawl gặp lỗi.')
+        } finally {
+            setAgentRunning(false)
+        }
+    }
+
+    /* ═══════════════════════════════════════ RENDER ═══════════════════════════════════════ */
     return (
-        <section className="space-y-4">
-            <header>
-                <h1 className="font-display text-3xl text-serene-ink">Admin resources</h1>
-                <p className="text-sm text-serene-muted">Quản lý tài nguyên bằng toàn bộ API admin resources.</p>
+        <section className="admin-resources-root">
+            {/* ───── Header ───── */}
+            <header className="admin-res-header">
+                <div>
+                    <h1 className="admin-res-title">Resource Management</h1>
+                    <p className="admin-res-subtitle">Quản lý tài nguyên bằng toàn bộ API admin resources.</p>
+                </div>
+                {/* Tab Switcher */}
+                <div className="admin-res-tabs">
+                    <button
+                        className={`admin-res-tab ${activeTab === 'agent' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('agent')}
+                    >
+                        <span className="admin-res-tab-icon">🤖</span>
+                        Agent Mode
+                    </button>
+                    <button
+                        className={`admin-res-tab ${activeTab === 'manual' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('manual')}
+                    >
+                        <span className="admin-res-tab-icon">✏️</span>
+                        Manual Mode
+                    </button>
+                </div>
             </header>
 
-            {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
+            {error ? <p className="admin-res-error">{error}</p> : null}
 
-            <article className="rounded-2xl bg-white/80 p-4 shadow">
-                <h2 className="mb-3 text-sm font-semibold text-serene-ink">{submitLabel}</h2>
-                <div className="grid gap-2 md:grid-cols-2">
-                    <input
-                        value={form.title}
-                        onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-                        placeholder="Title"
-                        className="rounded-lg border border-serene-primary/20 p-2 text-sm"
-                    />
-                    <select
-                        value={form.category}
-                        onChange={(event) => setForm((prev) => ({ ...prev, category: event.target.value }))}
-                        className="rounded-lg border border-serene-primary/20 p-2 text-sm"
-                    >
-                        {ADMIN_RESOURCE_CATEGORIES.map((cat) => (
-                            <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                    </select>
-                    <select
-                        value={form.format}
-                        onChange={(event) => setForm((prev) => ({ ...prev, format: event.target.value }))}
-                        className="rounded-lg border border-serene-primary/20 p-2 text-sm"
-                    >
-                        {ADMIN_RESOURCE_FORMATS.map((fmt) => (
-                            <option key={fmt} value={fmt}>{fmt}</option>
-                        ))}
-                    </select>
-                    <input
-                        type="number"
-                        min={1}
-                        value={form.duration_sec}
-                        onChange={(event) => setForm((prev) => ({ ...prev, duration_sec: Number(event.target.value) || 1 }))}
-                        placeholder="Duration seconds"
-                        className="rounded-lg border border-serene-primary/20 p-2 text-sm"
-                    />
-                    <input
-                        value={form.storage_key || ''}
-                        onChange={(event) => setForm((prev) => ({ ...prev, storage_key: event.target.value }))}
-                        placeholder="storage_key (optional nếu có external_url)"
-                        className="rounded-lg border border-serene-primary/20 p-2 text-sm md:col-span-2"
-                    />
-                    <input
-                        value={form.external_url ?? ''}
-                        onChange={(event) => setForm((prev) => ({ ...prev, external_url: event.target.value }))}
-                        placeholder="external_url (YouTube URL nếu có)"
-                        className="rounded-lg border border-serene-primary/20 p-2 text-sm md:col-span-2"
-                    />
-                    <input
-                        value={form.thumbnail_key ?? ''}
-                        onChange={(event) => setForm((prev) => ({ ...prev, thumbnail_key: event.target.value }))}
-                        placeholder="thumbnail_key (optional)"
-                        className="rounded-lg border border-serene-primary/20 p-2 text-sm md:col-span-2"
-                    />
-                    <input
-                        value={tagsInput}
-                        onChange={(event) => setTagsInput(event.target.value)}
-                        placeholder="tags, cách nhau dấu phẩy"
-                        className="rounded-lg border border-serene-primary/20 p-2 text-sm md:col-span-2"
-                    />
-                    <textarea
-                        value={form.description ?? ''}
-                        onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-                        rows={3}
-                        placeholder="Description"
-                        className="rounded-lg border border-serene-primary/20 p-2 text-sm md:col-span-2"
-                    />
-                    <label className="inline-flex items-center gap-2 text-sm text-serene-ink">
-                        <input
-                            type="checkbox"
-                            checked={form.is_active}
-                            onChange={(event) => setForm((prev) => ({ ...prev, is_active: event.target.checked }))}
-                        />
-                        is_active
-                    </label>
-                </div>
-                <div className="mt-3 flex gap-2">
-                    <button type="button" disabled={busy} onClick={() => void submit()} className="rounded-lg bg-serene-primary px-3 py-2 text-sm text-serene-on-primary disabled:opacity-60">
-                        {submitLabel}
-                    </button>
-                    {editingId ? (
-                        <button type="button" onClick={resetForm} className="rounded-lg border border-serene-primary/20 px-3 py-2 text-sm text-serene-ink">
-                            Huỷ edit
-                        </button>
-                    ) : null}
-                </div>
-            </article>
+            {/* ═════════ TAB: MANUAL MODE ═════════ */}
+            {activeTab === 'manual' && (
+                <>
+                    <article className="admin-res-card">
+                        <h2 className="admin-res-card-title">{submitLabel}</h2>
+                        <div className="admin-res-form-grid">
+                            <input
+                                value={form.title}
+                                onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+                                placeholder="Title"
+                                className="admin-res-input"
+                            />
+                            <select
+                                value={form.category}
+                                onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
+                                className="admin-res-input"
+                            >
+                                {ADMIN_RESOURCE_CATEGORIES.map((cat) => (
+                                    <option key={cat} value={cat}>{CATEGORY_LABELS[cat] || cat}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={form.format}
+                                onChange={(e) => setForm((p) => ({ ...p, format: e.target.value }))}
+                                className="admin-res-input"
+                            >
+                                {ADMIN_RESOURCE_FORMATS.map((fmt) => (
+                                    <option key={fmt} value={fmt}>{fmt}</option>
+                                ))}
+                            </select>
+                            <input
+                                type="number"
+                                min={1}
+                                value={form.duration_sec}
+                                onChange={(e) => setForm((p) => ({ ...p, duration_sec: Number(e.target.value) || 1 }))}
+                                placeholder="Duration seconds"
+                                className="admin-res-input"
+                            />
+                            <input
+                                value={form.storage_key || ''}
+                                onChange={(e) => setForm((p) => ({ ...p, storage_key: e.target.value }))}
+                                placeholder="storage_key (optional nếu có external_url)"
+                                className="admin-res-input admin-res-input-wide"
+                            />
+                            <input
+                                value={form.external_url ?? ''}
+                                onChange={(e) => setForm((p) => ({ ...p, external_url: e.target.value }))}
+                                placeholder="external_url (YouTube URL nếu có)"
+                                className="admin-res-input admin-res-input-wide"
+                            />
+                            <input
+                                value={form.thumbnail_key ?? ''}
+                                onChange={(e) => setForm((p) => ({ ...p, thumbnail_key: e.target.value }))}
+                                placeholder="thumbnail_key (optional)"
+                                className="admin-res-input admin-res-input-wide"
+                            />
+                            <input
+                                value={tagsInput}
+                                onChange={(e) => setTagsInput(e.target.value)}
+                                placeholder="tags, cách nhau dấu phẩy"
+                                className="admin-res-input admin-res-input-wide"
+                            />
+                            <textarea
+                                value={form.description ?? ''}
+                                onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                                rows={3}
+                                placeholder="Description"
+                                className="admin-res-input admin-res-input-wide"
+                            />
+                            <label className="admin-res-checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    checked={form.is_active}
+                                    onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))}
+                                />
+                                is_active
+                            </label>
+                        </div>
+                        <div className="admin-res-form-actions">
+                            <button type="button" disabled={busy} onClick={() => void submit()} className="admin-res-btn-primary">
+                                {submitLabel}
+                            </button>
+                            {editingId ? (
+                                <button type="button" onClick={resetForm} className="admin-res-btn-outline">
+                                    Huỷ edit
+                                </button>
+                            ) : null}
+                        </div>
+                    </article>
+                </>
+            )}
 
-            <article className="rounded-2xl bg-white/80 p-4 shadow">
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="rounded-lg border border-serene-primary/20 p-2 text-sm">
+            {/* ═════════ TAB: AGENT MODE ═════════ */}
+            {activeTab === 'agent' && (
+                <div className="admin-agent-section">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        <div className="lg:col-span-1">
+                            <WorkerAutomationCard 
+                                workerKey="resource" 
+                                icon={Zap} 
+                                description="Tự động quét và cập nhật tài nguyên từ YouTube dựa trên xu hướng tâm trạng người dùng."
+                            />
+                        </div>
+                        <div className="lg:col-span-2 bg-black/40 border border-white/10 rounded-2xl p-6 flex flex-col">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                    <Activity size={14} className="text-indigo-400" /> Nhật ký Crawler mới nhất
+                                </h3>
+                            </div>
+                            <div className="space-y-2 flex-1 overflow-y-auto max-h-[140px] custom-scrollbar pr-2">
+                                {logs.length > 0 ? (
+                                    logs.map((log, i) => (
+                                        <div key={i} className="flex gap-3 text-[11px] border-l border-indigo-500/20 pl-3 py-1 hover:bg-white/5 transition-all">
+                                            <span className="text-slate-600 shrink-0">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
+                                            <span className="text-slate-300 line-clamp-1">{log.message}</span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-xs text-slate-600 italic py-4 text-center">Chưa có hoạt động nào được ghi nhận.</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Control Panel */}
+                    <div className="admin-agent-control-panel">
+                        <div className="admin-agent-control-header">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h2 className="admin-agent-control-title">🤖 YouTube Auto Crawl Agent</h2>
+                                    <p className="admin-agent-control-desc">
+                                        Chỉ cần chọn chủ đề và số lượng, AI Agent sẽ tự động tìm kiếm, kiểm duyệt và lưu video phù hợp.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    className={`admin-agent-smart-btn ${loadingSuggestion ? 'loading' : ''}`}
+                                    disabled={loadingSuggestion || agentRunning}
+                                    onClick={() => void getSmartSuggestion()}
+                                >
+                                    {loadingSuggestion ? <span className="admin-agent-spinner-sm" /> : <Brain size={18} />}
+                                    <span>🧠 Gợi ý thông minh</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {suggestion && (
+                            <div className="admin-agent-suggestion-panel">
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400">
+                                        <Info size={20} />
+                                    </div>
+                                    <div className="space-y-2 flex-1">
+                                        <p className="text-sm text-slate-300">
+                                            Dựa trên phân tích <b>7 ngày gần nhất</b>, hệ thống nhận thấy:
+                                        </p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {suggestion.suggestions.map((s: any, idx: number) => (
+                                                <div key={idx} className="bg-white/5 p-3 rounded-lg border border-white/5">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${s.priority === 'high' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                                                            {s.priority} priority
+                                                        </span>
+                                                        <span className="text-sm font-bold text-white">{CATEGORY_LABELS[s.category]}</span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-400 leading-relaxed">{s.reason}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        <div className="admin-agent-control-body">
+                            <div className="admin-agent-field">
+                                <label className="admin-agent-label">Chủ đề (Category)</label>
+                                <select
+                                    value={agentCategory}
+                                    onChange={(e) => setAgentCategory(e.target.value)}
+                                    className="admin-agent-select"
+                                    disabled={agentRunning}
+                                >
+                                    {ADMIN_RESOURCE_CATEGORIES.map((cat) => (
+                                        <option key={cat} value={cat}>{CATEGORY_LABELS[cat] || cat}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="admin-agent-field">
+                                <label className="admin-agent-label">Số lượng video</label>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={50}
+                                    value={agentLimit}
+                                    onChange={(e) => setAgentLimit(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
+                                    className="admin-agent-input"
+                                    disabled={agentRunning}
+                                />
+                            </div>
+                            <button
+                                type="button"
+                                className="admin-agent-crawl-btn"
+                                disabled={agentRunning}
+                                onClick={() => void startAgentCrawl()}
+                            >
+                                {agentRunning ? (
+                                    <>
+                                        <span className="admin-agent-spinner"></span>
+                                        Agent đang xử lý...
+                                    </>
+                                ) : (
+                                    <>⚡ Auto Crawl</>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Agent Flow Diagram */}
+                    <AgentFlowDiagram
+                        currentStep={agentCurrentStep}
+                        stepStatuses={agentStepStatuses}
+                        stepData={agentStepData}
+                    />
+
+                    {/* Results Table */}
+                    {agentResults.length > 0 && (
+                        <div className="admin-agent-results">
+                            <h3 className="admin-agent-results-title">
+                                📋 Kết quả ({agentResults.filter((r) => r.status === 'inserted').length} mới /
+                                {' '}{agentResults.filter((r) => r.status === 'existed').length} đã tồn tại)
+                            </h3>
+                            <div className="admin-agent-results-grid">
+                                {agentResults.map((r, i) => (
+                                    <div key={i} className={`admin-agent-result-card ${r.status}`}>
+                                        <img
+                                            src={r.thumbnail}
+                                            alt={r.title}
+                                            className="admin-agent-result-thumb"
+                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                                        />
+                                        <div className="admin-agent-result-info">
+                                            <p className="admin-agent-result-title">{r.title}</p>
+                                            <div className="admin-agent-result-meta">
+                                                <span className={`admin-agent-result-badge ${r.status}`}>
+                                                    {r.status === 'inserted' ? '✅ Đã thêm' : '⏭️ Đã tồn tại'}
+                                                </span>
+                                                <a href={r.url} target="_blank" rel="noopener noreferrer" className="admin-agent-result-link">
+                                                    Xem ↗
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ═════════ RESOURCE LIST (shared) ═════════ */}
+            <article className="admin-res-card">
+                <div className="admin-res-list-header">
+                    <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="admin-res-input" style={{ width: 'auto' }}>
                         <option value="">All categories</option>
                         {ADMIN_RESOURCE_CATEGORIES.map((cat) => (
-                            <option key={cat} value={cat}>{cat}</option>
+                            <option key={cat} value={cat}>{CATEGORY_LABELS[cat] || cat}</option>
                         ))}
                     </select>
-                    <label className="inline-flex items-center gap-2 text-sm text-serene-ink">
-                        <input type="checkbox" checked={includeInactive} onChange={(event) => setIncludeInactive(event.target.checked)} />
+                    <label className="admin-res-checkbox-label">
+                        <input type="checkbox" checked={includeInactive} onChange={(e) => setIncludeInactive(e.target.checked)} />
                         include inactive
                     </label>
-                    <button type="button" onClick={() => void load()} className="rounded-lg border border-serene-primary/20 px-3 py-2 text-sm">
+                    <button type="button" onClick={() => void load()} className="admin-res-btn-outline">
                         Refresh
                     </button>
                 </div>
-                {loading ? <p className="text-sm text-serene-muted">Đang tải resources...</p> : null}
-                <div className="space-y-2">
+                {loading ? <p className="admin-res-loading">Đang tải resources...</p> : null}
+                <div className="admin-res-list">
                     {resources.map((item) => (
-                        <div key={item.resource_id} className="rounded-xl border border-serene-primary/15 p-3 text-sm">
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                                <div>
-                                    <p className="font-semibold text-serene-ink">{item.title}</p>
-                                    <p className="text-serene-muted">{item.resource_id} • {item.category} • {item.format}</p>
-                                    <p className="text-serene-muted">duration {item.duration_sec}s • {item.is_active ? 'active' : 'inactive'}</p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button type="button" onClick={() => startEdit(item)} className="rounded-lg border border-serene-primary/20 px-3 py-1.5">Edit</button>
-                                    <button type="button" disabled={busy} onClick={() => void remove(item.resource_id)} className="rounded-lg border border-rose-200 px-3 py-1.5 text-rose-700">Delete</button>
-                                </div>
+                        <div key={item.resource_id} className="admin-res-item">
+                            <div className="admin-res-item-info">
+                                <p className="admin-res-item-title">{item.title}</p>
+                                <p className="admin-res-item-meta">{item.resource_id} • {CATEGORY_LABELS[item.category] || item.category} • {item.format}</p>
+                                <p className="admin-res-item-meta">duration {item.duration_sec}s • {item.is_active ? '🟢 active' : '🔴 inactive'}</p>
+                            </div>
+                            <div className="admin-res-item-actions">
+                                <button type="button" onClick={() => { startEdit(item); setActiveTab('manual') }} className="admin-res-btn-outline admin-res-btn-sm">Edit</button>
+                                <button type="button" disabled={busy} onClick={() => void remove(item.resource_id)} className="admin-res-btn-danger admin-res-btn-sm">Delete</button>
                             </div>
                         </div>
                     ))}
-                    {!loading && resources.length === 0 ? <p className="text-sm text-serene-muted">Chưa có resource nào.</p> : null}
+                    {!loading && resources.length === 0 ? <p className="admin-res-loading">Chưa có resource nào.</p> : null}
                 </div>
             </article>
         </section>

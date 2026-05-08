@@ -1,0 +1,167 @@
+import asyncio
+from datetime import datetime, timedelta, timezone
+from sqlalchemy import select, func
+from sqlalchemy.orm import Session
+import openai
+from app.core.config import get_settings
+from app.services.db.models import TherapyLetter, MoodCheckin, ClinicalProfile, User
+from app.services.utils import make_id, make_anon_name
+
+settings = get_settings()
+
+AI_SERENE_USER_ID = "ai_serene_agent"
+
+async def generate_ai_reply(letter_content: str, mood_info: str = None, clinical_info: str = None) -> str:
+    """Calls LLM to generate a healing response based on user context."""
+    client = openai.AsyncClient(api_key=settings.openai_api_key)
+    
+    system_prompt = (
+        "Bạn là Tiến sĩ Serene - một nhà tâm lý học lâm sàng với hơn 15 năm kinh nghiệm trong trị liệu tâm hồn. "
+        "Phong cách của bạn là sự kết hợp giữa sự thấu cảm sâu sắc của một người bạn và tri thức chuyên môn của một chuyên gia tâm lý. "
+        "Nhiệm vụ của bạn là phản hồi những lá thư tâm sự của người dùng một cách chân thành, chữa lành và mang tính nâng đỡ cao. "
+        "Hãy xưng 'mình' hoặc 'tôi' tùy ngữ cảnh (nhưng 'mình' sẽ thân thiện hơn) và gọi người dùng là 'bạn'. "
+        "Ngôn ngữ: Tiếng Việt. Phong cách: Điềm tĩnh, thấu cảm, không máy móc, mang tính khích lệ, sử dụng ngôn từ có sức mạnh chữa lành. "
+        "Hãy dựa vào thông tin tâm trạng và tình trạng lâm sàng (nếu có) để đưa ra những phân tích và lời khuyên phù hợp với tâm thế của một bác sĩ tâm lý thấu hiểu. "
+        "Độ dài: Khoảng 100-150 từ."
+    )
+    
+    user_context = f"Nội dung thư của người dùng gửi: \"{letter_content}\"\n"
+    if mood_info:
+        user_context += f"Tâm trạng hiện tại của người dùng: {mood_info}\n"
+    if clinical_info:
+        user_context += f"Chỉ số sức khỏe tinh thần: {clinical_info}\n"
+        
+    try:
+        response = await client.chat.completions.create(
+            model=settings.openai_model_friend,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_context}
+            ],
+            temperature=0.8,
+            max_tokens=500
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"AI Letter Reply Error: {e}")
+        return "Mình đã đọc được tâm sự của bạn. Dù thế nào, mình vẫn ở đây lắng nghe và ủng hộ bạn. Chúc bạn một ngày bình yên nhé."
+
+async def analyze_reported_letter(letter_content: str, report_reason: str = None) -> dict:
+    """Analyze a reported letter to help admin decide the action."""
+    client = openai.AsyncClient(api_key=settings.openai_api_key)
+    
+    system_prompt = (
+        "Bạn là chuyên gia kiểm duyệt nội dung của hệ thống Serene. "
+        "Nhiệm vụ của bạn là phân tích một lá thư bị báo cáo và đưa ra đánh giá khách quan. "
+        "Hãy xác định xem lá thư có thực sự vi phạm (nội dung độc hại, quấy rối, tự hại, v.v.) hay đây là một báo cáo sai sự thật. "
+        "Kết quả trả về dưới dạng JSON với các trường: "
+        "'category' (loại vi phạm hoặc 'safe'), "
+        "'severity' (thấp/trung bình/cao), "
+        "'reason' (giải thích ngắn gọn), "
+        "'action' (đề xuất: 'keep' hoặc 'delete')."
+    )
+    
+    user_context = f"Nội dung thư bị báo cáo: \"{letter_content}\"\n"
+    if report_reason:
+        user_context += f"Lý do người dùng báo cáo: {report_reason}\n"
+        
+    try:
+        response = await client.chat.completions.create(
+            model=settings.openai_model_friend,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_context}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.3
+        )
+        import json
+        return json.loads(response.choices[0].message.content.strip())
+    except Exception as e:
+        print(f"AI Content Moderation Error: {e}")
+        return {
+            "category": "unknown",
+            "severity": "unknown",
+            "reason": f"Lỗi phân tích AI: {str(e)}",
+            "action": "keep"
+        }
+
+async def run_ai_reply_worker(db: Session, hours_threshold: int = 6):
+    """
+    Finds letters older than threshold with no replies, 
+    generates AI response, and handles the original letter.
+    """
+    # Ensure AI user exists (simplified check/create)
+    ai_user = db.get(User, AI_SERENE_USER_ID)
+    if not ai_user:
+        ai_user = User(
+            user_id=AI_SERENE_USER_ID,
+            email="ai@serene.app",
+            display_name="Serene AI",
+            is_active=True
+        )
+        db.add(ai_user)
+        db.commit()
+
+    threshold_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=hours_threshold)
+    
+    # Find active public letters older than threshold
+    stmt = (
+        select(TherapyLetter)
+        .where(
+            TherapyLetter.letter_type == "public",
+            TherapyLetter.status == "active",
+            TherapyLetter.created_at <= threshold_time
+        )
+    )
+    
+    letters = db.scalars(stmt).all()
+    processed_count = 0
+    
+    for letter in letters:
+        # Check if already replied by someone else
+        exists_reply = db.scalar(
+            select(func.count(TherapyLetter.letter_id))
+            .where(TherapyLetter.reply_to_id == letter.letter_id)
+        )
+        if exists_reply:
+            continue
+            
+        # Get context
+        sender_id = letter.user_id
+        latest_mood = db.scalar(
+            select(MoodCheckin)
+            .where(MoodCheckin.user_id == sender_id)
+            .order_by(MoodCheckin.logged_at.desc())
+            .limit(1)
+        )
+        clinical = db.scalar(
+            select(ClinicalProfile).where(ClinicalProfile.user_id == sender_id)
+        )
+        
+        mood_str = f"{latest_mood.mood} ({latest_mood.emoji})" if latest_mood else "Chưa ghi nhận"
+        clin_str = f"PHQ-9: {clinical.phq9_score}, GAD-7: {clinical.gad7_score}" if clinical else "N/A"
+        
+        # Generate and save
+        reply_content = await generate_ai_reply(letter.content, mood_str, clin_str)
+        
+        reply = TherapyLetter(
+            letter_id=make_id("lrep_ai"),
+            user_id=AI_SERENE_USER_ID,
+            reply_to_id=letter.letter_id,
+            anonymous_name=make_anon_name(),
+            content=reply_content,
+            letter_type="reply",
+            status="active",
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None)
+        )
+        
+        # Remove from recipient's inbox
+        letter.receiver_id = None
+        
+        db.add(reply)
+        db.add(letter)
+        processed_count += 1
+        
+    db.commit()
+    return processed_count
