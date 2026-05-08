@@ -325,7 +325,7 @@ export default function Home() {
     const isDark = effectiveTheme === 'dark'
 
     const [quote, setQuote] = useState<{ text: string; author?: string | null } | null>(null)
-    const [hearts, setHearts] = useState<number>(0)
+    const [hearts, setHearts] = useState<number | null>(null)
     const [backendStreakDays, setBackendStreakDays] = useState<number | null>(null)
     const [isTodayCompleted, setIsTodayCompleted] = useState<boolean>(false)
     const [completedDays, setCompletedDays] = useState<number[]>([])
@@ -454,12 +454,20 @@ export default function Home() {
                 <div className="flex items-center gap-3 rounded-full bg-theme-surface/80 px-4 py-2 backdrop-blur-sm border border-theme-border/50 shadow-sm">
                     <span className="flex items-center gap-1 text-sm font-bold text-rose-500 dark:text-rose-400">
                         <Heart className="h-4 w-4 fill-current" />
-                        {hearts}
+                        {hearts === null ? (
+                            <span className="h-4 w-6 bg-theme-accent/50 animate-pulse rounded-full" />
+                        ) : (
+                            hearts
+                        )}
                     </span>
                     <span className="h-4 w-px bg-theme-secondary" />
                     <span className="flex items-center gap-1 text-sm font-bold text-amber-600 dark:text-amber-400">
                         <Flame className="h-4 w-4 fill-current" />
-                        {streak}
+                        {backendStreakDays === null ? (
+                            <span className="h-4 w-6 bg-theme-accent/50 animate-pulse rounded-full" />
+                        ) : (
+                            streak
+                        )}
                     </span>
                 </div>
             </header>
@@ -513,7 +521,11 @@ export default function Home() {
                             >
                                 Chuỗi tuần này
                             </button>
-                            <StreakBar streak={streak} isTodayCompleted={isTodayCompleted} completedDays={completedDays} />
+                            {backendStreakDays === null ? (
+                                <div className="h-8 w-full bg-gray-500/10 animate-pulse rounded-lg" />
+                            ) : (
+                                <StreakBar streak={streak} isTodayCompleted={isTodayCompleted} completedDays={completedDays} />
+                            )}
                         </div>
                     </div>
 
