@@ -208,7 +208,6 @@ async function ensureCsrfToken(forceRefresh = false): Promise<string> {
         csrfToken = tokenFromCookie
         return tokenFromCookie
     }
-    if (!forceRefresh && csrfToken) return csrfToken
     const data = await request<{ csrf_token: string }>('/auth/csrf-token', { method: 'GET' })
     csrfToken = data.csrf_token
     return csrfToken
