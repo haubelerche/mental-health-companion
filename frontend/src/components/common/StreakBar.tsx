@@ -40,7 +40,7 @@ export function StreakBar({ streak, className, isTodayCompleted = false }: Props
                             className={[
                                 'flex h-9 w-9 items-center text-xs justify-center rounded-full font-semibold transition-all',
                                 isCompleted
-                                    ? ('bg-theme-accent text-theme-text-primary shadow-sm')
+                                    ? ('bg-theme-accent text-white shadow-sm')
                                     : isToday
                                         ? 'text-theme-accent border-3 border-theme-accent'
                                         : ' bg-theme-surface text-theme-text-primary border border-theme-primary/50',
