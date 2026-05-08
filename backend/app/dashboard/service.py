@@ -685,7 +685,7 @@ def build_wellness_dimensions(
     return cards
 
 
-def _progress_snapshot(profile_data: dict[str, Any], *, session_count: int, streak_days: int, is_today_completed: bool) -> DashboardProgressSnapshot:
+def _progress_snapshot(profile_data: dict[str, Any], *, session_count: int, streak_days: int, is_today_completed: bool, completed_days: list[int]) -> DashboardProgressSnapshot:
     stats = dict(profile_data.get("stats") or {})
     coping_history = list(profile_data.get("coping_history") or [])
     tried, effective = _effective_coping_stats(coping_history)
@@ -697,6 +697,7 @@ def _progress_snapshot(profile_data: dict[str, Any], *, session_count: int, stre
         breathing_sessions=int(stats.get("breathing_sessions") or 0),
         effective_rate=rate,
         is_today_completed=is_today_completed,
+        completed_days=completed_days,
     )
 
 
@@ -744,7 +745,22 @@ def build_reflect_summary(db: Session, *, user_id: str) -> DashboardReflectSumma
     mood_series = build_mood_series(list(checkins), days=14)
     preview = build_checkin_history(list(checkins), days=7)
     radar = _radar_available(sufficiency, dimensions)
-    progress = _progress_snapshot(profile_data, session_count=len(convs), streak_days=streak_days, is_today_completed=is_today_completed)
+    
+    # Calculate completed days of current week (Mon-Sun)
+    today = local_date_utc7()
+    current_weekday = today.weekday() # 0=Mon ... 6=Sun
+    start_of_week = today - timedelta(days=current_weekday)
+    end_of_week = start_of_week + timedelta(days=6)
+    
+    completed_days = []
+    week_checkin_dates = {c.logged_date for c in checkins if start_of_week <= c.logged_date <= end_of_week}
+    
+    for i in range(7):
+        day_date = start_of_week + timedelta(days=i)
+        if day_date in week_checkin_dates:
+            completed_days.append(i)
+            
+    progress = _progress_snapshot(profile_data, session_count=len(convs), streak_days=streak_days, is_today_completed=is_today_completed, completed_days=completed_days)
 
     return DashboardReflectSummary(
         sufficiency=sufficiency,

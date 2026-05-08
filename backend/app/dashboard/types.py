@@ -86,6 +86,7 @@ class DashboardProgressSnapshot(BaseModel):
     breathing_sessions: int = Field(ge=0)
     effective_rate: float | None = Field(default=None, ge=0.0, le=1.0)
     is_today_completed: bool = False
+    completed_days: list[int] = []
 
 
 class DashboardReflectSummary(BaseModel):
