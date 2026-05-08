@@ -9,6 +9,7 @@ import {
     Music,
     Paperclip,
     Play,
+    Plus,
     Send,
     Sprout,
     UserRound,
@@ -33,6 +34,7 @@ import PersonaSelector from './PersonaSelector'
 import ChatEntryCheckIn from './ChatEntryCheckIn'
 import VoiceStatusBadge, { TTS_TERMINAL_STATUSES } from './VoiceStatusBadge'
 import type { TtsStatus } from './VoiceStatusBadge'
+import Loading from '../ui/Loading'
 
 // ─── API response types ────────────────────────────────────────────────────────
 
@@ -361,7 +363,7 @@ export default function Chat() {
     type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
     const FALLBACK_GUEST_CHAT_DURATION_SECONDS = 120
 
-    const [sessionId, setSessionId] = useState<string | null>(null)
+    const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem('serene_chat_session_id'))
     const [messages, setMessages] = useState<UiMessage[]>([])
     const [input, setInput] = useState('')
     const [sending, setSending] = useState(false)
@@ -391,6 +393,14 @@ export default function Chat() {
     const isDark = effectiveTheme === 'dark'
 
     useEffect(() => {
+        if (sessionId) {
+            localStorage.setItem('serene_chat_session_id', sessionId)
+        } else {
+            localStorage.removeItem('serene_chat_session_id')
+        }
+    }, [sessionId])
+
+    useEffect(() => {
         if (!user) {
             setVoiceConsent(false)
             return
@@ -408,7 +418,7 @@ export default function Chat() {
 
     // Show Serene's greeting on fresh session (no messages loaded yet).
     useEffect(() => {
-        if (!user || isGuestMode) return
+        if (!user || isGuestMode || sessionId) return
         let cancelled = false
         chatService.getGreeting().then((res) => {
             if (cancelled) return
@@ -657,8 +667,24 @@ export default function Chat() {
                     : m,
             ),
         )
-        if (finalData.sos_triggered) setSosActive(true)
+        if (finalData?.sos_triggered) setSosActive(true)
         applyIntervention(finalData)
+    }
+
+    const handleNewChat = () => {
+        setSessionId(null)
+        setMessages([])
+        localStorage.removeItem('serene_chat_session_id')
+        if (user && !isGuestMode) {
+            chatService.getGreeting().then((res) => {
+                setMessages([{
+                    id: 'greeting-0',
+                    role: 'assistant' as const,
+                    content: res.text,
+                    timestamp: Date.now(),
+                }])
+            }).catch(() => undefined)
+        }
     }
 
     const doSend = async (text: string) => {
@@ -787,6 +813,12 @@ export default function Chat() {
         }
     }
 
+    useEffect(() => {
+        if (sessionId && messages.length === 0 && !isGuestMode) {
+            void loadSessionMessages(sessionId)
+        }
+    }, [sessionId, isGuestMode])
+
     const handleSend: FormSubmitHandler = async (event) => {
         event.preventDefault()
         if (!canSend) return
@@ -871,7 +903,7 @@ export default function Chat() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2" ref={optionsRef}>
+                    <div className="flex items-center gap-4" ref={optionsRef}>
                         {voiceStatus && (
                             <VoiceStatusBadge
                                 status={voiceStatus}
@@ -888,10 +920,21 @@ export default function Chat() {
                                 {modeLabel.text}
                             </span>
                         )}
+                        {sessionId && (
+                            <button
+                                type="button"
+                                onClick={() => handleNewChat()}
+                                className="cursor-pointer flex items-center justify-center rounded-full text-theme-text-secondary transition hover:text-theme-text-primary"
+                                aria-label="Cuộc trò chuyện mới"
+                                title="Cuộc trò chuyện mới"
+                            >
+                                <Plus className="h-6 w-6" />
+                            </button>
+                        )}
                         <button
                             type="button"
                             onClick={() => void openHistory()}
-                            className="flex items-center justify-center rounded-full text-theme-text-secondary transition hover:text-theme-text-primary"
+                            className="cursor-pointer flex items-center justify-center rounded-full text-theme-text-secondary transition hover:text-theme-text-primary"
                             aria-label="Lịch sử chat"
                         >
                             <History className="h-6 w-6" />
@@ -900,7 +943,7 @@ export default function Chat() {
                             <button
                                 type="button"
                                 onClick={() => setShowOptions((prev) => !prev)}
-                                className="flex items-center justify-center rounded-full text-theme-text-secondary transition hover:text-theme-text-primary"
+                                className="cursor-pointer flex items-center justify-center rounded-full text-theme-text-secondary transition hover:text-theme-text-primary"
                                 aria-label="Tùy chọn"
                             >
                                 <MoreVertical className="h-6 w-6" />
@@ -979,15 +1022,7 @@ export default function Chat() {
                 <div className="flex-1 mb-8 overflow-y-auto p-4 sm:px-6">
                     <div className="flex min-h-full flex-col justify-end gap-3">
                         {messages.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                                <Leaf className="h-14 w-14 text-theme-accent opacity-90" aria-hidden />
-                                <p className=" text-theme-text-secondary">Chia sẻ điều bạn đang cảm thấy, mình lắng nghe.</p>
-                                {!isGuestMode && !checkInDone && (
-                                    <div className="mt-2 w-full max-w-sm">
-                                        <ChatEntryCheckIn onComplete={() => setCheckInDone(true)} />
-                                    </div>
-                                )}
-                            </div>
+                            <Loading />
                         ) : (
                             messages.map((m, idx) => {
                                 const isAI = m.role === 'assistant'

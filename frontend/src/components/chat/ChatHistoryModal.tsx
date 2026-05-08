@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import Modal from 'react-modal'
+import { parseTime } from '@/utils/parseTime'
 
 export type ChatSession = {
     session_id: string
@@ -16,12 +17,15 @@ type ChatHistoryModalProps = {
     onSelectSession: (sessionId: string) => void
 }
 
+
+
 export function ChatHistoryModal({ open, loading, sessions, onClose, onSelectSession }: ChatHistoryModalProps) {
+    const currentSessionId = localStorage.getItem('serene_chat_session_id') || null
     useEffect(() => {
         if (typeof document !== 'undefined') {
             Modal.setAppElement('#root')
         }
-    }, [])
+    }, [currentSessionId])
 
     return (
         <Modal
@@ -66,7 +70,8 @@ export function ChatHistoryModal({ open, loading, sessions, onClose, onSelectSes
                                     key={sess.session_id}
                                     type="button"
                                     onClick={() => onSelectSession(sess.session_id)}
-                                    className="w-full rounded-2xl border border-theme-border bg-theme-surface/50 px-4 py-3 text-left transition hover:bg-theme-accent/20 hover:border-theme-border/35"
+                                    className={`w-full rounded-2xl border border-theme-border px-4 py-3 text-left transition ${sess.session_id === currentSessionId ? 'bg-theme-accent/20 border-theme-primary/30' : 'bg-theme-surface/50 hover:bg-theme-accent/20 hover:border-theme-border/35'
+                                        }`}
                                 >
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="min-w-0 flex-1">
@@ -74,7 +79,7 @@ export function ChatHistoryModal({ open, loading, sessions, onClose, onSelectSes
                                                 {sess.preview || 'Phiên trò chuyện'}
                                             </p>
                                             <p className="mt-1 text-[11px] leading-relaxed text-theme-text-secondary">
-                                                {new Date(sess.last_message_at).toLocaleString('vi-VN')}
+                                                {parseTime(sess.last_message_at)}
                                             </p>
                                         </div>
                                         <span className="mt-0.5 rounded-full bg-theme-accent/10 px-2 py-1 text-[10px] font-medium text-theme-accent">
