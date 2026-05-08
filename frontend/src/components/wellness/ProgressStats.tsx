@@ -103,7 +103,7 @@ export function ProgressStats({ data }: Props) {
           />
         </div>
         <div className="mt-3 flex justify-between gap-1">
-          {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((day, i) => {
+          {['Ngày 1', 'Ngày 2', 'Ngày 3', 'Ngày 4', 'Ngày 5', 'Ngày 6', 'Ngày 7'].map((day, i) => {
             const filled = i < data.weeklyCheckins
             return (
               <div key={day} className="flex flex-1 flex-col items-center gap-1.5">
