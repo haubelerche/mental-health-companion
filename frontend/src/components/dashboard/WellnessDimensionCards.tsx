@@ -5,20 +5,7 @@ type Props = {
     isDark: boolean
 }
 
-function statusStyles(status: WellnessDimension['status']): string {
-    switch (status) {
-        case 'steady':
-            return 'bg-emerald-500/25 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200'
-        case 'improving':
-            return 'bg-teal-500/25 text-teal-900 dark:bg-teal-500/15 dark:text-teal-200'
-        case 'needs_attention':
-            return 'bg-amber-500/25 text-amber-950 dark:bg-amber-500/15 dark:text-amber-100'
-        case 'limited_data':
-        case 'unknown':
-        default:
-            return 'bg-neutral-500/20 text-neutral-800 dark:bg-neutral-500/10 dark:text-neutral-300'
-    }
-}
+
 
 function statusLabel(status: WellnessDimension['status']): string {
     switch (status) {
@@ -36,18 +23,39 @@ function statusLabel(status: WellnessDimension['status']): string {
 }
 
 export function WellnessDimensionCards({ dimensions, isDark }: Props) {
+    function statusStyles(status: WellnessDimension['status']): string {
+   switch (status) {
+    case 'steady':
+        return isDark
+            ? 'bg-emerald-500/15 text-emerald-200 border border-emerald-400/20'
+            : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+
+    case 'improving':
+        return isDark
+            ? 'bg-cyan-500/15 text-cyan-200 border border-cyan-400/20'
+            : 'bg-cyan-100 text-cyan-800 border border-cyan-200'
+
+    case 'needs_attention':
+        return isDark
+            ? 'bg-amber-500/15 text-amber-100 border border-amber-400/20'
+            : 'bg-amber-100 text-amber-900 border border-amber-200'
+
+    case 'limited_data':
+    case 'unknown':
+    default:
+        return isDark
+            ? 'bg-white/8 text-neutral-300 border border-white/10'
+            : 'bg-neutral-100 text-neutral-700 border border-neutral-200'
+    }
+}
     return (
         <section
-            className={`rounded-[1.75rem] border p-4 backdrop-blur-md md:p-6 shadow-sm ${
-                isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-white/25 bg-white/30'
-            }`}
+            className={`rounded-[1.75rem] p-4  md:p-8 `}
         >
-            <p className={`text-[10px] uppercase tracking-[0.3em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary/70'}`}>
+            <p className={`text-sm font-bold uppercase tracking-[0.3em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary'}`}>
                 6 chiều sức khỏe
             </p>
-            <h2 className={`mt-1 font-display text-xl md:text-2xl ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>
-                Góc nhìn dễ hiểu từ Serene
-            </h2>
+           
             <p className={`mt-2 text-xs md:text-sm ${isDark ? 'text-theme-text-secondary/85' : 'text-serene-muted'}`}>
                 Một check-in mỗi ngày là đủ để giữ chuỗi. Nếu muốn, bạn có thể check-in thêm sáng/chiều/tối để Serene hiểu nhịp cảm xúc trong ngày rõ hơn — không bắt buộc.
             </p>
@@ -56,7 +64,7 @@ export function WellnessDimensionCards({ dimensions, isDark }: Props) {
                 {dimensions.map((d) => (
                     <div
                         key={d.dimension}
-                        className={`rounded-2xl border p-4 ${isDark ? 'border-theme-border/25 bg-theme-surface/50' : 'border-theme-border/10 bg-white/70 shadow-sm'}`}
+                        className={`rounded-2xl border p-4 border-theme-secondary/50 bg-theme-surface`}
                     >
                         <div className="flex items-start justify-between gap-2">
                             <p className={`font-semibold ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>{d.label}</p>

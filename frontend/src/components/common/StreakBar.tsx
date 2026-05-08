@@ -1,8 +1,9 @@
 import { Check } from 'lucide-react'
-import { useThemeContext } from '../../contexts/ThemeContext'
+
 type Props = {
     streak: number
     className?: string
+    isTodayCompleted?: boolean
 }
 
 const DAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
@@ -12,15 +13,18 @@ function getTodayDisplayIndex(): number {
     return day === 0 ? 6 : day - 1  // map Mon=0 ... Sun=6
 }
 
-export function StreakBar({ streak, className }: Props) {
-    const { effectiveTheme } = useThemeContext()
-    const isDark = effectiveTheme === 'dark'
+export function StreakBar({ streak, className, isTodayCompleted = false }: Props) {
+
     const todayIdx = getTodayDisplayIndex()
     const filledCount = Math.min(streak, 7)
     const completedIndices = new Set<number>()
+    
+    // Nếu hôm nay đã hoàn thành, bắt đầu tô màu từ hôm nay.
+    // Nếu hôm nay chưa hoàn thành, bắt đầu tô màu từ hôm qua.
+    const startIdx = isTodayCompleted ? todayIdx : (todayIdx - 1 + 7) % 7
+    
     for (let offset = 0; offset < filledCount; offset += 1) {
-        // Mark consecutive streak days backward from today (wrap across week boundary).
-        const idx = (todayIdx - offset + 7) % 7
+        const idx = (startIdx - offset + 7) % 7
         completedIndices.add(idx)
     }
 
@@ -34,17 +38,16 @@ export function StreakBar({ streak, className }: Props) {
                     <div key={day} className="flex flex-1 flex-col items-center gap-1">
                         <div
                             className={[
-                                'flex h-8 w-8 items-center justify-center rounded-full  font-semibold transition-all',
+                                'flex h-9 w-9 items-center text-xs justify-center rounded-full font-semibold transition-all',
                                 isCompleted
-                                    ? (isDark ? 'bg-theme-accent text-white shadow-sm' : 'bg-serene-primary text-serene-on-primary shadow-sm')
+                                    ? ('bg-theme-accent text-white shadow-sm')
                                     : isToday
-                                        ? (isDark ? 'animate-pulse ring-2 ring-theme-accent ring-offset-1 bg-theme-accent/20 text-theme-accent' : 'animate-pulse ring-2 ring-serene-primary ring-offset-1 bg-serene-accent/30 text-serene-primary')
-                                        : `${isDark ? 'border-white/10 bg-white/5 text-white/40' : 'border-white/40 bg-white/50 text-serene-muted'}`,
+                                        ? 'text-theme-accent border-3 border-theme-accent'
+                                        : ' bg-theme-surface text-theme-text-primary border border-theme-primary/50',
                             ].join(' ')}
                         >
-                            {isCompleted ? <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden /> : day.charAt(0)}
+                            {isCompleted ? <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden /> : day}
                         </div>
-                        <span className={`text-sm ${isDark ? 'text-white/40' : 'text-serene-muted'}`}>{day}</span>
                     </div>
                 )
             })}

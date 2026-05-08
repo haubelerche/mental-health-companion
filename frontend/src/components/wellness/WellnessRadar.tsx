@@ -59,7 +59,7 @@ export function WellnessRadar({ scores, mini = false, className }: Props) {
                     </defs>
                     <PolarGrid
                         stroke="currentColor"
-                        className="text-theme-border/30 dark:text-white/10"
+                        className="text-theme-border/30 "
                         gridType="polygon"
                         strokeDasharray="3 4"
                     />
@@ -67,7 +67,7 @@ export function WellnessRadar({ scores, mini = false, className }: Props) {
                         dataKey="subject"
                         tick={{
                             fill: 'currentColor',
-                            className: 'text-theme-text-secondary dark:text-theme-text-tertiary',
+                            className: 'text-theme-text-secondary ',
                             fontSize: 11,
                             fontWeight: 500,
                             fontFamily: 'var(--font-body)',
