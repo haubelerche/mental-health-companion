@@ -455,7 +455,7 @@ export default function Home() {
                     <span className="flex items-center gap-1 text-sm font-bold text-rose-500 dark:text-rose-400">
                         <Heart className="h-4 w-4 fill-current" />
                         {hearts === null ? (
-                            <span className="h-4 w-6 bg-theme-accent/50 animate-pulse rounded-full" />
+                            <span className="h-3 w-6 bg-theme-accent/50 animate-pulse rounded-full" />
                         ) : (
                             hearts
                         )}
@@ -464,7 +464,7 @@ export default function Home() {
                     <span className="flex items-center gap-1 text-sm font-bold text-amber-600 dark:text-amber-400">
                         <Flame className="h-4 w-4 fill-current" />
                         {backendStreakDays === null ? (
-                            <span className="h-4 w-6 bg-theme-accent/50 animate-pulse rounded-full" />
+                            <span className="h-3 w-6 bg-theme-accent/50 animate-pulse rounded-full" />
                         ) : (
                             streak
                         )}
@@ -517,12 +517,20 @@ export default function Home() {
                             <button
                                 type="button"
                                 onClick={() => setCheckinHistoryOpen(true)}
-                                className="mb-3 text-left text-xs uppercase tracking-[0.22em] text-theme-text-secondary underline-offset-4 hover:underline"
+                                className="mb-3 cursor-pointer inline-flex items-center gap-2 text-left text-sm font-semibold uppercase tracking-[0.22em] text-theme-text-secondary underline-offset-4 hover:underline"
                             >
-                                Chuỗi tuần này
+                                Chuỗi tuần này <ChevronRight className="h-5 w-5 text-theme-text-secondary/60" />
                             </button>
                             {backendStreakDays === null ? (
-                                <div className="h-8 w-full bg-gray-500/10 animate-pulse rounded-lg" />
+                                <div className="flex items-center justify-between">
+                                    {/* skeleton */}
+                                    {Array.from({ length: 7 }).map((_, index) => (
+                                        <div
+                                            key={index}
+                                            className="flex h-10 w-10 animate-pulse rounded-full bg-theme-accent/50"
+                                        />
+                                    ))}
+                                </div>
                             ) : (
                                 <StreakBar streak={streak} isTodayCompleted={isTodayCompleted} completedDays={completedDays} />
                             )}
