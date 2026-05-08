@@ -311,7 +311,7 @@ async def test_get_user_patterns_async_filters_none_names(monkeypatch):
             return FakeResult()
 
     class FakeDriver:
-        def session(self):
+        def session(self, **kwargs):
             return FakeSession()
 
     monkeypatch.setattr(nc, "get_neo4j_driver", lambda: FakeDriver())
@@ -322,3 +322,22 @@ async def test_get_user_patterns_async_filters_none_names(monkeypatch):
     assert result["emotions"] == []
     assert len(result["coping"]) == 1
     assert result["coping"][0]["name"] == "walking"
+
+
+@pytest.mark.asyncio
+async def test_get_user_patterns_async_session_run_raises(monkeypatch):
+    """Returns available=False when Neo4j session.run() raises."""
+    import backend.app.services.neo4j_client as nc
+
+    class BrokenSession:
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def run(self, *a, **kw): raise RuntimeError("connection lost")
+
+    class BrokenDriver:
+        def session(self, **kwargs): return BrokenSession()
+
+    monkeypatch.setattr(nc, "get_neo4j_driver", lambda: BrokenDriver())
+    result = await nc.get_user_patterns_async("user_test")
+    assert result["available"] is False
+    assert result["triggers"] == []
