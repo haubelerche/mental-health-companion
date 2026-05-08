@@ -8,7 +8,7 @@ import Main from '../components/layout/Main.tsx'
 import Support from '../components/pages/Support.tsx'
 
 import Landing from '../components/pages/landing/Landing.tsx'
-import Reflect from '../components/pages/Reflect.tsx'
+import Reflect from '../components/pages/reflect/Reflect.tsx'
 import Resources from '../components/pages/resource/Resources.tsx'
 import Nutrition from '../components/nutrition/Nutrition.tsx'
 import { CheckinFlow } from '../components/common/CheckinFlow.tsx'
