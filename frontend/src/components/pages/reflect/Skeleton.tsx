@@ -6,7 +6,7 @@ export const Skeleton = () => {
     <div className="flex items-start justify-between gap-4">
         <div className="space-y-3">
             <div className="h-3 w-36 rounded-full bg-theme-surface/50" />
-            <div className="h-9 w-56 rounded-full bg-theme-surface/12" />
+            <div className="h-9 w-56 rounded-full bg-theme-surface/52" />
         </div>
 
         <div className="h-5 w-24 rounded-full bg-theme-surface/50" />
