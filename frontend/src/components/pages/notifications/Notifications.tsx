@@ -3,26 +3,8 @@ import { notificationService } from '../../../services/notificationService'
 import type { UserNotification } from '../../../services/notificationService'
 import Loading from '../../ui/Loading'
 import bg from '../../../assets_gif/hai-meo-cam-den.gif'
+import { parseTime } from '@/utils/parseTime'
 
-function timeAgo(dateParam: any) {
-  if (!dateParam) return '---'
-  try {
-    const date = typeof dateParam === 'string' ? new Date(dateParam) : dateParam
-    if (isNaN(date.getTime())) return '---'
-    const now = new Date()
-    const seconds = Math.round((now.getTime() - date.getTime()) / 1000)
-    const minutes = Math.round(seconds / 60)
-    const hours = Math.round(minutes / 60)
-    const days = Math.round(hours / 24)
-    if (seconds < 60) return 'vừa xong'
-    if (minutes < 60) return `${minutes} phút trước`
-    if (hours < 24) return `${hours} giờ trước`
-    if (days < 7) return `${days} ngày trước`
-    return date.toLocaleDateString('vi-VN')
-  } catch (e) {
-    return '---'
-  }
-}
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<UserNotification[]>([])
@@ -121,7 +103,7 @@ export default function NotificationsPage() {
                           {n.notification_type?.replace('.', ' • ') || 'Thông báo'}
                         </span>
                         <span className={`text-[10px] ${ui.subtext}`}>
-                          {timeAgo(n.created_at)}
+                          {parseTime(n.created_at)}
                         </span>
                       </div>
                       <h3 className="font-semibold text-base mb-1">{n.title || 'Thông báo mới'}</h3>
