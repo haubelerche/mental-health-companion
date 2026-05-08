@@ -1,16 +1,7 @@
 import type { ApiEnvelope } from './types'
 import { ApiRequestError } from './types'
 
-/** Production / khi chạy FE tách host — trỏ thẳng FastAPI. */
-const DEFAULT_API_BASE_URL = 'http://localhost:8000/v1'
-
-function resolveApiBaseUrl(): string {
-    const fromEnv = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim()
-    if (fromEnv) return fromEnv
-    return DEFAULT_API_BASE_URL
-}
-
-const API_BASE_URL = resolveApiBaseUrl()
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/v1'
 export const HTTP_UNAUTHORIZED_EVENT = 'serene:http-unauthorized'
 
 export function getApiBaseUrl(): string {

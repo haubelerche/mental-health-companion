@@ -33,7 +33,6 @@ export const useWebSocketNotifications = (
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectCountRef = useRef(0);
   const reconnectTimeoutRef = useRef<number | undefined>(undefined);
-
   const { addNotification } = useNotification();
 
   const connect = useCallback(() => {
@@ -41,13 +40,8 @@ export const useWebSocketNotifications = (
       console.debug("[WS] Already connected");
       return;
     }
-
     try {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = window.location.host;
-      // Cookies are automatically sent with WebSocket connections
-      const wsUrl = `${protocol}//${host}/v1/ws/notifications`;
-
+      const wsUrl = `${import.meta.env.VITE_API_WS}/v1/ws/notifications`;
       console.log("[WS] Connecting to:", wsUrl);
       const ws = new WebSocket(wsUrl);
 
