@@ -4,14 +4,29 @@
 
 ---
 
+## [Unreleased] — Fix Async Event-Loop in Neo4j Fetch · 2026-05-08
+
+### Fixed
+- `backend/app/services/langgraph_chat.py` — removed `asyncio.run()` / `loop.run_until_complete()` blocks from `run_non_sos_turn` and `stream_non_sos_turn_events`; these calls silently fail inside FastAPI/uvicorn because there is already a running event loop
+- `backend/app/api/v1/routers/chat.py` — Neo4j fetch moved to route handler level via `asyncio.run(get_user_patterns_async(...))` before entering the graph; both `send_message` and the `event_stream()` generator (sync FastAPI paths running in threadpool where no event loop is active) now own the fetch and pass the result as `graph_patterns=` to `run_non_sos_turn` / `stream_non_sos_turn_events`
+
+### Changed
+- `backend/app/services/langgraph_chat.py` — `run_non_sos_turn` and `stream_non_sos_turn_events` each gain a new `graph_patterns: dict | None = None` keyword parameter; `graph_patterns or {}` is used when building the graph state; stream fallback path passes `_stream_graph_patterns` through to `run_non_sos_turn`
+
+---
+
 ## [Unreleased] — Analyst Neo4j Graph Context · 2026-05-08
 
 ### Added
 - `backend/app/services/neo4j_client.py` — `get_user_patterns_async(user_id, limit)` async function; wraps sync Neo4j driver via `asyncio.to_thread()` to avoid blocking the event loop; returns `{triggers, emotions, coping, available}` dict; fail-safe — returns `available=False` with empty lists on any error (no driver, query failure, or timeout)
 - `backend/tests/test_db_integration.py` — two new `@pytest.mark.asyncio` unit tests: `test_get_user_patterns_async_no_driver` (driver=None → available=False) and `test_get_user_patterns_async_filters_none_names` (None-name rows are filtered before return)
+- `backend/app/services/langgraph_chat.py` — `graph_patterns: dict` field added to `ChatGraphState` TypedDict; Neo4j patterns are now pre-fetched before graph invocation in both `run_non_sos_turn` and `stream_non_sos_turn_events`, then passed in as state; `analyst_node` reads from state instead of calling blocking I/O directly; injected graph context block is sanitized via `_sanitize_prompt_block` before prompt insertion
 
 ### Changed
-- `backend/app/services/langgraph_chat.py` — `analyst_node()` now fetches derived behavioral patterns from Neo4j (`_query_user_patterns_sync`) before the OpenAI call; patterns (triggers, emotions, coping strategies) are appended to the system prompt as a `[Lịch sử hành vi từ Neo4j]` block only when `available=True` and at least one list is non-empty; fully fail-safe — if Neo4j is unavailable the prompt is unchanged; `user_id` added to `ChatGraphState` and propagated through both graph invocation paths (non-streaming + streaming); debug log `analyst_node graph_context_used=<bool> user=<id>` emitted on every call
+- `backend/app/services/langgraph_chat.py` — `analyst_node()` now reads derived behavioral patterns from `state["graph_patterns"]` (pre-fetched by callers) instead of calling `_query_user_patterns_sync` (a blocking sync function) directly; removed private import `_query_user_patterns_sync`; replaced with `get_user_patterns_async`; both `run_non_sos_turn` and `stream_non_sos_turn_events` pre-fetch Neo4j patterns using `asyncio.run` (with event-loop fallback for test environments) before entering the graph; debug log `analyst_node graph_context_used=<bool>` emitted on every call
+
+### Fixed
+- `backend/app/services/langgraph_chat.py` — eliminated sync blocking call to `_query_user_patterns_sync` inside `analyst_node()` which is a sync LangGraph node invoked inside `graph.invoke()` from async FastAPI handlers; pattern fetch is now moved to the pre-graph stage where it can run safely; injected Neo4j context block is now sanitized through `_sanitize_prompt_block` to strip injection patterns before insertion into the system prompt (previously unsanitized)
 
 ---
 

@@ -27,7 +27,7 @@ from app.services.exercise_catalog import build_clinic_attachment, build_resourc
 from app.safety.output_validator import validate_output as _safety_validate_output
 from app.services.output_grounding import sanitize_grounded_reply
 from app.services.safety_scoring import build_snapshot
-from app.services.neo4j_client import _query_user_patterns_sync as _get_user_patterns_sync
+from app.services.neo4j_client import get_user_patterns_async
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +71,7 @@ class ChatGraphState(TypedDict, total=False):
     distress_score: float           # FROZEN — distress_router must never mutate this
     active_persona_id: str
     active_memory_card_text: str    # injected from DB before graph; empty string if none
+    graph_patterns: dict            # UserPatternsResult from Neo4j, pre-fetched async; {} if unavailable
 
     # === CONTROL FLAGS ===
     crisis_route_finalized: bool
@@ -915,8 +916,8 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
         f"Tin mới: {state.get('user_message', '')}"
     )
 
-    # Fetch derived behavioral context from Neo4j (fail-safe, non-blocking)
-    _graph_raw = _get_user_patterns_sync(user_id, 5) if user_id else {"triggers": [], "emotions": [], "coping": [], "available": False}
+    # Read Neo4j patterns pre-fetched by the async caller
+    _graph_raw: dict = state.get("graph_patterns") or {}
     _graph_context_used = _graph_raw.get("available", False) and any(
         _graph_raw.get(k) for k in ("triggers", "emotions", "coping")
     )
@@ -924,13 +925,13 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
     if _graph_context_used:
         _t = ", ".join(
             f"{x['name']} (×{x['count']})"
-            for x in _graph_raw["triggers"]
+            for x in _graph_raw.get("triggers", [])
             if x.get("count")
         ) or "chưa ghi nhận"
-        _e = ", ".join(x["name"] for x in _graph_raw["emotions"]) or "chưa ghi nhận"
+        _e = ", ".join(x["name"] for x in _graph_raw.get("emotions", [])) or "chưa ghi nhận"
         _c = ", ".join(
             f"{x['name']} (hiệu quả={x['effectiveness']:.2f})"
-            for x in _graph_raw["coping"]
+            for x in _graph_raw.get("coping", [])
             if x.get("effectiveness") is not None
         ) or "chưa ghi nhận"
         _graph_context_block = (
@@ -939,8 +940,8 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
             f"Cảm xúc hay gặp: {_e}\n"
             f"Chiến lược đối phó đã thử: {_c}"
         )
-    logger.debug("analyst_node graph_context_used=%s user=%s", _graph_context_used, user_id)
-    instruction = instruction + _graph_context_block
+    logger.debug("analyst_node graph_context_used=%s", _graph_context_used)
+    instruction = instruction + _sanitize_prompt_block(_graph_context_block)
 
     analyst_in_tokens = _log_token_budget("analyst_in", instruction, user_payload)
 
@@ -1324,6 +1325,7 @@ def run_non_sos_turn(
     user_id: str | None = None,
     session_id: str | None = None,
     active_memory_card_text: str = "",
+    graph_patterns: dict | None = None,
 ) -> dict[str, Any]:
     """Run non-SOS graph flow and return normalized conversation payload fields."""
     started = time.perf_counter()
@@ -1350,6 +1352,7 @@ def run_non_sos_turn(
         voice_hint=settings.distress_voice_hint,
         critical=settings.distress_critical,
     )
+    _graph_patterns: dict = graph_patterns or {}
     graph = get_chat_graph()
     out = graph.invoke(
         {
@@ -1367,6 +1370,7 @@ def run_non_sos_turn(
             "active_memory_card_text": active_memory_card_text or "",
             "correlation_id": correlation_id,
             "user_id": user_id or "",
+            "graph_patterns": _graph_patterns,
             # Cold-start screening note pre-seeded as a minimal bundle; analyst_node will
             # overwrite with a richer bundle when routed to analyst.
             "analyst_bundle": AnalystBundle(
@@ -1422,6 +1426,7 @@ def stream_non_sos_turn_events(
     user_id: str | None = None,
     session_id: str | None = None,
     active_memory_card_text: str = "",
+    graph_patterns: dict | None = None,
 ) -> Iterator[dict[str, Any]]:
     """Yield streaming events for non-SOS turn:
     - {"type":"token","text":"..."} while model is generating
@@ -1451,6 +1456,8 @@ def stream_non_sos_turn_events(
         critical=settings.distress_critical,
     )
 
+    _stream_graph_patterns: dict = graph_patterns or {}
+
     state: ChatGraphState = {
         "correlation_id": correlation_id,
         "user_id": user_id or "",
@@ -1466,6 +1473,7 @@ def stream_non_sos_turn_events(
         "clinical_trajectory": clinical_trajectory or "",
         "active_persona_id": persona_id or DEFAULT_PERSONA_ID,
         "active_memory_card_text": active_memory_card_text or "",
+        "graph_patterns": _stream_graph_patterns,
         "analyst_bundle": AnalystBundle(
             clinical_note=screening_note[:200],
             emotional_theme="cold_start_screen",
@@ -1593,6 +1601,7 @@ def stream_non_sos_turn_events(
                 persona_id=persona_id_active,
                 user_id=user_id,
                 session_id=session_id,
+                graph_patterns=_stream_graph_patterns,
             )
             yield {"type": "final", "turn": fallback}
             return
