@@ -72,15 +72,15 @@ export default function NotificationsPage() {
     bg: 'bg-theme-surface/60',
     text: 'text-theme-primary',
     subtext: 'text-theme-secondary',
-    card: 'bg-theme-surface border-slate-700/50',
-    unread: 'bg-theme-accent/10 border-l-5 border-l-theme-accent',
+    card: 'bg-theme-surface border-theme-primary/50',
+    unread: 'bg-theme-surface/50 border-l-5 border-l-theme-accent',
   }
 
   if (loading) return <Loading />
 
   return (
-    <div className={`min-h-screen pb-20 ${ui.bg} ${ui.text} font-sans backdrop-blur-2xl rounded-4xl`}>
-      <div className="sticky top-0 z-20  border-b border-slate-200/20 px-6 py-4 flex items-center justify-between">
+    <div className={`min-h-screen  pb-20 ${ui.bg} ${ui.text} font-sans backdrop-blur-2xl rounded-4xl`}>
+      <div className="sticky top-0 z-20  border-b border-theme-primary/70 bg-theme-surface rounded-t-2xl px-6 py-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold font-display">Thông báo</h1>
         {unreadCount > 0 && (
           <button 
@@ -122,7 +122,7 @@ export default function NotificationsPage() {
                   {!n.is_read && (
                     <div className="mt-3 flex items-center gap-1.5">
                       <div className="w-3 h-3 rounded-full bg-theme-accent animate-pulse" />
-                      <span className="text-sm font-medium text-serene-primary">Mới</span>
+                      <span className="text-sm font-medium text-theme-accent">Mới</span>
                     </div>
                   )}
                 </div>
