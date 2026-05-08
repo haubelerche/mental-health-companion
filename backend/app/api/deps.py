@@ -120,10 +120,16 @@ def enforce_admin_ip(request: Request) -> None:
     settings = get_settings()
     allowed_raw = [item.strip() for item in settings.admin_allowed_ips.split(",") if item.strip()]
     if not allowed_raw:
-        # Nếu không cấu hình IP nào, coi như cấm toàn bộ (hoặc log cảnh báo)
         raise AppError("ADMIN_IP_RESTRICTED", "Hệ thống chưa cấu hình IP cho phép truy cập Admin.", 403)
 
-    client_ip = request.client.host if request.client else ""
+    # Ưu tiên lấy IP thật từ X-Forwarded-For khi chạy sau Proxy (Railway/Cloud Run)
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        # Lấy IP đầu tiên trong danh sách (client IP)
+        client_ip = forwarded.split(",")[0].strip()
+    else:
+        client_ip = request.client.host if request.client else ""
+
     try:
         addr = ipaddress.ip_address(client_ip)
     except ValueError as exc:
