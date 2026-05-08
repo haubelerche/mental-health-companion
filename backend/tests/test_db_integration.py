@@ -318,3 +318,7 @@ async def test_get_user_patterns_async_filters_none_names(monkeypatch):
     result = await nc.get_user_patterns_async("user_test")
     assert len(result["triggers"]) == 1
     assert result["triggers"][0]["name"] == "academic_pressure"
+    assert result["available"] is True
+    assert result["emotions"] == []
+    assert len(result["coping"]) == 1
+    assert result["coping"][0]["name"] == "walking"

@@ -30,10 +30,10 @@ def get_neo4j_driver() -> Any | None:
 
 def _query_user_patterns_sync(user_id: str, limit: int) -> dict:
     """Blocking Neo4j query — only call via asyncio.to_thread()."""
-    driver = get_neo4j_driver()
-    if driver is None:
-        return {"triggers": [], "emotions": [], "coping": [], "available": False}
     try:
+        driver = get_neo4j_driver()
+        if driver is None:
+            return {"triggers": [], "emotions": [], "coping": [], "available": False}
         with driver.session() as session:
             result = session.run(
                 """
