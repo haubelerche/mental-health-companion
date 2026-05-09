@@ -2,6 +2,10 @@ from contextlib import asynccontextmanager
 import os
 import threading
 import time
+import warnings
+
+# Suppress LangChain/LangGraph internal deprecation warnings
+warnings.filterwarnings("ignore", message=".*allowed_objects.*", category=DeprecationWarning)
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError

@@ -28,6 +28,20 @@ def set_auth_cookies(response: Response, access_token: str, refresh_token: str |
         )
 
 
+def set_admin_auth_cookies(response: Response, access_token: str) -> None:
+    settings = get_settings()
+    response.set_cookie(
+        key="admin_access_token",
+        value=access_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="none" if settings.cookie_secure else "lax",
+        max_age=settings.admin_token_ttl_seconds,
+        domain=settings.cookie_domain,
+        path="/",
+    )
+
+
 def set_csrf_cookie(response: Response, csrf_token: str) -> None:
     settings = get_settings()
     response.set_cookie(
@@ -54,4 +68,19 @@ def clear_auth_cookies(response: Response) -> None:
             samesite="none" if settings.cookie_secure else "lax",
             domain=settings.cookie_domain,
             path=path,
+        )
+
+
+def clear_admin_auth_cookies(response: Response) -> None:
+    settings = get_settings()
+    for key in ("admin_access_token", "csrf_token"):
+        response.set_cookie(
+            key=key,
+            value="",
+            max_age=0,
+            httponly=(key != "csrf_token"),
+            secure=settings.cookie_secure,
+            samesite="none" if settings.cookie_secure else "lax",
+            domain=settings.cookie_domain,
+            path="/",
         )

@@ -104,7 +104,7 @@ def ensure_policy_acknowledged(user: User = Depends(get_current_user)) -> User:
     return user
 
 
-def get_admin_claims(access_token: str | None = Cookie(default=None, alias="access_token")) -> dict:
+def get_admin_claims(access_token: str | None = Cookie(default=None, alias="admin_access_token")) -> dict:
     if not access_token:
         raise AppError("ADMIN_SESSION_EXPIRED", "Phiên làm việc hết hạn. Vui lòng đăng nhập lại.", 401)
     try:

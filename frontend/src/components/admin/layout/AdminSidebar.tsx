@@ -1,6 +1,7 @@
 import { Activity, AlertTriangle, BarChart3, Bell, LayoutDashboard, LogOut, Mail, Package, Shield, Users, Cpu } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { ROUTE_PATHS } from '../../../routes/paths'
+import { adminAuthService } from '../../../services/adminAuthService'
 
 const links = [
     { to: ROUTE_PATHS.adminDashboard, label: 'Tổng quan', icon: LayoutDashboard },
@@ -53,7 +54,10 @@ const AdminSidebar = () => {
             <div className="admin-sidebar-footer">
                 <button
                     type="button"
-                    onClick={() => navigate(ROUTE_PATHS.adminLogin)}
+                    onClick={async () => {
+                        await adminAuthService.logout().catch(() => {})
+                        navigate(ROUTE_PATHS.adminLogin)
+                    }}
                     className="admin-sidebar-logout"
                 >
                     <LogOut size={16} />
