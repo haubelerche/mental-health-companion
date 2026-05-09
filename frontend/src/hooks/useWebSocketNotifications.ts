@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useNotification } from "../contexts/NotificationContext";
+import { getWebSocketBaseUrl } from "../api/httpClient";
 
 export interface WebSocketMessage {
   type: "notification" | "connected" | "ping" | "error";
@@ -41,7 +42,12 @@ export const useWebSocketNotifications = (
       return;
     }
     try {
-      const wsUrl = `${import.meta.env.VITE_API_WS}/v1/ws/notifications`;
+      const wsBaseUrl = getWebSocketBaseUrl();
+      if (!wsBaseUrl) {
+        console.warn("[WS] WebSocket base URL is not configured");
+        return;
+      }
+      const wsUrl = `${wsBaseUrl}/v1/ws/notifications`;
       console.log("[WS] Connecting to:", wsUrl);
       const ws = new WebSocket(wsUrl);
 

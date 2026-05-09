@@ -27,7 +27,7 @@ export type InsightCard = {
     evidence_count: number
     evidence_sources: string[]
     confidence: 'low' | 'medium' | 'high'
-    severity_band: 'neutral' | 'watch' | 'supportive_attention'
+    severity_band: 'neutral' | 'watch'
     suggested_action: string | null
     evidence_window_start: string | null
     evidence_window_end: string | null
@@ -108,6 +108,7 @@ export type SafeInsightsPayload = {
 export type CheckinHistoryResponse = {
     timezone: string
     range: string
+    days: number | null
     history: CheckinHistoryDay[]
 }
 
@@ -116,7 +117,7 @@ export const dashboardService = {
 
     getReflectSummary: () => httpClient.get<DashboardReflectSummary>('/dashboard/reflect-summary'),
 
-    getCheckinHistory: (range: '30d' | '90d' | 'all' = '90d') =>
+    getCheckinHistory: (range: '30d' | '90d' | 'all' = '30d') =>
         httpClient.get<CheckinHistoryResponse>(`/dashboard/checkin-history?range=${range}`),
 
     getSafeInsights: () => httpClient.get<SafeInsightsPayload>('/dashboard/safe-insights'),
