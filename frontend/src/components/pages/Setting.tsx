@@ -90,7 +90,7 @@ function SettingMenuItem({ icon: Icon, title, description, onClick }: { icon: an
   return (
     <button
       onClick={onClick}
-      className="flex w-full cursor-pointer items-center justify-between rounded-2xl border border-theme-secondary/50 bg-theme-surface p-5 transition hover:bg-theme-accent/50 shadow-sm mb-3 text-left"
+      className="flex w-full cursor-pointer items-center justify-between rounded-2xl border border-theme-secondary/50 bg-theme-surface p-5 transition hover:bg-theme-accent/10 shadow-sm mb-3 text-left"
     >
       <div className="flex items-center gap-4">
         <Icon className="h-6 w-6 text-theme-text-primary shrink-0" />
