@@ -92,7 +92,7 @@ export default function Nutrition() {
         <div className="space-y-6 pb-16 lg:space-y-8">
 
             {/* ── Daily fact banner ───────────────────────────────────────── */}
-            <section className="flex items-start gap-3 rounded-[22px] bg-theme-surface/40 px-5 py-4 backdrop-blur-sm">
+            <section className="flex items-start gap-3 rounded-[22px] bg-theme-surface/80 px-5 py-4 backdrop-blur-sm">
                 <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-theme-accent" />
                 <div>
                     <p className="mb-1 text-[10px] uppercase tracking-[0.28em] text-theme-text-primary font-bold">Fact hôm nay</p>
@@ -103,7 +103,7 @@ export default function Nutrition() {
             {/* ── Section 1: Content LEFT · Image RIGHT ──────────────────── */}
             <section className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
 
-                <div className={`flex flex-col justify-center rounded-[28px] bg-theme-surface/60 p-7 backdrop-blur-xl lg:p-9`}>
+                <div className={`flex flex-col justify-center rounded-[28px] bg-theme-surface/80 p-7 backdrop-blur-xl lg:p-9`}>
                     <p className="text-[10px] uppercase tracking-[0.3em] text-theme-text-secondary/60">{CONTENT.scienceSection.eyebrow}</p>
                     <h1 className="mt-3 font-display text-4xl italic leading-tight text-theme-text-primary sm:text-5xl">
                         {CONTENT.scienceSection.titleLines.map((line, index) => (
@@ -154,7 +154,7 @@ export default function Nutrition() {
                     </div>
                 </div>
 
-                <div className={`flex flex-col justify-center rounded-[28px] bg-theme-surface/60 p-7 backdrop-blur-xl lg:p-9`}>
+                <div className={`flex flex-col justify-center rounded-[28px] bg-theme-surface/80 p-7 backdrop-blur-xl lg:p-9`}>
                     <p className="text-[10px] uppercase tracking-[0.3em] text-theme-text-secondary/60">Tăng cường tâm trạng</p>
                     <h2 className="mt-3 font-display text-4xl italic leading-tight text-theme-text-primary sm:text-5xl">
                         Ăn gì<br />để vui hơn?
@@ -174,7 +174,7 @@ export default function Nutrition() {
             </section>
 
             {/* ── Recipe search ───────────────────────────────────────────── */}
-            <section className={`rounded-[28px] bg-theme-surface/60 p-6 backdrop-blur-2xl lg:p-8`}>
+            <section className={`rounded-[28px] bg-theme-surface/80 p-6 backdrop-blur-2xl lg:p-8`}>
                 <div className="mb-5">
                     <p className="text-[10px] uppercase tracking-[0.3em] text-theme-text-secondary/60">Khám phá</p>
                     <h3 className="mt-1.5 font-display text-3xl italic text-theme-text-primary">Tra cứu công thức</h3>
@@ -188,7 +188,7 @@ export default function Nutrition() {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         placeholder="Tìm theo tên món, nguyên liệu hoặc lợi ích..."
-                        className={`w-full rounded-2xl bg-theme-surface/70 py-3 pl-11 pr-10 text-sm text-theme-text-primary placeholder-theme-text-secondary/45 outline-none transition focus:ring-1 focus:ring-theme-accent/30`}
+                        className={`w-full border border-theme-secondary/30 rounded-2xl bg-theme-surface/70 py-3 pl-11 pr-10 text-sm text-theme-text-primary placeholder-theme-text-secondary/45 outline-none transition focus:ring-1 focus:ring-theme-accent/30`}
                     />
                     {query && (
                         <button
@@ -210,7 +210,7 @@ export default function Nutrition() {
                             onClick={() => setActiveTag(activeTag === tag ? null : tag)}
                             className={`rounded-full border px-3 py-1.5 text-xs transition ${activeTag === tag
                                 ? 'border-theme-accent bg-theme-accent text-white'
-                                : `border-theme-border/30 bg-theme-surface text-theme-text-primary hover:border-theme-accent/50`
+                                : `border-theme-secondary/30 bg-theme-surface text-theme-text-primary hover:border-theme-accent/50`
                                 }`}
                         >
                             {tag}
@@ -228,7 +228,7 @@ export default function Nutrition() {
                         filteredRecipes.map((recipe) => (
                             <article
                                 key={recipe.name}
-                                className={`rounded-[20px] border border-theme-border/20 bg-theme-surface/60 p-4 transition hover:bg-theme-accent/10 hover:border-theme-accent/30`}
+                                className={`rounded-[20px] border border-theme-secondary/50 bg-theme-surface/80 p-4 transition hover:bg-theme-accent/10 hover:border-theme-accent/30`}
                             >
                                 <div className="mb-2 flex items-start justify-between gap-2">
                                     <h4 className="text-sm font-semibold leading-snug text-theme-text-primary">{recipe.name}</h4>

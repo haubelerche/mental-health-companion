@@ -478,7 +478,7 @@ export default function Home() {
                         <div>
                             <div className="mb-5 flex items-center justify-between gap-4">
                                 <h2 className="font-display text-3xl text-theme-text-primary">Nhịp sống hôm nay</h2>
-                                <span className="rounded-full bg-theme-accent/10 px-3 py-1 text-sm font-semibold text-theme-accent">
+                                <span className="rounded-full bg-theme-accent px-3 py-1 text-sm font-semibold text-white/90">
                                     {TIME_SLOT_META[currentSlot].label} · {TIME_SLOT_META[currentSlot].range}
                                 </span>
                             </div>
