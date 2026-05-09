@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import Modal from 'react-modal'
 import type { CheckinHistoryDay, CheckinHistoryItem } from '../../services/dashboardService'
 import { dashboardService } from '../../services/dashboardService'
+import Loading from '../ui/Loading'
 
 type Props = {
     open: boolean
@@ -63,27 +64,27 @@ export function CheckinHistoryModal({ open, onClose, isDark }: Props) {
             shouldCloseOnEsc
             shouldCloseOnOverlayClick
             contentLabel="Lịch sử check-in"
-            className="relative z-[81] mb-5 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border shadow-2xl border-theme-border bg-theme-surface outline-none"
+            className="relative z-[81] mb-5 flex max-h-[80dvh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border shadow-2xl border-theme-border bg-theme-surface outline-none"
             overlayClassName="fixed inset-0 z-[80] flex items-end justify-center sm:items-center bg-black/45 backdrop-blur-[2px]"
         >
-            <div className={`flex items-center justify-between border-b px-5 py-4 border-theme-border`}>
+            <div className={`flex items-center justify-between border-b px-5 py-4 border-theme-secondary/40`}>
                 <div>
-                    <p className={`text-[10px] uppercase tracking-[0.28em] text-theme-text-secondary`}>
+                    <p className={`text-sm font-semibold mb-3 uppercase tracking-[0.22em] text-theme-text-secondary`}>
                         Lịch sử check-in
                     </p>
-                    <h2 className={`font-display text-lg ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>90 ngày gần đây</h2>
+                    <h2 className={`font-display text-sm ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>90 ngày gần đây</h2>
                 </div>
                 <button
                     type="button"
                     onClick={onClose}
-                    className={`rounded-full p-2 ${isDark ? 'hover:bg-theme-surface/80' : 'hover:bg-black/5'}`}
+                    className={`rounded-full cursor-pointer p-2 hover:text-red-400`}
                 >
                     <X className="h-5 w-5" />
                 </button>
             </div>
 
             <div className="overflow-y-auto px-5 pb-8 pt-4">
-                {loading && <p className={`text-sm ${isDark ? 'text-theme-text-secondary' : 'text-serene-muted'}`}>Đang tải...</p>}
+                {loading && <Loading/>}
                 {err && <p className="text-sm text-red-600">{err}</p>}
 
                 {!loading && !err && (

@@ -189,7 +189,6 @@ export default function Reflect() {
             <CheckinHistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} isDark={isDark} />
 
             <div className="flex-1">
-
                 <div className="mx-auto flex w-full max-w-5xl flex-col items-center">
                     <section className={`w-full rounded-[2.5rem] border ${isDark ? 'border-theme-border/50 bg-theme-surface/40' : 'border-theme-border/10 bg-white/40 shadow-sm'} p-4 backdrop-blur-3xl md:p-7 lg:p-8`}>
                         <div className="text-center">
