@@ -74,15 +74,8 @@ def get_mem0_config() -> dict[str, Any] | None:
         },
         "custom_prompt": CLINICAL_MEMORY_PROMPT,
     }
-    if settings.neo4j_uri and settings.neo4j_password:
-        config["graph_store"] = {
-            "provider": "neo4j",
-            "config": {
-                "url": settings.neo4j_uri,
-                "username": settings.neo4j_user,
-                "password": settings.neo4j_password,
-            },
-        }
+    # MVP boundary: Mem0 may use PostgreSQL/pgvector memory, but must not write
+    # user-derived memory to the Neo4j graph. Neo4j remains static/internal taxonomy only.
     return config
 
 

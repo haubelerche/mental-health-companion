@@ -8,7 +8,6 @@ import {
     MessageSquareText,
     Wind,
     Leaf,
-    Headphones,
     ClipboardList,
     Info,
     ChevronRight,

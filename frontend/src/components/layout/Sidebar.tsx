@@ -30,7 +30,6 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
     const sidebarContainerClass = isDark
         ? 'border-white/20 bg-black/30 text-white'
         : 'border-black/15 bg-white/70 text-serene-ink'
-    const secondaryTextClass = isDark ? 'text-white/75' : 'text-serene-muted/85'
     const hoverTextClass = isDark ? 'hover:bg-white/15 hover:text-white' : 'hover:bg-white/65 hover:text-serene-ink'
     const activeNavClass = isDark
         ? 'bg-white/20 text-white shadow-[0_4px_16px_rgba(0,0,0,0.35)]'

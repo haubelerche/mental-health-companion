@@ -219,6 +219,30 @@ class ClinicalProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
+class ScreeningAnswer(Base):
+    """Raw questionnaire answers — backend-only; never exposed to frontend."""
+
+    __tablename__ = "screening_answers"
+    __table_args__ = (
+        CheckConstraint(
+            "instrument_id IN ('phq9','gad7')",
+            name="ck_screening_answers_instrument",
+        ),
+        {"schema": "app"},
+    )
+
+    answer_id: Mapped[int] = mapped_column(BIGINT, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(
+        String, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+    )
+    instrument_id: Mapped[str] = mapped_column(String(10), nullable=False)
+    raw_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    answers: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, nullable=False)
+    submitted_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=func.now(), server_default=func.now(), nullable=False
+    )
+
+
 class CrisisLog(Base):
     __tablename__ = "crisis_logs"
 
@@ -635,7 +659,9 @@ class SyncOutbox(Base):
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    processing_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
@@ -739,15 +765,38 @@ class TherapyLetter(Base):
     reaction_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
     
     # Safety & Status
-    status: Mapped[str] = mapped_column(String(30), default="active", nullable=False) # 'pending_review', 'active', 'reported', 'deleted'
+    # status: lifecycle — 'pending_review' | 'active' | 'reported' | 'deleted'
+    status: Mapped[str] = mapped_column(String(30), default="active", nullable=False)
+    # review_status: guardrail result — 'not_reviewed' | 'passed' | 'failed' | 'escalated' | 'manual_review_required'
+    review_status: Mapped[str] = mapped_column(String(40), default="not_reviewed", nullable=False)
+    review_reason_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
     report_data: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
-    
+    content_masked: Mapped[str | None] = mapped_column(Text, nullable=True)
+    safety_event_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     # Metrics
     word_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     reward_event_id: Mapped[str | None] = mapped_column(ForeignKey("heart_reward_events.event_id"), nullable=True)
-    
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class LetterReviewEvent(Base):
+    """Immutable audit log for each guardrail run on a therapy letter."""
+
+    __tablename__ = "letter_review_events"
+
+    event_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    letter_id: Mapped[str] = mapped_column(ForeignKey("therapy_letters.letter_id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    validator_version: Mapped[str] = mapped_column(String(30), nullable=False)
+    verdict: Mapped[str] = mapped_column(String(50), nullable=False)
+    reason_codes: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    confidence: Mapped[float | None] = mapped_column(nullable=True)
+    metadata_: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
 # ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@ import { notificationService } from '../../../services/notificationService'
 import type { UserNotification } from '../../../services/notificationService'
 import Loading from '../../ui/Loading'
 import { parseTime } from '@/utils/parseTime'
-import { X, Bell } from 'lucide-react'
+import { X } from 'lucide-react'
 import Modal from 'react-modal'
 
 type Props = {

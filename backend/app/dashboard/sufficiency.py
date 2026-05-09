@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.dashboard.types import DashboardDataSufficiency, DashboardReadinessLevel
-from app.services.db.models import Conversation, MoodCheckin, Message
+from app.services.db.models import Conversation, MoodCheckin
 from app.services.utils import VN_TZ
 
 _MESSAGES_VI: dict[DashboardReadinessLevel, str] = {
@@ -34,26 +34,14 @@ def _session_duration_minutes(conv: Conversation) -> float:
     return max(0.0, (conv.last_message_at - conv.started_at).total_seconds() / 60.0)
 
 
-def _is_deep_conv(conv: Conversation, user_turns: int) -> bool:
+def _is_deep_conv(conv: Conversation) -> bool:
     if conv.message_count >= 16:
-        return True
-    if user_turns >= 8:
         return True
     if conv.anonymous_summary:
         return True
     if _session_duration_minutes(conv) >= 10:
         return True
     return False
-
-
-def _user_turn_counts(db: Session, *, user_id: str) -> dict[str, int]:
-    rows = db.execute(
-        select(Message.session_id, func.count()).where(
-            Message.user_id == user_id,
-            Message.role == "user",
-        ).group_by(Message.session_id)
-    ).all()
-    return {str(sid): int(cnt) for sid, cnt in rows}
 
 
 def _resolve_level(
@@ -123,8 +111,7 @@ def compute_data_sufficiency(db: Session, *, user_id: str) -> DashboardDataSuffi
         select(Conversation).where(Conversation.user_id == user_id, Conversation.deleted_at.is_(None))
     ).all()
 
-    turn_map = _user_turn_counts(db, user_id=user_id)
-    deep_count = sum(1 for c in convs if _is_deep_conv(c, turn_map.get(c.session_id, 0)))
+    deep_count = sum(1 for c in convs if _is_deep_conv(c))
 
     checkin_dates = {r.logged_date for r in checkins}
     conv_dates = {_vn_date(c.started_at) for c in convs}

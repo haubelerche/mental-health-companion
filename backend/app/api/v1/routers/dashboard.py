@@ -11,9 +11,11 @@ from app.core.responses import ok
 from app.dashboard.service import (
     build_checkin_history,
     build_reflect_summary,
+    build_safe_insight_cards,
     build_safe_insights_payload,
 )
-from app.services.db.models import ClinicalProfile, Conversation, MoodCheckin, User, UserProfile
+from app.dashboard.sufficiency import compute_data_sufficiency
+from app.services.db.models import Conversation, MoodCheckin, User
 from app.services.db.session import get_db
 from app.services.utils import (
     local_date_utc7,
@@ -127,18 +129,13 @@ def overview(
         )
     )
 
-    clin = db.scalar(select(ClinicalProfile).where(ClinicalProfile.user_id == current_user.user_id))
-    user_profile = db.scalar(select(UserProfile).where(UserProfile.user_id == current_user.user_id))
-    assessment = None
-    if clin:
-        assessment = {
-            "phq9_score": clin.phq9_score,
-            "gad7_score": clin.gad7_score,
-            "crisis_level": clin.crisis_level,
-            "last_scored_at": clin.last_scored_at.isoformat() if clin.last_scored_at else None,
-            "profile_updated_at": clin.updated_at.isoformat() if clin.updated_at else None,
-        }
-
+    insight_payload = build_safe_insights_payload(db, user_id=current_user.user_id)
+    sufficiency = compute_data_sufficiency(db, user_id=current_user.user_id)
+    safe_cards = build_safe_insight_cards(
+        db,
+        user_id=current_user.user_id,
+        sufficiency=sufficiency,
+    )
     refreshed_at = get_now().isoformat()
 
     payload: dict = {
@@ -151,8 +148,11 @@ def overview(
             "checked_in": mood_today_row is not None,
             "mood": mood_today_row.mood if mood_today_row else None,
         },
-        "assessment": assessment,
-        "analyst_insights": _build_dashboard_insights(user_profile.profile if user_profile else {}),
+        "assessment": None,
+        "analyst_insights": {
+            "insights": [card.model_dump(mode="json") for card in safe_cards],
+            "sufficiency": insight_payload.get("sufficiency"),
+        },
     }
 
     if window is not None:
@@ -391,6 +391,7 @@ def dashboard_checkin_history(
         {
             "timezone": "Asia/Ho_Chi_Minh",
             "range": range_,
+            "days": days,
             "history": [h.model_dump(mode="json") for h in history],
         }
     )

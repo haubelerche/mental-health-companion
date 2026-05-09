@@ -1,4 +1,3 @@
-import { useThemeContext } from '../../contexts/ThemeContext'
 type Props = {
     words?: string[]
     selected: string[]
@@ -13,9 +12,6 @@ const DEFAULT_WORDS = [
 ]
 
 export function MoodWordChips({ words = DEFAULT_WORDS, selected, onChange, className }: Props) {
-    const { effectiveTheme } = useThemeContext()
-    const isDark = effectiveTheme === 'dark'
-
     const toggle = (word: string) => {
         onChange(
             selected.includes(word)

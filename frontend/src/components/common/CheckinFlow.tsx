@@ -8,7 +8,6 @@ import { ChevronLeft, Info } from 'lucide-react'
 import { StreakCelebration } from './StreakCelebration'
 import { MoodWordChips } from './MoodWordChips'
 import bg from '../../assets_gif/3.gif'
-import { useThemeContext } from '../../contexts/ThemeContext'
 
 export type CheckinLocationState = {
   moodWords?: string[]
@@ -92,8 +91,6 @@ const TRIGGER_TAGS = [
 export function CheckinFlow() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { effectiveTheme } = useThemeContext()
-  const isDark = effectiveTheme === 'dark'
   const [step, setStep] = useState<Step>('mood')
   const [selectedMood, setSelectedMood] = useState<MoodKey | null>(null)
   const [moodWords, setMoodWords] = useState<string[]>([])

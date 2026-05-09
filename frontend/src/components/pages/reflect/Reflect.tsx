@@ -1,7 +1,6 @@
-import { ArrowRight, ChevronRight, Flame, PenLine, Sparkles, Sprout, Star, Wind } from 'lucide-react'
+import { Flame, Sparkles, Sprout, Star, Wind } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
     Area,
     AreaChart,
@@ -19,7 +18,7 @@ import { useThemeContext } from '../../../contexts/ThemeContext'
 import { DayDetailSheet, type DayDetail } from '../wellness/DayDetailSheet'
 import { ProgressStats } from '../wellness/ProgressStats'
 import { dashboardService, type DashboardReflectSummary } from '../../../services/dashboardService'
-import { TinHieuCard } from '../../dashboard/TinHieuCard'
+import { SignCard } from '../../dashboard/SignCard'
 import { WellnessDimensionCards } from '../../dashboard/WellnessDimensionCards'
 import { CheckinHistoryModal } from '../../dashboard/CheckinHistoryModal'
 import { Skeleton } from './Skeleton'
@@ -29,17 +28,6 @@ type WeeklyNotePayload = {
     content: string
     generated_at: string
     is_cached: boolean
-}
-
-type JournalsPayload = {
-    journals: Array<{
-        journal_id: string
-        content_preview: string
-        prompt_id: string | null
-        created_at: string
-    }>
-    total: number
-    has_more: boolean
 }
 
 function dimsToRadarScores(dimensions: DashboardReflectSummary['wellness_dimensions']): WellnessScores {
@@ -68,23 +56,15 @@ function toShortWeekday(isoDate: string): string {
     return WEEKDAY_LABELS[parsed.getDay()] || ''
 }
 
-function formatPercent(value: number | null | undefined): string {
-    if (value == null || Number.isNaN(value)) return '--'
-    return `${Math.round(value * 100)}%`
-}
-
 export default function Reflect() {
     const { user } = useAuth()
     const { effectiveTheme } = useThemeContext()
     const isDark = effectiveTheme === 'dark'
-    const navigate = useNavigate()
 
     const [reflectSummary, setReflectSummary] = useState<DashboardReflectSummary | null>(null)
     const [weeklyNote, setWeeklyNote] = useState<WeeklyNotePayload | null>(null)
-    const [recentJournal, setRecentJournal] = useState<JournalsPayload['journals'][number] | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-    const [prompts, setPrompts] = useState<Array<{ id: string; text: string }>>([])
     const [selectedDay, setSelectedDay] = useState<DayDetail | null>(null)
     const [historyOpen, setHistoryOpen] = useState(false)
 
@@ -99,22 +79,13 @@ export default function Reflect() {
             setLoading(true)
             setError(null)
             try {
-                const [dashSummary, weeklyNoteData, journalsData] = await Promise.all([
+                const [dashSummary, weeklyNoteData] = await Promise.all([
                     dashboardService.getReflectSummary(),
                     httpClient.get<WeeklyNotePayload>('/reflect/weekly-note'),
-                    httpClient.get<JournalsPayload>('/reflect/journals?limit=1&offset=0'),
                 ])
                 if (!mounted) return
                 setReflectSummary(dashSummary)
                 setWeeklyNote(weeklyNoteData)
-                setRecentJournal(journalsData.journals[0] || null)
-                httpClient.get<{ prompts: Array<{ id: string; text: string }> }>('/reflect/journal-prompts')
-                    .then(d => {
-                        if (mounted) setPrompts(d.prompts)
-                    })
-                    .catch(() => {
-                        if (import.meta.env.DEV) console.warn('[Reflect] journal prompts fetch failed')
-                    })
             } catch {
                 if (!mounted) return
                 setError('Không tải được dữ liệu. Vui lòng thử lại sau.')
@@ -215,7 +186,7 @@ export default function Reflect() {
 
                         {!loading && reflectSummary && (
                             <div className="mt-6">
-                                <TinHieuCard sufficiency={reflectSummary.sufficiency} insights={reflectSummary.top_insights} isDark={isDark} />
+                                <SignCard sufficiency={reflectSummary.sufficiency} insights={reflectSummary.top_insights} isDark={isDark} />
                             </div>
                         )}
 

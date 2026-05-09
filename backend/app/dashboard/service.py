@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import json
-import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Literal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import logging
+
 from app.dashboard.sufficiency import compute_data_sufficiency
+from app.safety.dashboard_guardrail import insight_display_allowed
+
+_log = logging.getLogger(__name__)
 from app.dashboard.types import (
     CheckinHistoryDay,
     CheckinHistoryItem,
@@ -50,6 +54,7 @@ _HYPOTHESIS_SOURCE_VI: dict[str, str] = {
     "engagement_pattern": "Hoạt động trong app",
     "other": "Dữ liệu gần đây",
 }
+_MAX_FRONTEND_INSIGHT_CARDS = 2
 
 
 def _mood_score_label(mood: str | None) -> tuple[int, str]:
@@ -91,25 +96,21 @@ def _confidence_for_cards(
 ) -> Literal["low", "medium", "high"]:
     if readiness == "stable_pattern":
         return "high"
-    if readiness == "weekly_trend":
-        return "medium"
-    if readiness == "early_insight":
-        if checkins >= 8 or sessions >= 6:
-            return "medium"
+    if checkins < 5 or sessions < 3:
         return "low"
+    if 5 <= checkins < 14 or 3 <= sessions < 8:
+        return "medium"
     return "low"
 
 
-def _map_db_severity(raw: str | None) -> Literal["neutral", "watch", "supportive_attention"]:
+def _map_db_severity(raw: str | None) -> Literal["neutral", "watch"]:
     if not raw:
         return "neutral"
     low = raw.strip().lower()
     if low in ("low", "neutral"):
         return "neutral"
-    if low in ("moderate", "medium", "watch"):
+    if low in ("moderate", "medium", "watch", "elevated", "high"):
         return "watch"
-    if low in ("elevated", "high", "supportive_attention"):
-        return "supportive_attention"
     return "neutral"
 
 
@@ -127,6 +128,16 @@ def _map_float_confidence(val: float | None, fallback: Literal["low", "medium", 
     return "high"
 
 
+def _cap_confidence(
+    value: Literal["low", "medium", "high"],
+    cap: Literal["low", "medium", "high"],
+) -> Literal["low", "medium", "high"]:
+    rank = {"low": 0, "medium": 1, "high": 2}
+    if rank[value] <= rank[cap]:
+        return value
+    return cap
+
+
 def _dt_to_date(val: Any) -> date | None:
     if val is None:
         return None
@@ -139,7 +150,12 @@ def _dt_to_date(val: Any) -> date | None:
     return None
 
 
-def _fetch_hypothesis_insights(db: Session, user_id: str) -> list[DashboardInsightCard]:
+def _fetch_hypothesis_insights(
+    db: Session,
+    user_id: str,
+    *,
+    fallback_confidence: Literal["low", "medium", "high"],
+) -> list[DashboardInsightCard]:
     try:
         stmt = (
             select(
@@ -158,6 +174,7 @@ def _fetch_hypothesis_insights(db: Session, user_id: str) -> list[DashboardInsig
                 InsightHypothesis.user_id == user_id,
                 InsightHypothesis.status == "active",
                 InsightHypothesis.display_allowed.is_(True),
+                InsightHypothesis.evidence_count > 0,
             )
             .order_by(InsightHypothesis.updated_at.desc())
             .limit(12)
@@ -178,8 +195,7 @@ def _fetch_hypothesis_insights(db: Session, user_id: str) -> list[DashboardInsig
             updated_at = upd if upd.tzinfo else upd.replace(tzinfo=VN_TZ)
         else:
             updated_at = get_now()
-        fb = "medium"
-        conf = _map_float_confidence(row.get("confidence"), fb)
+        conf = _cap_confidence(_map_float_confidence(row.get("confidence"), fallback_confidence), fallback_confidence)
         suggested = None
         if "sleep" in ht:
             suggested = "Thử cố định một giờ nghỉ ngắn trước khi ngủ, không cần hoàn hảo."
@@ -190,11 +206,21 @@ def _fetch_hypothesis_insights(db: Session, user_id: str) -> list[DashboardInsig
         else:
             suggested = "Hôm nay có thể check-in thêm một lần vào buổi tối để Serene hiểu nhịp mood rõ hơn."
 
+        summary_text = str(row.get("user_safe_summary") or "").strip()
+        raw_conf = row.get("confidence")
+        allowed, block_reason = insight_display_allowed(
+            user_safe_summary=summary_text,
+            confidence=raw_conf,
+        )
+        if not allowed:
+            _log.warning("dashboard guardrail blocked insight %s: %s", hid, block_reason)
+            continue
+
         out.append(
             DashboardInsightCard(
                 insight_id=hid,
                 title=str(row.get("title") or "Tín hiệu gần đây"),
-                user_safe_summary=str(row.get("user_safe_summary") or "").strip(),
+                user_safe_summary=summary_text,
                 evidence_count=int(row.get("evidence_count") or 0),
                 evidence_sources=[src],
                 confidence=conf,
@@ -317,22 +343,13 @@ def build_safe_insight_cards(
     *,
     user_id: str,
     sufficiency: DashboardDataSufficiency,
-    profile_data: dict[str, Any],
 ) -> list[DashboardInsightCard]:
-    sql_cards = _fetch_hypothesis_insights(db, user_id)
-    seen = {c.insight_id for c in sql_cards}
-    merged = list(sql_cards)
-    for h in _profile_insights(
-        profile_data,
-        readiness=sufficiency.readiness_level,
+    fallback_confidence = _confidence_for_cards(
+        sufficiency.readiness_level,
         checkins=sufficiency.mood_checkin_count,
         sessions=sufficiency.total_session_count,
-    ):
-        if h.insight_id in seen:
-            continue
-        merged.append(h)
-        seen.add(h.insight_id)
-    return merged[:12]
+    )
+    return _fetch_hypothesis_insights(db, user_id, fallback_confidence=fallback_confidence)[:_MAX_FRONTEND_INSIGHT_CARDS]
 
 
 def build_checkin_history(
@@ -387,11 +404,11 @@ def build_checkin_history(
     return out
 
 
-def build_mood_series(checkins: list[MoodCheckin], *, days: int = 14) -> list[dict[str, Any]]:
+def _build_mood_series(checkin_rows: list[MoodCheckin], days: int = 14) -> list[dict[str, Any]]:
     today = local_date_utc7()
     start = today - timedelta(days=days - 1)
     by_day: dict[date, list[MoodCheckin]] = {}
-    for r in checkins:
+    for r in checkin_rows:
         if r.logged_date < start or r.logged_date > today:
             continue
         by_day.setdefault(r.logged_date, []).append(r)
@@ -413,6 +430,10 @@ def build_mood_series(checkins: list[MoodCheckin], *, days: int = 14) -> list[di
             )
         )
     return [p.model_dump(mode="json") for p in points]
+
+
+def build_mood_series(checkins: list[MoodCheckin], *, days: int = 14) -> list[dict[str, Any]]:
+    return _build_mood_series(checkins, days=days)
 
 
 def _avg_sleep_hours(rows: list[MoodCheckin]) -> tuple[float | None, int]:
@@ -444,7 +465,7 @@ def _effective_coping_stats(coping_history: list[Any]) -> tuple[int, int]:
     return tried, effective
 
 
-def build_wellness_dimensions(
+def _build_wellness_dimensions(
     profile_data: dict[str, Any],
     *,
     checkins: list[MoodCheckin],
@@ -623,11 +644,12 @@ def build_wellness_dimensions(
     else:
         rate = effective / tried if tried else 0.0
         score_b = int(round(max(0.0, min(1.0, rate)) * 100))
+        body_status: Literal["steady", "improving"] = "steady" if rate >= 0.55 else "improving"
         cards.append(
             WellnessDimensionCard(
                 dimension="body",
                 label=_DIM_LABELS_VI["body"],
-                status="improving" if rate >= 0.35 else "needs_attention",
+                status=body_status,
                 score=score_b,
                 explanation=(
                     f"Dựa trên {tried} lần bạn thử coping được ghi nhận. "
@@ -639,7 +661,7 @@ def build_wellness_dimensions(
         )
 
     growth_evidence = streak_days + min(session_count, 10)
-    if growth_evidence <= 0:
+    if streak_days <= 0:
         cards.append(
             WellnessDimensionCard(
                 dimension="growth",
@@ -651,7 +673,7 @@ def build_wellness_dimensions(
                 suggested_action="Một check-in hoặc một phiên ngắn hôm nay là đủ để mở đầu nhẹ.",
             )
         )
-    elif streak_days < 7 and session_count < 8:
+    elif 1 <= streak_days <= 6:
         cards.append(
             WellnessDimensionCard(
                 dimension="growth",
@@ -683,6 +705,23 @@ def build_wellness_dimensions(
         )
 
     return cards
+
+
+def build_wellness_dimensions(
+    profile_data: dict[str, Any],
+    *,
+    checkins: list[MoodCheckin],
+    session_count: int,
+    sufficiency: DashboardDataSufficiency,
+    streak_days: int = 0,
+) -> list[WellnessDimensionCard]:
+    return _build_wellness_dimensions(
+        profile_data,
+        checkins=checkins,
+        session_count=session_count,
+        sufficiency=sufficiency,
+        streak_days=streak_days,
+    )
 
 
 def _progress_snapshot(profile_data: dict[str, Any], *, session_count: int, streak_days: int, is_today_completed: bool, completed_days: list[int]) -> DashboardProgressSnapshot:
@@ -727,13 +766,13 @@ def build_reflect_summary(db: Session, *, user_id: str) -> DashboardReflectSumma
         select(Conversation).where(Conversation.user_id == user_id, Conversation.deleted_at.is_(None))
     ).all()
 
-    all_cards = build_safe_insight_cards(db, user_id=user_id, sufficiency=sufficiency, profile_data=profile_data)
+    all_cards = build_safe_insight_cards(db, user_id=user_id, sufficiency=sufficiency)
     if sufficiency.readiness_level == "no_data":
         top = []
     elif sufficiency.readiness_level == "first_signals":
         top = all_cards[:1]
     else:
-        top = all_cards[:3]
+        top = all_cards[:_MAX_FRONTEND_INSIGHT_CARDS]
 
     dimensions = build_wellness_dimensions(
         profile_data,
@@ -777,7 +816,7 @@ def build_safe_insights_payload(db: Session, *, user_id: str) -> dict[str, Any]:
     sufficiency = compute_data_sufficiency(db, user_id=user_id)
     profile_row = db.scalar(select(UserProfile).where(UserProfile.user_id == user_id))
     profile_data: dict[str, Any] = dict(profile_row.profile if profile_row and profile_row.profile else {})
-    cards = build_safe_insight_cards(db, user_id=user_id, sufficiency=sufficiency, profile_data=profile_data)
+    cards = build_safe_insight_cards(db, user_id=user_id, sufficiency=sufficiency)
     return {
         "sufficiency": sufficiency.model_dump(mode="json"),
         "insights": [c.model_dump(mode="json") for c in cards],

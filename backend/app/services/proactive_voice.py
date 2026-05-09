@@ -191,7 +191,6 @@ def enqueue_voice_job(
             "provider": provider,
             "tts_job_id": existing["tts_job_id"],
             "audio_url": existing.get("audio_url"),
-            "audio_data_uri": existing.get("audio_data_uri"),
             "status": dedup_status,
             "model_id": _model_hint_for_queue(settings),
             "requested_tts_provider": provider,
@@ -360,13 +359,6 @@ def _process_job(job_id: int, owner_token: str | None = None) -> None:
             payload["voice"]["status"] = "ready"
             payload["voice"]["audio_path"] = str(audio_path)
             payload["voice"]["audio_url"] = f"/v1/chat/voice-jobs/tts_{job_id}/audio"
-            # Embed audio bytes directly in the DB payload so any Cloud Run instance
-            # can serve the content without touching the local filesystem of the
-            # instance that wrote the file (multi-instance isolation fix).
-            payload["voice"]["audio_data_uri"] = (
-                "data:audio/mpeg;base64,"
-                + base64.b64encode(audio_path.read_bytes()).decode("ascii")
-            )
             row.status = "done"
             from app.services.utils import get_now
             row.processed_at = get_now().replace(tzinfo=None)
@@ -475,7 +467,6 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
             voice["status"] = "ready"
             voice["audio_path"] = str(audio_path)
             voice["audio_url"] = f"/v1/chat/voice-jobs/tts_{outbox_id}/audio"
-            voice["audio_data_uri"] = "data:audio/mpeg;base64," + base64.b64encode(audio_path.read_bytes()).decode("ascii")
             payload["voice"] = voice
             _assign_payload(row, payload)
             db.commit()
@@ -539,7 +530,11 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
         "user_id": payload.get("user_id"),
         "status": str(voice.get("status") or voice_status or row.status),
         "audio_url": voice.get("audio_url"),
-        "audio_data_uri": voice.get("audio_data_uri"),
+        "audio_data_uri": (
+            "data:audio/mpeg;base64," + base64.b64encode(Path(str(voice.get("audio_path"))).read_bytes()).decode("ascii")
+            if voice.get("audio_path") and Path(str(voice.get("audio_path"))).exists()
+            else None
+        ),
         "trigger_reason": payload.get("trigger_reason"),
         "error_code": voice.get("error_code"),
         "error_message": voice.get("error_message"),

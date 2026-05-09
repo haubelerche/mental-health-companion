@@ -845,6 +845,14 @@ def distress_router(state: ChatGraphState) -> dict[str, Any]:
         duration_ms=(time.perf_counter() - span_start) * 1000,
         extra={"route": route, "reason": reason, "distress_score": distress, "use_fast": use_fast},
     )
+    tracer = get_active_tracer()
+    if tracer:
+        tracer.event(
+            "distress_router_decision",
+            input_data={"distress_score": distress, "message_len": len(msg)},
+            output_data={"route_decision": route, "route_reason": reason, "use_fast_friend_model": use_fast},
+            metadata={"agent": "router", "route_decision": route, "route_reason": reason},
+        )
     return {
         "routing_history": hist,
         "route_decision": route,
@@ -864,6 +872,33 @@ def supervisor_node(state: ChatGraphState) -> dict[str, Any]:
 
 def route_after_distress_router(state: ChatGraphState) -> str:
     return "analyst" if state.get("route_decision") == "analyst" else "friend"
+
+
+def _trace_analyst_route_decision(state: ChatGraphState) -> None:
+    tracer = get_active_tracer()
+    if tracer is None:
+        return
+    route = str(state.get("route_decision") or "friend")
+    reason = str(state.get("route_reason") or "")
+    tracer.event(
+        "analyst_route_decision",
+        input_data={
+            "distress_score": float(state.get("distress_score") or 0.0),
+            "message_len": len(str(state.get("user_message") or "")),
+        },
+        output_data={
+            "agent": "analyst",
+            "status": "scheduled" if route == "analyst" else "skipped",
+            "route_decision": route,
+            "route_reason": reason,
+        },
+        metadata={
+            "agent": "analyst",
+            "status": "scheduled" if route == "analyst" else "skipped",
+            "route_reason": reason,
+        },
+        as_type="agent",
+    )
 
 
 
@@ -1352,39 +1387,50 @@ def run_non_sos_turn(
         voice_hint=settings.distress_voice_hint,
         critical=settings.distress_critical,
     )
+    _tracer.guardrail(
+        "safety_gate",
+        input_data={"user_message_len": len(user_message), "sos_path": False},
+        output_data={
+            "sos_triggered": False,
+            "distress_score": float(distress_score),
+            "risk_level": int(snap.risk_level),
+            "safety_tier": str(snap.safety_tier),
+        },
+        metadata={"agent": "safety", "route": "non_sos_langgraph"},
+    )
     _graph_patterns: dict = graph_patterns or {}
     graph = get_chat_graph()
-    out = graph.invoke(
-        {
-            "user_message": user_message,
-            "recent_messages": recent_messages,
-            "mood_today": mood_today,
-            "long_term_memories": list(long_term_memories or []),
-            "mem0_facts": list(mem0_facts or []),
-            "user_traits": dict(warmed_traits or {}),
-            "top_triggers": list(top_triggers or []),
-            "active_goals": list(active_goals or []),
-            "effective_coping": list(effective_coping or []),
-            "clinical_trajectory": clinical_trajectory or "",
-            "active_persona_id": persona_id or DEFAULT_PERSONA_ID,
-            "active_memory_card_text": active_memory_card_text or "",
-            "correlation_id": correlation_id,
-            "user_id": user_id or "",
-            "graph_patterns": _graph_patterns,
-            # Cold-start screening note pre-seeded as a minimal bundle; analyst_node will
-            # overwrite with a richer bundle when routed to analyst.
-            "analyst_bundle": AnalystBundle(
-                clinical_note=screening_note[:200],
-                emotional_theme="cold_start_screen",
-                suggested_focus=None,
-                risk_indicators=[],
-            ) if screening_note else None,
-            "distress_score": distress_score,
-            "crisis_route_finalized": False,
-            "use_fast_friend_model": False,  # distress_router sets this
-            "routing_history": [],
-        }
-    )
+    graph_input: ChatGraphState = {
+        "user_message": user_message,
+        "recent_messages": recent_messages,
+        "mood_today": mood_today,
+        "long_term_memories": list(long_term_memories or []),
+        "mem0_facts": list(mem0_facts or []),
+        "user_traits": dict(warmed_traits or {}),
+        "top_triggers": list(top_triggers or []),
+        "active_goals": list(active_goals or []),
+        "effective_coping": list(effective_coping or []),
+        "clinical_trajectory": clinical_trajectory or "",
+        "active_persona_id": persona_id or DEFAULT_PERSONA_ID,
+        "active_memory_card_text": active_memory_card_text or "",
+        "correlation_id": correlation_id,
+        "user_id": user_id or "",
+        "graph_patterns": _graph_patterns,
+        # Cold-start screening note pre-seeded as a minimal bundle; analyst_node will
+        # overwrite with a richer bundle when routed to analyst.
+        "analyst_bundle": AnalystBundle(
+            clinical_note=screening_note[:200],
+            emotional_theme="cold_start_screen",
+            suggested_focus=None,
+            risk_indicators=[],
+        ) if screening_note else None,
+        "distress_score": distress_score,
+        "crisis_route_finalized": False,
+        "use_fast_friend_model": False,  # distress_router sets this
+        "routing_history": [],
+    }
+    out = graph.invoke(graph_input)
+    _trace_analyst_route_decision({**graph_input, **out})
     result = {
         "session_fields": snap,
         "reply": out.get("reply", ""),
@@ -1455,6 +1501,17 @@ def stream_non_sos_turn_events(
         voice_hint=settings.distress_voice_hint,
         critical=settings.distress_critical,
     )
+    _stream_tracer.guardrail(
+        "safety_gate",
+        input_data={"user_message_len": len(user_message), "sos_path": False, "stream": True},
+        output_data={
+            "sos_triggered": False,
+            "distress_score": float(distress_score),
+            "risk_level": int(snap.risk_level),
+            "safety_tier": str(snap.safety_tier),
+        },
+        metadata={"agent": "safety", "route": "non_sos_stream"},
+    )
 
     _stream_graph_patterns: dict = graph_patterns or {}
 
@@ -1486,6 +1543,7 @@ def stream_non_sos_turn_events(
         "routing_history": [],
     }
     state.update(distress_router(state))
+    _trace_analyst_route_decision(state)
     if route_after_distress_router(state) == "analyst":
         state.update(analyst_node(state))
 
@@ -1683,6 +1741,3 @@ def build_normal_envelope(
         "sos_triggered": False,
         "routing_history": routing_history or [],
     }
-
-
-

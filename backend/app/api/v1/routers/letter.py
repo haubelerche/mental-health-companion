@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 import random
 
 from fastapi import APIRouter, Depends
@@ -9,16 +9,50 @@ from sqlalchemy.orm import Session
 from app.api.deps import ensure_policy_acknowledged
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.services.db.models import TherapyLetter, SyncOutbox, User
+from app.hearts.service import grant_hearts
+from app.safety.escalation import record_safety_escalation_event
+from app.safety.letter_guardrail import review_letter
+from app.safety.policy import LETTER_MAX_REWARD_PER_DAY, LETTER_REWARD_AMOUNT, LETTER_REWARD_EVENT_TYPE
+from app.services.db.models import LetterReviewEvent, TherapyLetter, SyncOutbox, User
 from app.services.db.session import get_db
 from app.services.schemas.payloads import LetterReactRequest, LetterReplyRequest, LetterReportRequest, LetterSendRequest
 from app.services.utils import make_anon_name, make_id, get_now
 
 router = APIRouter(tags=["letters"])
 
+_GUARDRAIL_VERSION = "rule-based-v1"
+
 
 def _local_naive_now() -> datetime:
     return get_now().replace(tzinfo=None)
+
+
+def _write_review_event(db: Session, *, letter: TherapyLetter, verdict) -> None:
+    from app.safety.verdicts import LetterSafetyVerdict  # local import avoids circular dep
+    db.add(LetterReviewEvent(
+        event_id=make_id("lre"),
+        letter_id=letter.letter_id,
+        user_id=letter.user_id,
+        validator_version=_GUARDRAIL_VERSION,
+        verdict=verdict.verdict,
+        reason_codes=verdict.reason_codes or None,
+        confidence=verdict.confidence,
+        created_at=letter.reviewed_at,
+    ))
+
+
+def _letter_rewards_today(db: Session, user_id: str) -> int:
+    """Count approved letter rewards already granted today (for daily cap)."""
+    today = date.today()
+    return (
+        db.query(func.count(TherapyLetter.letter_id))
+        .filter(
+            TherapyLetter.user_id == user_id,
+            TherapyLetter.review_status == "passed",
+            func.date(TherapyLetter.reviewed_at) == today,
+        )
+        .scalar()
+    ) or 0
 
 
 def can_send_letter(db: Session, user_id: str) -> bool:
@@ -196,17 +230,92 @@ def send_letter(
         raise AppError("LETTER_NO_RECEIVER",
                        "Hiện chưa có người nhận phù hợp", 400)
 
+    # --- Safety guardrail ---
+    verdict = review_letter(payload.content)
+    now = _local_naive_now()
+
+    # Harmful content and SOS signals do not proceed to delivery
+    if verdict.verdict in ("rejected_harmful_content", "safety_escalate"):
+        if verdict.needs_escalation:
+            # Persist escalation signal via outbox (non-blocking)
+            sev_id = record_safety_escalation_event(
+                db,
+                user_id=current_user.user_id,
+                source_surface="therapy_letter",
+                source_id="(pending)",
+                reason_codes=verdict.reason_codes,
+            )
+        else:
+            sev_id = None
+
+        # Still persist the letter for audit, but keep it off the delivery queue
+        letter = TherapyLetter(
+            letter_id=make_id("let"),
+            user_id=current_user.user_id,
+            receiver_id=receiver_id,
+            content=payload.content,
+            letter_type="public",
+            status="pending_review",
+            review_status="escalated" if verdict.needs_escalation else "failed",
+            review_reason_code=verdict.reason_codes[0] if verdict.reason_codes else None,
+            word_count=len(payload.content.split()),
+            safety_event_id=sev_id,
+            reviewed_at=now,
+            created_at=now,
+        )
+        db.add(letter)
+        _write_review_event(db, letter=letter, verdict=verdict)
+        db.commit()
+
+        return ok(
+            {"guardrail_message": verdict.user_message, "reward_granted": False},
+            status_code=200,
+        )
+
+    # Determine review_status for non-blocking verdicts
+    review_status_map = {
+        "approved_safe_long_letter": "passed",
+        "rejected_too_short": "failed",
+        "rejected_spam_or_farming": "failed",
+        "needs_manual_review": "manual_review_required",
+    }
+    review_status = review_status_map.get(verdict.verdict, "failed")
+    letter_status = "pending_review" if review_status == "manual_review_required" else "active"
+
     letter = TherapyLetter(
         letter_id=make_id("let"),
         user_id=current_user.user_id,
         receiver_id=receiver_id,
         content=payload.content,
         letter_type="public",
-        status="active",
-        created_at=_local_naive_now(),
+        status=letter_status,
+        review_status=review_status,
+        review_reason_code=verdict.reason_codes[0] if verdict.reason_codes else None,
+        word_count=len(payload.content.split()),
+        reviewed_at=now,
+        created_at=now,
     )
     db.add(letter)
-    _notify_receiver_letter_received(db, receiver_id, letter_id=letter.letter_id, sender_id=current_user.user_id)
+    _write_review_event(db, letter=letter, verdict=verdict)
+
+    reward_result: dict | None = None
+    if verdict.reward_allowed and _letter_rewards_today(db, current_user.user_id) < LETTER_MAX_REWARD_PER_DAY:
+        reward_result = grant_hearts(
+            db,
+            user_id=current_user.user_id,
+            amount=LETTER_REWARD_AMOUNT,
+            event_type=LETTER_REWARD_EVENT_TYPE,
+            source_tab="letter",
+            idempotency_key=f"letter:{current_user.user_id}:{letter.letter_id}",
+        )
+        if reward_result.get("granted"):
+            letter.reward_event_id = reward_result["event_id"]
+
+    if letter_status == "active":
+        _notify_receiver_letter_received(
+            db, receiver_id, letter_id=letter.letter_id, sender_id=current_user.user_id
+        )
+
     db.commit()
 
     return ok(
@@ -216,6 +325,9 @@ def send_letter(
             "forward_count": letter.forward_count,
             "has_reply": False,
             "is_reported": False,
+            "guardrail_message": verdict.user_message if verdict.verdict != "approved_safe_long_letter" else None,
+            "reward_granted": bool(reward_result and reward_result.get("granted")),
+            "hearts_earned": reward_result["amount"] if reward_result and reward_result.get("granted") else 0,
         },
         status_code=201,
     )

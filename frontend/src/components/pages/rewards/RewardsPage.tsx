@@ -6,7 +6,6 @@ import KnowledgeShelf from '../rewards/KnowledgeShelf'
 import HeartBalanceBadge from '../rewards/HeartBalanceBadge'
 import { ApiRequestError } from '../../../api/types'
 import Loading from '../../ui/Loading'
-import { useThemeContext } from '../../../contexts/ThemeContext'
 import bg from '../../../assets/nen2.gif'
 export default function RewardsPage() {
     const [shelves, setShelves] = useState<RewardShelfType[]>([])
@@ -14,9 +13,6 @@ export default function RewardsPage() {
     const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set())
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-    const { effectiveTheme } = useThemeContext()
-    const isDark = effectiveTheme === 'dark'
-
     useEffect(() => {
         let cancelled = false
         Promise.all([rewardsService.getStore(), rewardsService.getInventory()])

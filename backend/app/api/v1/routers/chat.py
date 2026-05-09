@@ -25,6 +25,7 @@ from app.services.chat_response_cache import get_cached_turn, hash_message, set_
 from app.services.confidence_router import route_for_human_review
 from app.services.guest_service import heartbeat as guest_heartbeat
 from app.services.guest_service import start_session as guest_start_session
+from app.services.langfuse_tracing import ChatTurnTracer, set_active_tracer
 from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn, stream_non_sos_turn_events
 from app.services.neo4j_client import get_user_patterns_async
 from app.personas import route_persona
@@ -49,7 +50,11 @@ from app.services.sos_handler import (
     is_alone_signal,
     snapshot_for_sos,
 )
-from app.services.crisis_intervention_planner import build_fallback_plan
+from app.services.crisis_intervention_planner import (
+    build_fallback_plan,
+    build_fallback_crisis_plan,
+    build_llm_crisis_messages,
+)
 from app.services.clinical_profile import get_or_create_clinical_profile
 from app.services.safety_scoring import SafetySnapshot, compute_escalation_signal
 from app.services.proactive_voice import (
@@ -196,21 +201,6 @@ def _record_sos_side_effects(
         source="sos_override",
     )
 
-    # Push real-time notification
-    try:
-        from app.services.notification_service import enqueue_notification
-        enqueue_notification(
-            db,
-            user_id=user_id,
-            event_type="crisis.detected",
-            payload={
-                "level": "sos",
-                "message": "Hệ thống phát hiện dấu hiệu khẩn cấp. Bạn có cần hỗ trợ ngay không?"
-            }
-        )
-    except Exception:
-        pass
-
 
 def _queue_human_review(
     db: Session,
@@ -355,50 +345,66 @@ def _build_voice_intervention(
     trigger_reason: str,
     rolling_window_turns: int,
     delta_score: float,
+    voice_scripts: list[str] | None = None,
 ) -> dict:
-    """TTS is the same text as the assistant/Friend reply (no separate crisis script, no meta copy)."""
-    script = (assistant_reply_for_tts or "").strip()
+    """TTS is the same text as the assistant/Friend reply (no separate crisis script, no meta copy).
 
-    _tts_verdict = _validate_tts_output(script, surface="tts")
-    if _tts_verdict.is_blocked:
-        logger.warning(
-            "SafetyOutputValidator blocked TTS script for user=%s: %s",
-            user_id,
-            _tts_verdict.reason_codes,
-        )
-        return {"type": "proactive_voice_skipped", "reason": "tts_script_blocked"}
-
+    If voice_scripts is provided, enqueues one TTS job per script and calls mark_cooldown()
+    exactly once after all jobs are enqueued. Falls back to assistant_reply_for_tts when
+    voice_scripts is None or empty.
+    """
     tts_cfg = get_settings()
     requested_tts = str(getattr(tts_cfg, "tts_provider", "elevenlabs") or "elevenlabs").lower()
-    voice = enqueue_voice_job(
-        db,
-        user_id=user_id,
-        session_id=session_id,
-        voice_script=script,
-        trigger_reason=trigger_reason,
-        trigger_snapshot={
-            "distress_score": snapshot.distress_score,
-            "risk_level": snapshot.risk_level,
-            "safety_tier": snapshot.safety_tier,
-            "rolling_window_turns": rolling_window_turns,
-            "delta_score": delta_score,
-        },
-    )
+    _trigger_snapshot = {
+        "distress_score": snapshot.distress_score,
+        "risk_level": snapshot.risk_level,
+        "safety_tier": snapshot.safety_tier,
+        "rolling_window_turns": rolling_window_turns,
+        "delta_score": delta_score,
+    }
+
+    scripts_to_enqueue: list[str] = [s for s in (voice_scripts or []) if s and s.strip()]
+    if not scripts_to_enqueue:
+        # Fallback: single script from assistant reply
+        scripts_to_enqueue = [(assistant_reply_for_tts or "").strip()]
+
+    voice_jobs: list[dict] = []
+    for script in scripts_to_enqueue:
+        _tts_verdict = _validate_tts_output(script, surface="tts")
+        if _tts_verdict.is_blocked:
+            logger.warning(
+                "SafetyOutputValidator blocked TTS script for user=%s: %s",
+                user_id,
+                _tts_verdict.reason_codes,
+            )
+            voice_jobs.append({"tts_job_id": None, "blocked": True, "reason": _tts_verdict.reason_codes})
+            continue
+        job = enqueue_voice_job(
+            db,
+            user_id=user_id,
+            session_id=session_id,
+            voice_script=script,
+            trigger_reason=trigger_reason,
+            trigger_snapshot=_trigger_snapshot,
+        )
+        voice_jobs.append(job)
+
+    # mark_cooldown is called EXACTLY ONCE after all jobs are enqueued
     mark_cooldown(user_id=user_id, session_id=session_id)
+
+    primary_voice = voice_jobs[0] if voice_jobs else {}
+    primary_script = scripts_to_enqueue[0] if scripts_to_enqueue else (assistant_reply_for_tts or "").strip()
+
     return {
         "type": "proactive_voice",
         "trigger_reason": trigger_reason,
-        "trigger_snapshot": {
-            "distress_score": snapshot.distress_score,
-            "risk_level": snapshot.risk_level,
-            "safety_tier": snapshot.safety_tier,
-            "rolling_window_turns": rolling_window_turns,
-            "delta_score": delta_score,
-        },
+        "trigger_snapshot": _trigger_snapshot,
         "cooldown": {"active": False, "seconds_remaining": 0},
         "requested_tts_provider": requested_tts,
-        "voice": voice,
-        "voice_script": script,
+        "voice": primary_voice,
+        "voice_script": primary_script,
+        "voice_job_ids": [j.get("tts_job_id") for j in voice_jobs if j.get("tts_job_id")],
+        "voice_jobs": voice_jobs,
         "crisis_footer": {
             "show_once": True,
             "text": "Nếu cậu đang có ý định tự hại ngay lúc này, hãy bấm để kết nối hỗ trợ khẩn cấp.",
@@ -590,60 +596,122 @@ def send_message(
     host = request.client.host if request.client else None
 
     if sos:
+        safety_tracer = ChatTurnTracer(
+            correlation_id=make_id("trace"),
+            user_id=current_user.user_id,
+            session_id=session.session_id,
+            input_meta={
+                "agent": "safety",
+                "sos_path": True,
+                "user_message_len": len(raw_text),
+                "recent_user_message_count": len(previous_user_messages),
+            },
+        )
+        set_active_tracer(safety_tracer)
         snap = snapshot_for_sos(distress0)
-        sos_count = db.scalar(
-            select(func.count(Message.message_id)).where(
-                Message.session_id == session.session_id,
-                Message.role == "assistant",
-                Message.sos_triggered == True,  # noqa: E712
+        try:
+            safety_tracer.guardrail(
+                "safety_gate",
+                input_data={"user_message_len": len(raw_text), "recent_user_message_count": len(previous_user_messages)},
+                output_data={
+                    "sos_triggered": True,
+                    "distress_score": float(distress0),
+                    "risk_level": int(snap.risk_level),
+                    "safety_tier": str(snap.safety_tier),
+                    "reason_codes": list(getattr(_sos_debug, "reason_codes", []) or []),
+                },
+                metadata={"agent": "safety", "route": "sos_bypass"},
             )
-        ) or 0
-        assistant_content = assistant_text_for_sos(raw_text, sos_count)
-        assistant_msg = Message(
-            message_id=make_id("msg"),
-            session_id=session.session_id,
-            user_id=current_user.user_id,
-            role="assistant",
-            content=assistant_content,
-            assistant_tone=None,
-            sos_triggered=True,
-            created_at=now,
-        )
-        db.add(assistant_msg)
-        session.message_count += 1
-        session.last_message_at = now
-        _record_sos_side_effects(
-            db,
-            user_id=current_user.user_id,
-            session_id=session.session_id,
-            context_summary=mask_pii(raw_text)[:500],
-            request_host=host,
-        )
-        db.commit()
-        crisis_plan = build_fallback_plan(
-            assistant_content,
-            is_alone=is_alone_signal(raw_text),
-            session_sos_count=sos_count,
-        )
-        data = build_sos_chat_response_data(session.session_id, snap, assistant_text=crisis_plan.visible_text)
-        data["voice_script"] = crisis_plan.voice_script
-        data["crisis_plan"] = crisis_plan.model_dump()
-        data["scoring_debug"] = _sos_debug.model_dump()
-        data["intervention"] = _build_voice_intervention(
-            db=db,
-            user_id=current_user.user_id,
-            session_id=session.session_id,
-            assistant_reply_for_tts=crisis_plan.voice_script,
-            snapshot=snap,
-            trigger_reason="sos_gate_forced",
-            rolling_window_turns=1,
-            delta_score=0.0,
-        )
-        _mark_stage(latency_trace, "tts_enqueue_ms", stage_started)
-        latency_trace["total_backend_ms"] = int((time.perf_counter() - request_started) * 1000)
-        latency_trace["total_frontend_visible_latency_ms"] = latency_trace["total_backend_ms"]
-        data["latency_trace"] = latency_trace
-        return ok(data)
+            sos_count = db.scalar(
+                select(func.count(Message.message_id)).where(
+                    Message.session_id == session.session_id,
+                    Message.role == "assistant",
+                    Message.sos_triggered == True,  # noqa: E712
+                )
+            ) or 0
+            assistant_content = assistant_text_for_sos(raw_text, sos_count)
+            assistant_msg = Message(
+                message_id=make_id("msg"),
+                session_id=session.session_id,
+                user_id=current_user.user_id,
+                role="assistant",
+                content=assistant_content,
+                assistant_tone=None,
+                sos_triggered=True,
+                created_at=now,
+            )
+            db.add(assistant_msg)
+            session.message_count += 1
+            session.last_message_at = now
+            _record_sos_side_effects(
+                db,
+                user_id=current_user.user_id,
+                session_id=session.session_id,
+                context_summary=mask_pii(raw_text)[:500],
+                request_host=host,
+            )
+            db.commit()
+            _is_alone = is_alone_signal(raw_text)
+            _settings = get_settings()
+            crisis_plan_base = build_fallback_crisis_plan(
+                is_alone=_is_alone,
+                session_sos_count=sos_count,
+            )
+            try:
+                _llm_texts, _llm_voices = asyncio.run(build_llm_crisis_messages(
+                    user_message=raw_text,
+                    session_sos_count=sos_count if sos_count is not None else 0,
+                    is_alone=_is_alone,
+                    openai_api_key=_settings.openai_api_key,
+                ))
+                crisis_plan = crisis_plan_base.model_copy(update={
+                    "follow_up_texts": _llm_texts,
+                    "voice_script": _llm_voices[0],
+                    "additional_voice_scripts": _llm_voices[1:],
+                    "source": "llm",
+                })
+                safety_tracer.generation(
+                    "safety_crisis_enrichment",
+                    model=_settings.openai_model_analyst,
+                    input_messages=[{"role": "user", "content": {"message_len": len(raw_text), "is_alone": _is_alone}}],
+                    output="crisis_plan_enriched",
+                    metadata={"agent": "safety", "session_sos_count": int(sos_count or 0)},
+                )
+            except Exception as _exc:
+                logger.warning("LLM crisis enrichment failed, using base plan: %s", _exc)
+                crisis_plan = crisis_plan_base
+            data = build_sos_chat_response_data(session.session_id, snap, assistant_text=crisis_plan.visible_text)
+            data["voice_script"] = crisis_plan.voice_script
+            data["crisis_plan"] = crisis_plan.model_dump()
+            data["scoring_debug"] = _sos_debug.model_dump()
+            data["intervention"] = _build_voice_intervention(
+                db=db,
+                user_id=current_user.user_id,
+                session_id=session.session_id,
+                assistant_reply_for_tts=crisis_plan.voice_script,
+                snapshot=snap,
+                trigger_reason="sos_gate_forced",
+                rolling_window_turns=1,
+                delta_score=0.0,
+                voice_scripts=crisis_plan.all_voice_scripts,
+            )
+            _mark_stage(latency_trace, "tts_enqueue_ms", stage_started)
+            latency_trace["total_backend_ms"] = int((time.perf_counter() - request_started) * 1000)
+            latency_trace["total_frontend_visible_latency_ms"] = latency_trace["total_backend_ms"]
+            data["latency_trace"] = latency_trace
+            safety_tracer.score("distress_score", distress0, comment="sos_gate_forced")
+            safety_tracer.update_output(
+                crisis_plan.visible_text,
+                metadata={
+                    "routing_history": ["safety"],
+                    "crisis_plan_source": crisis_plan.source,
+                    "latency_trace": latency_trace,
+                },
+            )
+            return ok(data)
+        finally:
+            safety_tracer.flush()
+            set_active_tracer(None)
 
     # Persist user turn before calling LLM to release DB connection back to pool.
     db.commit()
@@ -919,59 +987,123 @@ def send_message_stream(
             host = request.client.host if request.client else None
 
             if sos:
+                safety_tracer = ChatTurnTracer(
+                    correlation_id=make_id("trace"),
+                    user_id=current_user.user_id,
+                    session_id=session.session_id,
+                    input_meta={
+                        "agent": "safety",
+                        "sos_path": True,
+                        "stream": True,
+                        "user_message_len": len(raw_text),
+                        "recent_user_message_count": len(previous_user_messages),
+                    },
+                )
+                set_active_tracer(safety_tracer)
                 snap = snapshot_for_sos(distress0)
-                sos_count = db.scalar(
-                    select(func.count(Message.message_id)).where(
-                        Message.session_id == session.session_id,
-                        Message.role == "assistant",
-                        Message.sos_triggered == True,  # noqa: E712
+                try:
+                    safety_tracer.guardrail(
+                        "safety_gate",
+                        input_data={"user_message_len": len(raw_text), "recent_user_message_count": len(previous_user_messages), "stream": True},
+                        output_data={
+                            "sos_triggered": True,
+                            "distress_score": float(distress0),
+                            "risk_level": int(snap.risk_level),
+                            "safety_tier": str(snap.safety_tier),
+                            "reason_codes": list(getattr(_sos_debug, "reason_codes", []) or []),
+                        },
+                        metadata={"agent": "safety", "route": "sos_stream_bypass"},
                     )
-                ) or 0
-                assistant_content = assistant_text_for_sos(raw_text, sos_count)
-                assistant_msg = Message(
-                    message_id=make_id("msg"),
-                    session_id=session.session_id,
-                    user_id=current_user.user_id,
-                    role="assistant",
-                    content=assistant_content,
-                    assistant_tone=None,
-                    sos_triggered=True,
-                    created_at=now,
-                )
-                db.add(assistant_msg)
-                session.message_count += 1
-                session.last_message_at = now
-                _record_sos_side_effects(
-                    db,
-                    user_id=current_user.user_id,
-                    session_id=session.session_id,
-                    context_summary=mask_pii(raw_text)[:500],
-                    request_host=host,
-                )
-                db.commit()
-                crisis_plan = build_fallback_plan(
-                    assistant_content,
-                    is_alone=is_alone_signal(raw_text),
-                    session_sos_count=sos_count,
-                )
-                data = build_sos_chat_response_data(session.session_id, snap, assistant_text=crisis_plan.visible_text)
-                data["voice_script"] = crisis_plan.voice_script
-                data["crisis_plan"] = crisis_plan.model_dump()
-                data["scoring_debug"] = _sos_debug.model_dump()
-                data["intervention"] = _build_voice_intervention(
-                    db=db,
-                    user_id=current_user.user_id,
-                    session_id=session.session_id,
-                    assistant_reply_for_tts=crisis_plan.voice_script,
-                    snapshot=snap,
-                    trigger_reason="sos_gate_forced",
-                    rolling_window_turns=1,
-                    delta_score=0.0,
-                )
-                elapsed_ms = int((time.perf_counter() - started_at) * 1000)
-                yield "event: status\ndata: " + json.dumps({"stage": "ready", "latency_ms": elapsed_ms}, ensure_ascii=False) + "\n\n"
-                yield "event: final\ndata: " + json.dumps(data, ensure_ascii=False) + "\n\n"
-                return
+                    sos_count = db.scalar(
+                        select(func.count(Message.message_id)).where(
+                            Message.session_id == session.session_id,
+                            Message.role == "assistant",
+                            Message.sos_triggered == True,  # noqa: E712
+                        )
+                    ) or 0
+                    assistant_content = assistant_text_for_sos(raw_text, sos_count)
+                    assistant_msg = Message(
+                        message_id=make_id("msg"),
+                        session_id=session.session_id,
+                        user_id=current_user.user_id,
+                        role="assistant",
+                        content=assistant_content,
+                        assistant_tone=None,
+                        sos_triggered=True,
+                        created_at=now,
+                    )
+                    db.add(assistant_msg)
+                    session.message_count += 1
+                    session.last_message_at = now
+                    _record_sos_side_effects(
+                        db,
+                        user_id=current_user.user_id,
+                        session_id=session.session_id,
+                        context_summary=mask_pii(raw_text)[:500],
+                        request_host=host,
+                    )
+                    db.commit()
+                    _is_alone = is_alone_signal(raw_text)
+                    _settings = get_settings()
+                    _crisis_plan_base = build_fallback_crisis_plan(
+                        is_alone=_is_alone,
+                        session_sos_count=sos_count,
+                    )
+                    try:
+                        _llm_texts, _llm_voices = asyncio.run(build_llm_crisis_messages(
+                            user_message=raw_text,
+                            session_sos_count=sos_count if sos_count is not None else 0,
+                            is_alone=_is_alone,
+                            openai_api_key=_settings.openai_api_key,
+                        ))
+                        crisis_plan = _crisis_plan_base.model_copy(update={
+                            "follow_up_texts": _llm_texts,
+                            "voice_script": _llm_voices[0],
+                            "additional_voice_scripts": _llm_voices[1:],
+                            "source": "llm",
+                        })
+                        safety_tracer.generation(
+                            "safety_crisis_enrichment",
+                            model=_settings.openai_model_analyst,
+                            input_messages=[{"role": "user", "content": {"message_len": len(raw_text), "is_alone": _is_alone, "stream": True}}],
+                            output="crisis_plan_enriched",
+                            metadata={"agent": "safety", "session_sos_count": int(sos_count or 0), "stream": True},
+                        )
+                    except Exception as _exc:
+                        logger.warning("LLM crisis enrichment failed, using base plan: %s", _exc)
+                        crisis_plan = _crisis_plan_base
+                    data = build_sos_chat_response_data(session.session_id, snap, assistant_text=crisis_plan.visible_text)
+                    data["voice_script"] = crisis_plan.voice_script
+                    data["crisis_plan"] = crisis_plan.model_dump()
+                    data["scoring_debug"] = _sos_debug.model_dump()
+                    data["intervention"] = _build_voice_intervention(
+                        db=db,
+                        user_id=current_user.user_id,
+                        session_id=session.session_id,
+                        assistant_reply_for_tts=crisis_plan.voice_script,
+                        snapshot=snap,
+                        trigger_reason="sos_gate_forced",
+                        rolling_window_turns=1,
+                        delta_score=0.0,
+                        voice_scripts=crisis_plan.all_voice_scripts,
+                    )
+                    elapsed_ms = int((time.perf_counter() - started_at) * 1000)
+                    safety_tracer.score("distress_score", distress0, comment="sos_gate_forced")
+                    safety_tracer.update_output(
+                        crisis_plan.visible_text,
+                        metadata={
+                            "routing_history": ["safety"],
+                            "crisis_plan_source": crisis_plan.source,
+                            "stream": True,
+                            "latency_ms": elapsed_ms,
+                        },
+                    )
+                    yield "event: status\ndata: " + json.dumps({"stage": "ready", "latency_ms": elapsed_ms}, ensure_ascii=False) + "\n\n"
+                    yield "event: final\ndata: " + json.dumps(data, ensure_ascii=False) + "\n\n"
+                    return
+                finally:
+                    safety_tracer.flush()
+                    set_active_tracer(None)
 
             # Persist user turn before any potentially long-running LLM call.
             db.commit()
