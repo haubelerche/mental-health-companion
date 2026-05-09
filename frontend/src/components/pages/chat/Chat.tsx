@@ -906,7 +906,7 @@ export default function Chat() {
                         </div>
                         <div>
                             <p className="text-2xl font-display font-semibold text-theme-text-primary">Serene</p>
-                            <p className="text-sm text-theme-text-secondary">Luôn ở đây cùng bạn</p>
+                            <p className="hidden sm:block text-sm text-theme-text-secondary">Luôn ở đây cùng bạn</p>
                         </div>
                     </div>
 
