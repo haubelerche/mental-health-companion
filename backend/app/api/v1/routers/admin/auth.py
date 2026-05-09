@@ -9,7 +9,7 @@ from app.services.schemas.payloads import AdminLoginRequest
 from app.services.auth_latency_metrics import get_auth_latency_snapshot
 from app.services.security import issue_admin_token, verify_password, verify_totp
 from app.services.utils import make_id
-from app.services.cookies import set_auth_cookies
+from app.services.cookies import set_admin_auth_cookies, clear_admin_auth_cookies
 from .shared import router, _audit
 
 @router.post("/auth/login")
@@ -31,7 +31,7 @@ def admin_login(payload: AdminLoginRequest, request: Request, response: Response
 
     admin_id = make_id("adm")
     token = issue_admin_token(admin_id)
-    set_auth_cookies(response, access_token=token)
+    set_admin_auth_cookies(response, access_token=token)
 
     return ok({"admin_id": admin_id, "expires_in": 7200}, response=response)
 
@@ -68,3 +68,9 @@ def admin_auth_latency_sla(
             },
         }
     )
+
+
+@router.post("/auth/logout")
+def admin_logout(response: Response):
+    clear_admin_auth_cookies(response)
+    return ok({"message": "Đã đăng xuất admin"})

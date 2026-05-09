@@ -11,6 +11,12 @@ const AdminMain = () => {
     useEffect(() => {
         const handleUnauthorized = (e: any) => {
             const detail = e.detail as { path: string; status: number }
+            
+            // Nếu đang ở trang login rồi thì không hiện modal báo hết hạn nữa
+            if (window.location.pathname.includes('/admin/login')) {
+                return
+            }
+
             // Chỉ hiện modal nếu bị 401 khi đang gọi các API admin
             if (detail.path.includes('/admin')) {
                 setShowReAuth(true)

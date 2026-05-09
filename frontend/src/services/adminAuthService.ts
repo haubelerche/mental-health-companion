@@ -13,4 +13,5 @@ export type AdminLoginResponse = {
 
 export const adminAuthService = {
     login: (payload: AdminLoginPayload) => httpClient.post<AdminLoginResponse>('/admin/auth/login', payload),
-}
+    logout: () => httpClient.post<any>('/admin/auth/logout'),
+}

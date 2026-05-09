@@ -158,7 +158,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     if (!response.ok) {
         if (response.status === 401 || (response.status === 403 && isAdminEndpoint)) {
             const isAuthEndpoint =
-                path.includes('/auth/refresh') || path.includes('/auth/login') || path.includes('/auth/logout')
+                path.includes('/auth/refresh') || 
+                path.includes('/auth/login') || 
+                path.includes('/auth/logout') ||
+                path.includes('/csrf-token')
 
             // 1. Nếu là User bình thường (không phải admin) và bị 401 -> Thử auto-refresh
             if (response.status === 401 && !isAuthEndpoint && !isAdminEndpoint) {
@@ -200,7 +203,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
             }
 
             // 2. Nếu là Admin (401/403) hoặc Refresh thất bại -> Phát sự kiện để UI hiện Re-auth Modal
-            if (typeof window !== 'undefined') {
+            // KHÔNG phát sự kiện nếu đang ở endpoint login/auth để tránh loop/dialog thừa trên trang login.
+            if (typeof window !== 'undefined' && !isAuthEndpoint) {
                 const now = Date.now()
                 if (now - lastUnauthorizedAt > 1200) {
                     lastUnauthorizedAt = now
