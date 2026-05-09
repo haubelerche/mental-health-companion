@@ -6,6 +6,7 @@ from app.services.db.session import get_session_factory
 from app.services.letter_ai_worker import run_ai_reply_worker
 from app.services.youtube_agent import run_youtube_crawl_agent, CATEGORIES
 from app.services.db.models import User, SyncOutbox
+from app.services.utils import get_now
 from sqlalchemy import select
 import random
 
@@ -24,12 +25,10 @@ class AdminWorker:
         self._task: Optional[asyncio.Task] = None
 
     def _calculate_next_run(self):
-        now = datetime.now(timezone.utc)
+        now = get_now()
         if self.daily_time:
             try:
                 hour, minute = map(int, self.daily_time.split(':'))
-                # Create a datetime for today at that time (using UTC for consistency, though user might mean local)
-                # For now let's assume UTC to avoid timezone hell, but real apps should use local.
                 next_run = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
                 if next_run <= now:
                     next_run += timedelta(days=1)
@@ -57,7 +56,7 @@ class AdminWorker:
 
     async def _loop(self):
         while self.active:
-            now = datetime.now(timezone.utc)
+            now = get_now()
             if self.next_run and now >= self.next_run:
                 self.running = True
                 try:
@@ -79,9 +78,9 @@ class AdminWorker:
             "running": self.running,
             "interval_min": self.interval_min,
             "daily_time": self.daily_time,
-            "last_run": self.last_run.strftime('%Y-%m-%dT%H:%M:%SZ') if self.last_run else None,
-            "next_run": self.next_run.strftime('%Y-%m-%dT%H:%M:%SZ') if self.next_run else None,
-            "seconds_until_next": int((self.next_run - datetime.now(timezone.utc)).total_seconds()) if self.next_run else None
+            "last_run": self.last_run.isoformat() if self.last_run else None,
+            "next_run": self.next_run.isoformat() if self.next_run else None,
+            "seconds_until_next": int((self.next_run - get_now()).total_seconds()) if self.next_run else None
         }
 
 # --- Task Functions ---
@@ -179,7 +178,7 @@ class WorkerManager:
 
     def add_log(self, worker_name: str, message: str):
         self.logs.append({
-            "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "timestamp": get_now().isoformat(),
             "worker": worker_name,
             "message": message
         })

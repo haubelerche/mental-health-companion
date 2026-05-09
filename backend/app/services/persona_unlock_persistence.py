@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.services.db.models import PersonaUnlockState
-from app.services.utils import utc_now
+from app.services.utils import get_now
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ def mark_persona_unlocked(
     extra: dict[str, Any] | None = None,
 ) -> PersonaUnlockState:
     state = get_persona_unlock_state(db, user_id=user_id, persona_id=persona_id)
-    now = utc_now().replace(tzinfo=None)
+    now = get_now().replace(tzinfo=None)
     if state is None:
         state = PersonaUnlockState(
             user_id=user_id,
@@ -69,8 +69,8 @@ def mark_persona_unlocked(
     logger.info("[Unlocks] user=%s persona=%s source=%s", user_id, persona_id, source)
     # Push real-time notification
     try:
-        from app.services.notification_service import enqueue_notification
-        enqueue_notification(
+        from app.services.notification_service import send_instant_notification
+        send_instant_notification(
             db,
             user_id=user_id,
             event_type="persona.unlocked",
@@ -88,7 +88,7 @@ def mark_persona_unlocked(
 def accept_crush_boundary(db: Session, *, user_id: str) -> PersonaUnlockState:
     """Record boundary intro acceptance for Crush. Required before Crush can activate."""
     state = get_persona_unlock_state(db, user_id=user_id, persona_id="crush")
-    now = utc_now().replace(tzinfo=None)
+    now = get_now().replace(tzinfo=None)
     if state is None:
         state = PersonaUnlockState(
             user_id=user_id,

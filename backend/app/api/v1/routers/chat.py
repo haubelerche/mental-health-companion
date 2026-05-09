@@ -56,7 +56,7 @@ from app.services.proactive_voice import (
     get_voice_job,
     mark_cooldown,
 )
-from app.services.utils import make_id, utc_now
+from app.services.utils import make_id, get_now
 from app.voice.types import TTS_TERMINAL_STATUSES
 from app.personas.router import route_persona
 from app.services.persona_unlock_persistence import is_persona_unlocked
@@ -170,7 +170,7 @@ def _record_sos_side_effects(
     )
     clin = get_or_create_clinical_profile(db, user_id)
     clin.crisis_level = max(int(clin.crisis_level or 0), 5)
-    clin.last_scored_at = utc_now().replace(tzinfo=None)
+    clin.last_scored_at = get_now().replace(tzinfo=None)
 
     # Push real-time notification
     try:
@@ -477,7 +477,7 @@ def send_message(
     _mark_stage(latency_trace, "auth_or_session_load_ms", stage_started)
     stage_started = time.perf_counter()
 
-    now = utc_now().replace(tzinfo=None)
+    now = get_now().replace(tzinfo=None)
     session = None
     if payload.session_id:
         session = db.scalar(
@@ -781,7 +781,7 @@ def send_message_stream(
             if hb:
                 yield hb
 
-            now = utc_now().replace(tzinfo=None)
+            now = get_now().replace(tzinfo=None)
             session = None
             if payload.session_id:
                 session = db.scalar(
@@ -1355,7 +1355,7 @@ def delete_session(
     if not session:
         raise AppError("SESSION_NOT_FOUND", "Session không tồn tại", 404)
 
-    now = utc_now().replace(tzinfo=None)
+    now = get_now().replace(tzinfo=None)
     session.deleted_at = now
     if hard:
         session.hard_deleted_at = now

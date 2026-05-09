@@ -17,7 +17,7 @@ from app.services.db.models import ClinicalProfile, Conversation, MoodCheckin, U
 from app.services.db.session import get_db
 from app.services.utils import (
     local_date_utc7,
-    utc_now,
+    get_now,
     vn_month_chart_range,
     vn_period_utc_range,
     vn_week_chart_range,
@@ -135,18 +135,18 @@ def overview(
             "phq9_score": clin.phq9_score,
             "gad7_score": clin.gad7_score,
             "crisis_level": clin.crisis_level,
-            "last_scored_at": clin.last_scored_at.isoformat() + "Z" if clin.last_scored_at else None,
-            "profile_updated_at": clin.updated_at.isoformat() + "Z" if clin.updated_at else None,
+            "last_scored_at": clin.last_scored_at.isoformat() if clin.last_scored_at else None,
+            "profile_updated_at": clin.updated_at.isoformat() if clin.updated_at else None,
         }
 
-    refreshed_at = utc_now().isoformat()
+    refreshed_at = get_now().isoformat()
 
     payload: dict = {
         "user_id": current_user.user_id,
         "timezone": "Asia/Ho_Chi_Minh",
         "refreshed_at": refreshed_at,
         "session_count": sessions_total,
-        "last_session_at": last_session_at.isoformat() + "Z" if last_session_at else None,
+        "last_session_at": last_session_at.isoformat() if last_session_at else None,
         "mood_today": {
             "checked_in": mood_today_row is not None,
             "mood": mood_today_row.mood if mood_today_row else None,
@@ -319,7 +319,7 @@ def dashboard_mood_trend(
     return ok(
         {
             "timezone": "Asia/Ho_Chi_Minh",
-            "refreshed_at": utc_now().isoformat(),
+            "refreshed_at": get_now().isoformat(),
             "mode": mode,
             "preset": preset.value if preset else None,
             "period": {"from": start.isoformat(), "to": end.isoformat()},
@@ -349,12 +349,12 @@ def history(
     return ok(
         {
             "timezone": "Asia/Ho_Chi_Minh",
-            "refreshed_at": utc_now().isoformat(),
+            "refreshed_at": get_now().isoformat(),
             "window": window.value if window else None,
             "sessions": [
                 {
                     "session_id": r.session_id,
-                    "last_message_at": r.last_message_at.isoformat() + "Z",
+                    "last_message_at": r.last_message_at.isoformat(),
                     "message_count": r.message_count,
                 }
                 for r in rows

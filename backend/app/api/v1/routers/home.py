@@ -8,7 +8,7 @@ from app.core.responses import ok
 from app.services.db.models import Conversation, MoodCheckin, User
 from app.services.db.session import get_db
 from app.services.schemas.payloads import MoodCheckinPatchRequest, MoodCheckinRequest
-from app.services.utils import local_date_utc7, make_id, utc_now
+from app.services.utils import local_date_utc7, make_id, get_now
 
 router = APIRouter(tags=["home"])
 
@@ -32,7 +32,7 @@ def create_checkin(payload: MoodCheckinRequest, current_user: User = Depends(ens
         emoji=payload.emoji,
         note=payload.note,
         logged_date=logged_date,
-        logged_at=utc_now().replace(tzinfo=None),
+        logged_at=get_now().replace(tzinfo=None),
     )
     db.add(row)
     db.commit()
@@ -60,7 +60,7 @@ def patch_checkin(
     if payload.emoji is not None:
         row.emoji = payload.emoji
     row.note = payload.note
-    row.updated_at = utc_now().replace(tzinfo=None)
+    row.updated_at = get_now().replace(tzinfo=None)
     db.commit()
     return ok({"updated_at": row.updated_at.isoformat() + "Z"})
 

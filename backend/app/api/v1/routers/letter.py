@@ -12,13 +12,13 @@ from app.core.responses import ok
 from app.services.db.models import TherapyLetter, SyncOutbox, User
 from app.services.db.session import get_db
 from app.services.schemas.payloads import LetterReactRequest, LetterReplyRequest, LetterReportRequest, LetterSendRequest
-from app.services.utils import make_anon_name, make_id
+from app.services.utils import make_anon_name, make_id, get_now
 
 router = APIRouter(tags=["letters"])
 
 
-def _utc_naive_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+def _local_naive_now() -> datetime:
+    return get_now().replace(tzinfo=None)
 
 
 def can_send_letter(db: Session, user_id: str) -> bool:
@@ -125,8 +125,8 @@ def _pick_receiver(
 
 
 def _notify_sender_reported(db: Session, sender_id: str, *, letter_id: str, message: str = "Lá thư của bạn đã bị báo cáo") -> None:
-    from app.services.notification_service import enqueue_notification
-    enqueue_notification(
+    from app.services.notification_service import send_instant_notification
+    send_instant_notification(
         db,
         user_id=sender_id,
         event_type="letter.reported",
@@ -138,8 +138,8 @@ def _notify_sender_reported(db: Session, sender_id: str, *, letter_id: str, mess
 
 
 def _notify_sender_replied(db: Session, sender_id: str, *, letter_id: str, reply_id: str, replier_id: str) -> None:
-    from app.services.notification_service import enqueue_notification
-    enqueue_notification(
+    from app.services.notification_service import send_instant_notification
+    send_instant_notification(
         db,
         user_id=sender_id,
         event_type="letter.replied",
@@ -153,8 +153,8 @@ def _notify_sender_replied(db: Session, sender_id: str, *, letter_id: str, reply
 
 
 def _notify_receiver_letter_received(db: Session, receiver_id: str, *, letter_id: str, sender_id: str) -> None:
-    from app.services.notification_service import enqueue_notification
-    enqueue_notification(
+    from app.services.notification_service import send_instant_notification
+    send_instant_notification(
         db,
         user_id=receiver_id,
         event_type="letter.received",
@@ -167,8 +167,8 @@ def _notify_receiver_letter_received(db: Session, receiver_id: str, *, letter_id
 
 
 def _notify_replier_reaction(db: Session, replier_id: str, *, reply_id: str, letter_id: str, reaction_type: str) -> None:
-    from app.services.notification_service import enqueue_notification
-    enqueue_notification(
+    from app.services.notification_service import send_instant_notification
+    send_instant_notification(
         db,
         user_id=replier_id,
         event_type="letter.reacted",
@@ -203,7 +203,7 @@ def send_letter(
         content=payload.content,
         letter_type="public",
         status="active",
-        created_at=_utc_naive_now(),
+        created_at=_local_naive_now(),
     )
     db.add(letter)
     _notify_receiver_letter_received(db, receiver_id, letter_id=letter.letter_id, sender_id=current_user.user_id)
@@ -336,7 +336,7 @@ def forward_letter(
 
     letter.forward_count += 1
     letter.receiver_id = new_receiver
-    letter.updated_at = _utc_naive_now()
+    letter.updated_at = _local_naive_now()
     
     db.add(letter)
     _notify_receiver_letter_received(db, new_receiver, letter_id=letter.letter_id, sender_id=letter.user_id)
@@ -384,7 +384,7 @@ def reply_letter(
         content=payload.content,
         letter_type="reply",
         status="active",
-        created_at=_utc_naive_now(),
+        created_at=_local_naive_now(),
     )
     
     # Mark letter as handled (remove receiver so it's no longer in inbox)
@@ -429,7 +429,7 @@ def react_reply(
                        "Bạn đã thả cảm xúc cho phản hồi này", 400)
 
     reply.reaction_type = payload.reaction_type
-    reply.updated_at = _utc_naive_now()
+    reply.updated_at = _local_naive_now()
     
     db.add(reply)
     _notify_replier_reaction(db, reply.user_id, reply_id=reply_id, letter_id=original_letter.letter_id, reaction_type=payload.reaction_type)
@@ -474,7 +474,7 @@ def report_letter(
         "reporter_id": current_user.user_id,
         "category": report_category,
         "reason": payload.reason or payload.description,
-        "at": _utc_naive_now().isoformat()
+        "at": _local_naive_now().isoformat()
     })
     
     letter.report_data = report_info

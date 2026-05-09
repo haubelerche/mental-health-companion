@@ -37,7 +37,7 @@ def admin_list_audit_logs(
             "action": l.action,
             "resource_accessed": l.resource_accessed,
             "ip_address": str(l.ip_address),
-            "created_at": l.created_at.strftime('%Y-%m-%dT%H:%M:%SZ')
+            "created_at": l.created_at.isoformat()
         } for l in logs],
         "total": total or 0
     })

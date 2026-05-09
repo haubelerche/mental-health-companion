@@ -19,7 +19,7 @@ from app.core.responses import ok
 from app.hearts.service import grant_hearts
 from app.services.db.models import HeartRewardEvent, NutritionMealCheckin, User
 from app.services.db.session import get_db
-from app.services.utils import local_date_utc7, make_id, utc_now
+from app.services.utils import local_date_utc7, make_id, get_now
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 

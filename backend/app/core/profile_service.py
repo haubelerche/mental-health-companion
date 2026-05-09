@@ -13,6 +13,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from typing import Any
+from app.services.utils import get_now, local_date_utc7
 
 import asyncpg
 import jsonschema
@@ -101,7 +102,7 @@ class TriggerTag(BaseModel):
     """Aggregated trigger occurrence data."""
 
     count: int = 1
-    last_seen: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_seen: datetime = Field(default_factory=get_now)
     avg_intensity: float | None = None
 
 
@@ -359,7 +360,7 @@ class ProfileService:
         if not (0.0 <= intensity <= 1.0):
             raise ValueError(f"intensity must be 0.0–1.0, got {intensity}")
 
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = get_now().isoformat()
 
         for attempt in range(self.MAX_RETRY):
             try:
@@ -431,7 +432,7 @@ class ProfileService:
                 profile = json.loads(row["profile"])
                 history: list = profile.get("coping_history", [])
 
-                today = datetime.now(timezone.utc).date().isoformat()
+                today = local_date_utc7().isoformat()
                 entry = next((e for e in history if e["action"] == action), None)
 
                 if entry is None:

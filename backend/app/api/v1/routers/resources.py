@@ -9,7 +9,7 @@ from app.services.db.models import Bookmark, PlayEvent, Resource, User
 from app.services.db.session import get_db
 from app.services.schemas.payloads import PlayEventRequest
 from app.services.exercise_catalog import get_exercise, list_exercises
-from app.services.utils import make_id, utc_now, get_youtube_id
+from app.services.utils import make_id, get_now, get_youtube_id
 
 router = APIRouter(prefix="/resources", tags=["resources"])
 
@@ -202,7 +202,7 @@ def track_play_event(
         event=payload.event,
         duration_sec=final_duration,
         percent=payload.percent,
-        tracked_at=utc_now(),
+        tracked_at=get_now(),
     )
 
     db.add(ev)
@@ -233,7 +233,7 @@ def create_bookmark(
             bookmark_id=make_id("bm"),
             user_id=current_user.user_id,
             resource_id=resource_id,
-            bookmarked_at=utc_now(),
+            bookmarked_at=get_now(),
         )
         db.add(existing)
         db.commit()
@@ -258,4 +258,4 @@ def remove_bookmark(
         db.delete(row)
         db.commit()
 
-    return ok({"removed_at": utc_now().isoformat().replace("+00:00", "Z")})
+    return ok({"removed_at": get_now().isoformat()})

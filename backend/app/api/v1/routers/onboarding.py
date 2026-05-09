@@ -11,7 +11,7 @@ from app.core.responses import ok
 from app.services.db.models import User, UserProfile
 from app.services.db.session import get_db
 from app.services.schemas.payloads import OnboardingCompleteRequest
-from app.services.utils import utc_now
+from app.services.utils import get_now
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
 
@@ -50,7 +50,7 @@ def onboarding_complete(
         raise AppError("DISCLAIMER_NOT_ACCEPTED", "Bạn cần xác nhận điều khoản trước khi tiếp tục", 400)
 
     row, profile_data = _read_profile(db, current_user.user_id)
-    now = utc_now().replace(tzinfo=None)
+    now = get_now().replace(tzinfo=None)
     onboarding_payload = {
         "v": 1,
         "disclaimer_accepted": True,
@@ -85,7 +85,7 @@ def onboarding_skip(
     db: Session = Depends(get_db),
 ):
     row, profile_data = _read_profile(db, current_user.user_id)
-    now = utc_now().replace(tzinfo=None)
+    now = get_now().replace(tzinfo=None)
     existing = dict(profile_data.get("onboarding") or {})
     onboarding_payload = {
         "v": int(existing.get("v") or 1),

@@ -12,6 +12,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal
+from app.services.utils import get_now
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -85,9 +86,9 @@ def create_cards_from_candidates(
         db.flush()
         # Push real-time notification for new memories
         try:
-            from app.services.notification_service import enqueue_notification
+            from app.services.notification_service import send_instant_notification
             # We notify that new memories are available for review
-            enqueue_notification(
+            send_instant_notification(
                 db,
                 user_id=user_id,
                 event_type="memory.completed",
@@ -238,7 +239,7 @@ def apply_user_action(
     else:
         raise ValueError(f"unknown action: {action}")
 
-    card.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    card.updated_at = get_now().replace(tzinfo=None)
 
     if action in {"keep", "edit", "delete", "disable_personalization"}:
         audit = MemoryCardAuditEvent(

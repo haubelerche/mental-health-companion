@@ -59,10 +59,10 @@ def admin_list_letters(
             "content": l.content,
             "status": l.status,
             "report_data": l.report_data,
-            "created_at": l.created_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "created_at": l.created_at.isoformat(),
             "ai_reply": {
                 "content": ai_reply.content,
-                "created_at": ai_reply.created_at.strftime('%Y-%m-%dT%H:%M:%SZ')
+                "created_at": ai_reply.created_at.isoformat()
             } if ai_reply else None
         })
     

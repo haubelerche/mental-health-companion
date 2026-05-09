@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 import openai
 from app.core.config import get_settings
 from app.services.db.models import TherapyLetter, MoodCheckin, ClinicalProfile, User
-from app.services.utils import make_id, make_anon_name
+from app.services.utils import make_id, make_anon_name, get_now
 
 settings = get_settings()
 
@@ -103,7 +103,7 @@ async def run_ai_reply_worker(db: Session, hours_threshold: int = 6):
         db.add(ai_user)
         db.commit()
 
-    threshold_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=hours_threshold)
+    threshold_time = get_now().replace(tzinfo=None) - timedelta(hours=hours_threshold)
     
     # Find active public letters older than threshold
     stmt = (
@@ -153,7 +153,7 @@ async def run_ai_reply_worker(db: Session, hours_threshold: int = 6):
             content=reply_content,
             letter_type="reply",
             status="active",
-            created_at=datetime.now(timezone.utc).replace(tzinfo=None)
+            created_at=get_now().replace(tzinfo=None)
         )
         
         # Remove from recipient's inbox

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import logging
 import threading
+from datetime import timedelta
+
+DEDUP_WINDOW_HOURS = 24
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -16,7 +19,7 @@ from app.memory.service import create_cards_from_candidates
 from app.services.memory_enrichment import StructuredExtract, apply_to_profile, extract_structured
 from app.services.pii_mask import mask_pii
 from app.services.redis_client import cache_delete, profile_cache_key
-from app.services.utils import utc_now
+from app.services.utils import get_now
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +122,8 @@ def close_session_summary(db: Session, *, session: Conversation, user_id: str) -
     had_sos = any(bool(m.sos_triggered) for m in rows)
     turn_count = len(rows)
 
-    now = utc_now().replace(tzinfo=None)
+    now = get_now().replace(tzinfo=None)
+    cutoff = (get_now() - timedelta(hours=DEDUP_WINDOW_HOURS)).replace(tzinfo=None)
     session.summarized_at = now
 
     prof = db.scalar(select(UserProfile).where(UserProfile.user_id == user_id))

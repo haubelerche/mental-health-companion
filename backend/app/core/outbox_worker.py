@@ -127,7 +127,7 @@ class Neo4jApplier:
         user_id = p["user_id"]
         trigger_labels: list[str] = p.get("trigger_labels", [])
         emotion_label: str | None = p.get("emotion_label")
-        now = datetime.now(timezone.utc).isoformat()
+        now = get_now().isoformat()
 
         async with self._driver.session(database=self._neo4j_database) as session:
             await session.run(
@@ -177,7 +177,7 @@ class Neo4jApplier:
         user_id = p["user_id"]
         trigger = p["trigger_label"]
         emotion = p.get("emotion_label")
-        observed_at = p.get("observed_at", datetime.now(timezone.utc).isoformat())
+        observed_at = p.get("observed_at", get_now().isoformat())
 
         async with self._driver.session(database=self._neo4j_database) as session:
             # (User)-[:EXPERIENCED]->(Trigger) with first_seen tracking
@@ -258,7 +258,7 @@ class Neo4jApplier:
         action_id = p["action_id"]
         emotion_label = p.get("emotion_label", "neutral")
         effective_score = float(p.get("effective_score", 1.0 if p.get("effective") else 0.0))
-        attempted_at = p.get("attempted_at", datetime.now(timezone.utc).isoformat())
+        attempted_at = p.get("attempted_at", get_now().isoformat())
 
         async with self._driver.session(database=self._neo4j_database) as session:
             # (User)-[:USED_COPING]->(CopingAction) — one edge per (user, action).
@@ -406,7 +406,10 @@ class OutboxWorker:
 
     async def _process_event(self, event: OutboxEvent) -> None:
         """Apply one event to Neo4j with retry logic."""
-        lag = (datetime.now(timezone.utc) - event.created_at.replace(tzinfo=timezone.utc)).total_seconds()
+        # Ensure event.created_at (naive VN time) is treated as VN time for calculation
+        from app.services.utils import get_now, VN_TZ
+        created_at_aware = event.created_at.replace(tzinfo=VN_TZ)
+        lag = (get_now() - created_at_aware).total_seconds()
 
         for attempt in range(self.MAX_ATTEMPTS):
             try:

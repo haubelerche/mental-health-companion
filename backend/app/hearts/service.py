@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.services.db.models import HeartRewardEvent, HeartWallet
-from app.services.utils import make_id, utc_now
+from app.services.utils import make_id, get_now
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ def grant_hearts(
         }
 
     wallet = _get_or_create_wallet(db, user_id)
-    today: date = utc_now().date()
+    today: date = get_now().date()
     if wallet.daily_earned_date != today:
         wallet.daily_earned_today = 0
         wallet.daily_earned_date = today
@@ -85,7 +85,7 @@ def grant_hearts(
     wallet.balance += amount
     wallet.lifetime_earned += amount
     wallet.daily_earned_today += amount
-    wallet.updated_at = utc_now().replace(tzinfo=None)
+    wallet.updated_at = get_now().replace(tzinfo=None)
 
     try:
         db.flush()
@@ -110,8 +110,8 @@ def grant_hearts(
     
     # Push real-time notification
     try:
-        from app.services.notification_service import enqueue_notification
-        enqueue_notification(
+        from app.services.notification_service import send_instant_notification
+        send_instant_notification(
             db, 
             user_id=user_id, 
             event_type="reward.earned", 
@@ -122,7 +122,7 @@ def grant_hearts(
             }
         )
     except Exception as e:
-        logger.warning(f"Failed to enqueue reward notification: {e}")
+        logger.warning(f"Failed to send reward notification: {e}")
 
     return {
         "granted": True,

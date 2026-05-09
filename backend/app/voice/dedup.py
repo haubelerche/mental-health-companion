@@ -77,7 +77,8 @@ def find_dedup_job(
     A job is reusable when its voice status is in TTS_REUSABLE_STATUSES
     (queued / processing / ready / cache_hit) and it is NOT failed.
     """
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=DEDUP_WINDOW_HOURS)).replace(tzinfo=None)
+    from app.services.utils import get_now
+    cutoff = (get_now() - timedelta(hours=DEDUP_WINDOW_HOURS)).replace(tzinfo=None)
 
     # We load only recent rows and filter by signature in Python.
     # Volume of TTS jobs within 24h is small, so this avoids JSON-path

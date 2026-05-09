@@ -17,7 +17,8 @@ _LOCAL_BUDGET: dict[str, int] = {}
 
 
 def _usage_key(user_id: str) -> str:
-    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    from app.services.utils import get_now
+    day = get_now().strftime("%Y-%m-%d")
     return f"serene:tts:11l:chars:{user_id}:{day}"
 
 

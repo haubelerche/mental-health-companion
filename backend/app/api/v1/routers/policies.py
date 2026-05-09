@@ -9,7 +9,7 @@ from app.services.db.models import User
 from app.services.db.session import get_db
 from app.services.schemas.payloads import PolicyAckRequest, VoiceConsentRequest
 from app.services.voice_consent import get_voice_consent, set_voice_consent
-from app.services.utils import utc_now
+from app.services.utils import get_now
 
 router = APIRouter(prefix="/policies", tags=["policies"])
 
@@ -36,7 +36,7 @@ def policies_ack(
     if not user:
         raise AppError("AUTH_INVALID_TOKEN", "Token không hợp lệ", 401)
     user.policy_version_ack = payload.policy_version
-    user.policy_acknowledged_at = utc_now().replace(tzinfo=None)
+    user.policy_acknowledged_at = get_now().replace(tzinfo=None)
     db.commit()
     return ok({"policy_version": payload.policy_version, "acknowledged_at": user.policy_acknowledged_at.isoformat() + "Z"})
 

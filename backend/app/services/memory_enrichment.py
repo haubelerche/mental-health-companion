@@ -8,6 +8,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+from app.services.utils import get_now
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,7 @@ def apply_to_profile(
     summary_text: str,
     max_items: int = 50,
 ) -> dict[str, Any]:
-    now_iso = datetime.utcnow().isoformat()
+    now_iso = get_now().isoformat()
     out = dict(profile or {})
     _ensure_profile_shape(out)
 

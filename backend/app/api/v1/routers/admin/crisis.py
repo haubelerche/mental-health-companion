@@ -34,7 +34,7 @@ def admin_crisis_logs(
                 {
                     "log_id": row.log_id,
                     "session_id": row.session_id,
-                    "triggered_at": row.triggered_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    "triggered_at": row.triggered_at.isoformat(),
                     "muc_do": row.muc_do,
                     "reviewed": row.reviewed
                 } for row in logs
@@ -73,7 +73,7 @@ def admin_review_crisis_log(
     return ok({
         "log_id": log_id,
         "reviewed": row.reviewed,
-        "reviewed_at": row.reviewed_at.strftime('%Y-%m-%dT%H:%M:%SZ') if row.reviewed_at else None,
+        "reviewed_at": row.reviewed_at.isoformat() if row.reviewed_at else None,
         "reviewed_by": row.reviewed_by,
         "note": row.note
     })

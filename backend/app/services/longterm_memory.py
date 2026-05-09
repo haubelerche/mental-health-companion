@@ -16,6 +16,7 @@ from app.services.mem0_service import MemoryManager
 from app.services.memory_enrichment import _fallback_extract, apply_to_profile
 from app.services.pii_mask import mask_pii
 from app.services.redis_client import cache_get_json, cache_set_json, profile_cache_key
+from app.services.utils import get_now
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ def _compute_clinical_trajectory(profile_data: dict[str, Any]) -> str:
         if last_sos:
             try:
                 dt = datetime.fromisoformat(last_sos.replace("Z", "+00:00"))
-                now = datetime.now(timezone.utc)
+                now = get_now()
                 if dt.tzinfo is None:
                     dt = dt.replace(tzinfo=timezone.utc)
                 days = max(0, int((now - dt).total_seconds() // 86400))
@@ -225,7 +226,7 @@ def persist_turn_memory(
         db.add(row)
         db.flush()
 
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = get_now().isoformat()
     base = dict(row.profile or {})
     updated = apply_to_profile(
         base,
@@ -241,5 +242,5 @@ def persist_turn_memory(
         max_items=120,
     )
     row.profile = updated
-    row.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    row.updated_at = get_now().replace(tzinfo=None)
     cache_set_json(profile_cache_key(user_id), updated, ttl_sec=15)
