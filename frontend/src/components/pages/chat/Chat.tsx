@@ -663,7 +663,7 @@ export default function Chat() {
         setMessages((prev) =>
             prev.map((m) =>
                 m.id === pendingId
-                    ? { id: `a_${Date.now()}`, role: 'assistant', content: assistantText, apiData: finalData ?? undefined, isPending: false }
+                    ? { ...m, id: `a_${Date.now()}`, content: assistantText, apiData: finalData ?? undefined, isPending: false }
                     : m,
             ),
         )
@@ -725,7 +725,7 @@ export default function Chat() {
                     setMessages((prev) =>
                         prev.map((m) =>
                             m.id === pendingId
-                                ? { id: `a_${Date.now()}`, role: 'assistant', content: assistantText, apiData: data, isPending: false }
+                                ? { ...m, id: `a_${Date.now()}`, content: assistantText, apiData: data, isPending: false }
                                 : m,
                         ),
                     )
@@ -750,7 +750,7 @@ export default function Chat() {
                 setMessages((prev) =>
                     prev.map((m) =>
                         m.id === pendingId
-                            ? { id: `a_${Date.now()}`, role: 'assistant', content: assistantText, apiData: data, isPending: false }
+                            ? { ...m, id: `a_${Date.now()}`, content: assistantText, apiData: data, isPending: false }
                             : m,
                     ),
                 )
@@ -806,7 +806,14 @@ export default function Chat() {
         try {
             const data = await chatService.getSessionMessages(targetSessionId, 100, 0)
             setSessionId(targetSessionId)
-            setMessages(data.messages.map((msg) => ({ id: msg.message_id, role: msg.role, content: msg.content })))
+            setMessages(
+                data.messages.map((msg) => ({
+                    id: msg.message_id,
+                    role: msg.role,
+                    content: msg.content,
+                    timestamp: msg.created_at ? new Date(msg.created_at).getTime() : undefined,
+                })),
+            )
             setShowHistory(false)
         } catch (err) {
             toast.error(err instanceof Error ? err.message : 'Không tải được lịch sử hội thoại')
