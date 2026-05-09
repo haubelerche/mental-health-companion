@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
+import Modal from 'react-modal'
 import type { CheckinHistoryDay, CheckinHistoryItem } from '../../services/dashboardService'
 import { dashboardService } from '../../services/dashboardService'
 
@@ -20,6 +21,12 @@ export function CheckinHistoryModal({ open, onClose, isDark }: Props) {
     const [loading, setLoading] = useState(false)
     const [history, setHistory] = useState<CheckinHistoryDay[]>([])
     const [err, setErr] = useState<string | null>(null)
+
+    useEffect(() => {
+        if (typeof document !== 'undefined') {
+            Modal.setAppElement('#root')
+        }
+    }, [])
 
     useEffect(() => {
         if (!open) return
@@ -49,74 +56,70 @@ export function CheckinHistoryModal({ open, onClose, isDark }: Props) {
         return s
     }, [history])
 
-    if (!open) return null
-
     return (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center" aria-modal role="dialog">
-            <button
-                type="button"
-                className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
-                aria-label="Đóng"
-                onClick={onClose}
-            />
-            <div
-                className={`relative z-[81] flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border shadow-2xl sm:rounded-3xl border-theme-border bg-theme-surface`}
-            >
-                <div className={`flex items-center justify-between border-b px-5 py-4 border-theme-border`}>
-                    <div>
-                        <p className={`text-[10px] uppercase tracking-[0.28em] text-theme-text-secondary`}>
-                            Lịch sử check-in
-                        </p>
-                        <h2 className={`font-display text-lg ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>90 ngày gần đây</h2>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className={`rounded-full p-2 ${isDark ? 'hover:bg-theme-surface/80' : 'hover:bg-black/5'}`}
-                    >
-                        <X className="h-5 w-5" />
-                    </button>
+        <Modal
+            isOpen={open}
+            onRequestClose={onClose}
+            shouldCloseOnEsc
+            shouldCloseOnOverlayClick
+            contentLabel="Lịch sử check-in"
+            className="relative z-[81] mb-5 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border shadow-2xl border-theme-border bg-theme-surface outline-none"
+            overlayClassName="fixed inset-0 z-[80] flex items-end justify-center sm:items-center bg-black/45 backdrop-blur-[2px]"
+        >
+            <div className={`flex items-center justify-between border-b px-5 py-4 border-theme-border`}>
+                <div>
+                    <p className={`text-[10px] uppercase tracking-[0.28em] text-theme-text-secondary`}>
+                        Lịch sử check-in
+                    </p>
+                    <h2 className={`font-display text-lg ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>90 ngày gần đây</h2>
                 </div>
-
-                <div className="overflow-y-auto px-5 pb-8 pt-4">
-                    {loading && <p className={`text-sm ${isDark ? 'text-theme-text-secondary' : 'text-serene-muted'}`}>Đang tải...</p>}
-                    {err && <p className="text-sm text-red-600">{err}</p>}
-
-                    {!loading && !err && (
-                        <>
-                            <MiniCompletionCalendar completedDates={completedSet} isDark={isDark} />
-
-                            <div className="mt-6 space-y-6">
-                                {history.length === 0 && (
-                                    <p className={`text-sm ${isDark ? 'text-theme-text-secondary' : 'text-serene-muted'}`}>
-                                        Chưa có check-in trong khung thời gian này.
-                                    </p>
-                                )}
-                                {history.map((day) => (
-                                    <div key={day.date}>
-                                        <div className="mb-2 flex items-center justify-between gap-2">
-                                            <p className={`font-semibold ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>
-                                                {new Date(day.date).toLocaleDateString('vi-VN')}
-                                            </p>
-                                            {day.completed && (
-                                                <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary dark:bg-theme-accent/15 dark:text-theme-accent">
-                                                    Đã check-in
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="space-y-3">
-                                            {day.checkins.map((c) => (
-                                                <CheckinCard key={c.checkin_id} c={c} isDark={isDark} />
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </>
-                    )}
-                </div>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className={`rounded-full p-2 ${isDark ? 'hover:bg-theme-surface/80' : 'hover:bg-black/5'}`}
+                >
+                    <X className="h-5 w-5" />
+                </button>
             </div>
-        </div>
+
+            <div className="overflow-y-auto px-5 pb-8 pt-4">
+                {loading && <p className={`text-sm ${isDark ? 'text-theme-text-secondary' : 'text-serene-muted'}`}>Đang tải...</p>}
+                {err && <p className="text-sm text-red-600">{err}</p>}
+
+                {!loading && !err && (
+                    <>
+                        <MiniCompletionCalendar completedDates={completedSet} isDark={isDark} />
+
+                        <div className="mt-6 space-y-6">
+                            {history.length === 0 && (
+                                <p className={`text-sm ${isDark ? 'text-theme-text-secondary' : 'text-serene-muted'}`}>
+                                    Chưa có check-in trong khung thời gian này.
+                                </p>
+                            )}
+                            {history.map((day) => (
+                                <div key={day.date}>
+                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                        <p className={`font-semibold ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>
+                                            {new Date(day.date).toLocaleDateString('vi-VN')}
+                                        </p>
+                                        {day.completed && (
+                                            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary dark:bg-theme-accent/15 dark:text-theme-accent">
+                                                Đã check-in
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="space-y-3">
+                                        {day.checkins.map((c) => (
+                                            <CheckinCard key={c.checkin_id} c={c} isDark={isDark} />
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
+            </div>
+        </Modal>
     )
 }
 
