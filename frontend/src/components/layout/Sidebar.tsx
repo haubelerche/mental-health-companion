@@ -1,6 +1,6 @@
 import { type MouseEvent, useState } from 'react'
 import { Bell, HelpCircle, HomeIcon, Library, MessageSquare, Sailboat, Settings, Sparkles, Utensils, Gift, MoreHorizontal } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import NotificationModal from '../pages/notifications/NotificationModal'
@@ -60,7 +60,7 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
             >
                 {/* Brand */}
                 <div className="mb-7">
-                    <h1 className="font-display text-4xl italic">Serene</h1>
+                    <Link to={ROUTE_PATHS.home} className="font-display text-4xl italic">Serene</Link>
                 </div>
 
                 {/* Primary nav */}
