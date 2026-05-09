@@ -699,6 +699,7 @@ create table app.sync_outbox (
   error_message text,
 
   created_at timestamptz not null default now(),
+  processing_started_at timestamptz,
   processed_at timestamptz,
 
   user_id text references app.users(user_id) on delete set null
