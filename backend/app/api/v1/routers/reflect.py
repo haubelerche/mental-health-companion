@@ -13,7 +13,7 @@ from app.core.responses import ok
 from app.services.db.models import ClinicalProfile, JournalEntry, JournalPrompt, MoodCheckin, User, UserProfile
 from app.services.db.session import get_db
 from app.services.schemas.payloads import JournalCreateRequest
-from app.services.utils import local_date_utc7, make_id, utc_now
+from app.services.utils import local_date_utc7, make_id, get_now
 
 router = APIRouter(prefix="/reflect", tags=["reflect"])
 
@@ -323,7 +323,7 @@ def weekly_note(
     current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
-    now = utc_now()
+    now = get_now()
     profile_row = db.scalar(select(UserProfile).where(UserProfile.user_id == current_user.user_id))
     profile_data = dict(profile_row.profile or {}) if profile_row else {}
     meta = dict(profile_data.get("meta") or {})
@@ -363,7 +363,7 @@ def refresh_insight(
     current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
-    now = utc_now()
+    now = get_now()
     profile_row = db.scalar(select(UserProfile).where(UserProfile.user_id == current_user.user_id))
     profile_data = dict(profile_row.profile or {}) if profile_row else {}
     meta = dict(profile_data.get("meta") or {})

@@ -10,7 +10,7 @@ from app.services.db.session import get_db
 from app.services.db.models import Resource
 from app.services.schemas.payloads import AdminResourceCreateRequest, AdminResourceUpdateRequest, AdminAgentCrawlRequest
 from app.services.youtube_agent import run_youtube_crawl_agent
-from app.services.utils import make_id, utc_now
+from app.services.utils import make_id, get_now
 from .shared import router, _audit, _validate_resource_payload, RESOURCE_CATEGORIES
 
 @router.get("/resources")
@@ -182,7 +182,7 @@ def admin_update_resource(
     return ok(
         {
             "resource_id": row.resource_id,
-            "updated_at": utc_now().isoformat().replace("+00:00", "Z"),
+            "updated_at": get_now().isoformat(),
         }
     )
 
@@ -215,6 +215,6 @@ def admin_delete_resource(
     return ok(
         {
             "resource_id": resource_id,
-            "deleted_at": utc_now().isoformat().replace("+00:00", "Z"),
+            "deleted_at": get_now().isoformat(),
         }
     )

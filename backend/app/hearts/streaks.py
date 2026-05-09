@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.hearts.service import grant_hearts
 from app.services.db.models import StreakState
-from app.services.utils import utc_now
+from app.services.utils import get_now
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ def update_mood_streak(db: Session, *, user_id: str, checkin_date: date) -> dict
     streak.last_mood_checkin_date = checkin_date
     if streak.current_mood_checkin_streak > streak.longest_mood_checkin_streak:
         streak.longest_mood_checkin_streak = streak.current_mood_checkin_streak
-    streak.updated_at = utc_now().replace(tzinfo=None)
+    streak.updated_at = get_now().replace(tzinfo=None)
     db.flush()
 
     bonus_granted = False

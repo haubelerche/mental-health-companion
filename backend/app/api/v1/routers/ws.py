@@ -13,6 +13,7 @@ from app.api.deps import get_current_user
 from app.services.security import decode_token
 from app.core.errors import AppError
 from app.services.ws_manager import connection_manager
+from app.services.utils import get_now
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ws", tags=["websocket"])
@@ -82,12 +83,11 @@ async def websocket_notifications(
         logger.info(f"WebSocket connection established: user_id={user_id}")
         
         # Send welcome message
-        import datetime
         await websocket.send_json({
             "type": "connected",
             "message": "Connected to notification stream",
             "user_id": user_id,
-            "timestamp": datetime.datetime.utcnow().isoformat()
+            "timestamp": get_now().isoformat()
         })
         
         # Listen for messages (client can send heartbeat confirmations or disconnect)
@@ -120,27 +120,24 @@ async def trigger_test_notification(
     Trigger a test notification for a specific user.
     If no user_id is provided, it uses the ID of the current authenticated user.
     """
-    from app.services.db.models import SyncOutbox
-    import datetime
+    from app.services.notification_service import send_instant_notification
 
     target_id = user_id or current_user.user_id
 
-    # Create a dummy reward event as a test
-    event = SyncOutbox(
+    # Send instant notification via the new mechanism (now sync-friendly)
+    send_instant_notification(
+        db=db,
         user_id=target_id,
         event_type="reward.earned",
         payload={
             "amount": 100,
-            "message": "Đây là thông báo kiểm tra hệ thống WebSocket!",
-            "test_time": datetime.datetime.utcnow().isoformat()
-        },
-        status="pending",
+            "message": "Đây là thông báo TỨC THÌ qua WebSocket!",
+            "test_time": get_now().isoformat()
+        }
     )
-    db.add(event)
     db.commit()
     
     return {
         "success": True, 
-        "message": f"Test notification queued for user {target_id}",
-        "outbox_id": event.outbox_id
+        "message": f"Instant notification triggered for user {target_id}",
     }

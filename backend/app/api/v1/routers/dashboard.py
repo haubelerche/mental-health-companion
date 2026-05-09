@@ -17,7 +17,7 @@ from app.services.db.models import ClinicalProfile, Conversation, MoodCheckin, U
 from app.services.db.session import get_db
 from app.services.utils import (
     local_date_utc7,
-    utc_now,
+    get_now,
     vn_month_chart_range,
     vn_period_utc_range,
     vn_week_chart_range,
@@ -139,7 +139,7 @@ def overview(
             "profile_updated_at": clin.updated_at.isoformat() + "Z" if clin.updated_at else None,
         }
 
-    refreshed_at = utc_now().isoformat()
+    refreshed_at = get_now().isoformat()
 
     payload: dict = {
         "user_id": current_user.user_id,
@@ -319,7 +319,7 @@ def dashboard_mood_trend(
     return ok(
         {
             "timezone": "Asia/Ho_Chi_Minh",
-            "refreshed_at": utc_now().isoformat(),
+            "refreshed_at": get_now().isoformat(),
             "mode": mode,
             "preset": preset.value if preset else None,
             "period": {"from": start.isoformat(), "to": end.isoformat()},
@@ -349,7 +349,7 @@ def history(
     return ok(
         {
             "timezone": "Asia/Ho_Chi_Minh",
-            "refreshed_at": utc_now().isoformat(),
+            "refreshed_at": get_now().isoformat(),
             "window": window.value if window else None,
             "sessions": [
                 {

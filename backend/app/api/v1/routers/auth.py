@@ -51,7 +51,7 @@ from app.services.security import (
     issue_access_token,
     verify_password,
 )
-from app.services.utils import make_id, now_plus, utc_now
+from app.services.utils import make_id, now_plus, get_now
 from app.personas.aliases import is_known_persona, resolve_alias
 from app.services.persona_unlock_persistence import is_persona_unlocked
 
@@ -65,7 +65,7 @@ def _elapsed_ms(start: float) -> float:
 
 
 def _utc_naive_now():
-    return utc_now().replace(tzinfo=None)
+    return get_now().replace(tzinfo=None)
 
 
 def _allow_local_signup_without_smtp() -> bool:
@@ -179,7 +179,7 @@ def signup(payload: SignupRequest, response: Response, request: Request, db: Ses
     if exists:
         raise AppError("INVALID_PARAMETER", "Email đã tồn tại", 400)
 
-    now = utc_now().replace(tzinfo=None)
+    now = get_now().replace(tzinfo=None)
     bcrypt_start = time.perf_counter()
     password_hash = hash_password(payload.password)
     bcrypt_ms += _elapsed_ms(bcrypt_start)
@@ -317,7 +317,7 @@ def login(payload: LoginRequest, response: Response, request: Request, db: Sessi
         limiter.clear_auth_failure(identity)
         redis_ms += _elapsed_ms(redis_start)
 
-        now = utc_now().replace(tzinfo=None)
+        now = get_now().replace(tzinfo=None)
         if user.policy_version_ack != CURRENT_POLICY_VERSION:
             user.policy_acknowledged_at = now
             user.policy_version_ack = CURRENT_POLICY_VERSION
@@ -522,7 +522,7 @@ def refresh_token(response: Response, refresh_token: str | None = Cookie(default
         raise AppError("AUTH_REFRESH_MALFORMED", "Refresh token không hợp lệ", 401)
     if row.revoked_at is not None:
         raise AppError("AUTH_REFRESH_REVOKED", "Refresh token đã bị thu hồi", 401)
-    if row.expires_at.replace(tzinfo=None) < utc_now().replace(tzinfo=None):
+    if row.expires_at.replace(tzinfo=None) < get_now().replace(tzinfo=None):
         raise AppError("AUTH_REFRESH_EXPIRED", "Refresh token đã hết hạn", 401)
 
     access = issue_access_token(row.user_id)
@@ -537,11 +537,11 @@ def logout(response: Response, refresh_token: str | None = Cookie(default=None),
         hashed = hash_refresh_token(refresh_token)
         row = db.scalar(select(RefreshToken).where(RefreshToken.token_hash == hashed))
         if row and row.revoked_at is None:
-            row.revoked_at = utc_now().replace(tzinfo=None)
+            row.revoked_at = get_now().replace(tzinfo=None)
             db.commit()
 
     clear_auth_cookies(response)
-    return ok({"logged_out_at": utc_now().isoformat().replace("+00:00", "Z")}, response=response)
+    return ok({"logged_out_at": get_now().isoformat()}, response=response)
 
 
 @router.get("/me")
@@ -604,7 +604,7 @@ def update_persona(
 @router.delete("/me/data", dependencies=[Depends(require_csrf)])
 def erase_my_data(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     user_id = current_user.user_id
-    now = utc_now().replace(tzinfo=None)
+    now = get_now().replace(tzinfo=None)
     db.execute(delete(Message).where(Message.user_id == user_id))
     db.execute(delete(ConversationMemory).where(ConversationMemory.user_id == user_id))
     db.execute(delete(CrisisLog).where(CrisisLog.user_id == user_id))
@@ -693,7 +693,7 @@ async def oauth_google_callback(code: str | None = None, state: str | None = Non
                 provider_email=provider_email,
                 provider_name=provider_name,
                 provider_picture_url=provider_picture,
-                provider_email_verified_at=utc_now().replace(tzinfo=None),
+                provider_email_verified_at=get_now().replace(tzinfo=None),
             )
             db.add(ident)
             db.commit()
@@ -710,7 +710,7 @@ async def oauth_google_callback(code: str | None = None, state: str | None = Non
         except Exception:
             pw = ""
 
-        now = utc_now().replace(tzinfo=None)
+        now = get_now().replace(tzinfo=None)
         new_user = User(
             user_id=make_id("usr"),
             display_name=provider_name or (provider_email.split("@")[0] if provider_email else ""),
@@ -813,7 +813,7 @@ async def oauth_facebook_callback(code: str | None = None, state: str | None = N
                 provider_email=provider_email,
                 provider_name=provider_name,
                 provider_picture_url=provider_picture,
-                provider_email_verified_at=utc_now().replace(tzinfo=None),
+                provider_email_verified_at=get_now().replace(tzinfo=None),
             )
             db.add(ident)
             db.commit()
@@ -830,7 +830,7 @@ async def oauth_facebook_callback(code: str | None = None, state: str | None = N
         except Exception:
             pw = ""
 
-        now = utc_now().replace(tzinfo=None)
+        now = get_now().replace(tzinfo=None)
         new_user = User(
             user_id=make_id("usr"),
             display_name=provider_name or (provider_email.split("@")[0] if provider_email else ""),

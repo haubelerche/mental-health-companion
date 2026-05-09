@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.services.db.models import SyncOutbox, UserNotification
 from app.services.db.session import get_session_factory
-from app.services.utils import make_id
+from app.services.utils import make_id, get_now
 from app.services.ws_manager import connection_manager
 
 logger = logging.getLogger(__name__)
@@ -74,15 +74,23 @@ class NotificationDispatcher:
         Process a single outbox event and send notifications to user
         Returns True if successfully handled, False if unknown event type
         """
-        event_type = event.event_type
-        payload = event.payload or {}
-        user_id = event.user_id
+        return await self.dispatch_direct(
+            user_id=event.user_id,
+            event_type=event.event_type,
+            payload=event.payload or {},
+            db=db
+        )
 
+    async def dispatch_direct(self, user_id: str, event_type: str, payload: dict, db: Session) -> bool:
+        """
+        Create a notification and send it via WebSocket immediately.
+        Does NOT use SyncOutbox.
+        """
         # Get template for event type
         template = self.NOTIFICATION_TEMPLATES.get(event_type)
         if not template:
             logger.debug(f"No notification template for event type: {event_type}")
-            return False  # Unknown event, let outbox_worker mark as failed
+            return False
 
         # Use message from payload if available, else use template body
         body = payload.get("message") or template["body"]
@@ -99,10 +107,14 @@ class NotificationDispatcher:
                 body=body,
                 data_json=payload,
                 is_read=False,
-                created_at=datetime.now(timezone.utc).replace(tzinfo=None),
+                created_at=get_now().replace(tzinfo=None),
             )
             db.add(notification)
-            db.commit()
+            # We don't commit here if this is called within another transaction, 
+            # but for notifications we usually want them persisted.
+            # However, dispatcher.dispatch (outbox) does commit.
+            # To be safe and consistent with previous behavior:
+            db.flush() 
 
             # Send via WebSocket if user is connected
             notification_payload = {
@@ -115,11 +127,11 @@ class NotificationDispatcher:
             }
 
             await connection_manager.send_notification(user_id, notification_payload)
-            logger.info(f"Notification dispatched: user_id={user_id}, type={event_type}")
+            logger.info(f"Instant notification dispatched: user_id={user_id}, type={event_type}")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to dispatch notification: {e}")
+            logger.error(f"Failed to dispatch instant notification: {e}")
             return False
 
     async def dispatch_batch(self, events: list[SyncOutbox], db: Session) -> dict:

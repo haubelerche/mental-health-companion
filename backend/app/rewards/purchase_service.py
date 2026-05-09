@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from app.rewards.catalog import CATALOG_BY_ID
 from app.services.db.models import HeartSpendEvent, HeartWallet, UserInventoryItem
-from app.services.utils import make_id, utc_now
+from app.services.utils import make_id, get_now
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ def purchase_item(
 
     wallet.balance -= price
     wallet.lifetime_spent += price
-    wallet.updated_at = utc_now().replace(tzinfo=None)
+    wallet.updated_at = get_now().replace(tzinfo=None)
 
     inv = UserInventoryItem(
         inventory_id=make_id("inv"),

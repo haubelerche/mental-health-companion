@@ -21,7 +21,7 @@ from app.dashboard.types import (
     WellnessDimensionCard,
 )
 from app.services.db.models import Conversation, InsightHypothesis, MoodCheckin, UserProfile, StreakState
-from app.services.utils import VN_TZ, local_date_utc7, utc_now
+from app.services.utils import VN_TZ, local_date_utc7, get_now
 
 _MOOD_TO_SCORE: dict[str, tuple[int, str]] = {
     "stressful": (1, "khó khăn"),
@@ -177,7 +177,7 @@ def _fetch_hypothesis_insights(db: Session, user_id: str) -> list[DashboardInsig
         if isinstance(upd, datetime):
             updated_at = upd if upd.tzinfo else upd.replace(tzinfo=timezone.utc)
         else:
-            updated_at = utc_now()
+            updated_at = get_now()
         fb = "medium"
         conf = _map_float_confidence(row.get("confidence"), fb)
         suggested = None
@@ -217,7 +217,7 @@ def _profile_insights(
 ) -> list[DashboardInsightCard]:
     cards: list[DashboardInsightCard] = []
     conf = _confidence_for_cards(readiness, checkins=checkins, sessions=sessions)
-    now = utc_now()
+    now = get_now()
 
     triggers = dict(profile_data.get("trigger_tags") or {})
     ranked_t = sorted(
@@ -371,7 +371,7 @@ def build_checkin_history(
                     logged_at=(
                         la.replace(tzinfo=timezone.utc)
                         if (la := r.logged_at) and la.tzinfo is None
-                        else (la or utc_now())
+                        else (la or get_now())
                     ),
                     date=r.logged_date,
                     time_bucket=_normalize_bucket(getattr(r, "time_bucket", None)),

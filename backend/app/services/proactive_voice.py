@@ -100,7 +100,8 @@ def build_voice_script(
 def cooldown_active(*, user_id: str, session_id: str | None) -> tuple[bool, int]:
     settings = get_settings()
     key = f"{user_id}:{session_id or '-'}"
-    now = datetime.now(timezone.utc)
+    from app.services.utils import get_now
+    now = get_now()
     last = _LAST_TRIGGER_AT.get(key)
     if not last:
         return False, 0
@@ -112,7 +113,8 @@ def cooldown_active(*, user_id: str, session_id: str | None) -> tuple[bool, int]
 
 def mark_cooldown(*, user_id: str, session_id: str | None) -> None:
     key = f"{user_id}:{session_id or '-'}"
-    _LAST_TRIGGER_AT[key] = datetime.now(timezone.utc)
+    from app.services.utils import get_now
+    _LAST_TRIGGER_AT[key] = get_now()
 
 
 def _model_hint_for_queue(settings: Any) -> str:
@@ -248,7 +250,8 @@ def enqueue_voice_job(
 
 
 def _start_voice_job_worker(job_id: int) -> None:
-    now = datetime.now(timezone.utc)
+    from app.services.utils import get_now
+    now = get_now()
     owner_token = uuid.uuid4().hex
     with _INFLIGHT_LOCK:
         if job_id in _INFLIGHT_JOBS:
@@ -365,7 +368,8 @@ def _process_job(job_id: int, owner_token: str | None = None) -> None:
                 + base64.b64encode(audio_path.read_bytes()).decode("ascii")
             )
             row.status = "done"
-            row.processed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            from app.services.utils import get_now
+            row.processed_at = get_now().replace(tzinfo=None)
             logger.info(
                 "voice_job_complete job_id=%s chars=%s instance=%s",
                 job_id,
@@ -457,7 +461,8 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
     row = db.get(SyncOutbox, outbox_id)
     if not row or row.event_type != VOICE_JOB_EVENT_TYPE:
         return None
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    from app.services.utils import get_now
+    now = get_now().replace(tzinfo=None)
     payload = dict(row.payload or {})
     voice = dict(payload.get("voice") or {})
     voice_status = str(voice.get("status") or row.status)
@@ -567,7 +572,8 @@ def get_voice_audio_path(db: Session, tts_job_id: str) -> Path | None:
 
 
 def reclaim_stale_processing_jobs(db: Session, *, stale_after_seconds: int = 180) -> int:
-    threshold = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=stale_after_seconds)
+    from app.services.utils import get_now
+    threshold = get_now().replace(tzinfo=None) - timedelta(seconds=stale_after_seconds)
     rows = db.scalars(
         select(SyncOutbox).where(
             SyncOutbox.event_type == VOICE_JOB_EVENT_TYPE,

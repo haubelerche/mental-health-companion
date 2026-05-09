@@ -10,6 +10,7 @@ from jose import jwt as jose_jwt
 import pyotp
 
 from app.core.config import get_settings
+from app.services.utils import get_now
 
 
 @lru_cache(maxsize=1)
@@ -65,7 +66,7 @@ def verify_totp(code: str, secret: str) -> bool:
 def issue_access_token(subject: str, role: str = "user", scope: str = "user") -> str:
     settings = get_settings()
     sign_key, _, algorithm = _jwt_material()
-    now = datetime.now(timezone.utc)
+    now = get_now()
     payload = {
         "sub": subject,
         "role": role,
@@ -79,7 +80,7 @@ def issue_access_token(subject: str, role: str = "user", scope: str = "user") ->
 def issue_admin_token(subject: str) -> str:
     settings = get_settings()
     sign_key, _, algorithm = _jwt_material()
-    now = datetime.now(timezone.utc)
+    now = get_now()
     payload = {
         "sub": subject,
         "role": "admin",

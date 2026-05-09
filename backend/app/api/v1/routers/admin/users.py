@@ -43,8 +43,8 @@ def admin_list_users(
             "display_name": u.display_name,
             "email": u.email,
             "is_active": u.is_active,
-            "created_at": u.created_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
-            "last_active": u.last_active.strftime('%Y-%m-%dT%H:%M:%SZ')
+            "created_at": u.created_at.isoformat(),
+            "last_active": u.last_active.isoformat()
         } for u in users],
         "total": total or 0
     })
@@ -76,15 +76,15 @@ def admin_user_detail(
             "display_name": user.display_name,
             "email": user.email,
             "is_active": user.is_active,
-            "created_at": user.created_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
-            "last_active": user.last_active.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "created_at": user.created_at.isoformat(),
+            "last_active": user.last_active.isoformat(),
             "disclaimer_accepted": user.disclaimer_accepted,
         },
         "clinical": {
             "phq9_score": clin.phq9_score if clin else None,
             "gad7_score": clin.gad7_score if clin else None,
             "crisis_level": clin.crisis_level if clin else 0,
-            "updated_at": clin.updated_at.strftime('%Y-%m-%dT%H:%M:%SZ') if clin else None,
+            "updated_at": clin.updated_at.isoformat() if clin else None,
         },
         "economy": {
             "heart_balance": wallet.balance if wallet else 0,
@@ -93,7 +93,7 @@ def admin_user_detail(
         "latest_mood": {
             "mood": latest_mood.mood if latest_mood else None,
             "emoji": latest_mood.emoji if latest_mood else None,
-            "logged_at": latest_mood.logged_at.strftime('%Y-%m-%dT%H:%M:%SZ') if latest_mood else None,
+            "logged_at": latest_mood.logged_at.isoformat() if latest_mood else None,
         },
         "stats": {
             "total_conversations": conv_count or 0

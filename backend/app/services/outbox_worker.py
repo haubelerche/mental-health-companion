@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from app.services.db.models import SyncOutbox
 from app.services.db.session import get_session_factory
-from app.services.utils import utc_now
+from app.services.utils import get_now
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ async def process_outbox_batch_async(limit: int = 50) -> int:
             return 0
 
         # Release the DB lock before any network I/O so other workers can claim new rows.
-        claimed_at = utc_now().replace(tzinfo=None)
+        claimed_at = get_now().replace(tzinfo=None)
         for row in rows:
             row.status = "processing"
             row.processing_started_at = claimed_at
@@ -70,7 +70,7 @@ async def process_outbox_batch_async(limit: int = 50) -> int:
             try:
                 await _dispatch_async(row, db)
                 row.status = "done"
-                row.processed_at = utc_now().replace(tzinfo=None)
+                row.processed_at = get_now().replace(tzinfo=None)
                 processed += 1
             except Exception as e:
                 logger.error(f"Error processing outbox {row.outbox_id}: {e}")

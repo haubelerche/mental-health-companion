@@ -11,7 +11,7 @@ from app.hearts.streaks import update_mood_streak
 from app.services.db.models import MoodCheckin, User
 from app.services.db.session import get_db
 from app.services.schemas.payloads import CheckinQuickRequest
-from app.services.utils import local_date_utc7, make_id, utc_now, VN_TZ
+from app.services.utils import local_date_utc7, make_id, get_now, VN_TZ
 
 router = APIRouter(prefix="/checkin", tags=["checkin"])
 
@@ -19,7 +19,7 @@ _MOOD_CHECKIN_HEARTS = 10
 
 
 def _compute_time_bucket() -> str:
-    hour = utc_now().astimezone(VN_TZ).hour
+    hour = get_now().hour
     if 6 <= hour < 12:
         return "morning"
     if 12 <= hour < 18:
@@ -67,7 +67,7 @@ def checkin_quick(
         existing.emotions = payload.emotions
         existing.triggers = payload.triggers
         existing.note = note_blob[:10000]
-        existing.updated_at = utc_now().replace(tzinfo=None)
+        existing.updated_at = get_now().replace(tzinfo=None)
         streak_result = update_mood_streak(db, user_id=current_user.user_id, checkin_date=logged_date)
         db.commit()
         return ok({
@@ -91,7 +91,7 @@ def checkin_quick(
         triggers=payload.triggers,
         note=note_blob[:10000],
         logged_date=logged_date,
-        logged_at=utc_now().replace(tzinfo=None),
+        logged_at=get_now().replace(tzinfo=None),
         time_bucket=time_bucket,
     )
     db.add(row)

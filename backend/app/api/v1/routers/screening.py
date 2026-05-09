@@ -8,7 +8,7 @@ from app.services.db.models import User
 from app.services.db.session import get_db
 from app.services.schemas.payloads import ScreeningSubmitRequest
 from app.services.clinical_profile import get_or_create_clinical_profile
-from app.services.utils import utc_now
+from app.services.utils import get_now
 
 router = APIRouter(prefix="/screenings", tags=["screenings"])
 
@@ -48,7 +48,7 @@ def submit(
     else:
         label = "high-like"
 
-    now = utc_now().replace(tzinfo=None)
+    now = get_now().replace(tzinfo=None)
     clin = get_or_create_clinical_profile(db, current_user.user_id)
     if payload.instrument_id == "phq9":
         clin.phq9_score = min(27, total)

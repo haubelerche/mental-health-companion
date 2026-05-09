@@ -16,6 +16,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from typing import Any
+from app.services.utils import get_now
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -122,7 +123,7 @@ def complete_card(
         user_id=user_id,
         pack_id=pack_id,
         card_id=card_id,
-        completed_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        completed_at=get_now().replace(tzinfo=None),
         reward_event_id=reward.get("event_id"),
     )
     db.add(progress)

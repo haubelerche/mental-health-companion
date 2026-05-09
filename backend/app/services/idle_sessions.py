@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.services.db.models import Conversation
 from app.services.db.session import get_session_factory
 from app.services.session_summary import close_session_summary
-from app.services.utils import utc_now
+from app.services.utils import get_now
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ IDLE_MINUTES = 30
 def summarize_idle_sessions() -> int:
     """Return count of sessions summarized."""
     factory = get_session_factory()
-    cutoff = utc_now().replace(tzinfo=None) - timedelta(minutes=IDLE_MINUTES)
+    cutoff = get_now().replace(tzinfo=None) - timedelta(minutes=IDLE_MINUTES)
     db: Session = factory()
     try:
         rows = db.scalars(

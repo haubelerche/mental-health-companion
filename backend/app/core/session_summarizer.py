@@ -355,7 +355,8 @@ class SessionSummarizer:
 
         dominant_emotion = self._extract_dominant_emotion(messages)
         key_triggers = self._extract_key_triggers(messages)
-        now = datetime.now(timezone.utc)
+        from app.services.utils import get_now
+        now = get_now().replace(tzinfo=None)
         session_started_at = messages[0].created_at if messages else now
         session_ended_at = messages[-1].created_at if messages else now
 
@@ -574,7 +575,7 @@ class TestSessionSummarizer:
             content="Hôm nay mệt quá.",
             assistant_tone=None,
             sos_triggered=False,
-            created_at=datetime.now(timezone.utc),
+            created_at=get_now().replace(tzinfo=None),
         )
         summary = summarizer._minimal_summary(msg, sos=False)
         assert len(summary) <= 500
@@ -586,10 +587,10 @@ class TestSessionSummarizer:
         summarizer = SessionSummarizer(pg_pool)
         messages = [
             MessageRow("msg_1", "user", "Mình không muốn tiếp tục nữa", None, False,
-                       datetime.now(timezone.utc)),
+                       get_now()),
             MessageRow("msg_2", "assistant",
                        "Bạn không đơn độc. Có thể gọi 1900 1267 (cấp cứu trầm cảm) hoặc 115 (cấp cứu).", None, True,
-                       datetime.now(timezone.utc)),
+                       get_now()),
         ]
         text = summarizer._build_conversation_text(messages)
         assert "1900" in text or "115" in text  # SOS template có số thật
