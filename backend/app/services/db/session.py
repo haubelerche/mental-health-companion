@@ -28,7 +28,7 @@ def get_engine():
         # Keep the application pool below that cap because background workers share
         # the same singleton engine with request handlers.
         if "supabase.com" in host:
-            soft_cap = 5
+            soft_cap = 3
             if pool_size > soft_cap:
                 pool_size = soft_cap
                 max_overflow = 0

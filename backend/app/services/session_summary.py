@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import logging
 import threading
+from datetime import timedelta
+
+DEDUP_WINDOW_HOURS = 24
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
