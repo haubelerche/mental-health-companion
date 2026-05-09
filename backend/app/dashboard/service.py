@@ -132,7 +132,7 @@ def _dt_to_date(val: Any) -> date | None:
         return None
     if isinstance(val, datetime):
         if val.tzinfo is None:
-            val = val.replace(tzinfo=timezone.utc)
+            val = val.replace(tzinfo=VN_TZ)
         return val.astimezone(VN_TZ).date()
     if isinstance(val, date):
         return val
@@ -175,7 +175,7 @@ def _fetch_hypothesis_insights(db: Session, user_id: str) -> list[DashboardInsig
         ev_end = _dt_to_date(row.get("evidence_window_end"))
         upd = row.get("updated_at")
         if isinstance(upd, datetime):
-            updated_at = upd if upd.tzinfo else upd.replace(tzinfo=timezone.utc)
+            updated_at = upd if upd.tzinfo else upd.replace(tzinfo=VN_TZ)
         else:
             updated_at = get_now()
         fb = "medium"
@@ -369,7 +369,7 @@ def build_checkin_history(
                 CheckinHistoryItem(
                     checkin_id=r.checkin_id,
                     logged_at=(
-                        la.replace(tzinfo=timezone.utc)
+                        la.replace(tzinfo=VN_TZ)
                         if (la := r.logged_at) and la.tzinfo is None
                         else (la or get_now())
                     ),

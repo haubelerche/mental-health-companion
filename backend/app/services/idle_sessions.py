@@ -37,15 +37,19 @@ def summarize_idle_sessions() -> int:
         db.close()
 
     n = 0
-    for session_id, user_id in targets:
+    if targets:
         db2: Session = factory()
         try:
-            conv = db2.scalar(select(Conversation).where(Conversation.session_id == session_id))
-            if conv and conv.summarized_at is None:
-                close_session_summary(db2, session=conv, user_id=user_id)
-                n += 1
-        except Exception as exc:
-            logger.warning("idle summarize failed %s: %s", session_id, exc)
+            for session_id, user_id in targets:
+                try:
+                    conv = db2.scalar(select(Conversation).where(Conversation.session_id == session_id))
+                    if conv and conv.summarized_at is None:
+                        close_session_summary(db2, session=conv, user_id=user_id)
+                        n += 1
+                        db2.commit() # Commit after each success to release row locks if any
+                except Exception as exc:
+                    db2.rollback()
+                    logger.warning("idle summarize failed %s: %s", session_id, exc)
         finally:
             db2.close()
     return n

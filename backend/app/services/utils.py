@@ -47,6 +47,30 @@ def vn_period_inclusive_dates(kind: PeriodKind, ref: date | None = None) -> tupl
     first = today.replace(day=1)
     return first, today
 
+def vn_month_chart_range() -> tuple[date, date, int]:
+    """Returns (start_of_month, today, days_in_range) in VN time."""
+    today = local_date_utc7()
+    start = today.replace(day=1)
+    span = (today - start).days + 1
+    return start, today, span
+
+def vn_week_chart_range() -> tuple[date, date, int]:
+    """Returns (monday, sunday, 7) in VN time."""
+    today = local_date_utc7()
+    monday = today - timedelta(days=today.weekday())
+    sunday = monday + timedelta(days=6)
+    return monday, sunday, 7
+
+def vn_period_utc_range(kind: str) -> tuple[date, date, datetime, datetime]:
+    """
+    Returns (date_from, date_to, start_naive, end_naive) 
+    corresponding to local VN boundaries for DB queries.
+    """
+    date_from, date_to = vn_period_inclusive_dates(kind)
+    start_naive = datetime.combine(date_from, time.min)
+    end_naive = datetime.combine(date_to, time.max) + timedelta(microseconds=1)
+    return date_from, date_to, start_naive, end_naive
+
 def make_id(prefix: str, size: int = 10) -> str:
     token = "".join(secrets.choice(ID_ALPHABET) for _ in range(size))
     return f"{prefix}_{token}"
