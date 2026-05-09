@@ -17,6 +17,7 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.responses import ok
 from app.services.db.models import AdminAuditLog, Conversation, CrisisLog, Message, User, UserProfile
+from app.services.risk_writer import record_risk_inference, record_session_risk_snapshot
 from app.services.db.session import get_db
 from app.services.schemas.payloads import ChatEndRequest, ChatMessageRequest, GuestChatMessageRequest
 from app.services.chat_context import load_chat_context_sync
@@ -25,6 +26,7 @@ from app.services.confidence_router import route_for_human_review
 from app.services.guest_service import heartbeat as guest_heartbeat
 from app.services.guest_service import start_session as guest_start_session
 from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn, stream_non_sos_turn_events
+from app.services.neo4j_client import get_user_patterns_async
 from app.personas import route_persona
 from app.personas.unlocks import is_persona_unlocked
 from app.services.longterm_memory import (
@@ -34,6 +36,7 @@ from app.services.longterm_memory import (
     persist_turn_memory,
 )
 from app.services.mem0_service import MemoryManager
+from app.safety.output_validator import validate_output as _validate_tts_output
 from app.services.pii_mask import mask_pii
 from app.services.rate_limit import get_rate_limiter
 from app.services.session_summary import close_session_summary
@@ -172,6 +175,27 @@ def _record_sos_side_effects(
     clin.crisis_level = max(int(clin.crisis_level or 0), 5)
     clin.last_scored_at = get_now().replace(tzinfo=None)
 
+    record_risk_inference(
+        db,
+        user_id=user_id,
+        session_id=session_id,
+        inferred_signal="sos_keyword_detected",
+        score=1.0,
+        detail={"source": "safety_gate", "host": request_host},
+    )
+    record_session_risk_snapshot(
+        db,
+        session_id=session_id,
+        user_id=user_id,
+        risk_score=1.0,
+        intent_severity=1.0,
+        intent_immediacy=1.0,
+        crisis_mode=True,
+        escalation_flag=True,
+        components={"trigger": "sos_keyword"},
+        source="sos_override",
+    )
+
     # Push real-time notification
     try:
         from app.services.notification_service import enqueue_notification
@@ -215,7 +239,25 @@ def _queue_human_review(
             metadata_json={"user_id": user_id, "distress_score": round(float(distress_score), 3)},
         )
     )
-    
+    record_risk_inference(
+        db,
+        user_id=user_id,
+        session_id=session_id,
+        inferred_signal="high_distress_review",
+        score=float(distress_score),
+        detail={"source": "confidence_router", "host": host},
+    )
+    record_session_risk_snapshot(
+        db,
+        session_id=session_id,
+        user_id=user_id,
+        risk_score=float(distress_score),
+        intent_severity=float(distress_score),
+        escalation_flag=True,
+        components={"trigger": "high_distress_threshold"},
+        source="supervisor",
+    )
+
     # Push real-time notification for high distress
     try:
         from app.services.notification_service import enqueue_notification
@@ -316,6 +358,16 @@ def _build_voice_intervention(
 ) -> dict:
     """TTS is the same text as the assistant/Friend reply (no separate crisis script, no meta copy)."""
     script = (assistant_reply_for_tts or "").strip()
+
+    _tts_verdict = _validate_tts_output(script, surface="tts")
+    if _tts_verdict.is_blocked:
+        logger.warning(
+            "SafetyOutputValidator blocked TTS script for user=%s: %s",
+            user_id,
+            _tts_verdict.reason_codes,
+        )
+        return {"type": "proactive_voice_skipped", "reason": "tts_script_blocked"}
+
     tts_cfg = get_settings()
     requested_tts = str(getattr(tts_cfg, "tts_provider", "elevenlabs") or "elevenlabs").lower()
     voice = enqueue_voice_job(
@@ -621,6 +673,11 @@ def send_message(
             except Exception:
                 mc_text = ""
             llm_started = time.perf_counter()
+            _graph_patterns: dict = {}
+            try:
+                _graph_patterns = asyncio.run(get_user_patterns_async(current_user.user_id))
+            except Exception as _neo4j_exc:
+                logger.debug("neo4j pre-fetch failed in send_message: %s", _neo4j_exc)
             turn = run_non_sos_turn(
                 user_message=raw_text,
                 recent_messages=ctx.recent_messages,
@@ -637,6 +694,7 @@ def send_message(
                 user_id=current_user.user_id,
                 session_id=session.session_id,
                 active_memory_card_text=mc_text,
+                graph_patterns=_graph_patterns,
             )
             _mark_stage(latency_trace, "friend_llm_call_ms", llm_started)
             set_cached_turn(
@@ -945,6 +1003,11 @@ def send_message_stream(
                 if hb:
                     yield hb
                 yield "event: status\ndata: " + json.dumps({"stage": "model_stream_start"}, ensure_ascii=False) + "\n\n"
+                _stream_graph_patterns: dict = {}
+                try:
+                    _stream_graph_patterns = asyncio.run(get_user_patterns_async(current_user.user_id))
+                except Exception as _neo4j_exc:
+                    logger.debug("neo4j pre-fetch failed in send_message_stream: %s", _neo4j_exc)
                 for ev in stream_non_sos_turn_events(
                     user_message=raw_text,
                     recent_messages=ctx.recent_messages,
@@ -961,6 +1024,7 @@ def send_message_stream(
                     user_id=current_user.user_id,
                     session_id=session.session_id,
                     active_memory_card_text=mc_text,
+                    graph_patterns=_stream_graph_patterns,
                 ):
                     if ev.get("type") == "token":
                         yield "event: delta\ndata: " + json.dumps({"text": str(ev.get("text") or "")}, ensure_ascii=False) + "\n\n"

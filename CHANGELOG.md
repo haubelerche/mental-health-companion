@@ -4,9 +4,58 @@
 
 ---
 
+## [Unreleased] — Fix Async Event-Loop in Neo4j Fetch · 2026-05-08
+
+### Fixed
+- `backend/app/services/langgraph_chat.py` — removed `asyncio.run()` / `loop.run_until_complete()` blocks from `run_non_sos_turn` and `stream_non_sos_turn_events`; these calls silently fail inside FastAPI/uvicorn because there is already a running event loop
+- `backend/app/api/v1/routers/chat.py` — Neo4j fetch moved to route handler level via `asyncio.run(get_user_patterns_async(...))` before entering the graph; both `send_message` and the `event_stream()` generator (sync FastAPI paths running in threadpool where no event loop is active) now own the fetch and pass the result as `graph_patterns=` to `run_non_sos_turn` / `stream_non_sos_turn_events`
+
+### Changed
+- `backend/app/services/langgraph_chat.py` — `run_non_sos_turn` and `stream_non_sos_turn_events` each gain a new `graph_patterns: dict | None = None` keyword parameter; `graph_patterns or {}` is used when building the graph state; stream fallback path passes `_stream_graph_patterns` through to `run_non_sos_turn`
+
+---
+
+## [Unreleased] — Analyst Neo4j Graph Context · 2026-05-08
+
+### Added
+- `backend/app/services/neo4j_client.py` — `get_user_patterns_async(user_id, limit)` async function; wraps sync Neo4j driver via `asyncio.to_thread()` to avoid blocking the event loop; returns `{triggers, emotions, coping, available}` dict; fail-safe — returns `available=False` with empty lists on any error (no driver, query failure, or timeout)
+- `backend/tests/test_db_integration.py` — two new `@pytest.mark.asyncio` unit tests: `test_get_user_patterns_async_no_driver` (driver=None → available=False) and `test_get_user_patterns_async_filters_none_names` (None-name rows are filtered before return)
+- `backend/app/services/langgraph_chat.py` — `graph_patterns: dict` field added to `ChatGraphState` TypedDict; Neo4j patterns are now pre-fetched before graph invocation in both `run_non_sos_turn` and `stream_non_sos_turn_events`, then passed in as state; `analyst_node` reads from state instead of calling blocking I/O directly; injected graph context block is sanitized via `_sanitize_prompt_block` before prompt insertion
+
+### Changed
+- `backend/app/services/langgraph_chat.py` — `analyst_node()` now reads derived behavioral patterns from `state["graph_patterns"]` (pre-fetched by callers) instead of calling `_query_user_patterns_sync` (a blocking sync function) directly; removed private import `_query_user_patterns_sync`; replaced with `get_user_patterns_async`; both `run_non_sos_turn` and `stream_non_sos_turn_events` pre-fetch Neo4j patterns using `asyncio.run` (with event-loop fallback for test environments) before entering the graph; debug log `analyst_node graph_context_used=<bool>` emitted on every call
+
+### Fixed
+- `backend/app/services/langgraph_chat.py` — eliminated sync blocking call to `_query_user_patterns_sync` inside `analyst_node()` which is a sync LangGraph node invoked inside `graph.invoke()` from async FastAPI handlers; pattern fetch is now moved to the pre-graph stage where it can run safely; injected Neo4j context block is now sanitized through `_sanitize_prompt_block` to strip injection patterns before insertion into the system prompt (previously unsanitized)
+
+---
+
+## [Unreleased] — Database Audit Remediation · 2026-05-08
+
+### Added
+- `backend/app/services/risk_writer.py` — synchronous `RiskInferenceLog` and `SessionRiskSnapshot` writers; called from `_record_sos_side_effects` (score=1.0, source=sos_override) and `_queue_human_review` (score=distress_score, source=supervisor) in `chat.py`
+- `backend/app/services/analyst_writer.py` — analyst signal + insight hypothesis pipeline (`record_analyst_signal`, `upsert_insight_hypothesis`); wired into `close_session_summary` after profile rollup; SOS sessions are skipped
+- `backend/alembic/versions/0021_screening_answers_table.py` — migration adding `app.screening_answers` (backend-only raw questionnaire answer store with instrument check constraint and composite index)
+- `backend/app/services/db/models.py` — `ScreeningAnswer` ORM model (`answer_id`, `user_id`, `instrument_id`, `raw_score`, `answers`, `submitted_at`)
+
+### Changed
+- `backend/app/api/v1/routers/screening.py` — `POST /screenings/submit` now stores only coverage boolean metadata in `clinical_profiles.phq9_coverage`/`gad7_coverage`; raw answers go to `ScreeningAnswer` table — closes audit High severity finding §3
+- `backend/app/services/session_summary.py` — `close_session_summary` calls `record_analyst_signal` + `upsert_insight_hypothesis` after profile rollup; failures are caught and logged without blocking the summary commit
+- `backend/app/dashboard/service.py` — removed dead `_profile_insights()` and `_build_insight_cards()` heuristic card functions; `build_safe_insight_cards` signature drops unused `profile_data` parameter; all three callers updated
+- `backend/app/api/v1/routers/chat.py` — imports `record_risk_inference` and `record_session_risk_snapshot` from `risk_writer`; SOS and high-distress paths now write safety audit rows synchronously before commit
+- `DATABASE_DESIGN_AUDIT_REPORT.md` and `DATABASE_REFACTOR_PHASE_PLAN.md` — added deployment handoff notes confirming all remaining audit findings are closed, documenting the `build_safe_insight_cards` breaking change, and calling out required production migration `0021_screening_answers_table`
+
+### Fixed
+- Safety audit trail gap: `risk_inference_log` and `session_risk_snapshots` now receive writes on SOS and high-distress turns (previously models existed but had no writers)
+- Analyst pipeline gap: `analyst_signals` and `insight_hypotheses` now receive writes at session close (previously models existed but had no writers)
+- Heuristic insight cards no longer appear in `build_safe_insight_cards` output; only evidence-backed `InsightHypothesis` rows with `evidence_count > 0` are served to the dashboard
+
+---
+
 ## [Unreleased] — Sprint A Phase 5 · 2026-05-07
 
 ### Fixed
+- **Cursor agent token-waste guardrail**: Added an always-applied workspace rule at `.cursor/rules/no-auto-python-execution.mdc` to prevent automatic Python interpreter discovery and Python command execution (`python`, `py`, `pytest`, `alembic`) unless the user explicitly requests it.
 - **ORM column names aligned to SQL schema**: Renamed `tone_cam_xuc` → `assistant_tone` (with updated `CheckConstraint` accepting `supportive|validating|cheerful|calming|mentor|neutral`) and `muc_do` → `severity_level` (with `CheckConstraint` accepting `low|moderate|high|imminent|unknown`) in `backend/app/services/db/models.py`. Propagated the rename across all reference sites: `chat.py`, `admin.py`, `langgraph_chat.py` (TypedDict field, dict keys, LLM prompt, `build_normal_envelope` parameter), and `session_summarizer.py` (dataclass field, raw SQL query, attribute accesses).
 - **Chat stream 500 — `mood_checkins.time_bucket` undefined**: Local DB was stamped at `0005_letters_schema` while the model expected `0011_mood_checkin_time_bucket`; running `alembic upgrade head` failed at `0006_reports_enhancement` because the optional `reports` table never existed (no `Report` model is created by `init_db`). Made `0006_reports_enhancement` idempotent: it now no-ops when `reports` is absent, and column / index additions are guarded so re-runs are safe. Re-running `alembic upgrade head` now applies `0007 → 0011`, restoring the `time_bucket` column and unblocking `POST /v1/chat/message/stream`.
 
