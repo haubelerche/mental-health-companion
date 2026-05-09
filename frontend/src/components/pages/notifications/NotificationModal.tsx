@@ -80,7 +80,7 @@ export default function NotificationModal({ open, onClose }: Props) {
             shouldCloseOnEsc
             shouldCloseOnOverlayClick
             contentLabel="Thông báo"
-            className="relative z-[81] mb-5 flex max-h-[80dvh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border shadow-2xl border-theme-border bg-theme-surface outline-none"
+            className="relative z-[81] mb-5 flex max-h-[80dvh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border shadow-2xl border-theme-border bg-theme-surface outline-none"
             overlayClassName="fixed inset-0 z-[80] flex items-end justify-center sm:items-center bg-black/45 backdrop-blur-[2px]"
         >
             <div className={`flex items-center justify-between border-b px-5 py-4 border-theme-secondary/40`}>
@@ -124,7 +124,7 @@ export default function NotificationModal({ open, onClose }: Props) {
                                 <div
                                     key={n.notification_id || Math.random()}
                                     onClick={() => !n.is_read && handleMarkAsRead(n.notification_id)}
-                                    className={`p-4 rounded-2xl border transition-all cursor-pointer ${n.is_read ? ui.card : ui.unread} hover:shadow-lg transition-all duration-300`}
+                                    className={`p-4 rounded-2xl border transition-all cursor-pointer ${n.is_read ? ui.card : ui.unread} hover:bg-theme-accent/10`}
                                 >
                                     <div className="flex justify-between items-start mb-1">
                                         <span className="text-xs font-bold uppercase tracking-wider">
