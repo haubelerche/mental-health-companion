@@ -67,10 +67,10 @@ def _voice_tts_loop() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    if settings.auto_create_schema:
-        init_db()
-    _backfill_policy_versions()
     if os.environ.get("SERENE_BACKEND_TESTING") != "1":
+        if settings.auto_create_schema:
+            init_db()
+        _backfill_policy_versions()
         threading.Thread(target=_idle_loop, daemon=True).start()
         threading.Thread(target=_outbox_loop, daemon=True).start()
         threading.Thread(target=_voice_tts_loop, daemon=True).start()
