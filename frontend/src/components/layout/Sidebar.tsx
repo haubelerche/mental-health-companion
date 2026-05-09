@@ -61,9 +61,6 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                 {/* Brand */}
                 <div className="mb-7">
                     <h1 className="font-display text-4xl italic">Serene</h1>
-                    <p className={`mt-2 text-xs uppercase tracking-[0.24em] ${secondaryTextClass}`}>
-                        Digital Sanctuary
-                    </p>
                 </div>
 
                 {/* Primary nav */}
