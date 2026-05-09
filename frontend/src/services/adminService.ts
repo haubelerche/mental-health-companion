@@ -157,6 +157,12 @@ export const adminService = {
         httpClient.patch<any>(`/admin/letters/${encodeURIComponent(letterId)}/review?action=${action}`, {}),
     aiAnalyzeLetter: (letterId: string) =>
         httpClient.post<any>(`/admin/letters/${encodeURIComponent(letterId)}/ai-analyze`, {}),
+    getAiReplySuggestions: (letterId: string) =>
+        httpClient.get<{ suggestions: Array<{ style: string, content: string }> }>(`/admin/letters/${encodeURIComponent(letterId)}/ai-suggest`),
+    replyToLetter: (letterId: string, payload: { content: string, anonymous_name?: string }) =>
+        httpClient.post<any>(`/admin/letters/${encodeURIComponent(letterId)}/reply`, payload),
+    runAiResponder: (hours: number = 6) =>
+        httpClient.post<any>(`/admin/run-ai-responder?hours=${hours}`, {}),
 
     // Task 3.6: Emotion-Driven Agent
     getEmotionResourceSuggestion: () => httpClient.get<any>('/admin/analytics/emotion-resource-suggestion'),

@@ -21,7 +21,7 @@ def admin_list_letters(
 ):
     enforce_admin_ip(request)
     
-    where_conditions = []
+    where_conditions = [TherapyLetter.letter_type != "reply"]
     if status:
         where_conditions.append(TherapyLetter.status == status)
     else:
@@ -143,3 +143,107 @@ async def admin_run_ai_responder(
     _audit(db, claims["sub"], f"RUN_AI_RESPONDER_{hours}H", request)
     
     return ok({"processed_count": count})
+
+@router.get("/letters/{letter_id}/ai-suggest")
+async def admin_letter_ai_suggest(
+    letter_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(get_admin_claims),
+):
+    enforce_admin_ip(request)
+    letter = db.get(TherapyLetter, letter_id)
+    if not letter:
+        raise AppError("NOT_FOUND", "Thư không tồn tại", 404)
+        
+    from app.services.letter_ai_worker import generate_multi_reply_suggestions, MoodCheckin, ClinicalProfile
+    
+    # Get context
+    sender_id = letter.user_id
+    latest_mood = db.scalar(
+        select(MoodCheckin)
+        .where(MoodCheckin.user_id == sender_id)
+        .order_by(MoodCheckin.logged_at.desc())
+        .limit(1)
+    )
+    clinical = db.scalar(
+        select(ClinicalProfile).where(ClinicalProfile.user_id == sender_id)
+    )
+    
+    mood_str = f"{latest_mood.mood} ({latest_mood.emoji})" if latest_mood else "Chưa ghi nhận"
+    clin_str = f"PHQ-9: {clinical.phq9_score}, GAD-7: {clinical.gad7_score}" if clinical else "N/A"
+    
+    suggestions = await generate_multi_reply_suggestions(letter.content, mood_str, clin_str)
+    
+    _audit(db, claims["sub"], f"AI_SUGGEST_REPLY_{letter_id}", request)
+    return ok({"suggestions": suggestions})
+
+from pydantic import BaseModel
+class AdminReplyPayload(BaseModel):
+    content: str
+    anonymous_name: str | None = None
+
+@router.post("/letters/{letter_id}/reply")
+async def admin_letter_reply(
+    letter_id: str,
+    payload: AdminReplyPayload,
+    request: Request,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(get_admin_claims),
+):
+    enforce_admin_ip(request)
+    letter = db.get(TherapyLetter, letter_id)
+    if not letter:
+        raise AppError("NOT_FOUND", "Thư không tồn tại", 404)
+        
+    from app.services.utils import make_id, make_anon_name, get_now
+    from app.services.letter_ai_worker import AI_SERENE_USER_ID
+    from app.services.db.models import User
+
+    # Ensure system user exists
+    ai_user = db.get(User, AI_SERENE_USER_ID)
+    if not ai_user:
+        ai_user = User(
+            user_id=AI_SERENE_USER_ID,
+            email="healer.friend@serene.app",
+            display_name="Người bạn chữa lành",
+            is_active=True
+        )
+        db.add(ai_user)
+        db.flush()
+    
+    # Create reply
+    reply = TherapyLetter(
+        letter_id=make_id("lrep_adm"),
+        user_id=AI_SERENE_USER_ID, # Use the system user ID that exists in 'users' table
+        reply_to_id=letter.letter_id,
+        anonymous_name=payload.anonymous_name or "Một người lắng nghe",
+        content=payload.content,
+        letter_type="reply",
+        status="active",
+        created_at=get_now().replace(tzinfo=None)
+    )
+    
+    # Remove from pending (by setting receiver_id to None if it was waiting for someone)
+    letter.receiver_id = None
+    
+    db.add(reply)
+    db.add(letter)
+    
+    # Send notification to the user
+    from app.services.notification_service import async_send_instant_notification
+    await async_send_instant_notification(
+        db, 
+        user_id=letter.user_id, 
+        event_type="letter.replied", 
+        payload={
+            "letter_id": letter.letter_id,
+            "reply_id": reply.letter_id,
+            "message": f"Ai đó vừa phản hồi lá thư tâm sự của bạn."
+        }
+    )
+    
+    db.commit()
+    
+    _audit(db, claims["sub"], f"ADMIN_REPLY_LETTER_{letter_id}", request)
+    return ok({"message": "Đã gửi phản hồi thành công", "reply_id": reply.letter_id})

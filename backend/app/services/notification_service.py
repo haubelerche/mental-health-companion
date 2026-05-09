@@ -23,12 +23,10 @@ def enqueue_notification(db: Session, user_id: str, event_type: str, payload: Di
 
 def send_instant_notification(db: Session, user_id: str, event_type: str, payload: Dict[str, Any]) -> None:
     """
-    OPTIMIZED: Saves UserNotification directly and triggers WebSocket push.
-    This is synchronous for DB operations but triggers an async task for WS push.
+    Saves UserNotification directly and triggers WebSocket push (fire-and-forget).
     """
     from app.services.notification_dispatcher import dispatcher
     
-    # 1. Get template
     template = dispatcher.NOTIFICATION_TEMPLATES.get(event_type)
     if not template:
         logger.warning(f"No notification template for event type: {event_type}")
@@ -38,7 +36,6 @@ def send_instant_notification(db: Session, user_id: str, event_type: str, payloa
     title = payload.get("title") or template["title"]
 
     try:
-        # 2. Create UserNotification record (Sync)
         notification_id = make_id("notif")
         notification = UserNotification(
             notification_id=notification_id,
@@ -51,9 +48,8 @@ def send_instant_notification(db: Session, user_id: str, event_type: str, payloa
             created_at=get_now().replace(tzinfo=None),
         )
         db.add(notification)
-        # We don't commit here, the caller handles the transaction
+        db.flush()
         
-        # 3. Trigger WebSocket Push (Async)
         notification_payload = {
             "notification_id": notification_id,
             "notification_type": template["notification_type"],
@@ -68,15 +64,68 @@ def send_instant_notification(db: Session, user_id: str, event_type: str, payloa
     except Exception as e:
         logger.error(f"Failed to create instant notification: {e}")
 
+async def async_send_instant_notification(db: Session, user_id: str, event_type: str, payload: Dict[str, Any]) -> None:
+    """
+    Async version of send_instant_notification.
+    Saves UserNotification directly and awaits WebSocket push.
+    """
+    from app.services.notification_dispatcher import dispatcher
+    from app.services.ws_manager import connection_manager
+    
+    template = dispatcher.NOTIFICATION_TEMPLATES.get(event_type)
+    if not template:
+        logger.warning(f"No notification template for event type: {event_type}")
+        return
+
+    body = payload.get("message") or template["body"]
+    title = payload.get("title") or template["title"]
+
+    try:
+        notification_id = make_id("notif")
+        notification = UserNotification(
+            notification_id=notification_id,
+            user_id=user_id,
+            notification_type=template["notification_type"],
+            title=title,
+            body=body,
+            data_json=payload,
+            is_read=False,
+            created_at=get_now().replace(tzinfo=None),
+        )
+        db.add(notification)
+        db.flush()
+        
+        notification_payload = {
+            "notification_id": notification_id,
+            "notification_type": template["notification_type"],
+            "title": title,
+            "body": body,
+            "data": payload,
+            "created_at": notification.created_at.isoformat(),
+        }
+        
+        await connection_manager.send_notification(user_id, notification_payload)
+        
+    except Exception as e:
+        logger.error(f"Failed to create async instant notification: {e}")
+
 def _trigger_ws_push(user_id: str, payload: dict):
-    """Internal helper to fire-and-forget the WS push"""
+    """Internal helper to fire-and-forget the WS push from both sync/async contexts"""
     from app.services.ws_manager import connection_manager
     try:
-        loop = asyncio.get_event_loop()
+        # Get the running event loop
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop, might be in a thread
+            loop = asyncio.get_event_loop()
+
         if loop.is_running():
-            loop.create_task(connection_manager.send_notification(user_id, payload))
+            # If we are in a different thread (like a sync FastAPI endpoint), 
+            # we must use run_coroutine_threadsafe
+            asyncio.run_coroutine_threadsafe(connection_manager.send_notification(user_id, payload), loop)
         else:
-            # Should not happen in FastAPI but good for safety
+            # Fallback for scripts or non-running loops
             asyncio.run(connection_manager.send_notification(user_id, payload))
     except Exception as e:
         logger.warning(f"Could not trigger WS push: {e}")
