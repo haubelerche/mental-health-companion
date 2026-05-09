@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
@@ -35,6 +36,66 @@ import asyncpg
 from neo4j import AsyncGraphDatabase, AsyncDriver
 
 logger = logging.getLogger(__name__)
+
+_FORBIDDEN_PAYLOAD_KEY_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"(?:^|_)(?:message|messages|content|raw_text|transcript)(?:$|_)", re.IGNORECASE),
+    re.compile(r"(?:^|_)(?:email|phone|address|dob|ssn)(?:$|_)", re.IGNORECASE),
+    re.compile(r"(?:^|_)(?:crisis|risk|diagnos|disorder|criterion|phq|gad)(?:$|_)", re.IGNORECASE),
+)
+
+_EVENT_REQUIRED_KEYS: dict[str, tuple[str, ...]] = {
+    "memory.created": ("user_id",),
+    "trigger.observed": ("user_id", "trigger_label"),
+    "session.ended": ("user_id", "session_id"),
+    "coping.attempted": ("user_id", "action_id"),
+    "profile.updated": ("user_id",),
+}
+
+_EVENT_ALLOWED_KEYS: dict[str, set[str]] = {
+    "memory.created": {"memory_id", "user_id", "memory_type", "trigger_labels", "emotion_label"},
+    "trigger.observed": {"user_id", "trigger_label", "emotion_label", "intensity", "observed_at"},
+    "session.ended": {
+        "user_id",
+        "session_id",
+        "started_at",
+        "ended_at",
+        "dominant_emotion",
+        "sos_triggered",
+        "key_triggers",
+    },
+    "coping.attempted": {
+        "user_id",
+        "action_id",
+        "emotion_label",
+        "effective",
+        "effective_score",
+        "attempted_at",
+    },
+    "profile.updated": {"user_id", "updated_fields"},
+}
+
+
+def _validate_event_payload(event_type: str, payload: dict) -> None:
+    if not isinstance(payload, dict):
+        raise ValueError(f"Outbox payload must be object for {event_type}")
+
+    required = _EVENT_REQUIRED_KEYS.get(event_type, ())
+    missing = [key for key in required if key not in payload]
+    if missing:
+        raise ValueError(f"Outbox payload missing required keys for {event_type}: {missing}")
+
+    allowed = _EVENT_ALLOWED_KEYS.get(event_type)
+    if allowed is not None:
+        extra = sorted(key for key in payload if key not in allowed)
+        if extra:
+            raise ValueError(f"Outbox payload contains non-contract keys for {event_type}: {extra}")
+
+    for key, value in payload.items():
+        if any(pattern.search(key) for pattern in _FORBIDDEN_PAYLOAD_KEY_PATTERNS):
+            raise ValueError(f"Outbox payload contains forbidden sensitive key: {key}")
+        if isinstance(value, str) and len(value) > 512:
+            raise ValueError(f"Outbox payload value too long for key {key}")
+
 
 # ---------------------------------------------------------------------------
 # Prometheus metrics (compatible with prometheus_client if available)
@@ -82,7 +143,7 @@ class OutboxEvent:
     event_type: str
     payload: dict
     user_id: str
-    attempts: int
+    retry_count: int
     created_at: datetime
 
 
@@ -103,6 +164,7 @@ class Neo4jApplier:
 
     async def apply(self, event: OutboxEvent) -> None:
         """Dispatch to the correct handler based on event_type."""
+        _validate_event_payload(event.event_type, event.payload)
         handler = {
             "memory.created": self._handle_memory_created,
             "trigger.observed": self._handle_trigger_observed,
@@ -378,7 +440,7 @@ class OutboxWorker:
                     processing_started_at = NOW()
                 FROM picked p
                 WHERE o.outbox_id = p.outbox_id
-                RETURNING o.outbox_id, o.event_type, o.payload, o.user_id, o.attempts, o.created_at
+                RETURNING o.outbox_id, o.event_type, o.payload, o.user_id, o.retry_count, o.created_at
                 """,
                 self.BATCH_SIZE,
             )
@@ -392,7 +454,7 @@ class OutboxWorker:
                 event_type=r["event_type"],
                 payload=json.loads(r["payload"]),
                 user_id=r["user_id"],
-                attempts=r["attempts"],
+                retry_count=r["retry_count"],
                 created_at=r["created_at"],
             )
             for r in rows
@@ -427,7 +489,7 @@ class OutboxWorker:
                 await asyncio.sleep(wait)
 
         # All retries exhausted
-        await self._mark_failed(event.outbox_id, event.attempts + self.MAX_ATTEMPTS)
+        await self._mark_failed(event.outbox_id, event.retry_count + self.MAX_ATTEMPTS, "Neo4j graph sync failed")
         _record_metric(event.event_type, "failed", lag)
         logger.error("Event %d permanently failed after %d attempts", event.outbox_id, self.MAX_ATTEMPTS)
 
@@ -438,25 +500,26 @@ class OutboxWorker:
                 UPDATE sync_outbox
                 SET status = 'done',
                     processed_at = NOW(),
-                    attempts = attempts + 1,
+                    retry_count = retry_count + 1,
                     processing_started_at = NULL
                 WHERE outbox_id = $1
                 """,
                 outbox_id,
             )
 
-    async def _mark_failed(self, outbox_id: int, total_attempts: int) -> None:
+    async def _mark_failed(self, outbox_id: int, total_attempts: int, error_message: str) -> None:
         async with self._pg.acquire() as conn:
             await conn.execute(
                 """
                 UPDATE sync_outbox
                 SET status = 'failed',
                     processed_at = NOW(),
-                    attempts = $2,
+                    retry_count = $2,
+                    error_message = $3,
                     processing_started_at = NULL
                 WHERE outbox_id = $1
                 """,
-                outbox_id, total_attempts,
+                outbox_id, total_attempts, error_message[:1000],
             )
 
     async def _update_failed_gauge(self) -> None:
