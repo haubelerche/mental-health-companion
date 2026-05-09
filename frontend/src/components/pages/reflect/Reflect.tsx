@@ -13,11 +13,11 @@ import {
 } from 'recharts'
 import { httpClient } from '../../../api/httpClient'
 import { useAuth } from '../../../hooks/useAuth'
-import { WellnessRadar, type WellnessScores } from '../../wellness/WellnessRadar'
-import { MoodCalendar, type MoodPoint } from '../../wellness/MoodCalendar'
+import { WellnessRadar, type WellnessScores } from '../wellness/WellnessRadar'
+import { MoodCalendar, type MoodPoint } from '../wellness/MoodCalendar'
 import { useThemeContext } from '../../../contexts/ThemeContext'
-import { DayDetailSheet, type DayDetail } from '../../wellness/DayDetailSheet'
-import { ProgressStats } from '../../wellness/ProgressStats'
+import { DayDetailSheet, type DayDetail } from '../wellness/DayDetailSheet'
+import { ProgressStats } from '../wellness/ProgressStats'
 import { dashboardService, type DashboardReflectSummary } from '../../../services/dashboardService'
 import { TinHieuCard } from '../../dashboard/TinHieuCard'
 import { WellnessDimensionCards } from '../../dashboard/WellnessDimensionCards'
@@ -189,9 +189,8 @@ export default function Reflect() {
             <CheckinHistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} isDark={isDark} />
 
             <div className="flex-1">
-
                 <div className="mx-auto flex w-full max-w-5xl flex-col items-center">
-                    <section className={`w-full rounded-[2.5rem] border ${isDark ? 'border-theme-border/50 bg-theme-surface/40' : 'border-theme-border/10 bg-white/40 shadow-sm'} p-4 backdrop-blur-3xl md:p-7 lg:p-8`}>
+                    <section className={`w-full rounded-[2.5rem] border border-theme-border bg-theme-surface/80 p-4 backdrop-blur-3xl md:p-7 lg:p-8`}>
                         <div className="text-center">
                             <p className={`mb-3 text-xs font-semibold uppercase tracking-[0.28em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary/70'}`}>
                                 Nhìn Lại
@@ -220,7 +219,7 @@ export default function Reflect() {
                             </div>
                         )}
 
-                        <div className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-theme-border/20 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
+                        <div className={`mt-6 rounded-[1.75rem] border border-theme-secondary/10 bg-theme-surface md:p-6 shadow-sm`}>
                                 <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
                                     <div>
                                         <h2 className={`font-display text-xl ${isDark ? 'text-theme-text-primary' : 'text-serene-primary'} md:text-2xl`}>Biểu đồ cảm xúc</h2>
@@ -238,7 +237,7 @@ export default function Reflect() {
                                 </div>
 
                                 {showSparseMoodNote && chartData.length > 0 && (
-                                    <div className="mb-3 rounded-2xl border border-amber-200/60 bg-amber-50/80 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+                                    <div className={`mb-3 rounded-2xl border text-xs px-3 py-2 ${isDark ? 'border-amber-200/60 bg-amber-50/80 text-amber-900 ' : 'border-amber-200/60 bg-amber-50/80 text-amber-900'}`}>
                                         Dữ liệu hiện có ít ngày hoạt động — Serene chỉ xem đây là tín hiệu ban đầu, chưa phải xu hướng dài.
                                     </div>
                                 )}
@@ -320,7 +319,7 @@ export default function Reflect() {
                                     <button
                                         type="button"
                                         onClick={() => setHistoryOpen(true)}
-                                        className={`text-xs font-semibold underline underline-offset-4 ${isDark ? 'text-theme-accent' : 'text-primary'}`}
+                                        className={`text-xs cursor-pointer font-semibold hover:underline underline-offset-4 ${isDark ? 'text-theme-accent' : 'text-primary'}`}
                                     >
                                         Xem lịch sử đầy đủ
                                     </button>
@@ -391,16 +390,13 @@ export default function Reflect() {
 
                         {/* ── Progress Stats ── */}
                         {reflectSummary && (
-                            <section className={`mt-6 rounded-[1.75rem] border ${isDark ? 'border-theme-border/20 bg-theme-surface/60' : 'border-theme-border/20 bg-white/30'} p-4 backdrop-blur-md md:p-6 shadow-sm`}>
+                            <section className={`mt-6 rounded-[1.75rem] p-4 md:p-6 `}>
                                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                                    <div>
-                                        <p className={`text-[10px] uppercase tracking-[0.3em] text-theme-text-secondary`}>Tiến trình</p>
-                                        <h2 className={`mt-1 font-display text-xl ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'} md:text-2xl`}>Thống kê của bạn</h2>
-                                    </div>
+                                    <h2 className={`mt-1 font-display text-xl ${isDark ? 'text-theme-text-primary' : 'text-serene-primary'} md:text-2xl`}>Thống kê của bạn</h2>
                                     <button
                                         type="button"
                                         onClick={() => setHistoryOpen(true)}
-                                        className={`text-xs font-semibold underline underline-offset-4 ${isDark ? 'text-theme-accent' : 'text-primary'}`}
+                                        className={`text-xs cursor-pointer font-semibold hover:underline underline-offset-4 ${isDark ? 'text-theme-accent' : 'text-primary'}`}
                                     >
                                         Lịch sử check-in
                                     </button>

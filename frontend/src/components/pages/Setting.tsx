@@ -48,7 +48,7 @@ type TabId = 'main' | 'notifications' | 'appearance'
 
 function ToggleRow({ title, description, checked, onChange }: ToggleRowProps) {
   return (
-    <div className="flex items-center justify-between rounded-3xl border border-theme-border/50 bg-theme-surface/40 p-5 transition hover:bg-theme-surface/60 sm:p-6 shadow-sm">
+    <div className="flex items-center justify-between rounded-3xl border border-theme-secondary/20 bg-theme-surface/80 p-5 transition hover:bg-theme-surface/60 sm:p-6 shadow-sm">
       <div className="pr-4">
         <p className="text-base font-semibold text-theme-text-primary sm:text-lg">{title}</p>
         <p className="mt-1 text-sm text-theme-text-secondary">{description}</p>
@@ -68,8 +68,8 @@ function ThemeCard({ label, image, selected, isDark: _isDark, onSelect }: ThemeC
     >
       <div
         className={[
-          'aspect-16/10 overflow-hidden rounded-3xl border-2 group-hover:scale-[1.02] transition-transform duration-300',
-          selected ? 'border-serene-primary shadow-xl border-3' : 'border-theme-border/50',
+          'aspect-16/10 cursor-pointer overflow-hidden rounded-3xl border-2 group-hover:scale-[1.02]',
+          selected ? 'border-theme-primary shadow-2xl border-3' : 'border-theme-border',
         ].join(' ')}
       >
         <img src={image} alt={label} className="h-full w-full object-cover" />
@@ -90,7 +90,7 @@ function SettingMenuItem({ icon: Icon, title, description, onClick }: { icon: an
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center justify-between rounded-2xl border border-theme-border/50 bg-theme-surface/40 p-5 transition hover:bg-theme-surface/60 shadow-sm mb-3 text-left"
+      className="flex w-full cursor-pointer items-center justify-between rounded-2xl border border-theme-secondary/50 bg-theme-surface p-5 transition hover:bg-theme-accent/50 shadow-sm mb-3 text-left"
     >
       <div className="flex items-center gap-4">
         <Icon className="h-6 w-6 text-theme-text-primary shrink-0" />
@@ -179,7 +179,7 @@ export default function Setting() {
 
   const renderAppearance = () => (
     <section className="space-y-6">
-      <div className="flex items-center gap-2 border-b border-theme-border/30 pb-2">
+      <div className="flex items-center gap-2 border-b border-theme-secondary/30 pb-2">
         <Palette className="h-5 w-5 text-theme-accent" />
         <h2 className="font-display text-2xl text-theme-text-primary">Giao diện</h2>
       </div>
@@ -284,7 +284,7 @@ export default function Setting() {
           </div>
         )}
 
-        <div className="w-full rounded-4xl border border-theme-border/50 bg-theme-surface/50 px-5 py-6 shadow-xl backdrop-blur-2xl sm:px-8 sm:py-8 lg:px-10 lg:py-10">
+        <div className="w-full rounded-4xl border border-theme-border bg-theme-surface/80 px-5 py-6 shadow-xl backdrop-blur-2xl sm:px-8 sm:py-8 lg:px-10 lg:py-10">
           
           {activeTab === 'main' ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">

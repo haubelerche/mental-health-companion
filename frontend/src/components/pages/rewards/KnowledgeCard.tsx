@@ -1,7 +1,7 @@
 import { BookOpen, Check, Heart, Lock } from 'lucide-react'
-import type { RewardStoreItem } from '../../services/rewardsService'
-import { ApiRequestError } from '../../api/types'
-import { useThemeContext } from '../../contexts/ThemeContext'
+import { ApiRequestError } from '@/api/types'
+import { useThemeContext } from '@/contexts/ThemeContext'
+import type { RewardStoreItem } from '@/services/rewardsService'
 
 type Props = {
     item: RewardStoreItem

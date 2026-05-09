@@ -1,7 +1,8 @@
-import { Gift, Heart } from 'lucide-react'
-import type { RewardStoreItem } from '../../services/rewardsService'
-import { ApiRequestError } from '../../api/types'
+import { ApiRequestError } from '@/api/types'
 import { useThemeContext } from '@/contexts/ThemeContext'
+import type { RewardStoreItem } from '@/services/rewardsService'
+import { Gift, Heart } from 'lucide-react'
+
 
 type Props = {
     item: RewardStoreItem
@@ -33,7 +34,7 @@ export default function RewardCard({ item, balance, owned, onPurchase }: Props) 
         try {
             await onPurchase(item.item_id)
         } catch (err) {
-            const code = err instanceof ApiRequestError ? err.code : undefined
+            const code = err instanceof ApiRequestError? err.code : undefined
             if (code === 'insufficient_hearts' || code === 'requirements_not_met') return
         }
     }
