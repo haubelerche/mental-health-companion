@@ -122,6 +122,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         try {
             await authService.logout()
             setUser(null)
+            localStorage.removeItem('serene_chat_session_id')
         } catch (error) {
             console.error('Error occurred while logging out:', error)
         } finally {
