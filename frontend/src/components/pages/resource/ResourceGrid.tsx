@@ -33,7 +33,7 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
     return (
         <div className="space-y-6">
             {/* Featured */}
-            <article className={`rounded-4xl bg-theme-surface/80 border border-white/10 shadow-lg`}>
+            <article className={`rounded-4xl bg-theme-surface border border-theme-secondary/50 shadow-xl`}>
                 <div className="relative overflow-hidden rounded-t-3xl cursor-pointer" onClick={() => onOpen(featured)}>
                     {featured.thumbnail ? (
                         <div className="aspect-video relative">
@@ -86,7 +86,7 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                                 key={item.id}
 
                                 onClick={() => onOpen(item)}
-                                className={`group grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-[1.75rem] bg-theme-surface/60 p-4 text-left shadow-lg transition hover:-translate-y-1`}
+                                className={`group grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-[1.75rem] bg-theme-surface border border-theme-secondary/20 p-4 text-left shadow-lg transition hover:-translate-y-1`}
                             >
                                 {item.thumbnail ? (
                                     <img src={item.thumbnail} alt="" className="h-20 w-20 rounded-2xl object-cover shadow" />
@@ -94,11 +94,11 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                                     <div className="h-16 w-16 rounded-2xl bg-serene-primary/10" />
                                 )}
                                 <div>
-                                    <h3 
-                                    title={item.title}
-                                    dangerouslySetInnerHTML={{ __html: item.title }}    
-                                    className={`font-display font-semibold line-clamp-2 leading-tight ${isDark ? 'text-white' : 'text-serene-ink'}`}>
-                                      
+                                    <h3
+                                        title={item.title}
+                                        dangerouslySetInnerHTML={{ __html: item.title }}
+                                        className={`font-display font-semibold line-clamp-2 leading-tight ${isDark ? 'text-white' : 'text-serene-primary'}`}>
+
                                     </h3>
                                     <p className={`mt-1 text-xs ${isDark ? 'text-white/60' : 'text-serene-muted'}`}>
                                         <span>{minutes(item.duration_sec)}</span> · <span className='font-semibold capitalize'>{item.format.replace(/_/g, ' ')}</span>
@@ -125,7 +125,7 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
                                         setExpandedCount(3)
                                     }
                                 }}
-                                className={`mx-auto flex items-center gap-2 rounded-full bg-theme-surface/60 px-6 py-3 text-sm font-semibold ${isDark ? 'text-white/60' : 'text-serene-muted'} transition ${isDark ? 'hover:text-white' : 'hover:text-serene-ink'}`}
+                                className={`mx-auto cursor-pointer flex items-center gap-2 rounded-full bg-theme-surface px-6 py-3 text-sm font-semibold border border-theme-secondary/10 hover:border-theme-secondary/40`}
                             >
                                 {hasMore ? (
                                     <>

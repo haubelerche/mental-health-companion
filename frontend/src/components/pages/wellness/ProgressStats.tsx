@@ -25,11 +25,11 @@ function StatCard({ icon: Icon, value, label, sub, color, delay = 0 }: StatCardP
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.35, ease: 'easeOut' }}
-      className="flex flex-col gap-1.5 rounded-2xl border border-theme-primary/40 bg-theme-surface p-3.5 shadow-xl[0_2px_8px_rgba(47,52,46,0.06)]"
+      className="flex flex-col gap-1.5 rounded-2xl border border-theme-primary/50 bg-theme-surface p-3.5 shadow-xl"
     >
       <div
         className="flex h-8 w-8 items-center justify-center rounded-xl"
-        style={{ backgroundColor: `${color}18` }}
+        style={{ backgroundColor: `${color}30` }}
       >
         <Icon className="h-4 w-4" style={{ color }} />
       </div>

@@ -46,7 +46,7 @@ export function ExerciseTab() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.05 }}
-                    className={`group relative flex flex-col overflow-hidden rounded-4xl border ${isDark ? 'border-white/10 bg-theme-surface/40' : 'border-white/50 bg-white/60'} p-6 shadow-xl backdrop-blur-xl transition-all hover:-translate-y-1`}
+                    className={`group cursor-pointer relative flex flex-col overflow-hidden rounded-4xl border ${isDark ? 'border-white/10 bg-theme-surface/40' : 'border-white/50 bg-white/60'} p-6 shadow-xl backdrop-blur-xl transition-all hover:-translate-y-1`}
                 >
                     <div className="flex-1">
                         <div className="mb-4 flex items-center justify-between">
