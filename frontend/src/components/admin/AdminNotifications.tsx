@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { adminService } from '../../services/adminService'
 import { ApiRequestError } from '../../api/types'
 import { toast } from 'react-toastify'
-import { Bell, Send, Info, Coffee, Sparkles, MessageCircle, Activity, Zap } from 'lucide-react'
+import { Bell, Send, Info, Coffee, Sparkles, MessageCircle, Activity } from 'lucide-react'
 import WorkerAutomationCard from './automation/WorkerAutomationCard'
 
 const TEMPLATES = [

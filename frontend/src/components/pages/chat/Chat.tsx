@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentProps } from 'react'
 import {
-    Eye,
     History,
     Leaf,
     MapPin,
@@ -31,7 +30,6 @@ import { ChatHistoryModal } from './ChatHistoryModal'
 import { useThemeContext } from '../../../contexts/ThemeContext'
 import MemoryCardsTab from './MemoryCardsTab'
 import PersonaSelector from './PersonaSelector'
-import ChatEntryCheckIn from './ChatEntryCheckIn'
 import VoiceStatusBadge, { TTS_TERMINAL_STATUSES } from './VoiceStatusBadge'
 import type { TtsStatus } from './VoiceStatusBadge'
 import Loading from '../../ui/Loading'
@@ -66,6 +64,8 @@ type ProactiveVoiceIntervention = {
     copy_ngan?: string
     crisis_footer?: { show_once: boolean; text: string; hotline_cta: { label: string; action: string } }
     next_actions?: Array<{ id: string; label: string; action?: string }>
+    voice_job_ids?: string[]
+    voice_jobs?: Array<{ tts_job_id?: string | null; status?: string }>
 }
 
 type ChatApiData = {
@@ -118,6 +118,8 @@ type CrisisActionCard = {
 type CrisisPlan = {
     visible_text: string
     voice_script?: string
+    additional_voice_scripts?: string[]
+    follow_up_texts?: string[]
     action_cards: CrisisActionCard[]
     follow_up_question?: string
     safety_reason_codes?: string[]
@@ -281,82 +283,6 @@ function AttachmentCard({ item, onOpen }: { item: TheDinhKem; onOpen: (item: The
     )
 }
 
-function CrisisStepper({ data, onAction, onSend }: {
-    data: ChatApiData
-    onAction?: (card: CrisisActionCard) => void
-    onSend?: (text: string) => void
-}) {
-    const { effectiveTheme } = useThemeContext()
-    const isDark = effectiveTheme === 'dark'
-    if (!data.sos_triggered) return null
-
-    const plan = data.crisis_plan
-    const actionCards: CrisisActionCard[] = plan?.action_cards?.length
-        ? plan.action_cards
-        : [
-              { id: 'breathing_timer_478', type: 'breathing_timer', title: 'Hít thở 4-7-8', description: 'Hít vào 4 giây, giữ 7, thở ra 8', action: 'start_breathing_timer', priority: 90 },
-              { id: 'hotline_cta', type: 'hotline', title: 'Gọi đường dây hỗ trợ', description: 'Miễn phí, bảo mật, 24/7', action: 'open_hotline_sheet', priority: 80 },
-          ]
-
-    const followUp = plan?.follow_up_question
-
-    // Compact icon per action type
-    function ActionIcon({ type }: { type: string }) {
-        if (type === 'breathing_timer') return <Wind className="h-4 w-4" aria-hidden />
-        if (type === 'hotline' || type === 'trusted_contact') return <span className="text-base" aria-hidden>📞</span>
-        if (type === 'clinic_map') return <MapPin className="h-4 w-4" aria-hidden />
-        if (type === 'video_grounding') return <Play className="h-4 w-4" aria-hidden />
-        if (type === 'voice_grounding') return <Music className="h-4 w-4" aria-hidden />
-        return <Eye className="h-4 w-4" aria-hidden />
-    }
-
-    const border = isDark ? 'border-red-500/25 bg-red-500/8' : 'border-red-200 bg-red-50/80'
-    const headerText = isDark ? 'text-red-400' : 'text-red-600'
-    const cardBorder = isDark ? 'border-red-500/20 bg-theme-surface/50 hover:bg-red-500/10' : 'border-red-200 bg-white/70 hover:bg-red-50'
-
-    return (
-        <div className={`mt-2 rounded-2xl border ${border} p-3 space-y-2`}>
-            {/* Header — minimal */}
-            <div className="flex items-center gap-1.5">
-                <span className={`text-[10px] font-black uppercase tracking-widest ${headerText}`}>Hỗ trợ khủng hoảng</span>
-                <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-medium ${isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-600'}`}>
-                    SOS
-                </span>
-            </div>
-
-            {/* Action cards — max 3 */}
-            {actionCards.slice(0, 3).map((card) => (
-                <button
-                    key={card.id}
-                    type="button"
-                    onClick={() => onAction?.(card)}
-                    className={`w-full flex items-center gap-2.5 rounded-xl border ${cardBorder} px-3 py-2 text-left transition active:scale-[0.98]`}
-                >
-                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${isDark ? 'bg-red-500/15 text-red-400' : 'bg-red-100 text-red-600'}`}>
-                        <ActionIcon type={card.type} />
-                    </span>
-                    <div className="min-w-0">
-                        <p className={`text-xs font-semibold truncate ${isDark ? 'text-red-300' : 'text-red-700'}`}>{card.title}</p>
-                        <p className={`text-[10px] leading-snug line-clamp-1 ${isDark ? 'text-red-400/70' : 'text-red-500/80'}`}>{card.description}</p>
-                    </div>
-                    <span className={`ml-auto shrink-0 text-[10px] font-medium ${isDark ? 'text-red-400' : 'text-red-500'}`}>›</span>
-                </button>
-            ))}
-
-            {/* Follow-up question */}
-            {followUp && onSend && (
-                <button
-                    type="button"
-                    onClick={() => onSend(followUp)}
-                    className={`w-full mt-0.5 rounded-xl border border-dashed ${isDark ? 'border-red-500/25 text-red-400/70 hover:bg-red-500/8' : 'border-red-300/60 text-red-500/80 hover:bg-red-50'} px-3 py-1.5 text-left text-[11px] transition`}
-                >
-                    {followUp}
-                </button>
-            )}
-        </div>
-    )
-}
-
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export default function Chat() {
@@ -378,7 +304,6 @@ export default function Chat() {
     const [guestSecondsLeft, setGuestSecondsLeft] = useState<number>(FALLBACK_GUEST_CHAT_DURATION_SECONDS)
     const [guestSessionLoading, setGuestSessionLoading] = useState(false)
     const [activeTab, setActiveTab] = useState<'chat' | 'memory'>('chat')
-    const [checkInDone, setCheckInDone] = useState(false)
     const pollRef = useRef<number | null>(null)
     const bottomRef = useRef<HTMLDivElement | null>(null)
     const optionsRef = useRef<HTMLDivElement | null>(null)
@@ -531,69 +456,77 @@ export default function Chat() {
         })
     }
 
-    const pollVoiceJob = async (ttsJobId: string, fallbackScript?: string, attempts = 0) => {
+    const pollVoiceJob = async (ttsJobId: string, attempts = 0): Promise<void> => {
         if (attempts > 10) {
-            setVoiceStatus('Voice phản hồi chậm, đang dùng bản text trước.')
-            if (fallbackScript) {
-                setMessages((prev) => [...prev, { id: `vs_to_${Date.now()}`, role: 'assistant', content: fallbackScript }])
-            }
+            setVoiceStatus('failed')
             return
         }
         try {
             const job = await chatService.getVoiceJob(ttsJobId)
             setVoiceStatus(job.status)
-            // Dừng poll khi gặp bất kỳ terminal status nào
+            // Stop polling on any terminal status
             if (TTS_TERMINAL_STATUSES.has(job.status as TtsStatus)) {
-                if (job.status === 'ready' && job.audio_url) {
+                if ((job.status === 'ready' || job.status === 'cache_hit' || job.status === 'skipped_duplicate') && job.audio_url) {
                     playAudioUrl(job.audio_url)
                     setVoiceStatus('')
                 } else if (job.status === 'failed') {
                     setVoiceStatus(job.error_message ? `failed:${job.error_message}` : 'failed')
-                    if (fallbackScript) {
-                        setMessages((prev) => [
-                            ...prev,
-                            { id: `vs_fail_${Date.now()}`, role: 'assistant', content: fallbackScript },
-                        ])
-                    }
-                } else {
-                    // cache_hit, skipped_duplicate, provider_disabled, cancelled, expired
-                    if (fallbackScript && (job.status === 'provider_disabled' || job.status === 'expired' || job.status === 'cancelled')) {
-                        setMessages((prev) => [
-                            ...prev,
-                            { id: `vs_term_${Date.now()}`, role: 'assistant', content: fallbackScript },
-                        ])
-                    }
                 }
+                // All other terminal statuses (cache_hit, skipped_duplicate, provider_disabled,
+                // cancelled, expired) are surfaced via VoiceStatusBadge — no extra text bubble.
                 return
             }
         } catch {
-            if (fallbackScript) {
-                setMessages((prev) => [...prev, { id: `vs_err_${Date.now()}`, role: 'assistant', content: fallbackScript }])
-            }
+            setVoiceStatus('failed')
             return
         }
         const delay = attempts < 3 ? 400 : attempts < 6 ? 800 : 1500
-        pollRef.current = window.setTimeout(() => {
-            void pollVoiceJob(ttsJobId, fallbackScript, attempts + 1)
-        }, delay)
+        await new Promise<void>((resolve) => {
+            pollRef.current = window.setTimeout(resolve, delay)
+        })
+        return pollVoiceJob(ttsJobId, attempts + 1)
+    }
+
+    const appendInterventionCopy = (copy: string) => {
+        const normalizedCopy = copy.trim().replace(/\s+/g, ' ')
+        if (!normalizedCopy) return
+        setMessages((prev) => {
+            const lastAssistant = [...prev].reverse().find((m) => m.role === 'assistant')
+            const lastText = (lastAssistant?.content || '').trim().replace(/\s+/g, ' ')
+            if (lastText === normalizedCopy) return prev
+            return [...prev, { id: `i_${Date.now()}`, role: 'assistant', content: copy }]
+        })
     }
 
     const applyIntervention = (data: ChatApiData) => {
         const intervention = data.intervention
         if (intervention?.type !== 'proactive_voice') return
         if (intervention.copy_ngan) {
-            setMessages((prev) => [...prev, { id: `i_${Date.now()}`, role: 'assistant', content: intervention.copy_ngan ?? '' }])
+            appendInterventionCopy(intervention.copy_ngan)
         }
-        const ttsJobId = intervention.voice?.tts_job_id
-        const audioUrl = intervention.voice?.audio_url
-        if (audioUrl) {
-            playAudioUrl(audioUrl)
-        } else if (ttsJobId) {
-            setVoiceStatus('Đang tạo voice...')
-            void pollVoiceJob(ttsJobId, intervention.voice_script)
-        } else if (intervention.voice_script) {
-            setMessages((prev) => [...prev, { id: `vs_${Date.now()}`, role: 'assistant', content: intervention.voice_script ?? '' }])
+
+        // Sequential multi-voice playback for SOS turns
+        const voiceJobIds: string[] =
+            intervention.voice_job_ids ??
+            (intervention.voice?.tts_job_id ? [intervention.voice.tts_job_id] : [])
+
+        if (voiceJobIds.length > 0) {
+            const audioUrl = intervention.voice?.audio_url
+            if (audioUrl) {
+                playAudioUrl(audioUrl)
+            } else {
+                setVoiceStatus('Đang tạo voice...')
+                void (async () => {
+                    for (const jobId of voiceJobIds) {
+                        await pollVoiceJob(jobId)
+                        if (voiceJobIds.indexOf(jobId) < voiceJobIds.length - 1) {
+                            await new Promise<void>((r) => setTimeout(r, 800))
+                        }
+                    }
+                })()
+            }
         }
+        // voice_script is TTS-only — never render it as a visible chat bubble
     }
 
     const consumeChatSse = async (response: Response, pendingId: string) => {
@@ -860,30 +793,6 @@ export default function Chat() {
         navigate(ROUTE_PATHS.resources)
     }
 
-    const handleCrisisAction = (card: CrisisActionCard) => {
-        switch (card.action) {
-            case 'play_voice_grounding':
-                // Voice is handled by the TTS poll path; focus input as fallback
-                break
-            case 'start_breathing_timer':
-                navigate(`${ROUTE_PATHS.exercises}?exercise=breath_478`)
-                break
-            case 'open_hotline_sheet':
-                setSosActive(true)
-                break
-            case 'open_clinic_map':
-                navigate(card.route ?? ROUTE_PATHS.support)
-                break
-            case 'open_grounding_video':
-                navigate(card.route ?? ROUTE_PATHS.resources)
-                break
-            case 'continue_chat':
-                break
-            default:
-                if (import.meta.env.DEV) console.warn('Unknown crisis action:', card.action)
-        }
-    }
-
     // Derived display values
     const lastData = [...messages].reverse().find((m) => m.role === 'assistant' && m.apiData)?.apiData
     const modeLabel =
@@ -1026,7 +935,7 @@ export default function Chat() {
                         <MemoryCardsTab />
                     </div>
                 ) : (
-                <div className="flex-1 mb-8 overflow-y-auto p-4 sm:px-6">
+                <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:px-6">
                     <div className="flex min-h-full flex-col justify-end gap-3">
                         {messages.length === 0 ? (
                             <Loading />
@@ -1063,13 +972,20 @@ export default function Chat() {
                                                         {m.content}
                                                     </article>
                                                 )}
-                                                {m.apiData?.sos_triggered && (
-                                                    <CrisisStepper
-                                                        data={m.apiData}
-                                                        onAction={handleCrisisAction}
-                                                        onSend={(text) => void doSend(text)}
-                                                    />
-                                                )}
+                                                {m.apiData?.sos_triggered &&
+                                                    (m.apiData.crisis_plan?.follow_up_texts ?? []).map((msg, i) => (
+                                                        <div
+                                                            key={`followup-${i}`}
+                                                            className={`mt-2 rounded-2xl px-4 py-3 text-sm leading-relaxed border ${
+                                                                isDark
+                                                                    ? 'bg-theme-surface/80 text-theme-text-primary border-theme-border/30'
+                                                                    : 'bg-white/80 text-theme-text-primary border-stone-200/60'
+                                                            }`}
+                                                        >
+                                                            {msg}
+                                                        </div>
+                                                    ))
+                                                }
                                                 {m.apiData?.the_dinh_kem?.map((item, i) => (
                                                     <AttachmentCard key={`${item.type}-${item.id}-${i}`} item={item} onOpen={openAttachment} />
                                                 ))}

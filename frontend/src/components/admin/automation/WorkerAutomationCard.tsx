@@ -58,7 +58,7 @@ export default function WorkerAutomationCard({ workerKey, icon: Icon, descriptio
         } catch (err) {
             toast.error("Thao tác thất bại")
         } finally {
-            setUpdating(null)
+            setUpdating(false)
         }
     }
 

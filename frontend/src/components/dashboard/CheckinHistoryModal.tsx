@@ -8,7 +8,7 @@ import Loading from '../ui/Loading'
 type Props = {
     open: boolean
     onClose: () => void
-    isDark: boolean
+    isDark?: boolean
 }
 
 const BUCKET_VI: Record<CheckinHistoryItem['time_bucket'], string> = {
@@ -18,10 +18,11 @@ const BUCKET_VI: Record<CheckinHistoryItem['time_bucket'], string> = {
     other: 'Khác',
 }
 
-export function CheckinHistoryModal({ open, onClose, isDark }: Props) {
+export function CheckinHistoryModal({ open, onClose, isDark = false }: Props) {
     const [loading, setLoading] = useState(false)
     const [history, setHistory] = useState<CheckinHistoryDay[]>([])
     const [err, setErr] = useState<string | null>(null)
+    const [loaded, setLoaded] = useState(false)
 
     useEffect(() => {
         if (typeof document !== 'undefined') {
@@ -30,14 +31,17 @@ export function CheckinHistoryModal({ open, onClose, isDark }: Props) {
     }, [])
 
     useEffect(() => {
-        if (!open) return
+        if (!open || loaded) return
         let cancelled = false
         ;(async () => {
             setLoading(true)
             setErr(null)
             try {
                 const data = await dashboardService.getCheckinHistory('90d')
-                if (!cancelled) setHistory(data.history || [])
+                if (!cancelled) {
+                    setHistory(data.history || [])
+                    setLoaded(true)
+                }
             } catch {
                 if (!cancelled) setErr('Không tải được lịch sử check-in.')
             } finally {
@@ -47,7 +51,7 @@ export function CheckinHistoryModal({ open, onClose, isDark }: Props) {
         return () => {
             cancelled = true
         }
-    }, [open])
+    }, [loaded, open])
 
     const completedSet = useMemo(() => {
         const s = new Set<string>()
@@ -67,9 +71,9 @@ export function CheckinHistoryModal({ open, onClose, isDark }: Props) {
             className="relative z-[81] mb-5 flex max-h-[80dvh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border shadow-2xl border-theme-border bg-theme-surface outline-none"
             overlayClassName="fixed inset-0 z-[80] flex items-end justify-center sm:items-center bg-black/45 backdrop-blur-[2px]"
         >
-            <div className={`flex items-center justify-between border-b px-5 py-4 border-theme-secondary/40`}>
+            <div className="flex items-center justify-between border-b px-5 py-4 border-theme-secondary/40">
                 <div>
-                    <p className={`text-sm font-semibold mb-3 uppercase tracking-[0.22em] text-theme-text-secondary`}>
+                    <p className="mb-3 text-sm font-semibold uppercase tracking-[0.22em] text-theme-text-secondary">
                         Lịch sử check-in
                     </p>
                     <h2 className={`font-display text-sm ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>90 ngày gần đây</h2>
@@ -77,19 +81,19 @@ export function CheckinHistoryModal({ open, onClose, isDark }: Props) {
                 <button
                     type="button"
                     onClick={onClose}
-                    className={`rounded-full cursor-pointer p-2 hover:text-red-400`}
+                    className="cursor-pointer rounded-full p-2 hover:text-red-400"
                 >
                     <X className="h-5 w-5" />
                 </button>
             </div>
 
             <div className="overflow-y-auto px-5 pb-8 pt-4">
-                {loading && <Loading/>}
+                {loading && <Loading />}
                 {err && <p className="text-sm text-red-600">{err}</p>}
 
                 {!loading && !err && (
                     <>
-                        <MiniCompletionCalendar completedDates={completedSet} isDark={isDark} />
+                        <MiniCompletionCalendar completedDates={completedSet} />
 
                         <div className="mt-6 space-y-6">
                             {history.length === 0 && (
@@ -135,9 +139,7 @@ function CheckinCard({ c, isDark }: { c: CheckinHistoryItem; isDark: boolean }) 
     })()
 
     return (
-        <div
-            className={`rounded-2xl border p-3 text-sm border-theme-primary/30 bg-theme-surface`}
-        >
+        <div className="rounded-2xl border border-theme-primary/30 bg-theme-surface p-3 text-sm">
             <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="rounded-full bg-primary/15 px-2 py-0.5 font-semibold text-primary dark:bg-theme-accent/15 dark:text-theme-accent">
                     {BUCKET_VI[c.time_bucket]}
@@ -176,10 +178,8 @@ const DAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
 
 function MiniCompletionCalendar({
     completedDates,
-    isDark,
 }: {
     completedDates: Set<string>
-    isDark: boolean
 }) {
     const today = new Date()
     const dayOfWeek = today.getDay()
@@ -200,7 +200,7 @@ function MiniCompletionCalendar({
 
     return (
         <div>
-            <p className={`mb-2 text-[11px] font-medium text-theme-primary`}>
+            <p className="mb-2 text-[11px] font-medium text-theme-primary">
                 Các ngày có check-in (màu thương hiệu)
             </p>
             <div className="mb-1 grid grid-cols-7 gap-1">
@@ -225,7 +225,7 @@ function MiniCompletionCalendar({
                                             ? 'border-primary bg-primary text-white dark:border-theme-accent dark:bg-theme-accent'
                                             : isFuture
                                               ? 'border-transparent bg-transparent'
-                                              : 'border-theme-primary/30 bg-theme-surface'
+                                              : 'border-theme-primary/30 bg-theme-surface',
                                     ].join(' ')}
                                     title={iso}
                                 >

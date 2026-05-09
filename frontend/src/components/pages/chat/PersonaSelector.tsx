@@ -6,7 +6,6 @@ import { personasService } from '../../../services/personasService'
 import { ApiRequestError } from '../../../api/types'
 import { ROUTE_PATHS } from '../../../routes/paths'
 
-import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 
 const PERSONA_ORDER = ['ban_than', 'nguoi_thay', 'cun', 'meo', 'crush'] as const
@@ -24,7 +23,6 @@ type Props = {
 }
 
 export default function PersonaSelector({ onSelect }: Props) {
-    const navigate = useNavigate()
     const [progress, setProgress] = useState<PersonaProgress[]>([])
     const [activePersonaId, setActivePersonaId] = useState<string>('ban_than')
     const [loading, setLoading] = useState(true)

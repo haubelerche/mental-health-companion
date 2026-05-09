@@ -1,3 +1,4 @@
+import { Activity, Heart, Moon, Sprout, Users, Wind } from 'lucide-react'
 import type { WellnessDimension } from '../../services/dashboardService'
 
 type Props = {
@@ -19,6 +20,25 @@ function statusLabel(status: WellnessDimension['status']): string {
             return 'Dữ liệu còn ít'
         default:
             return 'Chưa rõ'
+    }
+}
+
+function DimensionIcon({ dimension }: { dimension: WellnessDimension['dimension'] }) {
+    const iconClass = 'h-4 w-4'
+    switch (dimension) {
+        case 'sleep':
+            return <Moon className={iconClass} aria-hidden />
+        case 'mindfulness':
+            return <Wind className={iconClass} aria-hidden />
+        case 'connection':
+            return <Users className={iconClass} aria-hidden />
+        case 'body':
+            return <Activity className={iconClass} aria-hidden />
+        case 'growth':
+            return <Sprout className={iconClass} aria-hidden />
+        case 'emotion':
+        default:
+            return <Heart className={iconClass} aria-hidden />
     }
 }
 
@@ -60,14 +80,19 @@ export function WellnessDimensionCards({ dimensions, isDark }: Props) {
                 Một check-in mỗi ngày là đủ để giữ chuỗi. Nếu muốn, bạn có thể check-in thêm sáng/chiều/tối để Serene hiểu nhịp cảm xúc trong ngày rõ hơn — không bắt buộc.
             </p>
 
-            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
                 {dimensions.map((d) => (
                     <div
                         key={d.dimension}
                         className={`rounded-2xl border p-4 border-theme-secondary/50 bg-theme-surface`}
                     >
                         <div className="flex items-start justify-between gap-2">
-                            <p className={`font-semibold ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>{d.label}</p>
+                            <p className={`flex min-w-0 items-center gap-2 font-semibold ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>
+                                <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${isDark ? 'bg-theme-accent/15 text-theme-accent' : 'bg-primary/10 text-primary'}`}>
+                                    <DimensionIcon dimension={d.dimension} />
+                                </span>
+                                <span className="min-w-0 truncate">{d.label}</span>
+                            </p>
                             <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusStyles(d.status)}`}>
                                 {statusLabel(d.status)}
                             </span>

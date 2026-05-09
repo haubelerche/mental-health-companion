@@ -1,4 +1,4 @@
-import type { RewardShelf as RewardShelfType } from '../../services/rewardsService'
+import type { RewardShelf as RewardShelfType } from '../../../services/rewardsService'
 import RewardCard from './RewardCard'
 
 const SHELF_LABELS: Record<string, string> = {

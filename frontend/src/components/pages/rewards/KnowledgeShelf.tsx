@@ -1,4 +1,4 @@
-import type { RewardShelf as RewardShelfType } from '../../services/rewardsService'
+import type { RewardShelf as RewardShelfType } from '../../../services/rewardsService'
 import KnowledgeCard from './KnowledgeCard'
 
 type Props = {

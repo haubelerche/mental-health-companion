@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { httpClient } from '../../api/httpClient'
-import { ApiRequestError } from '../../api/types'
+import { httpClient } from '../../../api/httpClient'
+import { ApiRequestError } from '../../../api/types'
 
 type LetterStatus =
     | 'draft'
