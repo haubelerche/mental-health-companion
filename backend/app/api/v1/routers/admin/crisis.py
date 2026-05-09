@@ -35,7 +35,7 @@ def admin_crisis_logs(
                     "log_id": row.log_id,
                     "session_id": row.session_id,
                     "triggered_at": row.triggered_at.isoformat(),
-                    "muc_do": row.muc_do,
+                    "muc_do": row.severity_level,
                     "reviewed": row.reviewed
                 } for row in logs
             ],

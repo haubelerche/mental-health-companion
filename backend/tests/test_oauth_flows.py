@@ -9,14 +9,40 @@ from app.services.db.session import Base, get_engine, get_session_factory
 from app.services.db.models import User
 
 
-@pytest.fixture(scope="module", autouse=True)
-def ensure_oauth_schema():
-    Base.metadata.create_all(bind=get_engine())
-    yield
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
+
+@pytest.fixture(scope="module")
+def test_db():
+    engine = create_engine(
+        "sqlite+pysqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        future=True,
+    )
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, class_=Session)
+    Base.metadata.create_all(bind=engine)
+    
+    from app.api.v1.routers.auth import get_db
+    def override_db():
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+    
+    app.dependency_overrides[get_db] = override_db
+    try:
+        yield SessionLocal
+    finally:
+        app.dependency_overrides.clear()
+        Base.metadata.drop_all(bind=engine)
+        engine.dispose()
 
 
 @pytest.mark.asyncio
-async def test_google_callback_creates_user_and_redirects(monkeypatch):
+async def test_google_callback_creates_user_and_redirects(monkeypatch, test_db):
     unique = uuid.uuid4().hex[:8]
     email = f"oauth_test_{unique}@example.com"
 
@@ -40,14 +66,13 @@ async def test_google_callback_creates_user_and_redirects(monkeypatch):
     assert resp.headers.get("location") == "http://127.0.0.1:5173/auth/callback"
 
     # verify user created in DB
-    Session = get_session_factory()
-    session = Session()
+    db = test_db()
     try:
-        row = session.scalar(select(User).where(User.email == email))
+        row = db.scalar(select(User).where(User.email == email))
         assert row is not None
         assert row.is_active
     finally:
-        session.close()
+        db.close()
 
 
 @pytest.mark.asyncio
@@ -75,7 +100,7 @@ async def test_google_callback_missing_email_redirects_to_frontend_prompt(monkey
 
 
 @pytest.mark.asyncio
-async def test_facebook_callback_creates_user_when_email_present(monkeypatch):
+async def test_facebook_callback_creates_user_when_email_present(monkeypatch, test_db):
     unique = uuid.uuid4().hex[:8]
     email = f"fb_test_{unique}@example.com"
 
@@ -98,11 +123,10 @@ async def test_facebook_callback_creates_user_when_email_present(monkeypatch):
     assert resp.status_code in (302, 307)
     assert resp.headers.get("location") == "http://127.0.0.1:5173/auth/callback"
 
-    Session = get_session_factory()
-    session = Session()
+    db = test_db()
     try:
-        row = session.scalar(select(User).where(User.email == email))
+        row = db.scalar(select(User).where(User.email == email))
         assert row is not None
         assert row.is_active
     finally:
-        session.close()
+        db.close()

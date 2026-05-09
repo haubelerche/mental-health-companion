@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 
 from datetime import date, datetime
 from typing import Any, Optional
@@ -45,6 +46,8 @@ if PG_JSONB is not None:  # pragma: no branch
 INET_COMPAT = String(45)
 if PG_INET is not None:  # pragma: no branch
     INET_COMPAT = INET_COMPAT.with_variant(PG_INET(), "postgresql")
+
+TIMESTAMP_COMPAT = TIMESTAMP().with_variant(TIMESTAMP(timezone=True), "postgresql")
 
 
 class User(Base):
@@ -329,7 +332,7 @@ class ConversationMemory(Base):
     importance_score: Mapped[float | None] = mapped_column(Float)
     confidence: Mapped[float | None] = mapped_column(Float)
     pii_checked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
-    expires_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP_COMPAT, nullable=True)
     source: Mapped[str] = mapped_column(
         String(20),
         CheckConstraint(
@@ -356,14 +359,14 @@ class SessionSummaryArchive(Base):
     )
     summary: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, nullable=False)
     session_started_at: Mapped[Optional[datetime]] = mapped_column(
-        TIMESTAMP(timezone=True), nullable=True
+        TIMESTAMP_COMPAT, nullable=True
     )
     dominant_emotion: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     sos_triggered: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false", nullable=False
     )
     archived_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True), default=func.now(), server_default=func.now(), nullable=False
+        TIMESTAMP_COMPAT, default=func.now(), server_default=func.now(), nullable=False
     )
 
 
@@ -388,7 +391,7 @@ class RiskInferenceLog(Base):
         JSONB_COMPAT, default=dict, server_default="{}", nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True), default=func.now(), server_default=func.now(), nullable=False
+        TIMESTAMP_COMPAT, default=func.now(), server_default=func.now(), nullable=False
     )
 
 
@@ -433,7 +436,7 @@ class SessionRiskSnapshot(Base):
         nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True), default=func.now(), server_default=func.now(), nullable=False
+        TIMESTAMP_COMPAT, default=func.now(), server_default=func.now(), nullable=False
     )
 
 
@@ -451,7 +454,7 @@ class AnalystSignal(Base):
         String, ForeignKey("messages.message_id", ondelete="SET NULL"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True), default=func.now(), server_default=func.now(), nullable=False
+        TIMESTAMP_COMPAT, default=func.now(), server_default=func.now(), nullable=False
     )
     emotional_theme: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     suggested_focus: Mapped[Optional[str]] = mapped_column(String, nullable=True)
@@ -495,10 +498,10 @@ class InsightHypothesis(Base):
         String, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True), default=func.now(), server_default=func.now(), nullable=False
+        TIMESTAMP_COMPAT, default=func.now(), server_default=func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True), default=func.now(), server_default=func.now(), onupdate=func.now(), nullable=False
+        TIMESTAMP_COMPAT, default=func.now(), server_default=func.now(), onupdate=func.now(), nullable=False
     )
     hypothesis_type: Mapped[str] = mapped_column(
         String(40),
@@ -515,10 +518,10 @@ class InsightHypothesis(Base):
         JSONB_COMPAT, default=dict, server_default="{}", nullable=False
     )
     evidence_window_start: Mapped[Optional[datetime]] = mapped_column(
-        TIMESTAMP(timezone=True), nullable=True
+        TIMESTAMP_COMPAT, nullable=True
     )
     evidence_window_end: Mapped[Optional[datetime]] = mapped_column(
-        TIMESTAMP(timezone=True), nullable=True
+        TIMESTAMP_COMPAT, nullable=True
     )
     evidence_count: Mapped[int] = mapped_column(
         Integer,
@@ -561,7 +564,10 @@ class InsightHypothesis(Base):
 
 class AdminAuditLog(Base):
     __tablename__ = "admin_audit_log"
-    __table_args__ = {"schema": "app"}
+    if os.environ.get("SERENE_BACKEND_TESTING") == "1":
+        __table_args__ = {}
+    else:
+        __table_args__ = {"schema": "app"}
 
     audit_id: Mapped[int] = mapped_column(BIGINT, primary_key=True, autoincrement=True)
     # admin_id is a virtual ID generated on-the-fly, not linked to app.users

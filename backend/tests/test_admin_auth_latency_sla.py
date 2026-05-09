@@ -5,6 +5,8 @@ from fastapi.testclient import TestClient
 from app.api.v1.routers import admin as admin_router
 from app.main import app
 from app.services.auth_latency_metrics import observe_auth_latency, reset_auth_latency_metrics
+from app.services.db.session import get_db
+from app.api.deps import get_admin_claims
 
 
 class _FakeDb:
@@ -27,13 +29,14 @@ def test_admin_auth_latency_sla_returns_login_and_signup_snapshots(monkeypatch):
         observe_auth_latency(flow="signup", duration_ms=value, success=True)
 
     fake_db = _FakeDb()
-    monkeypatch.setattr(admin_router, "enforce_admin_ip", lambda _request: None)
+    from app.api.v1.routers.admin import auth as admin_auth_module
+    monkeypatch.setattr(admin_auth_module, "enforce_admin_ip", lambda _request: None)
 
     def override_db():
         yield fake_db
 
-    app.dependency_overrides[admin_router.get_db] = override_db
-    app.dependency_overrides[admin_router.get_admin_claims] = lambda: {"sub": "adm_test"}
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_admin_claims] = lambda: {"sub": "adm_test"}
     try:
         with TestClient(app) as client:
             resp = client.get("/v1/admin/auth/latency-sla")
