@@ -1,7 +1,16 @@
 import type { ApiEnvelope } from './types'
 import { ApiRequestError } from './types'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/v1'
+/** Production / khi chạy FE tách host — trỏ thẳng FastAPI. */
+const DEFAULT_API_BASE_URL = 'http://localhost:8000/v1'
+
+function resolveApiBaseUrl(): string {
+    const fromEnv = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim()
+    if (fromEnv) return fromEnv
+    return DEFAULT_API_BASE_URL
+}
+
+const API_BASE_URL = resolveApiBaseUrl()
 export const HTTP_UNAUTHORIZED_EVENT = 'serene:http-unauthorized'
 
 export function getApiBaseUrl(): string {
@@ -25,6 +34,7 @@ let csrfToken: string | null = null
 let lastUnauthorizedAt = 0
 let isRefreshing = false
 let refreshQueue: Array<(success: boolean) => void> = []
+let refreshSubscribers: ((error: Error | null) => void)[] = []
 
 function readCookie(name: string): string | null {
     if (typeof document === 'undefined') return null
@@ -44,9 +54,6 @@ async function parseJsonSafely(response: Response): Promise<unknown> {
         return null
     }
 }
-
-let isRefreshing = false
-let refreshSubscribers: ((error: Error | null) => void)[] = []
 
 function onRefreshed(error: Error | null) {
     refreshSubscribers.forEach((cb) => cb(error))
