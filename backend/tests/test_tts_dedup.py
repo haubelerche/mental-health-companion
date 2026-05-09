@@ -38,7 +38,9 @@ def db():
     def set_sqlite_pragma(conn, _):
         conn.execute("PRAGMA foreign_keys=ON")
 
-    Base.metadata.create_all(engine)
+    # Exclude schema-qualified tables (e.g. schema="app") — SQLite has no schema support.
+    tables_for_sqlite = [t for t in Base.metadata.sorted_tables if not t.schema]
+    Base.metadata.create_all(engine, tables=tables_for_sqlite)
     with Session(engine) as session:
         user = User(
             user_id="usr_tts_test",
@@ -252,6 +254,96 @@ class TestDedupStatusFor:
         from app.voice.dedup import dedup_status_for
 
         assert dedup_status_for("processing") == "skipped_duplicate"
+
+
+# ---------------------------------------------------------------------------
+# enqueue_voice_job — dedup + provider_disabled paths
+# ---------------------------------------------------------------------------
+
+class TestEnqueueVoiceJob:
+    """Integration tests for enqueue_voice_job dedup and provider-disabled paths.
+
+    Uses SQLite in-memory, patches render_tts_audio so no real network I/O.
+    """
+
+    def test_same_signature_returns_skipped_duplicate(self, db):
+        """Second enqueue with identical inputs must return skipped_duplicate, not a new row."""
+        from unittest.mock import patch
+        from app.services.proactive_voice import enqueue_voice_job
+
+        snapshot = {"distress_score": 0.5, "risk_level": 2, "safety_tier": "elevated"}
+        common_kwargs = dict(
+            user_id="usr_tts_test",
+            session_id="sess_dedup",
+            voice_script="Mình đang ở đây với bạn.",
+            trigger_reason="test",
+            trigger_snapshot=snapshot,
+        )
+
+        with patch("app.services.proactive_voice.render_tts_audio") as mock_render:
+            mock_render.return_value = {"audio_path": "", "provider": "elevenlabs", "duration": 0.0, "chars": 10, "success": False, "fallback": False}
+            first = enqueue_voice_job(db, **common_kwargs)
+            second = enqueue_voice_job(db, **common_kwargs)
+
+        assert first.get("tts_job_id") is not None
+        assert second.get("status") in ("skipped_duplicate", "cache_hit"), (
+            f"Expected dedup status, got {second.get('status')!r}"
+        )
+        assert second.get("tts_job_id") == first.get("tts_job_id")
+
+    def test_provider_disabled_returns_terminal_status(self, db):
+        """When _VOICE_PROVIDER_BLOCKED_CODE is set, enqueue must return provider_disabled immediately."""
+        import app.services.proactive_voice as pv_mod
+        from app.services.proactive_voice import enqueue_voice_job
+
+        original = pv_mod._VOICE_PROVIDER_BLOCKED_CODE
+        pv_mod._VOICE_PROVIDER_BLOCKED_CODE = "elevenlabs_credentials_missing"
+        try:
+            result = enqueue_voice_job(
+                db,
+                user_id="usr_tts_test",
+                session_id="sess_disabled",
+                voice_script="Test script.",
+                trigger_reason="test",
+                trigger_snapshot={"distress_score": 0.9, "risk_level": 5, "safety_tier": "critical"},
+            )
+        finally:
+            pv_mod._VOICE_PROVIDER_BLOCKED_CODE = original
+
+        assert result["status"] == "provider_disabled"
+        assert result["tts_job_id"] is None
+        assert result["voice_disabled"] is True
+
+    def test_failed_existing_job_allows_new_job(self, db):
+        """A failed job must not block new job creation (dedup skips failed status)."""
+        from unittest.mock import patch
+        from app.voice.dedup import compute_event_signature
+        from app.services.proactive_voice import enqueue_voice_job
+
+        # Pre-insert a failed job with matching signature
+        sig = compute_event_signature(
+            session_id="sess_failed_new",
+            voice_style_id="warm_friend",
+            voice_script="Hít thở chậm.",
+            provider="elevenlabs",
+        )
+        _make_outbox(db, sig, "failed")
+
+        snapshot = {"distress_score": 0.7, "risk_level": 3, "safety_tier": "elevated"}
+        with patch("app.services.proactive_voice.render_tts_audio") as mock_render:
+            mock_render.return_value = {"audio_path": "", "provider": "elevenlabs", "duration": 0.0, "chars": 5, "success": False, "fallback": False}
+            result = enqueue_voice_job(
+                db,
+                user_id="usr_tts_test",
+                session_id="sess_failed_new",
+                voice_script="Hít thở chậm.",
+                trigger_reason="test_retry",
+                trigger_snapshot=snapshot,
+            )
+
+        # Should create a new job, not reuse the failed one
+        assert result.get("status") == "queued"
+        assert result.get("tts_job_id") is not None
 
 
 # ---------------------------------------------------------------------------
