@@ -81,7 +81,7 @@ export default function NotificationModal({ open, onClose }: Props) {
             shouldCloseOnOverlayClick
             contentLabel="Thông báo"
             className="relative z-[81] mb-5 flex max-h-[80dvh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border shadow-2xl border-theme-border bg-theme-surface outline-none"
-            overlayClassName="fixed inset-0 z-[80] flex items-end justify-center sm:items-center bg-black/45 backdrop-blur-[2px]"
+            overlayClassName="fixed inset-0 z-[80] flex items-end justify-center sm:items-center bg-black/50 backdrop-blur-xs"
         >
             <div className={`flex items-center justify-between border-b px-5 py-4 border-theme-secondary/40`}>
                 <div>
