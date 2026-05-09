@@ -13,11 +13,11 @@ import {
 } from 'recharts'
 import { httpClient } from '../../../api/httpClient'
 import { useAuth } from '../../../hooks/useAuth'
-import { WellnessRadar, type WellnessScores } from '../../wellness/WellnessRadar'
-import { MoodCalendar, type MoodPoint } from '../../wellness/MoodCalendar'
+import { WellnessRadar, type WellnessScores } from '../wellness/WellnessRadar'
+import { MoodCalendar, type MoodPoint } from '../wellness/MoodCalendar'
 import { useThemeContext } from '../../../contexts/ThemeContext'
-import { DayDetailSheet, type DayDetail } from '../../wellness/DayDetailSheet'
-import { ProgressStats } from '../../wellness/ProgressStats'
+import { DayDetailSheet, type DayDetail } from '../wellness/DayDetailSheet'
+import { ProgressStats } from '../wellness/ProgressStats'
 import { dashboardService, type DashboardReflectSummary } from '../../../services/dashboardService'
 import { TinHieuCard } from '../../dashboard/TinHieuCard'
 import { WellnessDimensionCards } from '../../dashboard/WellnessDimensionCards'
@@ -189,7 +189,6 @@ export default function Reflect() {
             <CheckinHistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} isDark={isDark} />
 
             <div className="flex-1">
-
                 <div className="mx-auto flex w-full max-w-5xl flex-col items-center">
                     <section className={`w-full rounded-[2.5rem] border ${isDark ? 'border-theme-border/50 bg-theme-surface/40' : 'border-theme-border/10 bg-white/40 shadow-sm'} p-4 backdrop-blur-3xl md:p-7 lg:p-8`}>
                         <div className="text-center">

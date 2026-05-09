@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
-import type { RewardShelf as RewardShelfType } from '../../services/rewardsService'
-import { rewardsService } from '../../services/rewardsService'
+import type { RewardShelf as RewardShelfType } from '../../../services/rewardsService'
+import { rewardsService } from '../../../services/rewardsService'
 import RewardShelf from '../rewards/RewardShelf'
 import KnowledgeShelf from '../rewards/KnowledgeShelf'
 import HeartBalanceBadge from '../rewards/HeartBalanceBadge'
-import { ApiRequestError } from '../../api/types'
-import Loading from '../ui/Loading'
-import { useThemeContext } from '../../contexts/ThemeContext'
-import bg from '../../assets/nen2.gif'
+import { ApiRequestError } from '../../../api/types'
+import Loading from '../../ui/Loading'
+import { useThemeContext } from '../../../contexts/ThemeContext'
+import bg from '../../../assets/nen2.gif'
 export default function RewardsPage() {
     const [shelves, setShelves] = useState<RewardShelfType[]>([])
     const [balance, setBalance] = useState(0)

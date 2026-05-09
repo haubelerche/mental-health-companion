@@ -34,7 +34,7 @@ import AdminAuditLogs from '../components/admin/AdminAuditLogs'
 import AdminNotifications from '../components/admin/AdminNotifications.tsx'
 import AdminMain from '../components/admin/layout/AdminMain.tsx'
 import Home from '../components/pages/Home.tsx'
-import RewardsPage from '../components/pages/RewardsPage.tsx'
+import RewardsPage from '../components/pages/rewards/RewardsPage.tsx'
 import NotificationsPage from '../components/pages/notifications/Notifications.tsx'
 
 function RequireAuth({ children }: { children: ReactElement }) {

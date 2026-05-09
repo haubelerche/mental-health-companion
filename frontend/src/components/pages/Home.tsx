@@ -33,7 +33,7 @@ import { ROUTE_PATHS } from '../../routes/paths'
 import { CheckinHistoryModal } from '../dashboard/CheckinHistoryModal'
 import { MoodWordChips } from '../common/MoodWordChips'
 import { StreakBar } from '../common/StreakBar'
-import { WellnessRadar, type WellnessScores } from '../wellness/WellnessRadar'
+import { WellnessRadar, type WellnessScores } from './wellness/WellnessRadar'
 import { useAuth } from '../../hooks/useAuth'
 import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
 import { useThemeContext } from '../../contexts/ThemeContext'
@@ -440,466 +440,465 @@ export default function Home() {
     const displayName = user?.displayName || 'bạn'
 
     return (
-        <div className="space-y-6 pb-8 lg:space-y-8">
+        <div className="relative min-h-screen overflow-hidden ">
             <CheckinHistoryModal open={checkinHistoryOpen} onClose={() => setCheckinHistoryOpen(false)} isDark={isDark} />
-
-            {/* ── Greeting header ── */}
-            <header className="flex items-start justify-between gap-4">
-                <div>
-
-                    <h1 className={`mt-1 font-display text-2xl italic ${isDark ? 'text-theme-text-primary' : 'text-white'} sm:text-3xl`}>
-                        {getGreeting()}! {displayName}
-                    </h1>
-                </div>
-                <div className="flex items-center gap-3 rounded-full bg-theme-surface/80 px-4 py-2 backdrop-blur-sm border border-theme-border/50 shadow-sm">
-                    <span className="flex items-center gap-1 text-sm font-bold text-rose-500 dark:text-rose-400">
-                        <Heart className="h-4 w-4 fill-current" />
-                        {hearts === null ? (
-                            <span className="h-3 w-6 bg-theme-accent/50 animate-pulse rounded-full" />
-                        ) : (
-                            hearts
-                        )}
-                    </span>
-                    <span className="h-4 w-px bg-theme-secondary" />
-                    <span className="flex items-center gap-1 text-sm font-bold text-amber-600 dark:text-amber-400">
-                        <Flame className="h-4 w-4 fill-current" />
-                        {backendStreakDays === null ? (
-                            <span className="h-3 w-6 bg-theme-accent/50 animate-pulse rounded-full" />
-                        ) : (
-                            streak
-                        )}
-                    </span>
-                </div>
-            </header>
-
-            {/* ── Today's plan + streak ── */}
-            <section className="rounded-[2.5rem] bg-theme-surface/60 p-6 backdrop-blur-3xl border border-theme-border/50 shadow-sm">
-                <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
+            <div className="space-y-6 pb-8 lg:space-y-8">
+                {/* ── Greeting header ── */}
+                <header className="flex items-start justify-between gap-4">
                     <div>
-                        <div className="mb-5 flex items-center justify-between gap-4">
-                            <h2 className="font-display text-3xl text-theme-text-primary">Nhịp sống hôm nay</h2>
-                            <span className="rounded-full bg-theme-accent/10 px-3 py-1 text-sm font-semibold text-theme-accent">
-                                {TIME_SLOT_META[currentSlot].label} · {TIME_SLOT_META[currentSlot].range}
-                            </span>
-                        </div>
 
-
-                        <div className="space-y-3">
-                            {currentReminders.map((item) => {
-                                const active = selectedReminderId === item.id
-                                return (
-                                    <button
-                                        key={item.id}
-                                        type="button"
-                                        onClick={() => {
-                                            setSelectedReminderId(item.id)
-                                            setDetailReminderId(item.id)
-                                        }}
-                                        className={[
-                                            'flex w-full items-center gap-3 rounded-2xl p-4 text-left transition active:scale-[0.98] cursor-pointer border',
-                                            active
-                                                ? 'bg-theme-accent/20 border-theme-accent/30'
-                                                : 'bg-theme-surface/60 hover:bg-theme-accent/10 border-theme-border/30',
-                                        ].join(' ')}
-                                    >
-                                        <Info className={`h-5 w-5 shrink-0 ${active ? 'text-theme-accent' : 'text-theme-text-secondary'}`} />
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-lg font-semibold text-theme-text-primary">{item.title}</p>
-                                            <p className="mt-0.5 text-sm text-theme-text-secondary">{item.summary}</p>
-                                        </div>
-                                        <ChevronRight className={`h-4 w-4 ${active ? 'text-theme-accent' : 'text-theme-text-secondary/60'}`} />
-                                    </button>
-                                )
-                            })}
-                        </div>
-
-                        <div className="mt-5 border-t border-theme-border/50 pt-5">
-                            <button
-                                type="button"
-                                onClick={() => setCheckinHistoryOpen(true)}
-                                className="mb-3 cursor-pointer inline-flex items-center gap-2 text-left text-sm font-semibold uppercase tracking-[0.22em] text-theme-text-secondary underline-offset-4 hover:underline"
-                            >
-                                Chuỗi tuần này <ChevronRight className="h-5 w-5 text-theme-text-secondary/60" />
-                            </button>
-                            {backendStreakDays === null ? (
-                                <div className="flex items-center justify-between">
-                                    {/* skeleton */}
-                                    {Array.from({ length: 7 }).map((_, index) => (
-                                        <div
-                                            key={index}
-                                            className="flex h-10 w-10 animate-pulse rounded-full bg-theme-accent/50"
-                                        />
-                                    ))}
-                                </div>
+                        <h1 className={`mt-1 font-display text-2xl italic ${isDark ? 'text-theme-text-primary' : 'text-white'} sm:text-3xl`}>
+                            {getGreeting()}! {displayName}
+                        </h1>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-full bg-theme-surface/80 px-4 py-2 backdrop-blur-sm border border-theme-border/50 shadow-sm">
+                        <span className="flex items-center gap-1 text-sm font-bold text-rose-500 dark:text-rose-400">
+                            <Heart className="h-4 w-4 fill-current" />
+                            {hearts === null ? (
+                                <span className="h-3 w-6 bg-theme-accent/50 animate-pulse rounded-full" />
                             ) : (
-                                <StreakBar streak={streak} isTodayCompleted={isTodayCompleted} completedDays={completedDays} />
+                                hearts
+                            )}
+                        </span>
+                        <span className="h-4 w-px bg-theme-secondary" />
+                        <span className="flex items-center gap-1 text-sm font-bold text-amber-600 dark:text-amber-400">
+                            <Flame className="h-4 w-4 fill-current" />
+                            {backendStreakDays === null ? (
+                                <span className="h-3 w-6 bg-theme-accent/50 animate-pulse rounded-full" />
+                            ) : (
+                                streak
+                            )}
+                        </span>
+                    </div>
+                </header>
+
+                {/* ── Today's plan + streak ── */}
+                <section className="rounded-[2.5rem] bg-theme-surface/60 p-6 backdrop-blur-3xl border border-theme-border/50 shadow-sm">
+                    <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
+                        <div>
+                            <div className="mb-5 flex items-center justify-between gap-4">
+                                <h2 className="font-display text-3xl text-theme-text-primary">Nhịp sống hôm nay</h2>
+                                <span className="rounded-full bg-theme-accent/10 px-3 py-1 text-sm font-semibold text-theme-accent">
+                                    {TIME_SLOT_META[currentSlot].label} · {TIME_SLOT_META[currentSlot].range}
+                                </span>
+                            </div>
+
+
+                            <div className="space-y-3">
+                                {currentReminders.map((item) => {
+                                    const active = selectedReminderId === item.id
+                                    return (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedReminderId(item.id)
+                                                setDetailReminderId(item.id)
+                                            }}
+                                            className={[
+                                                'flex w-full items-center gap-3 rounded-2xl p-4 text-left transition active:scale-[0.98] cursor-pointer border',
+                                                active
+                                                    ? 'bg-theme-accent/20 border-theme-accent/30'
+                                                    : 'bg-theme-surface/60 hover:bg-theme-accent/10 border-theme-border/30',
+                                            ].join(' ')}
+                                        >
+                                            <Info className={`h-5 w-5 shrink-0 ${active ? 'text-theme-accent' : 'text-theme-text-secondary'}`} />
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-lg font-semibold text-theme-text-primary">{item.title}</p>
+                                                <p className="mt-0.5 text-sm text-theme-text-secondary">{item.summary}</p>
+                                            </div>
+                                            <ChevronRight className={`h-4 w-4 ${active ? 'text-theme-accent' : 'text-theme-text-secondary/60'}`} />
+                                        </button>
+                                    )
+                                })}
+                            </div>
+
+                            <div className="mt-5 border-t border-theme-border/50 pt-5">
+                                <button
+                                    type="button"
+                                    onClick={() => setCheckinHistoryOpen(true)}
+                                    className="mb-3 cursor-pointer inline-flex items-center gap-2 text-left text-sm font-semibold uppercase tracking-[0.22em] text-theme-text-secondary underline-offset-4 hover:underline"
+                                >
+                                    Chuỗi tuần này <ChevronRight className="h-5 w-5 text-theme-text-secondary/60" />
+                                </button>
+                                {backendStreakDays === null ? (
+                                    <div className="flex items-center justify-between">
+                                        {/* skeleton */}
+                                        {Array.from({ length: 7 }).map((_, index) => (
+                                            <div
+                                                key={index}
+                                                className="flex h-10 w-10 animate-pulse rounded-full bg-theme-accent/50"
+                                            />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <StreakBar streak={streak} isTodayCompleted={isTodayCompleted} completedDays={completedDays} />
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="relative overflow-hidden rounded-[26px] min-h-[280px] shadow-xl">
+                            <img
+                                src={TIME_SLOT_BG[currentSlot]}
+                                alt="Khung cảnh thiên nhiên dịu nhẹ cho phần nhịp hôm nay"
+                                className="absolute inset-0 h-full w-full object-cover "
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent" />
+                            <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                                <p className="text-lg uppercase tracking-[0.22em] text-white">Khoảnh khắc hiện tại</p>
+                                <p className="mt-2 text-lg font-semibold">{TIME_SLOT_META[currentSlot].label}</p>
+                                <p className="mt-1 text-sm leading-relaxed text-white/90">{TIME_SLOT_META[currentSlot].intro}</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* ── Dành cho bạn ── */}
+                <section className="bg-theme-surface/60 p-6 rounded-4xl backdrop-blur-xl border border-theme-border/50 shadow-sm">
+
+                    <div className="flex items-center justify-between gap-4">
+                        <div>
+                            <h2 className="font-display text-3xl text-theme-text-primary">Gợi ý nhẹ nhàng</h2>
+                            <p className="mt-2 text-xs lg:text-base  text-theme-text-secondary">
+                                Chọn một lối vào ngắn, nhẹ và đúng nhu cầu hiện tại để bạn bắt đầu nhanh hơn.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => navigate(ROUTE_PATHS.exercises)}
+                            className="font-medium text-theme-accent underline underline-offset-4 cursor-pointer transition hover:text-theme-accent/70"
+                        >
+                            Xem tất cả
+                        </button>
+                    </div>
+
+                    <div className="relative overflow-hidden rounded-[24px] min-h-[300px] shadow-lg mt-5">
+                        <img
+                            src={exerciseImg}
+                            alt="Một hình minh họa cho các gợi ý bắt đầu nhanh"
+                            className={`absolute inset-0 h-full w-full object-cover ${isDark ? 'brightness-75' : ''}`}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/30 to-transparent" />
+                        <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+                            <p className="text-sm font-bold uppercase tracking-[0.2em] text-theme-text-secondary">Bắt đầu từ một hơi thở</p>
+                            <p className="mt-1 text-sm ">Một chạm là có thể bắt đầu ngay</p>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide mt-5">
+                        {recoCards.map((card) => {
+                            const RecoIcon = card.icon
+                            return (
+                                <button
+                                    key={card.label}
+                                    type="button"
+                                    onClick={() => navigate(card.route)}
+                                    className={`cursor-pointer flex min-w-[148px] shrink-0 flex-col gap-3 rounded-[22px] p-4 text-left border backdrop-blur-xl transition-all hover:scale-105 active:scale-[0.97] ${card.cardClass}`}
+                                >
+                                    <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl ${card.accentClass}`}>
+                                        <RecoIcon className="h-6 w-6" aria-hidden />
+                                    </div>
+                                    <div>
+                                        <p className=" font-semibold text-theme-text-primary leading-tight">{card.label}</p>
+                                        <p className="mt-1 text-sm text-theme-text-secondary">{card.desc}</p>
+                                    </div>
+                                </button>
+                            )
+                        })}
+                    </div>
+                </section>
+
+                <section className="rounded-4xl bg-theme-surface/60 p-6 backdrop-blur-xl border border-theme-border/50 shadow-sm">
+                    <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
+                        <div>
+                            <p className="font-semibold uppercase tracking-[0.2em] text-theme-text-primary">Bạn đang cảm thấy thế nào?</p>
+                            <p className="mt-2 max-w-xl text-sm leading-relaxed text-theme-text-secondary">
+                                Chọn 1-3 từ mô tả điều đang diễn ra bên trong bạn. Những từ nhỏ cũng đủ giúp bạn nhìn rõ mình hơn.
+                            </p>
+
+                            <div className="mt-4">
+                                <div className="relative h-full overflow-hidden rounded-[22px] min-h-[200px]">
+                                    <img
+                                        src={healingImg}
+                                        alt="Không gian chữa lành dịu nhẹ cho phần chọn từ mô tả tâm trạng"
+                                        className={`absolute inset-0 h-full w-full object-cover ${isDark ? 'brightness-75' : ''}`}
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+                                    <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+                                        <p className="text-xs uppercase tracking-[0.22em] text-theme-text-secondary">Lắng dịu</p>
+                                        <p className="mt-1 text-sm font-semibold">Nhìn vào ảnh, rồi gọi tên cảm xúc của mình</p>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div className=" sm:p-6">
+                            <div className="mb-4 flex items-center justify-between gap-4">
+                                <div>
+                                    <h3 className=" uppercase tracking-[0.2em] font-display text-theme-text-primary">Lời nhắn cho bạn</h3>
+                                </div>
+                                <div className="mt-4 flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        aria-label="Câu trước"
+                                        onClick={() => setQuoteIndex((current) => (current - 1 + Math.max(quotes.length, 1)) % Math.max(quotes.length, 1))}
+                                        className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-theme-surface/80 text-theme-text-primary border border-theme-border/30 shadow-sm transition duration-200 ease-in-out hover:bg-theme-accent/10 cursor-pointer"
+                                    >
+                                        <ChevronLeft className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        aria-label="Câu sau"
+                                        onClick={() => setQuoteIndex((current) => (current + 1) % Math.max(quotes.length, 1))}
+                                        className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-theme-surface/80 text-theme-text-primary border border-theme-border/30 shadow-sm transition duration-200 ease-in-out hover:bg-theme-accent/10 cursor-pointer"
+                                    >
+                                        <ChevronRight className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="relative min-h-[212px] overflow-hidden rounded-3xl bg-theme-surface/80 p-5 sm:p-6 shadow-sm border border-theme-border/30">
+                                <img
+                                    src={beachMessageBg}
+                                    alt="Nền sóng biển dịu để làm nổi bật câu nhắc"
+                                    className="absolute inset-0 h-full w-full object-cover opacity-20"
+                                />
+                                <div className="absolute inset-0 bg-theme-bg-primary/20" />
+
+                                <AnimatePresence mode="wait">
+                                    <motion.div
+                                        key={activeQuote?.id || 'default-quote'}
+                                        initial={{ opacity: 0, x: 20, filter: 'blur(6px)' }}
+                                        animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+                                        exit={{ opacity: 0, x: -20, filter: 'blur(6px)' }}
+                                        transition={{ duration: 0.4, ease: 'easeOut' }}
+                                        className="relative flex h-full flex-col justify-between"
+                                    >
+                                        <blockquote className="font-display text-[1.15rem] italic leading-8 text-theme-text-primary sm:text-[1.55rem]">
+                                            {quoteContent}
+                                        </blockquote>
+                                        <div className="mt-6 flex items-center justify-between gap-4">
+                                            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-theme-text-secondary/75">
+                                                {quoteAuthor}
+                                            </p>
+                                            <div className="flex items-center gap-1.5">
+                                                {quotes.slice(0, 5).map((item, index) => (
+                                                    <button
+                                                        key={item.id}
+                                                        type="button"
+                                                        aria-label={`Chuyển sang câu ${index + 1}`}
+                                                        onClick={() => setQuoteIndex(index)}
+                                                        className={`h-2.5 rounded-full transition-all duration-200 ease-in-out ${index === quoteIndex % Math.max(quotes.length, 1) ? 'w-8 bg-theme-accent' : 'w-2.5 bg-theme-secondary'}`}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                </AnimatePresence>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div className="mt-4">
+                        <div className="mb-4">
+                            <MoodWordChips selected={homeMoodWords} onChange={setHomeMoodWords} />
+                        </div>
+                        {homeMoodWords.length > 0 && (
+                            <motion.button
+                                type="button"
+                                onClick={() =>
+                                    navigate(ROUTE_PATHS.checkin, { state: { moodWords: homeMoodWords } })
+                                }
+                                className="mt-4 inline-flex items-center gap-2 rounded-full bg-theme-accent text-white px-5 py-2.5 text-sm font-semibold transition duration-200 ease-in-out hover:bg-theme-accent/80 cursor-pointer"
+                            >
+                                Ghi chép thêm
+                                <motion.div animate={{ x: [0, 3, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
+                                    <ArrowRight className="h-4 w-4" />
+                                </motion.div>
+                            </motion.button>
+                        )}
+                    </div>
+                </section>
+
+                <motion.button
+                    type="button"
+                    onClick={() => navigate(ROUTE_PATHS.nutrition)}
+                    whileHover={{ y: -4 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                    className="group w-full rounded-[2.5rem] bg-theme-surface/60 p-7 text-left backdrop-blur-xl shadow-sm border border-theme-border/50 transition-all active:scale-[0.98]"
+                >
+                    <div className="grid gap-5 lg:grid-cols-[220px_1fr_auto] lg:items-center cursor-pointer">
+                        <div className="relative overflow-hidden rounded-[24px] min-h-[170px] shadow-sm">
+                            <img
+                                src={nutritionImg}
+                                alt="Món ăn gợi ý cho phần dinh dưỡng"
+                                className={`absolute inset-0 h-full w-full object-cover`}
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent" />
+                            <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                                <p className="text-xs uppercase tracking-[0.19em] text-theme-text-secondary">Nuôi dưỡng cơ thể</p>
+                                <p className="mt-1 text-xs font-semibold">Ăn đủ để mood cũng được nâng lên</p>
+                            </div>
+                        </div>
+
+                        <div className="flex-1">
+                            <p className="text-xs uppercase tracking-[0.2em] font-bold text-theme-text-secondary">Món ăn hôm nay</p>
+                            <h2 className="mt-2.5 font-display text-2xl text-theme-text-primary group-hover:text-theme-accent transition-colors">
+                                {nutritionTip?.dish || 'Yến mạch + trái cây + hạt'}
+                            </h2>
+                            <p className="mt-3 leading-relaxed text-theme-text-secondary">
+                                {nutritionTip?.benefit || 'Bữa ăn đủ đạm và chất xơ giúp ổn định mood, giảm cảm giác tụt năng lượng.'}
+                            </p>
+                        </div>
+                        <ArrowRight className="h-5 w-5 text-theme-text-secondary transition group-hover:translate-x-1" />
+                    </div>
+                </motion.button>
+
+                {/* ── Quick action grid 2×2 ── */}
+                <section className="p-6 bg-theme-surface/60 backdrop-blur-3xl rounded-[2.5rem] border border-theme-border/50 shadow-sm">
+                    <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_220px] lg:items-center">
+                        <div>
+                            <h2 className="font-display text-3xl text-theme-text-primary">Lối vào nhanh</h2>
+                            <p className="mt-2 max-w-2xl text-theme-text-secondary">
+                                Các lối vào ngắn để bạn chuyển nhanh từ cảm nhận sang hành động.
+                            </p>
+                        </div>
+
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                        {QUICK_ACTIONS.map((action) => {
+                            const Icon = action.icon
+                            return (
+                                <Link
+                                    key={action.label}
+                                    to={action.route}
+                                    className="group relative flex flex-col gap-4 rounded-[22px] overflow-hidden p-6 text-left border border-theme-border/30 shadow-sm hover:scale-105 duration-500 transition-all"
+                                >
+                                    <img
+                                        src={action.gif}
+                                        alt={action.label}
+                                        className="absolute inset-0 h-full w-full object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" /> {/* Overlay */}
+                                    <div className="relative z-10 flex flex-col gap-4">
+                                        <div
+                                            className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white text-serene-primary border-2 border-serene-primary`}
+                                        >
+                                            <Icon className="h-6 w-6" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-white leading-tight">{action.label}</p>
+                                            <p className="mt-1 text-sm text-white/90">{action.desc}</p>
+                                        </div>
+                                    </div>
+                                </Link>
+                            )
+                        })}
+                    </div>
+                </section>
+
+                {/* ── Wellness radar mini preview ── */}
+                <button
+                    type="button"
+                    onClick={() => navigate(ROUTE_PATHS.reflect)}
+                    className="group relative w-full overflow-hidden rounded-3xl bg-theme-surface/50 p-7 text-left backdrop-blur-xl shadow-lg hover:brightness-105 transition-all"
+                >
+
+                    <div className="flex items-center justify-between gap-5">
+                        <div className="flex-1">
+                            <motion.p
+                                initial={{ opacity: 0.8 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ duration: 1.5, repeat: Infinity }}
+                                className="text-xs uppercase tracking-[0.22em] font-semibold text-theme-text-primary/90"
+                            >
+                                ✨ Hành trình của bạn tuần này
+                            </motion.p>
+                            <h3 className="mt-2 font-display text-2xl text-theme-text-primary">
+                                Bức tranh sức khoẻ
+                            </h3>
+
+                            <motion.div
+                                animate={{ x: [0, 4, 0] }}
+                                transition={{ duration: 1.2, repeat: Infinity }}
+                                className="mt-3"
+                            >
+                                <ArrowRight className="h-5 w-5 text-theme-text-primary/70 transition group-hover:translate-x-1" />
+                            </motion.div>
+                        </div>
+                        <div className="relative shrink-0">
+                            {wellnessScores ? (
+                                <motion.div
+                                    initial={{ scale: 0.8, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    transition={{ duration: 1.5, ease: 'easeOut' }}
+                                >
+                                    <WellnessRadar scores={wellnessScores} mini />
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    initial={{ scale: 0.9, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                                    className="flex h-39 w-32 items-center justify-center rounded-3xl bg-theme-surface/20 backdrop-blur-sm border border-theme-border/20"
+                                >
+                                    <div className="text-center px-3">
+                                        <motion.div
+                                            animate={{ y: [-2, 2, -2] }}
+                                            transition={{ duration: 2, repeat: Infinity }}
+                                            className="mb-2 flex justify-center text-theme-accent"
+                                        >
+                                            <Leaf className="h-10 w-10 opacity-90" aria-hidden />
+                                        </motion.div>
+                                        <p className="text-center text-[11px] text-theme-text-secondary leading-relaxed font-medium">
+                                            Hãy check-in cảm xúc để khám phá sức khỏe của bạn
+                                        </p>
+                                    </div>
+                                </motion.div>
                             )}
                         </div>
                     </div>
+                </button>
 
-                    <div className="relative overflow-hidden rounded-[26px] min-h-[280px] shadow-xl">
-                        <img
-                            src={TIME_SLOT_BG[currentSlot]}
-                            alt="Khung cảnh thiên nhiên dịu nhẹ cho phần nhịp hôm nay"
-                            className="absolute inset-0 h-full w-full object-cover "
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent" />
-                        <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                            <p className="text-lg uppercase tracking-[0.22em] text-white">Khoảnh khắc hiện tại</p>
-                            <p className="mt-2 text-lg font-semibold">{TIME_SLOT_META[currentSlot].label}</p>
-                            <p className="mt-1 text-sm leading-relaxed text-white/90">{TIME_SLOT_META[currentSlot].intro}</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* ── Dành cho bạn ── */}
-            <section className="bg-theme-surface/60 p-6 rounded-[2rem] backdrop-blur-xl border border-theme-border/50 shadow-sm">
-
-                <div className="flex items-center justify-between gap-4">
-                    <div>
-                        <h2 className="font-display text-3xl text-theme-text-primary">Gợi ý nhẹ nhàng</h2>
-                        <p className="mt-2 text-xs lg:text-base  text-theme-text-secondary">
-                            Chọn một lối vào ngắn, nhẹ và đúng nhu cầu hiện tại để bạn bắt đầu nhanh hơn.
-                        </p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => navigate(ROUTE_PATHS.exercises)}
-                        className="font-medium text-theme-accent underline underline-offset-4 cursor-pointer transition hover:text-theme-accent/70"
+                {detailReminder && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="fixed inset-0 z-70 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm"
                     >
-                        Xem tất cả
-                    </button>
-                </div>
-
-                <div className="relative overflow-hidden rounded-[24px] min-h-[300px] shadow-lg mt-5">
-                    <img
-                        src={exerciseImg}
-                        alt="Một hình minh họa cho các gợi ý bắt đầu nhanh"
-                        className={`absolute inset-0 h-full w-full object-cover ${isDark ? 'brightness-75' : ''}`}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/30 to-transparent" />
-                    <div className="absolute inset-x-0 bottom-0 p-5 text-white">
-                        <p className="text-sm font-bold uppercase tracking-[0.2em] text-theme-text-secondary">Bắt đầu từ một hơi thở</p>
-                        <p className="mt-1 text-sm ">Một chạm là có thể bắt đầu ngay</p>
-                    </div>
-                </div>
-
-                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide mt-5">
-                    {recoCards.map((card) => {
-                        const RecoIcon = card.icon
-                        return (
-                            <button
-                                key={card.label}
-                                type="button"
-                                onClick={() => navigate(card.route)}
-                                className={`cursor-pointer flex min-w-[148px] shrink-0 flex-col gap-3 rounded-[22px] p-4 text-left border backdrop-blur-xl transition-all hover:scale-105 active:scale-[0.97] ${card.cardClass}`}
-                            >
-                                <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl ${card.accentClass}`}>
-                                    <RecoIcon className="h-6 w-6" aria-hidden />
-                                </div>
-                                <div>
-                                    <p className=" font-semibold text-theme-text-primary leading-tight">{card.label}</p>
-                                    <p className="mt-1 text-sm text-theme-text-secondary">{card.desc}</p>
-                                </div>
-                            </button>
-                        )
-                    })}
-                </div>
-            </section>
-
-            <section className="rounded-[2rem] bg-theme-surface/60 p-6 backdrop-blur-xl border border-theme-border/50 shadow-sm">
-                <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
-                    <div>
-                        <p className="font-semibold uppercase tracking-[0.2em] text-theme-text-primary">Bạn đang cảm thấy thế nào?</p>
-                        <p className="mt-2 max-w-xl text-sm leading-relaxed text-theme-text-secondary">
-                            Chọn 1-3 từ mô tả điều đang diễn ra bên trong bạn. Những từ nhỏ cũng đủ giúp bạn nhìn rõ mình hơn.
-                        </p>
-
-                        <div className="mt-4">
-                            <div className="relative h-full overflow-hidden rounded-[22px] min-h-[200px]">
-                                <img
-                                    src={healingImg}
-                                    alt="Không gian chữa lành dịu nhẹ cho phần chọn từ mô tả tâm trạng"
-                                    className={`absolute inset-0 h-full w-full object-cover ${isDark ? 'brightness-75' : ''}`}
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
-                                <div className="absolute inset-x-0 bottom-0 p-5 text-white">
-                                    <p className="text-xs uppercase tracking-[0.22em] text-theme-text-secondary">Lắng dịu</p>
-                                    <p className="mt-1 text-sm font-semibold">Nhìn vào ảnh, rồi gọi tên cảm xúc của mình</p>
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-
-                    <div className=" sm:p-6">
-                        <div className="mb-4 flex items-center justify-between gap-4">
-                            <div>
-                                <h3 className=" uppercase tracking-[0.2em] font-display text-theme-text-primary">Lời nhắn cho bạn</h3>
-                            </div>
-                            <div className="mt-4 flex items-center gap-2">
+                        <article className="w-full max-w-xl rounded-3xl bg-theme-surface p-6 shadow-2xl relative overflow-hidden border border-theme-border/50">
+                            <div className="absolute top-0 left-0 w-full h-1 bg-theme-accent opacity-50" />
+                            <div className="mb-5 flex items-center justify-between">
+                                <h3 className="font-display text-2xl text-theme-text-primary">{detailReminder.detailTitle}</h3>
                                 <button
                                     type="button"
-                                    aria-label="Câu trước"
-                                    onClick={() => setQuoteIndex((current) => (current - 1 + Math.max(quotes.length, 1)) % Math.max(quotes.length, 1))}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-theme-surface/80 text-theme-text-primary border border-theme-border/30 shadow-sm transition duration-200 ease-in-out hover:bg-theme-accent/10 cursor-pointer"
+                                    onClick={() => setDetailReminderId(null)}
+                                    className="rounded-full bg-theme-surface/50 hover:bg-theme-surface p-2 text-theme-text-secondary border border-theme-border/20 transition-colors"
                                 >
-                                    <ChevronLeft className="h-4 w-4" />
+                                    <X className="h-5 w-5" />
                                 </button>
+                            </div>
+                            <div className="space-y-4 text-theme-text-secondary leading-relaxed">
+                                <p>{detailReminder.importance}</p>
+                                <div className="rounded-2xl bg-theme-accent/10 p-4">
+                                    <p className="text-sm font-semibold text-theme-accent uppercase tracking-wider mb-1">Cảnh báo</p>
+                                    <p className="text-theme-text-primary">{detailReminder.downside}</p>
+                                </div>
+                            </div>
+                            {detailReminder.route && (
                                 <button
-                                    type="button"
-                                    aria-label="Câu sau"
-                                    onClick={() => setQuoteIndex((current) => (current + 1) % Math.max(quotes.length, 1))}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-theme-surface/80 text-theme-text-primary border border-theme-border/30 shadow-sm transition duration-200 ease-in-out hover:bg-theme-accent/10 cursor-pointer"
+                                    onClick={() => navigate(detailReminder.route!)}
+                                    className="mt-6 w-full rounded-2xl bg-theme-accent py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg transition hover:brightness-105 active:scale-95"
                                 >
-                                    <ChevronRight className="h-4 w-4" />
+                                    Thực hiện ngay
                                 </button>
-                            </div>
-                        </div>
-
-                        <div className="relative min-h-[212px] overflow-hidden rounded-3xl bg-theme-surface/80 p-5 sm:p-6 shadow-sm border border-theme-border/30">
-                            <img
-                                src={beachMessageBg}
-                                alt="Nền sóng biển dịu để làm nổi bật câu nhắc"
-                                className="absolute inset-0 h-full w-full object-cover opacity-20"
-                            />
-                            <div className="absolute inset-0 bg-theme-bg-primary/20" />
-
-                            <AnimatePresence mode="wait">
-                                <motion.div
-                                    key={activeQuote?.id || 'default-quote'}
-                                    initial={{ opacity: 0, x: 20, filter: 'blur(6px)' }}
-                                    animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-                                    exit={{ opacity: 0, x: -20, filter: 'blur(6px)' }}
-                                    transition={{ duration: 0.4, ease: 'easeOut' }}
-                                    className="relative flex h-full flex-col justify-between"
-                                >
-                                    <blockquote className="font-display text-[1.15rem] italic leading-8 text-theme-text-primary sm:text-[1.55rem]">
-                                        {quoteContent}
-                                    </blockquote>
-                                    <div className="mt-6 flex items-center justify-between gap-4">
-                                        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-theme-text-secondary/75">
-                                            {quoteAuthor}
-                                        </p>
-                                        <div className="flex items-center gap-1.5">
-                                            {quotes.slice(0, 5).map((item, index) => (
-                                                <button
-                                                    key={item.id}
-                                                    type="button"
-                                                    aria-label={`Chuyển sang câu ${index + 1}`}
-                                                    onClick={() => setQuoteIndex(index)}
-                                                    className={`h-2.5 rounded-full transition-all duration-200 ease-in-out ${index === quoteIndex % Math.max(quotes.length, 1) ? 'w-8 bg-theme-accent' : 'w-2.5 bg-theme-secondary'}`}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            </AnimatePresence>
-                        </div>
-                    </div>
-
-                </div>
-
-                <div className="mt-4">
-                    <div className="mb-4">
-                        <MoodWordChips selected={homeMoodWords} onChange={setHomeMoodWords} />
-                    </div>
-                    {homeMoodWords.length > 0 && (
-                        <motion.button
-                            type="button"
-                            onClick={() =>
-                                navigate(ROUTE_PATHS.checkin, { state: { moodWords: homeMoodWords } })
-                            }
-                            className="mt-4 inline-flex items-center gap-2 rounded-full bg-theme-accent text-white px-5 py-2.5 text-sm font-semibold transition duration-200 ease-in-out hover:bg-theme-accent/80 cursor-pointer"
-                        >
-                            Ghi chép thêm
-                            <motion.div animate={{ x: [0, 3, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
-                                <ArrowRight className="h-4 w-4" />
-                            </motion.div>
-                        </motion.button>
-                    )}
-                </div>
-            </section>
-
-            <motion.button
-                type="button"
-                onClick={() => navigate(ROUTE_PATHS.nutrition)}
-                whileHover={{ y: -4 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                className="group w-full rounded-[2.5rem] bg-theme-surface/60 p-7 text-left backdrop-blur-xl shadow-sm border border-theme-border/50 transition-all active:scale-[0.98]"
-            >
-                <div className="grid gap-5 lg:grid-cols-[220px_1fr_auto] lg:items-center cursor-pointer">
-                    <div className="relative overflow-hidden rounded-[24px] min-h-[170px] shadow-sm">
-                        <img
-                            src={nutritionImg}
-                            alt="Món ăn gợi ý cho phần dinh dưỡng"
-                            className={`absolute inset-0 h-full w-full object-cover`}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent" />
-                        <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                            <p className="text-xs uppercase tracking-[0.19em] text-theme-text-secondary">Nuôi dưỡng cơ thể</p>
-                            <p className="mt-1 text-xs font-semibold">Ăn đủ để mood cũng được nâng lên</p>
-                        </div>
-                    </div>
-
-                    <div className="flex-1">
-                        <p className="text-xs uppercase tracking-[0.2em] font-bold text-theme-text-secondary">Món ăn hôm nay</p>
-                        <h2 className="mt-2.5 font-display text-2xl text-theme-text-primary group-hover:text-theme-accent transition-colors">
-                            {nutritionTip?.dish || 'Yến mạch + trái cây + hạt'}
-                        </h2>
-                        <p className="mt-3 leading-relaxed text-theme-text-secondary">
-                            {nutritionTip?.benefit || 'Bữa ăn đủ đạm và chất xơ giúp ổn định mood, giảm cảm giác tụt năng lượng.'}
-                        </p>
-                    </div>
-                    <ArrowRight className="h-5 w-5 text-theme-text-secondary transition group-hover:translate-x-1" />
-                </div>
-            </motion.button>
-
-            {/* ── Quick action grid 2×2 ── */}
-            <section className="p-6 bg-theme-surface/60 backdrop-blur-3xl rounded-[2.5rem] border border-theme-border/50 shadow-sm">
-                <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_220px] lg:items-center">
-                    <div>
-                        <h2 className="font-display text-3xl text-theme-text-primary">Lối vào nhanh</h2>
-                        <p className="mt-2 max-w-2xl text-theme-text-secondary">
-                            Các lối vào ngắn để bạn chuyển nhanh từ cảm nhận sang hành động.
-                        </p>
-                    </div>
-
-                </div>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                    {QUICK_ACTIONS.map((action) => {
-                        const Icon = action.icon
-                        return (
-                            <Link
-                                key={action.label}
-                                to={action.route}
-                                className="group relative flex flex-col gap-4 rounded-[22px] overflow-hidden p-6 text-left border border-theme-border/30 shadow-sm hover:scale-105 duration-500 transition-all"
-                            >
-                                <img
-                                    src={action.gif}
-                                    alt={action.label}
-                                    className="absolute inset-0 h-full w-full object-cover"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" /> {/* Overlay */}
-                                <div className="relative z-10 flex flex-col gap-4">
-                                    <div
-                                        className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white text-serene-primary border-2 border-serene-primary`}
-                                    >
-                                        <Icon className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-white leading-tight">{action.label}</p>
-                                        <p className="mt-1 text-sm text-white/90">{action.desc}</p>
-                                    </div>
-                                </div>
-                            </Link>
-                        )
-                    })}
-                </div>
-            </section>
-
-            {/* ── Wellness radar mini preview ── */}
-            <button
-                type="button"
-                onClick={() => navigate(ROUTE_PATHS.reflect)}
-                className="group relative w-full overflow-hidden rounded-3xl bg-theme-surface/50 p-7 text-left backdrop-blur-xl shadow-lg hover:brightness-105 transition-all"
-            >
-
-                <div className="flex items-center justify-between gap-5">
-                    <div className="flex-1">
-                        <motion.p
-                            initial={{ opacity: 0.8 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 1.5, repeat: Infinity }}
-                            className="text-xs uppercase tracking-[0.22em] font-semibold text-theme-text-primary/90"
-                        >
-                            ✨ Hành trình của bạn tuần này
-                        </motion.p>
-                        <h3 className="mt-2 font-display text-2xl text-theme-text-primary">
-                            Bức tranh sức khoẻ
-                        </h3>
-
-                        <motion.div
-                            animate={{ x: [0, 4, 0] }}
-                            transition={{ duration: 1.2, repeat: Infinity }}
-                            className="mt-3"
-                        >
-                            <ArrowRight className="h-5 w-5 text-theme-text-primary/70 transition group-hover:translate-x-1" />
-                        </motion.div>
-                    </div>
-                    <div className="relative shrink-0">
-                        {wellnessScores ? (
-                            <motion.div
-                                initial={{ scale: 0.8, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{ duration: 1.5, ease: 'easeOut' }}
-                            >
-                                <WellnessRadar scores={wellnessScores} mini />
-                            </motion.div>
-                        ) : (
-                            <motion.div
-                                initial={{ scale: 0.9, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{ duration: 0.4, ease: 'easeOut' }}
-                                className="flex h-39 w-32 items-center justify-center rounded-3xl bg-theme-surface/20 backdrop-blur-sm border border-theme-border/20"
-                            >
-                                <div className="text-center px-3">
-                                    <motion.div
-                                        animate={{ y: [-2, 2, -2] }}
-                                        transition={{ duration: 2, repeat: Infinity }}
-                                        className="mb-2 flex justify-center text-theme-accent"
-                                    >
-                                        <Leaf className="h-10 w-10 opacity-90" aria-hidden />
-                                    </motion.div>
-                                    <p className="text-center text-[11px] text-theme-text-secondary leading-relaxed font-medium">
-                                        Hãy check-in cảm xúc để khám phá sức khỏe của bạn
-                                    </p>
-                                </div>
-                            </motion.div>
-                        )}
-                    </div>
-                </div>
-            </button>
-
-
-
-            {detailReminder && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="fixed inset-0 z-70 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm"
-                >
-                    <article className="w-full max-w-xl rounded-3xl bg-theme-surface p-6 shadow-2xl relative overflow-hidden border border-theme-border/50">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-theme-accent opacity-50" />
-                        <div className="mb-5 flex items-center justify-between">
-                            <h3 className="font-display text-2xl text-theme-text-primary">{detailReminder.detailTitle}</h3>
-                            <button
-                                type="button"
-                                onClick={() => setDetailReminderId(null)}
-                                className="rounded-full bg-theme-surface/50 hover:bg-theme-surface p-2 text-theme-text-secondary border border-theme-border/20 transition-colors"
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-                        <div className="space-y-4 text-theme-text-secondary leading-relaxed">
-                            <p>{detailReminder.importance}</p>
-                            <div className="rounded-2xl bg-theme-accent/10 p-4">
-                                <p className="text-sm font-semibold text-theme-accent uppercase tracking-wider mb-1">Cảnh báo</p>
-                                <p className="text-theme-text-primary">{detailReminder.downside}</p>
-                            </div>
-                        </div>
-                        {detailReminder.route && (
-                            <button
-                                onClick={() => navigate(detailReminder.route!)}
-                                className="mt-6 w-full rounded-2xl bg-theme-accent py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg transition hover:brightness-105 active:scale-95"
-                            >
-                                Thực hiện ngay
-                            </button>
-                        )}
-                    </article>
-                </motion.div>
-            )}
+                            )}
+                        </article>
+                    </motion.div>
+                )}
+            </div>
         </div>
     )
 }

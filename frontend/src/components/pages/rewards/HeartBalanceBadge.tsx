@@ -1,6 +1,6 @@
 import { Heart, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { rewardsService } from '../../services/rewardsService'
+import { rewardsService } from '@/services/rewardsService'
 
 type Props = {
     /** Externally controlled balance (e.g. after a purchase). When provided, skips the fetch. */
