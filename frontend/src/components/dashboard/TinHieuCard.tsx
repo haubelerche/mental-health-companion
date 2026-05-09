@@ -48,26 +48,17 @@ export function TinHieuCard({ sufficiency, insights, isDark }: Props) {
 
     return (
         <section
-            className={`rounded-[1.75rem] border p-4 backdrop-blur-md md:p-6 shadow-sm ${
-                isDark ? 'border-theme-border/30 bg-theme-surface/60' : 'border-white/25 bg-white/30'
-            }`}
+            className={`rounded-[1.75rem] border p-4 backdrop-blur-md md:p-6 shadow-sm border-theme-secondary/10 bg-theme-surface/40`}
         >
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p
-                        className={`text-[10px] uppercase tracking-[0.3em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary/70'}`}
-                    >
-                        Tín hiệu tuần này
-                    </p>
                     <h2 className={`mt-1 font-display text-xl md:text-2xl ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>
                         {titleForLevel(level)}
                     </h2>
                 </div>
                 {primary && level !== 'no_data' && level !== 'first_signals' && (
                     <span
-                        className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide ${
-                            isDark ? 'bg-theme-accent/15 text-theme-accent' : 'bg-primary/10 text-primary'
-                        }`}
+                        className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide bg-theme-accent/50 text-theme-on-accent`}
                     >
                         {confidenceLabel(primary.confidence)}
                     </span>
@@ -91,9 +82,7 @@ export function TinHieuCard({ sufficiency, insights, isDark }: Props) {
                     {chips.map((c) => (
                         <span
                             key={c}
-                            className={`rounded-full px-3 py-1 text-[11px] font-medium ${
-                                isDark ? 'bg-theme-surface/80 text-theme-text-primary border border-theme-border/30' : 'bg-white/70 text-serene-ink'
-                            }`}
+                            className={`rounded-full px-3 py-1 text-[11px] font-medium text-theme-text-primary border border-theme-secondary/50`}
                         >
                             {c}
                         </span>
@@ -103,25 +92,25 @@ export function TinHieuCard({ sufficiency, insights, isDark }: Props) {
 
             {(level === 'early_insight' || level === 'weekly_trend' || level === 'stable_pattern') && primary && (
                 <div
-                    className={`mt-4 rounded-2xl border p-4 ${isDark ? 'border-theme-border/25 bg-theme-surface/50' : 'border-white/40 bg-white/40'}`}
+                    className={`mt-4 rounded-2xl border p-4 border-theme-secondary/50 shadow-xl bg-theme-surface/50`}
                 >
                     <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-theme-accent' : 'text-primary'}`}>
                         {primary.title}
                     </p>
-                    <p className={`mt-2 text-sm leading-relaxed md:text-[15px] ${isDark ? 'text-theme-text-primary/95' : 'text-serene-ink/90'}`}>
+                    <p className={`mt-2 text-sm leading-relaxed md:text-[15px] text-theme-text-primary`}>
                         {primary.user_safe_summary}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-wide text-theme-text-secondary">
                         <span>Dựa trên {primary.evidence_count} ghi nhận</span>
                         {primary.evidence_sources.slice(0, 2).map((s) => (
-                            <span key={s} className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">
+                            <span key={s} className="rounded-full bg-theme-accent/15 text-theme-on-accent px-2 py-0.5">
                                 {s}
                             </span>
                         ))}
                     </div>
                     {primary.suggested_action && (
-                        <p className={`mt-3 text-sm italic ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary-dim'}`}>
-                            Một bước nhỏ hôm nay: {primary.suggested_action}
+                        <p className={`mt-3 text-sm italic text-theme-accent`}>
+                            <span className='underline '>Gợi ý hôm nay:</span> {primary.suggested_action}
                         </p>
                     )}
                 </div>
