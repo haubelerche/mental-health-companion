@@ -151,7 +151,7 @@ export default function Resources() {
                             type="button"
                             onClick={() => setSelectedCategory(cat.id)}
                             className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm cursor-pointer font-semibold transition ${isActive
-                                ? 'bg-serene-primary text-serene-on-primary shadow-xl'
+                                ? 'bg-serene-primary text-serene-on-primary shadow-xl border border-theme-secondary/10'
                                 : 'bg-theme-surface text-theme-text-primary'
                                 }`}
                         >
