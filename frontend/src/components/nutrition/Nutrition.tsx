@@ -188,7 +188,7 @@ export default function Nutrition() {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         placeholder="Tìm theo tên món, nguyên liệu hoặc lợi ích..."
-                        className={`w-full rounded-2xl bg-theme-surface/70 py-3 pl-11 pr-10 text-sm text-theme-text-primary placeholder-theme-text-secondary/45 outline-none transition focus:ring-1 focus:ring-theme-accent/30`}
+                        className={`w-full border border-theme-secondary/30 rounded-2xl bg-theme-surface/70 py-3 pl-11 pr-10 text-sm text-theme-text-primary placeholder-theme-text-secondary/45 outline-none transition focus:ring-1 focus:ring-theme-accent/30`}
                     />
                     {query && (
                         <button
@@ -210,7 +210,7 @@ export default function Nutrition() {
                             onClick={() => setActiveTag(activeTag === tag ? null : tag)}
                             className={`rounded-full border px-3 py-1.5 text-xs transition ${activeTag === tag
                                 ? 'border-theme-accent bg-theme-accent text-white'
-                                : `border-theme-border/30 bg-theme-surface text-theme-text-primary hover:border-theme-accent/50`
+                                : `border-theme-secondary/30 bg-theme-surface text-theme-text-primary hover:border-theme-accent/50`
                                 }`}
                         >
                             {tag}
@@ -228,7 +228,7 @@ export default function Nutrition() {
                         filteredRecipes.map((recipe) => (
                             <article
                                 key={recipe.name}
-                                className={`rounded-[20px] border border-theme-border/20 bg-theme-surface/80 p-4 transition hover:bg-theme-accent/10 hover:border-theme-accent/30`}
+                                className={`rounded-[20px] border border-theme-secondary/50 bg-theme-surface/80 p-4 transition hover:bg-theme-accent/10 hover:border-theme-accent/30`}
                             >
                                 <div className="mb-2 flex items-start justify-between gap-2">
                                     <h4 className="text-sm font-semibold leading-snug text-theme-text-primary">{recipe.name}</h4>
