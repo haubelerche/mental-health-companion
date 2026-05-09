@@ -183,4 +183,14 @@ export const adminService = {
         httpClient.patch<any>('/admin/automation/config', { worker_name, interval_min, daily_time }),
     runWorkerNow: (worker_name: string) =>
         httpClient.post<any>('/admin/automation/run-now', { worker_name }),
+
+    // Automation Triggers (Milestone 1 - Plan V2)
+    listAutomationTriggers: () => httpClient.get<{ triggers: any[] }>('/admin/automation/triggers'),
+    createAutomationTrigger: (payload: { name: string; action_key: string; schedule_interval: string; config?: any }) =>
+        httpClient.post<{ trigger: any }>('/admin/automation/triggers', payload),
+    updateAutomationTrigger: (triggerId: string, payload: { name?: string; schedule_interval?: string; config?: any; is_active?: boolean }) =>
+        httpClient.patch<{ trigger: any }>(`/admin/automation/triggers/${encodeURIComponent(triggerId)}`, payload),
+    deleteAutomationTrigger: (triggerId: string) =>
+        httpClient.delete<any>(`/admin/automation/triggers/${encodeURIComponent(triggerId)}`),
 }
+

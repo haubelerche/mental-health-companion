@@ -83,3 +83,5 @@ tests/
 /*.MD
 .ts
 /*.yaml 
+
+/backend/docs/PLAN.md

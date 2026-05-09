@@ -1002,3 +1002,34 @@ class UserNotification(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
+
+# ---------------------------------------------------------------------------
+# Admin Automation (Plan V2)
+# ---------------------------------------------------------------------------
+
+class AutomationTrigger(Base):
+    __tablename__ = "automation_triggers"
+
+    trigger_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    trigger_type: Mapped[str] = mapped_column(
+        String(20),
+        CheckConstraint("trigger_type IN ('fixed','custom')", name="ck_automation_trigger_type"),
+        default="custom",
+        nullable=False
+    )
+    action_key: Mapped[str] = mapped_column(
+        String(50),
+        CheckConstraint(
+            "action_key IN ('batch_notification','ai_moderation','resource_crawler','custom_webhook')",
+            name="ck_automation_action_key"
+        ),
+        nullable=False
+    )
+    config: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, default=dict, nullable=False)
+    schedule_interval: Mapped[str] = mapped_column(String(100), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+

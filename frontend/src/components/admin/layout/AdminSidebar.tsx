@@ -12,6 +12,7 @@ const links = [
     { to: ROUTE_PATHS.adminAuditLogs, label: 'Nhật ký Admin', icon: Shield },
     { to: ROUTE_PATHS.adminCrisisLogs, label: 'Nhật ký khẩn', icon: AlertTriangle },
     { to: ROUTE_PATHS.adminResources, label: 'Tài nguyên', icon: Package },
+    { to: ROUTE_PATHS.adminAutomation, label: 'Tự động hóa', icon: Cpu },
 ]
 
 const AdminSidebar = () => {
