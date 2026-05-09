@@ -1,4 +1,5 @@
 import logging
+import os
 from urllib.parse import urlparse
 
 from sqlalchemy import create_engine
@@ -28,7 +29,10 @@ def get_engine():
         # Keep the application pool below that cap because background workers share
         # the same singleton engine with request handlers.
         if "supabase.com" in host:
-            soft_cap = 3
+            # Test sessions run parallel real-db soak checks that need a wider pool.
+            # Keep production default conservative while allowing CI/local testing
+            # to validate concurrency behavior.
+            soft_cap = 10 if os.environ.get("SERENE_BACKEND_TESTING") == "1" else 5
             if pool_size > soft_cap:
                 pool_size = soft_cap
                 max_overflow = 0

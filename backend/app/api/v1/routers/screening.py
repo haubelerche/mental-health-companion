@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import ensure_policy_acknowledged
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.services.db.models import User
+from app.services.db.models import ScreeningAnswer, User
 from app.services.db.session import get_db
 from app.services.schemas.payloads import ScreeningSubmitRequest
 from app.services.clinical_profile import get_or_create_clinical_profile
@@ -50,14 +50,24 @@ def submit(
 
     now = get_now().replace(tzinfo=None)
     clin = get_or_create_clinical_profile(db, current_user.user_id)
+    # Store only coverage metadata in clinical_profiles — raw answers go to screening_answers.
+    coverage = {"covered": True, "item_count": len(payload.answers)}
     if payload.instrument_id == "phq9":
         clin.phq9_score = min(27, total)
-        clin.phq9_coverage = {"answers": payload.answers}
+        clin.phq9_coverage = coverage
     else:
         clin.gad7_score = min(21, total)
-        clin.gad7_coverage = {"answers": payload.answers}
+        clin.gad7_coverage = coverage
     clin.last_scored_at = now
     clin.updated_at = now
+    db.add(
+        ScreeningAnswer(
+            user_id=current_user.user_id,
+            instrument_id=payload.instrument_id,
+            raw_score=total,
+            answers=payload.answers,
+        )
+    )
     db.commit()
 
     return ok(

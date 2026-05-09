@@ -12,19 +12,10 @@ Rules (PRD §12.4, plan 07):
 
 from __future__ import annotations
 
-import re
 from typing import TypedDict
 
-DIAGNOSIS_PATTERNS = [
-    r"\b(bạn bị|bạn mắc|bạn có rối loạn|bạn được chẩn đoán)\b",
-    r"\b(trầm cảm|rối loạn lo âu|OCD|PTSD|bipolar|tâm thần phân liệt|hoang tưởng)\b.{0,20}(của bạn|bạn đang)",
-    r"\b(depression|anxiety disorder|OCD|PTSD|bipolar|schizophrenia)\s+(diagnosis|disorder)",
-    r"\b\d+\s*%\s*(có\s+)?(rối loạn|disorder|bệnh tâm thần)\b",
-]
-
-SOS_WITHOUT_ESCALATION = [
-    r"\b(tự tử|tự làm hại|muốn chết|kết thúc cuộc sống)\b",
-]
+# Patterns owned by safety/content_guardrail.py — do not duplicate here.
+from app.safety.content_guardrail import has_diagnosis_language, has_sos_signal
 
 MAX_TITLE_CHARS = 200
 MAX_CONTENT_CHARS = 5000
@@ -53,18 +44,12 @@ def review_knowledge_card(
     if len(content_markdown) > MAX_CONTENT_CHARS:
         return ContentReviewResult(approved=False, rejection_reason="content_too_long")
 
-    combined = f"{title} {content_markdown} {reflection_prompt or ''}".lower()
+    combined = f"{title} {content_markdown} {reflection_prompt or ''}"
 
-    for pattern in DIAGNOSIS_PATTERNS:
-        if re.search(pattern, combined, re.IGNORECASE):
-            return ContentReviewResult(
-                approved=False, rejection_reason="diagnosis_framing"
-            )
+    if has_diagnosis_language(combined):
+        return ContentReviewResult(approved=False, rejection_reason="diagnosis_framing")
 
-    for pattern in SOS_WITHOUT_ESCALATION:
-        if re.search(pattern, combined, re.IGNORECASE):
-            return ContentReviewResult(
-                approved=False, rejection_reason="sos_content_without_escalation"
-            )
+    if has_sos_signal(combined):
+        return ContentReviewResult(approved=False, rejection_reason="sos_content_without_escalation")
 
     return ContentReviewResult(approved=True, rejection_reason=None)

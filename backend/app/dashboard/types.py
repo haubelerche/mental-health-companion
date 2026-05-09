@@ -34,7 +34,7 @@ class DashboardInsightCard(BaseModel):
     evidence_count: int = Field(ge=0)
     evidence_sources: list[str]
     confidence: Literal["low", "medium", "high"]
-    severity_band: Literal["neutral", "watch", "supportive_attention"]
+    severity_band: Literal["neutral", "watch"]
     suggested_action: str | None = None
     evidence_window_start: date | None = None
     evidence_window_end: date | None = None
