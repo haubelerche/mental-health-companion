@@ -35,7 +35,6 @@ import AdminNotifications from '../components/admin/AdminNotifications.tsx'
 import AdminMain from '../components/admin/layout/AdminMain.tsx'
 import Home from '../components/pages/Home.tsx'
 import RewardsPage from '../components/pages/rewards/RewardsPage.tsx'
-import NotificationsPage from '../components/pages/notifications/Notifications.tsx'
 
 function RequireAuth({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()
@@ -195,12 +194,6 @@ export default function AppRoutes() {
                     path={ROUTE_PATHS.rewards}
                     element={
                         <RewardsPage />
-                    }
-                />
-                <Route
-                    path={ROUTE_PATHS.notifications}
-                    element={
-                        <NotificationsPage />
                     }
                 />
             </Route>

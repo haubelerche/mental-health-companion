@@ -1,8 +1,9 @@
 import { type MouseEvent, useState } from 'react'
 import { Bell, HelpCircle, HomeIcon, Library, MessageSquare, Sailboat, Settings, Sparkles, Utensils, Gift, MoreHorizontal } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { useThemeContext } from '../../contexts/ThemeContext'
+import NotificationModal from '../pages/notifications/NotificationModal'
 type SidebarProps = {
     isOpen: boolean
     onHide: () => void
@@ -24,6 +25,7 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
     const { effectiveTheme } = useThemeContext()
     const isDark = effectiveTheme === 'dark'
     const [isMoreOpen, setIsMoreOpen] = useState(false)
+    const [isNotificationOpen, setIsNotificationOpen] = useState(false)
 
     const sidebarContainerClass = isDark
         ? 'border-white/20 bg-black/30 text-white'
@@ -58,10 +60,7 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
             >
                 {/* Brand */}
                 <div className="mb-7">
-                    <h1 className="font-display text-4xl italic">Serene</h1>
-                    <p className={`mt-2 text-xs uppercase tracking-[0.24em] ${secondaryTextClass}`}>
-                        Digital Sanctuary
-                    </p>
+                    <Link to={ROUTE_PATHS.home} className="font-display text-4xl italic">Serene</Link>
                 </div>
 
                 {/* Primary nav */}
@@ -102,13 +101,13 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
 
                 {/* Bottom links */}
                 <div className={`mt-4 space-y-1 border-t pt-4 text-base ${isDark ? 'border-white/20 text-white/75' : 'border-black/10 text-serene-muted'}`}>
-                    <NavLink
-                        to={ROUTE_PATHS.notifications}
-                        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition ${hoverTextClass}`}
+                    <button
+                        onClick={() => setIsNotificationOpen(true)}
+                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition cursor-pointer ${hoverTextClass}`}
                     >
                         <Bell className="h-4 w-4" aria-hidden="true" />
                         <span>Thông báo</span>
-                    </NavLink>
+                    </button>
                     <NavLink
                         to={ROUTE_PATHS.setting}
                         className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition ${hoverTextClass}`}
@@ -200,14 +199,16 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                                 )
                             })}
                             <div className={`my-1 border-t ${isDark ? 'border-white/20' : 'border-black/10'}`}></div>
-                            <NavLink
-                                to={ROUTE_PATHS.notifications}
-                                onClick={() => setIsMoreOpen(false)}
-                                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium transition ${isDark ? 'text-white/75 hover:bg-white/10 hover:text-white' : 'text-serene-muted hover:bg-black/5 hover:text-serene-ink'}`}
+                            <button
+                                onClick={() => {
+                                    setIsMoreOpen(false)
+                                    setIsNotificationOpen(true)
+                                }}
+                                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium transition cursor-pointer ${isDark ? 'text-white/75 hover:bg-white/10 hover:text-white' : 'text-serene-muted hover:bg-black/5 hover:text-serene-ink'}`}
                             >
                                 <Bell className="h-4 w-4" />
                                 <span>Thông báo</span>
-                            </NavLink>
+                            </button>
                             <NavLink
                                 to={ROUTE_PATHS.setting}
                                 onClick={() => setIsMoreOpen(false)}
@@ -228,6 +229,7 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                     )}
                 </div>
             </nav>
+            <NotificationModal open={isNotificationOpen} onClose={() => setIsNotificationOpen(false)} />
         </>
     )
 }
