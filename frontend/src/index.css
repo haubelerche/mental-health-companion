@@ -12,7 +12,7 @@
     --color-serene-primary: #4d6359;
     --color-serene-primary-dim: #42574d;
     --color-serene-outline: #afb3ac;
-    --color-serene-surface: #edeee8;
+    --color-serene-surface: #edeee8; 
     --color-serene-accent: #d0e8db;
     --color-serene-on-primary: #e5fdf0;
     --color-serene-surface-card: #ffffff;
@@ -175,19 +175,28 @@
     }
 
     /* Dark theme (night calm - dịu, không pitch black) */
-    [data-theme="dark"] {
-        --theme-bg-primary: #0f1419;
-        --theme-bg-secondary: #1a1f25;
-        --theme-surface: #161b22;
-        --theme-surface-alt: #1c2128;
-        --theme-text-primary: #e6eef8;
-        --theme-text-secondary: #b0b9c3;
-        --theme-text-tertiary: #7f8795;
-        --theme-border: #2d333b;
-        --theme-accent: #58a6ff;
-        --theme-accent-dim: #4184e4;
-        --theme-accent-light: #1f6feb;
-    }
+   [data-theme="dark"] {
+    --theme-bg-primary: #0f1419;
+    --theme-bg-secondary: #171d24;
+
+    --theme-surface: #1b222b;
+    --theme-surface-alt: #222a33;
+
+    --theme-text-primary: #edf3f8;
+    --theme-text-secondary: #b7c2cc;
+    --theme-text-tertiary: #7f8b96;
+
+    --theme-border: #2d3842;
+
+    /* Main serene accent */
+    --theme-accent: #6daebd;
+
+    /* Hover / pressed */
+    --theme-accent-dim: #6eaab8;
+
+    /* Soft background */
+    --theme-accent-light: #203741;
+}
 
     /**
      * Smooth theme transitions
