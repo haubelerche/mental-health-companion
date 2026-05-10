@@ -1,19 +1,5 @@
-"""Memory Cards package — Plan 06.
+"""Memory API package.
 
-Provides candidate extraction, safety guardrail, and CRUD service
-for the Chat > Ký ức (Memory) sub-tab.
+Canonical user memory is stored in app.mem0_memories and exposed through
+app.memory.routes. Legacy memory cards have been retired.
 """
-
-from app.memory.service import (
-    apply_user_action,
-    create_cards_from_candidates,
-    get_active_card_for_context,
-    get_user_cards,
-)
-
-__all__ = [
-    "create_cards_from_candidates",
-    "get_user_cards",
-    "apply_user_action",
-    "get_active_card_for_context",
-]
