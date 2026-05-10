@@ -160,16 +160,15 @@ def test_purchase_result_shape(db):
 
 
 # ---------------------------------------------------------------------------
-# Memory card out schema
+# User memory out schema
 # ---------------------------------------------------------------------------
 
-def test_memory_card_out_schema_fields():
-    from app.memory.routes import MemoryCardOut
-    fields = MemoryCardOut.model_fields
-    required = {"card_id", "memory_type", "title", "content", "status",
-                "safety_review_status", "personalization_disabled", "created_at", "updated_at"}
+def test_user_memory_out_schema_fields():
+    from app.memory.routes import UserMemoryOut
+    fields = UserMemoryOut.model_fields
+    required = {"memory_id", "content", "source", "created_at", "metadata"}
     for f in required:
-        assert f in fields, f"MemoryCardOut missing field {f!r}"
+        assert f in fields, f"UserMemoryOut missing field {f!r}"
 
 
 # ---------------------------------------------------------------------------
