@@ -4,6 +4,16 @@
 
 ---
 
+## [Unreleased] — Chat router: stream tests and voice policy · 2026-05-10
+
+### Fixed
+- `backend/app/api/v1/routers/chat.py` — removed unreachable duplicate block after `return` in `_enqueue_voice_policy`; restored correct Vietnamese strings in `_build_voice_intervention` crisis footer.
+- `backend/tests/test_chat_router_integration.py` — stream endpoint tests now override `ensure_policy_acknowledged_for_stream`, mock `get_voice_consent`, and stub `_enqueue_voice_policy` instead of legacy `_build_voice_intervention` hooks.
+- `backend/tests/test_voice_escalation.py` — use `voice_script=` kwarg matching `_build_voice_intervention` signature.
+- `backend/tests/test_vietnamese_chat_style.py` — broaden assertion for `build_response_plan` output tied to deadline stress wording.
+
+---
+
 ## [Unreleased] — Response quality: Vietnamese short replies · 2026-05-10
 
 ### Fixed
