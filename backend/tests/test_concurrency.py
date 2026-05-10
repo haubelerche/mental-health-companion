@@ -32,10 +32,11 @@ def db():
     def set_pragma(conn, _):
         conn.execute("PRAGMA foreign_keys=ON")
 
-    Base.metadata.create_all(engine)
+    tables_for_sqlite = [t for t in Base.metadata.sorted_tables if not t.schema]
+    Base.metadata.create_all(engine, tables=tables_for_sqlite)
     with Session(engine) as session:
         yield session
-    Base.metadata.drop_all(engine)
+    Base.metadata.drop_all(engine, tables=tables_for_sqlite)
 
 
 def _seed(db: Session, user_id: str = "usr_conc") -> None:
