@@ -15,7 +15,6 @@ from app.core.product_constants import CURRENT_POLICY_VERSION
 from app.core.responses import ok
 from app.services.db.models import (
     Conversation,
-    ConversationMemory,
     CrisisLog,
     UserIdentity,
     EmailVerificationToken,
@@ -606,7 +605,6 @@ def erase_my_data(current_user: User = Depends(get_current_user), db: Session = 
     user_id = current_user.user_id
     now = get_now().replace(tzinfo=None)
     db.execute(delete(Message).where(Message.user_id == user_id))
-    db.execute(delete(ConversationMemory).where(ConversationMemory.user_id == user_id))
     db.execute(delete(CrisisLog).where(CrisisLog.user_id == user_id))
     db.execute(delete(Conversation).where(Conversation.user_id == user_id))
     db.execute(delete(UserProfileSnapshot).where(UserProfileSnapshot.user_id == user_id))
