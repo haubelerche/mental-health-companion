@@ -15,6 +15,7 @@ export type VoiceJobResponse = {
     tts_job_id: string
     status: string
     audio_url: string | null
+    audio_data_uri?: string | null
     error_code?: string | null
     error_message?: string | null
 }
