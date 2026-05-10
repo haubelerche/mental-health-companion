@@ -113,19 +113,26 @@ def _trigger_ws_push(user_id: str, payload: dict):
     """Internal helper to fire-and-forget the WS push from both sync/async contexts"""
     from app.services.ws_manager import connection_manager
     try:
-        # Get the running event loop
+        loop = None
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            # No running loop, might be in a thread
-            loop = asyncio.get_event_loop()
+            # Not in an async context, try to get loop from thread
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                # Still no loop (common in AnyIO worker threads)
+                pass
 
-        if loop.is_running():
-            # If we are in a different thread (like a sync FastAPI endpoint), 
-            # we must use run_coroutine_threadsafe
+        if loop and loop.is_running():
+            # If we have a running loop, schedule the task
             asyncio.run_coroutine_threadsafe(connection_manager.send_notification(user_id, payload), loop)
         else:
-            # Fallback for scripts or non-running loops
-            asyncio.run(connection_manager.send_notification(user_id, payload))
+            # If no running loop, we can't really push to WS easily without blocking
+            # or starting a new loop (which is expensive). 
+            # In a real-world scenario, we might use a background task or task queue.
+            # For now, we'll log it and skip to prevent the crash reported by the user.
+            logger.debug(f"No active event loop found for WS push to {user_id}. Skipping real-time delivery.")
+            
     except Exception as e:
         logger.warning(f"Could not trigger WS push: {e}")

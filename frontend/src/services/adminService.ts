@@ -4,10 +4,17 @@ export type AdminDashboardAggregate = {
     period: { from: string; to: string }
     total_sessions: number
     session_trend: number
-    avg_session_depth: number
-    mood_distribution: Record<string, number>
     sos_events: number
-    top_resource_categories: string[]
+    sos_trend: number
+    avg_session_depth: number
+    depth_trend: number
+    mood_distribution: Record<string, number>
+    total_turns: number
+    total_tokens: number
+    total_input_tokens: number
+    total_output_tokens: number
+    estimated_cost_usd: number
+    cost_trend: number
 }
 
 export type AdminLatencySla = {
@@ -147,6 +154,8 @@ export const adminService = {
     getClinicalAnalytics: () => httpClient.get<any>('/admin/analytics/clinical-overview'),
     getResourceAnalytics: () => httpClient.get<any>('/admin/analytics/resources'),
     getHeartAnalytics: (days: number = 30) => httpClient.get<any>(`/admin/analytics/hearts?days=${days}`),
+    getChatMetrics: (days: number = 30) => httpClient.get<any>(`/admin/analytics/chat-metrics?days=${days}`),
+    getAIInsights: (refresh: boolean = false) => httpClient.get<any>(`/admin/analytics/ai-insights${refresh ? '?refresh=true' : ''}`),
 
     // Task 3.5: Letter Management
     listLetters: (params?: { status?: string; query?: string; replied_by?: string; limit?: number; offset?: number }) => {

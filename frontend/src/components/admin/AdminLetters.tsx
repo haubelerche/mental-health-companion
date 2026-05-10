@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { adminService } from '../../services/adminService'
 import { ApiRequestError } from '../../api/types'
 import { toast } from 'react-toastify'
@@ -215,6 +216,11 @@ export default function AdminLetters() {
                                         <p className="text-slate-300 text-xs leading-relaxed italic line-clamp-3">
                                             "{letter.content}"
                                         </p>
+                                        {aiResults[letter.letter_id] && (
+                                            <div className={`absolute -top-2 -right-2 px-2 py-1 rounded-lg text-[8px] font-black uppercase flex items-center gap-1 shadow-lg ${aiResults[letter.letter_id].action === 'delete' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}>
+                                                <Brain size={10} /> AI Checked
+                                            </div>
+                                        )}
                                         {letter.content.length > 100 && (
                                             <span className="text-[9px] text-indigo-400 font-black uppercase mt-2 block">Xem thêm...</span>
                                         )}
@@ -324,9 +330,16 @@ export default function AdminLetters() {
                                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">ID: {selectedLetter.letter_id}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setSelectedLetter(null)} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-400 hover:text-white hover:bg-rose-500/20 transition-all">
-                                <X size={20} />
-                            </button>
+                            <div className="flex items-center gap-3">
+                                {aiResults[selectedLetter.letter_id] && (
+                                    <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 border ${aiResults[selectedLetter.letter_id].action === 'delete' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
+                                        <Shield size={14} /> AI: {aiResults[selectedLetter.letter_id].action === 'delete' ? 'CẦN LƯU Ý' : 'AN TOÀN'}
+                                    </div>
+                                )}
+                                <button onClick={() => setSelectedLetter(null)} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-400 hover:text-white hover:bg-rose-500/20 transition-all">
+                                    <X size={20} />
+                                </button>
+                            </div>
                         </header>
 
                         <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-10 custom-scrollbar">
@@ -342,6 +355,40 @@ export default function AdminLetters() {
                                         "{selectedLetter.content}"
                                     </p>
                                 </div>
+
+                                {/* AI Analysis Result Display */}
+                                {analyzingId === selectedLetter.letter_id ? (
+                                    <div className="p-8 bg-indigo-500/5 border border-indigo-500/20 border-dashed rounded-[32px] flex flex-col items-center gap-4 animate-pulse">
+                                        <Loader2 className="animate-spin text-indigo-400" size={32} />
+                                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">AI đang thẩm định nội dung...</p>
+                                    </div>
+                                ) : aiResults[selectedLetter.letter_id] && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        className={`p-6 rounded-[32px] border ${aiResults[selectedLetter.letter_id].action === 'delete' ? 'bg-rose-500/10 border-rose-500/20' : 'bg-indigo-500/10 border-indigo-500/20'}`}
+                                    >
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className={`p-2 rounded-xl ${aiResults[selectedLetter.letter_id].action === 'delete' ? 'bg-rose-500/20 text-rose-400' : 'bg-indigo-500/20 text-indigo-400'}`}>
+                                                    <Brain size={18} />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-sm font-black text-white uppercase tracking-tight">Kết quả Phân tích AI</h4>
+                                                    <p className={`text-[10px] font-bold uppercase ${aiResults[selectedLetter.letter_id].action === 'delete' ? 'text-rose-400' : 'text-indigo-400'}`}>
+                                                        Trạng thái: {aiResults[selectedLetter.letter_id].action === 'delete' ? 'Cảnh báo bất thường' : 'Bình thường'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase ${aiResults[selectedLetter.letter_id].action === 'delete' ? 'bg-rose-500 text-white' : 'bg-indigo-500 text-white'}`}>
+                                                {aiResults[selectedLetter.letter_id].category || 'General'}
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-slate-400 leading-relaxed italic">
+                                            "<strong>Nhận định:</strong> {aiResults[selectedLetter.letter_id].reason}"
+                                        </p>
+                                    </motion.div>
+                                )}
                             </section>
 
                             {/* Replies Timeline */}
@@ -373,26 +420,55 @@ export default function AdminLetters() {
                                     ))}
                                     
                                     {isReplying[selectedLetter.letter_id] && (
-                                        <div className="p-6 bg-indigo-500/5 border border-indigo-500/10 rounded-3xl space-y-4 animate-in slide-in-from-bottom-4">
+                                        <div className="p-6 bg-indigo-500/5 border border-indigo-500/10 rounded-3xl space-y-6 animate-in slide-in-from-bottom-4">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Phản hồi của bạn</span>
                                                 <button onClick={() => setIsReplying(prev => ({...prev, [selectedLetter.letter_id]: false}))} className="text-slate-600 hover:text-white"><X size={16} /></button>
                                             </div>
+
+                                            {/* AI Suggestion Pills */}
+                                            {suggestingId === selectedLetter.letter_id ? (
+                                                <div className="space-y-3">
+                                                    <div className="admin-skeleton h-10 w-full" />
+                                                    <div className="admin-skeleton h-10 w-4/5" />
+                                                </div>
+                                            ) : aiSuggestions[selectedLetter.letter_id] && (
+                                                <div className="space-y-3">
+                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                                        <Sparkles size={10} className="text-amber-400" /> AI Gợi ý phản hồi (Chọn để sử dụng)
+                                                    </p>
+                                                    <div className="flex flex-col gap-2">
+                                                        {aiSuggestions[selectedLetter.letter_id].map((s, idx) => (
+                                                            <button 
+                                                                key={idx}
+                                                                onClick={() => setReplyDrafts(prev => ({...prev, [selectedLetter.letter_id]: s.content}))}
+                                                                className="text-left p-4 bg-white/5 border border-white/10 rounded-2xl hover:border-indigo-500/40 hover:bg-white/10 transition-all group"
+                                                            >
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded-md text-[8px] font-black uppercase">{s.style}</span>
+                                                                </div>
+                                                                <p className="text-[11px] text-slate-400 leading-relaxed group-hover:text-slate-200 line-clamp-2 italic">"{s.content}"</p>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             <textarea 
                                                 value={replyDrafts[selectedLetter.letter_id] || ''}
                                                 onChange={(e) => setReplyDrafts(prev => ({...prev, [selectedLetter.letter_id]: e.target.value}))}
-                                                rows={4}
-                                                className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white text-sm outline-none focus:border-indigo-500 transition-all"
-                                                placeholder="Viết nội dung phản hồi tại đây..."
+                                                rows={6}
+                                                className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white text-sm outline-none focus:border-indigo-500 transition-all font-medium italic"
+                                                placeholder="Viết nội dung phản hồi tại đây hoặc chọn gợi ý từ AI bên trên..."
                                             />
                                             <div className="flex justify-end">
                                                 <button 
                                                     onClick={() => handleSendReply(selectedLetter.letter_id)}
                                                     disabled={sendingReplyId === selectedLetter.letter_id}
-                                                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/20"
+                                                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-2xl text-[10px] font-black flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/20"
                                                 >
                                                     {sendingReplyId === selectedLetter.letter_id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                                                    GỬI PHẢN HỒI
+                                                    GỬI PHẢN HỒI NGAY
                                                 </button>
                                             </div>
                                         </div>

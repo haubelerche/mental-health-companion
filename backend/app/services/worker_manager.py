@@ -297,16 +297,20 @@ class WorkerManager:
     def update_config(self, target_id: str, interval_min: Optional[int] = None, daily_time: Optional[str] = None):
         if target_id in self.workers:
             worker = self.workers[target_id]
+            
+            # Reset values to ensure only one mode is active
             if interval_min is not None:
                 worker.interval_min = interval_min
-            if daily_time is not None:
+                worker.daily_time = None
+            elif daily_time is not None:
                 worker.daily_time = daily_time
+                worker.interval_min = None
             
             db = get_session_factory()()
             try:
                 from app.services.db.models import AutomationTrigger
-                val = str(interval_min) if interval_min else daily_time
-                dtype = 'interval' if interval_min else 'daily'
+                val = str(interval_min) if interval_min is not None else daily_time
+                dtype = 'interval' if interval_min is not None else 'daily'
                 db.query(AutomationTrigger).filter(AutomationTrigger.trigger_id == target_id).update({
                     "schedule_type": dtype,
                     "schedule_value": val

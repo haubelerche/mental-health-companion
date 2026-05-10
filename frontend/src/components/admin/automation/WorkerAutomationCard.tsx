@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { adminService } from '../../../services/adminService'
 import { toast } from 'react-toastify'
-import { Settings, Play, Clock, Zap, Loader2, Trash2, Pause, History, Calendar, Repeat } from 'lucide-react'
+import { Settings, Play, Clock, Zap, Loader2, Trash2, Pause, History, Calendar, Repeat, CheckCircle } from 'lucide-react'
 
 interface WorkerAutomationCardProps {
     workerKey?: string;
@@ -29,6 +29,8 @@ export default function WorkerAutomationCard({
     const [showLogs, setShowLogs] = useState(false)
     const [logs, setLogs] = useState<any[]>([])
     const [loadingLogs, setLoadingLogs] = useState(false)
+    const [tempValue, setTempValue] = useState<string>('')
+    const [isDirty, setIsDirty] = useState(false)
 
     const fetchStatus = async () => {
         try {
@@ -55,6 +57,13 @@ export default function WorkerAutomationCard({
             setLoading(false)
         }
     }
+
+    useEffect(() => {
+        if (worker) {
+            setTempValue(worker.daily_time || String(worker.interval_min || ''))
+            setIsDirty(false)
+        }
+    }, [worker?.daily_time, worker?.interval_min])
 
     const fetchLogs = async () => {
         setLoadingLogs(true)
@@ -106,14 +115,46 @@ export default function WorkerAutomationCard({
         }
     }
 
-    const handleConfigChange = async (type: 'daily' | 'interval', value: string) => {
+    const handleConfigSave = async () => {
+        if (!isDirty) return
+        setUpdating(true)
         try {
             const targetId = workerKey || trigger?.trigger_id
-            await adminService.updateWorkerConfig(targetId, type === 'interval' ? parseInt(value) : undefined, type === 'daily' ? value : undefined)
+            const isDaily = !!worker.daily_time
+            await adminService.updateWorkerConfig(
+                targetId, 
+                !isDaily ? parseInt(tempValue) : undefined, 
+                isDaily ? tempValue : undefined
+            )
             toast.success("Cập nhật lịch trình thành công")
+            setIsDirty(false)
             fetchStatus()
         } catch (err) {
             toast.error("Cập nhật thất bại")
+        } finally {
+            setUpdating(false)
+        }
+    }
+
+    const handleSwitchMode = async () => {
+        setUpdating(true)
+        try {
+            const targetId = workerKey || trigger?.trigger_id
+            const nextModeIsDaily = !worker.daily_time
+            const nextValue = nextModeIsDaily ? '08:00' : '60'
+            
+            await adminService.updateWorkerConfig(
+                targetId, 
+                !nextModeIsDaily ? parseInt(nextValue) : undefined, 
+                nextModeIsDaily ? nextValue : undefined
+            )
+            
+            toast.success("Đã chuyển đổi chế độ lịch trình")
+            fetchStatus()
+        } catch (err) {
+            toast.error("Chuyển đổi thất bại")
+        } finally {
+            setUpdating(false)
         }
     }
 
@@ -196,43 +237,44 @@ export default function WorkerAutomationCard({
                         </div>
 
                         {/* Smart Schedule Config */}
-                            <div className="flex-1 bg-black/20 p-2 rounded-[2rem] border border-white/5 flex items-center">
+                            <div className="flex-1 bg-black/40 p-2 rounded-[2rem] border border-white/10 flex items-center shadow-inner">
                                 <button 
-                                    onClick={() => handleConfigChange(isDaily ? 'interval' : 'daily', isDaily ? '60' : '08:00')}
-                                    className="ml-2 p-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 transition-all"
-                                    title="Chuyển đổi chế độ"
+                                    onClick={handleSwitchMode}
+                                    disabled={updating}
+                                    className="ml-2 p-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-indigo-400 transition-all active:scale-90"
+                                    title="Chuyển đổi chế độ (Daily / Interval)"
                                 >
                                     {isDaily ? <Repeat size={14} /> : <Calendar size={14} />}
                                 </button>
                                 <div className="flex-1 flex items-center gap-3 px-4">
                                     {isDaily ? <Calendar size={16} className="text-indigo-400" /> : <Repeat size={16} className="text-amber-400" />}
-                                <div className="flex-1">
-                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-0.5">
-                                        {isDaily ? 'Giờ chạy cố định' : 'Chu kỳ lặp lại'}
-                                    </span>
-                                    {isDaily ? (
-                                        <input 
-                                            type="time"
-                                            value={worker.daily_time}
-                                            onChange={(e) => handleConfigChange('daily', e.target.value)}
-                                            className="bg-transparent text-sm font-bold text-white outline-none border-none w-full"
-                                        />
-                                    ) : (
-                                        <div className="flex items-center gap-3">
+                                    <div className="flex-1">
+                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-0.5">
+                                            {isDaily ? 'Giờ chạy cố định' : 'Chu kỳ (Phút)'}
+                                        </span>
+                                        <div className="flex items-center gap-2">
                                             <input 
-                                                type="range"
-                                                min="5"
-                                                max="120"
-                                                step="5"
-                                                value={worker.interval_min || 60}
-                                                onChange={(e) => handleConfigChange('interval', e.target.value)}
-                                                className="flex-1 h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-indigo-500"
+                                                type={isDaily ? "time" : "number"}
+                                                value={tempValue}
+                                                onChange={(e) => {
+                                                    setTempValue(e.target.value)
+                                                    setIsDirty(true)
+                                                }}
+                                                className="bg-transparent text-sm font-black text-white outline-none border-none w-full placeholder:text-slate-700"
+                                                placeholder={isDaily ? "--:--" : "Nhập số phút..."}
                                             />
-                                            <span className="text-sm font-black text-indigo-400 min-w-[35px]">{worker.interval_min}p</span>
+                                            {isDirty && (
+                                                <button 
+                                                    onClick={handleConfigSave}
+                                                    className="p-1.5 bg-indigo-500 text-white rounded-lg animate-in zoom-in-50 duration-300 shadow-lg shadow-indigo-500/20"
+                                                    title="Lưu thay đổi"
+                                                >
+                                                    <CheckCircle size={14} />
+                                                </button>
+                                            )}
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
-                            </div>
                             <button 
                                 onClick={runNow}
                                 disabled={worker.running || !worker.active}

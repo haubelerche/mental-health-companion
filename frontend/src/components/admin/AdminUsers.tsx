@@ -78,63 +78,76 @@ export default function AdminUsers() {
 
             {/* Top Pagination Bar Removed */}
 
-            <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm shadow-2xl relative">
-                {/* Loading Overlay */}
-                {loading && (
-                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] animate-in fade-in duration-300">
-                        <div className="bg-slate-900/80 p-6 rounded-3xl border border-white/10 shadow-2xl flex flex-col items-center gap-4">
-                            <Loader2 className="animate-spin text-emerald-500" size={40} />
-                            <p className="text-xs font-black text-emerald-500 uppercase tracking-widest">Đang cập nhật...</p>
-                        </div>
-                    </div>
-                )}
-
-                <div className={`p-6 transition-all duration-500 ${loading ? 'opacity-30 grayscale-[0.5] blur-[1px]' : 'opacity-100'}`}>
+            <div className="admin-glass-container overflow-hidden backdrop-blur-sm shadow-2xl relative">
+                <div className={`p-6 transition-all duration-500 ${loading ? 'opacity-50' : 'opacity-100'}`}>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {users.map((u) => (
-                            <div key={u.user_id} className="group relative bg-white/5 border border-white/10 rounded-3xl p-6 hover:bg-white/[0.08] hover:border-white/20 transition-all hover:-translate-y-1 shadow-xl">
-                                <div className="flex items-center gap-4 mb-6">
-                                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center border border-emerald-500/30 group-hover:scale-110 transition-transform">
-                                        <span className="text-xl font-black text-emerald-400">{u.display_name?.charAt(0).toUpperCase() || 'U'}</span>
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <h3 className="text-white font-black truncate text-base leading-tight" title={u.display_name}>{u.display_name}</h3>
-                                        <p className="text-slate-500 text-[11px] font-bold uppercase tracking-tighter truncate">{u.user_id.slice(-8)}</p>
-                                    </div>
-                                    <div className={`w-2.5 h-2.5 rounded-full ${u.is_active ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-700'}`} />
-                                </div>
-
-                                <div className="space-y-4 mb-6">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Email</span>
-                                        <span className="text-slate-300 text-xs font-medium truncate">{u.email}</span>
-                                    </div>
-                                    <div className="flex justify-between items-end">
-                                        <div className="flex flex-col gap-1">
-                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Joined</span>
-                                            <span className="text-slate-400 text-[11px]">{new Date(u.created_at).toLocaleDateString('vi-VN')}</span>
+                        {loading && users.length === 0 ? (
+                            // Premium Skeletons
+                            Array.from({ length: 8 }).map((_, i) => (
+                                <div key={i} className="bg-white/5 border border-white/10 rounded-3xl p-6 space-y-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="admin-skeleton admin-skeleton-circle" />
+                                        <div className="flex-1 space-y-2">
+                                            <div className="admin-skeleton h-4 w-2/3" />
+                                            <div className="admin-skeleton h-3 w-1/3" />
                                         </div>
-                                        <span className="px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-indigo-400 text-[10px] font-black uppercase tracking-widest">Member</span>
+                                    </div>
+                                    <div className="space-y-3">
+                                        <div className="admin-skeleton h-3 w-full" />
+                                        <div className="admin-skeleton h-3 w-1/2" />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <div className="admin-skeleton h-10 flex-1" />
+                                        <div className="admin-skeleton h-10 w-12" />
                                     </div>
                                 </div>
+                            ))
+                        ) : (
+                            users.map((u) => (
+                                <div key={u.user_id} className="group relative bg-white/5 border border-white/10 rounded-3xl p-6 hover:bg-white/[0.08] hover:border-white/20 transition-all hover:-translate-y-1 shadow-xl">
+                                    <div className="flex items-center gap-4 mb-6">
+                                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center border border-emerald-500/30 group-hover:scale-110 transition-transform">
+                                            <span className="text-xl font-black text-emerald-400">{u.display_name?.charAt(0).toUpperCase() || 'U'}</span>
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <h3 className="text-white font-black truncate text-base leading-tight" title={u.display_name}>{u.display_name}</h3>
+                                            <p className="text-slate-500 text-[11px] font-bold uppercase tracking-tighter truncate">{u.user_id.slice(-8)}</p>
+                                        </div>
+                                        <div className={`w-2.5 h-2.5 rounded-full ${u.is_active ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-700'}`} />
+                                    </div>
 
-                                <div className="flex gap-2">
-                                    <button 
-                                        onClick={() => toggleStatus(u.user_id, u.is_active)}
-                                        className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all border ${
-                                            u.is_active 
-                                            ? 'bg-rose-500/10 border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white' 
-                                            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white'
-                                        }`}
-                                    >
-                                        {u.is_active ? 'Khóa tài khoản' : 'Mở khóa'}
-                                    </button>
-                                    <button className="px-4 py-2.5 bg-blue-500/10 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all border border-blue-500/20">
-                                        <Info size={16} />
-                                    </button>
+                                    <div className="space-y-4 mb-6">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Email</span>
+                                            <span className="text-slate-300 text-xs font-medium truncate">{u.email}</span>
+                                        </div>
+                                        <div className="flex justify-between items-end">
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Joined</span>
+                                                <span className="text-slate-400 text-[11px]">{new Date(u.created_at).toLocaleDateString('vi-VN')}</span>
+                                            </div>
+                                            <span className="px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-indigo-400 text-[10px] font-black uppercase tracking-widest">Member</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <button 
+                                            onClick={() => toggleStatus(u.user_id, u.is_active)}
+                                            className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all border ${
+                                                u.is_active 
+                                                ? 'bg-rose-500/10 border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white' 
+                                                : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white'
+                                            }`}
+                                        >
+                                            {u.is_active ? 'Khóa tài khoản' : 'Mở khóa'}
+                                        </button>
+                                        <button className="px-4 py-2.5 bg-blue-500/10 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all border border-blue-500/20">
+                                            <Info size={16} />
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))
+                        )}
                     </div>
                     {users.length === 0 && !loading && (
                         <div className="py-20 flex flex-col items-center justify-center text-slate-500 gap-2">
