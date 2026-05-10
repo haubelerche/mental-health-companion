@@ -5,7 +5,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -22,7 +22,7 @@ def git(*args: str) -> str:
 
 
 def make_entry(tool: str, prompt: str, model: str = "", response_summary: str = "") -> dict[str, str]:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     entry_id = f"manual-{now.strftime('%Y%m%d')}-{now.strftime('%H%M%S')}-{uuid4().hex[:8]}"
     return {
         "entry_id": entry_id,
