@@ -407,12 +407,12 @@ def _build_voice_intervention(
         "voice_jobs": voice_jobs,
         "crisis_footer": {
             "show_once": True,
-            "text": "Náº¿u cáº­u Ä‘ang cÃ³ Ã½ Ä‘á»‹nh tá»± háº¡i ngay lÃºc nÃ y, hÃ£y báº¥m Ä‘á»ƒ káº¿t ná»‘i há»— trá»£ kháº©n cáº¥p.",
-            "hotline_cta": {"label": "Gá»i há»— trá»£ kháº©n cáº¥p", "action": "open_hotline_sheet"},
+            "text": "Nếu cậu đang có ý định tự hại ngay lúc này, hãy bấm để kết nối hỗ trợ khẩn cấp.",
+            "hotline_cta": {"label": "Gọi hỗ trợ khẩn cấp", "action": "open_hotline_sheet"},
         },
         "next_actions": [
-            {"id": "continue_voice", "label": "NÃ³i chuyá»‡n tiáº¿p", "action": "open_voice_session_placeholder"},
-            {"id": "grounding_54321", "label": "BÃ i táº­p 5-4-3-2-1", "action": "start_grounding"},
+            {"id": "continue_voice", "label": "Nói chuyện tiếp", "action": "open_voice_session_placeholder"},
+            {"id": "grounding_54321", "label": "Bài tập 5-4-3-2-1", "action": "start_grounding"},
         ],
     }
 
@@ -521,61 +521,6 @@ def _enqueue_voice_policy(
             "voice_jobs": voice_jobs,
         }
     return {"voice_policy": policy_payload, "intervention": intervention}
-
-    scripts_to_enqueue: list[str] = [s for s in (voice_scripts or []) if s and s.strip()]
-    if not scripts_to_enqueue:
-        scripts_to_enqueue = [(voice_script or "").strip()]
-
-    voice_jobs: list[dict] = []
-    for script in scripts_to_enqueue:
-        _tts_verdict = _validate_tts_output(script, surface="tts")
-        if _tts_verdict.is_blocked:
-            logger.warning(
-                "SafetyOutputValidator blocked TTS script for user=%s: %s",
-                user_id,
-                _tts_verdict.reason_codes,
-            )
-            voice_jobs.append({"tts_job_id": None, "blocked": True, "reason": _tts_verdict.reason_codes})
-            continue
-        job = enqueue_voice_job(
-            db,
-            user_id=user_id,
-            session_id=session_id,
-            voice_script=script,
-            trigger_reason=trigger_reason,
-            trigger_snapshot=_trigger_snapshot,
-        )
-        voice_jobs.append(job)
-
-    # mark_cooldown is called EXACTLY ONCE after all jobs are enqueued
-    mark_cooldown(user_id=user_id, session_id=session_id)
-
-    primary_voice = voice_jobs[0] if voice_jobs else {}
-    primary_script = scripts_to_enqueue[0] if scripts_to_enqueue else (voice_script or "").strip()
-
-    return {
-        "type": "proactive_voice",
-        "trigger_reason": trigger_reason,
-        "trigger_snapshot": _trigger_snapshot,
-        "cooldown": {"active": False, "seconds_remaining": 0},
-        "requested_tts_provider": requested_tts,
-        "voice": primary_voice,
-        "voice_script": primary_script,
-        "voice_script_hash": primary_voice.get("voice_script_hash") or primary_voice.get("event_signature"),
-        "tts_job_id": primary_voice.get("tts_job_id"),
-        "voice_status": primary_voice.get("status"),
-        "voice_job_ids": [j.get("tts_job_id") for j in voice_jobs if j.get("tts_job_id")],
-        "voice_jobs": voice_jobs,
-        "crisis_footer": {
-            "show_once": True,
-            "text": "Nếu cậu đang có ý định tự hại ngay lúc này, hãy bấm để kết nối hỗ trợ khẩn cấp.",
-            "hotline_cta": {"label": "Gọi hỗ trợ khẩn cấp", "action": "open_hotline_sheet"},
-        },
-        "next_actions": [
-            {"id": "continue_voice", "label": "Nói chuyện tiếp", "action": "open_voice_session_placeholder"},
-            {"id": "grounding_54321", "label": "Bài tập 5-4-3-2-1", "action": "start_grounding"},
-        ],
-    }
 
 
 def _maybe_enqueue_voice(
