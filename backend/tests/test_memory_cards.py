@@ -1,4 +1,4 @@
-﻿"""Regression tests for canonical mem0-backed memory routes.
+"""Regression tests for canonical mem0-backed memory routes.
 
 This file must not import retired ORM models (`MemoryCard`, `MemoryCardAuditEvent`).
 Those tables were retired and should never be required for test collection.
