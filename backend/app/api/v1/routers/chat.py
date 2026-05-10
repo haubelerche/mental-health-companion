@@ -4,7 +4,7 @@ import json
 import mimetypes
 import threading
 import time
-from datetime import timedelta
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse
@@ -12,13 +12,19 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import ensure_policy_acknowledged, get_current_user, require_csrf
+from app.api.deps import (
+    ensure_policy_acknowledged,
+    ensure_policy_acknowledged_for_stream,
+    get_current_user,
+    get_current_user_for_stream,
+    require_csrf,
+)
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.services.db.models import AdminAuditLog, Conversation, CrisisLog, Message, User, UserProfile
+from app.services.db.models import AdminAuditLog, Conversation, CrisisLog, Message, NutritionMealCheckin, User, UserProfile
 from app.services.risk_writer import record_risk_inference, record_session_risk_snapshot
-from app.services.db.session import get_db
+from app.services.db.session import get_db, get_session_factory
 from app.services.schemas.payloads import ChatEndRequest, ChatMessageRequest, GuestChatMessageRequest
 from app.services.chat_context import load_chat_context_sync
 from app.services.chat_response_cache import get_cached_turn, hash_message, set_cached_turn
@@ -28,8 +34,6 @@ from app.services.guest_service import start_session as guest_start_session
 from app.services.langfuse_tracing import ChatTurnTracer, set_active_tracer
 from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn, stream_non_sos_turn_events
 from app.services.neo4j_client import get_user_patterns_async
-from app.personas import route_persona
-from app.personas.unlocks import is_persona_unlocked
 from app.services.longterm_memory import (
     UserMemoryContext,
     build_user_memory_context,
@@ -53,7 +57,7 @@ from app.services.sos_handler import (
 from app.services.crisis_intervention_planner import (
     build_fallback_plan,
     build_fallback_crisis_plan,
-    build_llm_crisis_messages,
+    build_llm_crisis_plan,
 )
 from app.services.clinical_profile import get_or_create_clinical_profile
 from app.services.safety_scoring import SafetySnapshot, compute_escalation_signal
@@ -63,12 +67,15 @@ from app.services.proactive_voice import (
     get_voice_audio_path,
     get_voice_job,
     mark_cooldown,
+    message_suggests_proactive_voice,
 )
+from app.services.voice_consent import get_voice_consent
+from app.services.voice_message_planner import intent_title
+from app.services.voice_policy import VoiceMessagePolicyEngine, VoicePolicyContext
 from app.services.utils import make_id, get_now
 from app.voice.types import TTS_TERMINAL_STATUSES
 from app.personas.router import route_persona
 from app.services.persona_unlock_persistence import is_persona_unlocked
-from app.memory.service import get_active_card_for_context
 
 logger = logging.getLogger(__name__)
 
@@ -105,26 +112,6 @@ def _enqueue_turn_mem0(user_id: str, raw_text: str, assistant_text: str) -> None
         )
     except Exception as exc:  # pragma: no cover - fail-safe
         logger.warning("mem0 turn add failed for %s: %s", user_id, exc)
-
-
-def _maybe_extract_cards(user_id: str, session_id: str, session_text: str) -> None:
-    """Extract and persist memory cards from session text. Runs on a daemon thread."""
-    from app.memory.extractor import extract_memory_candidates
-    from app.memory.service import create_cards_from_candidates
-    from app.services.db.session import get_session_factory
-
-    try:
-        extraction = extract_memory_candidates(session_text, session_id=session_id)
-        if not extraction["candidate_cards"]:
-            return
-        db = get_session_factory()()
-        try:
-            create_cards_from_candidates(db, user_id, extraction)
-            db.commit()
-        finally:
-            db.close()
-    except Exception as exc:
-        logger.warning("memory card extraction failed for %s: %s", user_id, exc)
 
 
 def _active_persona_id(db: Session, user_id: str, *, distress: float = 0.0) -> str:
@@ -305,6 +292,23 @@ def _should_load_memory_context(raw_text: str, recent_messages: list[dict]) -> b
     return len(recent_messages) >= 4
 
 
+def _load_today_meals(db: Session, user_id: str) -> list[dict]:
+    try:
+        rows = db.scalars(
+            select(NutritionMealCheckin)
+            .where(NutritionMealCheckin.user_id == user_id)
+            .where(NutritionMealCheckin.meal_date == date.today())
+            .order_by(NutritionMealCheckin.meal_slot)
+        ).all()
+        return [
+            {"slot": r.meal_slot, "items": r.items_text, "mood_before": r.mood_before, "mood_after": r.mood_after}
+            for r in rows
+        ]
+    except Exception as exc:
+        logger.debug("meal load failed for %s: %s", user_id, exc)
+        return []
+
+
 def _load_memory_context_for_turn(
     db: Session,
     *,
@@ -340,19 +344,14 @@ def _build_voice_intervention(
     db: Session,
     user_id: str,
     session_id: str,
-    assistant_reply_for_tts: str,
+    voice_script: str,
     snapshot,
     trigger_reason: str,
     rolling_window_turns: int,
     delta_score: float,
     voice_scripts: list[str] | None = None,
 ) -> dict:
-    """TTS is the same text as the assistant/Friend reply (no separate crisis script, no meta copy).
-
-    If voice_scripts is provided, enqueues one TTS job per script and calls mark_cooldown()
-    exactly once after all jobs are enqueued. Falls back to assistant_reply_for_tts when
-    voice_scripts is None or empty.
-    """
+    """Build a voice intervention from an explicit TTS-only script."""
     tts_cfg = get_settings()
     requested_tts = str(getattr(tts_cfg, "tts_provider", "elevenlabs") or "elevenlabs").lower()
     _trigger_snapshot = {
@@ -365,8 +364,167 @@ def _build_voice_intervention(
 
     scripts_to_enqueue: list[str] = [s for s in (voice_scripts or []) if s and s.strip()]
     if not scripts_to_enqueue:
-        # Fallback: single script from assistant reply
-        scripts_to_enqueue = [(assistant_reply_for_tts or "").strip()]
+        scripts_to_enqueue = [(voice_script or "").strip()]
+
+    voice_jobs: list[dict] = []
+    for script in scripts_to_enqueue:
+        _tts_verdict = _validate_tts_output(script, surface="tts")
+        if _tts_verdict.is_blocked:
+            logger.warning(
+                "SafetyOutputValidator blocked TTS script for user=%s: %s",
+                user_id,
+                _tts_verdict.reason_codes,
+            )
+            voice_jobs.append({"tts_job_id": None, "blocked": True, "reason": _tts_verdict.reason_codes})
+            continue
+        job = enqueue_voice_job(
+            db,
+            user_id=user_id,
+            session_id=session_id,
+            voice_script=script,
+            trigger_reason=trigger_reason,
+            trigger_snapshot=_trigger_snapshot,
+        )
+        voice_jobs.append(job)
+
+    mark_cooldown(user_id=user_id, session_id=session_id)
+
+    primary_voice = voice_jobs[0] if voice_jobs else {}
+    primary_script = scripts_to_enqueue[0] if scripts_to_enqueue else (voice_script or "").strip()
+
+    return {
+        "type": "proactive_voice",
+        "trigger_reason": trigger_reason,
+        "trigger_snapshot": _trigger_snapshot,
+        "cooldown": {"active": False, "seconds_remaining": 0},
+        "requested_tts_provider": requested_tts,
+        "voice": primary_voice,
+        "voice_script": primary_script,
+        "voice_script_hash": primary_voice.get("voice_script_hash") or primary_voice.get("event_signature"),
+        "tts_job_id": primary_voice.get("tts_job_id"),
+        "voice_status": primary_voice.get("status"),
+        "voice_job_ids": [j.get("tts_job_id") for j in voice_jobs if j.get("tts_job_id")],
+        "voice_jobs": voice_jobs,
+        "crisis_footer": {
+            "show_once": True,
+            "text": "Náº¿u cáº­u Ä‘ang cÃ³ Ã½ Ä‘á»‹nh tá»± háº¡i ngay lÃºc nÃ y, hÃ£y báº¥m Ä‘á»ƒ káº¿t ná»‘i há»— trá»£ kháº©n cáº¥p.",
+            "hotline_cta": {"label": "Gá»i há»— trá»£ kháº©n cáº¥p", "action": "open_hotline_sheet"},
+        },
+        "next_actions": [
+            {"id": "continue_voice", "label": "NÃ³i chuyá»‡n tiáº¿p", "action": "open_voice_session_placeholder"},
+            {"id": "grounding_54321", "label": "BÃ i táº­p 5-4-3-2-1", "action": "start_grounding"},
+        ],
+    }
+
+
+def _client_payload_for_terminal_policy(reason: str, *, risk_mode: str) -> dict:
+    status = "provider_disabled" if reason == "provider_disabled" else "cancelled"
+    return {
+        "id": f"{risk_mode}_voice_unavailable",
+        "intent": "sos_grounding" if risk_mode == "sos" else "elevated_encouragement",
+        "title": "Tin nhan thoai tam chua san sang",
+        "status": status,
+        "tts_job_id": None,
+        "audio_url": None,
+        "error_code": reason,
+    }
+
+
+def _enqueue_voice_policy(
+    *,
+    db: Session,
+    user_id: str,
+    session_id: str,
+    decision,
+    snap,
+    trigger_reason: str,
+    rolling_window_turns: int = 1,
+    delta_score: float = 0.0,
+) -> dict:
+    """Enqueue backend-approved voice plans and build client payloads.
+
+    The visible text has already been committed; TTS queueing must remain a
+    non-blocking attachment path from the frontend's perspective.
+    """
+    trigger_snapshot = {
+        "distress_score": snap.distress_score,
+        "risk_level": snap.risk_level,
+        "safety_tier": snap.safety_tier,
+        "rolling_window_turns": rolling_window_turns,
+        "delta_score": delta_score,
+        "risk_mode": decision.risk_mode,
+    }
+    client_messages: list[dict] = []
+    voice_jobs: list[dict] = []
+
+    if decision.should_attach_voice:
+        for plan in decision.voice_messages:
+            _tts_verdict = _validate_tts_output(plan.voice_script, surface="tts")
+            if _tts_verdict.is_blocked:
+                client_messages.append({
+                    "id": plan.id,
+                    "intent": plan.intent,
+                    "title": intent_title(str(plan.intent)),
+                    "status": "failed",
+                    "tts_job_id": None,
+                    "audio_url": None,
+                    "error_code": ",".join(_tts_verdict.reason_codes),
+                })
+                continue
+            job = enqueue_voice_job(
+                db,
+                user_id=user_id,
+                session_id=session_id,
+                voice_script=plan.voice_script,
+                trigger_reason=trigger_reason,
+                trigger_snapshot=trigger_snapshot,
+                risk_mode=decision.risk_mode,
+                voice_intent=str(plan.intent),
+                priority=plan.priority,
+            )
+            voice_jobs.append(job)
+            client_messages.append({
+                "id": plan.id,
+                "intent": plan.intent,
+                "title": intent_title(str(plan.intent)),
+                "status": job.get("status") or "queued",
+                "tts_job_id": job.get("tts_job_id"),
+                "audio_url": job.get("audio_url"),
+                "error_code": job.get("error_code"),
+            })
+        if voice_jobs:
+            mark_cooldown(user_id=user_id, session_id=session_id)
+    elif decision.risk_mode == "sos":
+        terminal_reason = next((r for r in decision.reason_codes if r in {"provider_disabled", "user_voice_disabled"}), "voice_policy_skipped")
+        client_messages.append(_client_payload_for_terminal_policy(terminal_reason, risk_mode=decision.risk_mode))
+
+    policy_payload = {
+        "should_attach_voice": decision.should_attach_voice,
+        "risk_mode": decision.risk_mode,
+        "ordinary_cooldown_bypassed": decision.ordinary_cooldown_bypassed,
+        "reason_codes": decision.reason_codes,
+        "voice_messages": client_messages,
+    }
+
+    primary_voice = voice_jobs[0] if voice_jobs else (client_messages[0] if client_messages else {})
+    intervention = None
+    if client_messages:
+        intervention = {
+            "type": "proactive_voice",
+            "trigger_reason": trigger_reason,
+            "trigger_snapshot": trigger_snapshot,
+            "cooldown": {"active": False, "seconds_remaining": 0},
+            "voice": primary_voice,
+            "tts_job_id": primary_voice.get("tts_job_id"),
+            "voice_status": primary_voice.get("status"),
+            "voice_job_ids": [m.get("tts_job_id") for m in client_messages if m.get("tts_job_id")],
+            "voice_jobs": voice_jobs,
+        }
+    return {"voice_policy": policy_payload, "intervention": intervention}
+
+    scripts_to_enqueue: list[str] = [s for s in (voice_scripts or []) if s and s.strip()]
+    if not scripts_to_enqueue:
+        scripts_to_enqueue = [(voice_script or "").strip()]
 
     voice_jobs: list[dict] = []
     for script in scripts_to_enqueue:
@@ -393,7 +551,7 @@ def _build_voice_intervention(
     mark_cooldown(user_id=user_id, session_id=session_id)
 
     primary_voice = voice_jobs[0] if voice_jobs else {}
-    primary_script = scripts_to_enqueue[0] if scripts_to_enqueue else (assistant_reply_for_tts or "").strip()
+    primary_script = scripts_to_enqueue[0] if scripts_to_enqueue else (voice_script or "").strip()
 
     return {
         "type": "proactive_voice",
@@ -403,6 +561,9 @@ def _build_voice_intervention(
         "requested_tts_provider": requested_tts,
         "voice": primary_voice,
         "voice_script": primary_script,
+        "voice_script_hash": primary_voice.get("voice_script_hash") or primary_voice.get("event_signature"),
+        "tts_job_id": primary_voice.get("tts_job_id"),
+        "voice_status": primary_voice.get("status"),
         "voice_job_ids": [j.get("tts_job_id") for j in voice_jobs if j.get("tts_job_id")],
         "voice_jobs": voice_jobs,
         "crisis_footer": {
@@ -424,6 +585,7 @@ def _maybe_enqueue_voice(
     session_id: str,
     snap,
     assistant_content: str,
+    user_message: str,
     recent_messages: list[dict],
     cooldown_is_active: bool,
     cooldown_seconds: int,
@@ -448,7 +610,15 @@ def _maybe_enqueue_voice(
         window_turns=settings.proactive_voice_window_turns,
     )
     auto_thr = float(settings.proactive_voice_auto_distress_threshold)
-    if not (signal.escalate or final_distress >= auto_thr):
+    keyword_voice = message_suggests_proactive_voice(str(user_message or ""))
+    # Avoid TTS on casual mentions; combine keywords with a modest distress floor.
+    keyword_distress_floor = 0.48
+    should_voice = (
+        signal.escalate
+        or final_distress >= auto_thr
+        or (keyword_voice and final_distress >= keyword_distress_floor)
+    )
+    if not should_voice:
         return None
     if cooldown_is_active:
         return {
@@ -457,12 +627,17 @@ def _maybe_enqueue_voice(
             "cooldown": {"active": True, "seconds_remaining": cooldown_seconds},
             "voice": {"status": "cooldown", "tts_job_id": None, "audio_url": None},
         }
-    trigger_reason = signal.trigger_reason if signal.escalate else "distress_auto_voice"
+    if signal.escalate:
+        trigger_reason = signal.trigger_reason
+    elif final_distress >= auto_thr:
+        trigger_reason = "distress_auto_voice"
+    else:
+        trigger_reason = "keyword_intensity_voice"
     return _build_voice_intervention(
         db=db,
         user_id=user_id,
         session_id=session_id,
-        assistant_reply_for_tts=assistant_content,
+        voice_script=assistant_content,
         snapshot=snap,
         trigger_reason=trigger_reason,
         rolling_window_turns=signal.rolling_window_turns,
@@ -629,13 +804,42 @@ def send_message(
                     Message.sos_triggered == True,  # noqa: E712
                 )
             ) or 0
-            assistant_content = assistant_text_for_sos(raw_text, sos_count)
+            _is_alone = is_alone_signal(raw_text)
+            _settings = get_settings()
+            crisis_plan_base = build_fallback_crisis_plan(
+                is_alone=_is_alone,
+                session_sos_count=sos_count,
+                reason_codes=list(getattr(_sos_debug, "reason_codes", []) or []),
+            )
+            try:
+                crisis_plan = asyncio.run(build_llm_crisis_plan(
+                    user_message=raw_text,
+                    session_sos_count=sos_count,
+                    is_alone=_is_alone,
+                    openai_api_key=_settings.openai_api_key,
+                ))
+                # Always use curated action_cards and safety codes from deterministic base
+                crisis_plan = crisis_plan.model_copy(update={
+                    "action_cards": crisis_plan_base.action_cards,
+                    "safety_reason_codes": crisis_plan_base.safety_reason_codes,
+                    "should_enqueue_voice": crisis_plan_base.should_enqueue_voice,
+                })
+                safety_tracer.generation(
+                    "safety_crisis_enrichment",
+                    model="gpt-4o-mini",
+                    input_messages=[{"role": "user", "content": {"message_len": len(raw_text), "is_alone": _is_alone}}],
+                    output="crisis_plan_llm",
+                    metadata={"agent": "safety", "session_sos_count": int(sos_count or 0)},
+                )
+            except Exception as _exc:
+                logger.warning("LLM crisis plan failed, using base plan: %s", _exc)
+                crisis_plan = crisis_plan_base
             assistant_msg = Message(
                 message_id=make_id("msg"),
                 session_id=session.session_id,
                 user_id=current_user.user_id,
                 role="assistant",
-                content=assistant_content,
+                content=crisis_plan.visible_text,
                 assistant_tone=None,
                 sos_triggered=True,
                 created_at=now,
@@ -651,50 +855,38 @@ def send_message(
                 request_host=host,
             )
             db.commit()
-            _is_alone = is_alone_signal(raw_text)
-            _settings = get_settings()
-            crisis_plan_base = build_fallback_crisis_plan(
-                is_alone=_is_alone,
-                session_sos_count=sos_count,
-            )
-            try:
-                _llm_texts, _llm_voices = asyncio.run(build_llm_crisis_messages(
-                    user_message=raw_text,
-                    session_sos_count=sos_count if sos_count is not None else 0,
-                    is_alone=_is_alone,
-                    openai_api_key=_settings.openai_api_key,
-                ))
-                crisis_plan = crisis_plan_base.model_copy(update={
-                    "follow_up_texts": _llm_texts,
-                    "voice_script": _llm_voices[0],
-                    "additional_voice_scripts": _llm_voices[1:],
-                    "source": "llm",
-                })
-                safety_tracer.generation(
-                    "safety_crisis_enrichment",
-                    model=_settings.openai_model_analyst,
-                    input_messages=[{"role": "user", "content": {"message_len": len(raw_text), "is_alone": _is_alone}}],
-                    output="crisis_plan_enriched",
-                    metadata={"agent": "safety", "session_sos_count": int(sos_count or 0)},
-                )
-            except Exception as _exc:
-                logger.warning("LLM crisis enrichment failed, using base plan: %s", _exc)
-                crisis_plan = crisis_plan_base
             data = build_sos_chat_response_data(session.session_id, snap, assistant_text=crisis_plan.visible_text)
             data["voice_script"] = crisis_plan.voice_script
             data["crisis_plan"] = crisis_plan.model_dump()
-            data["scoring_debug"] = _sos_debug.model_dump()
-            data["intervention"] = _build_voice_intervention(
+            if settings.chat_expose_scoring_debug:
+                data["scoring_debug"] = _sos_debug.model_dump()
+            voice_decision = VoiceMessagePolicyEngine.decide(VoicePolicyContext(
+                user_id=current_user.user_id,
+                session_id=session.session_id,
+                distress_score=float(distress0),
+                safety_tier=str(snap.safety_tier),
+                sos_triggered=True,
+                cooldown_active=cooldown_is_active,
+                cooldown_seconds_remaining=cooldown_seconds,
+                user_voice_enabled=get_voice_consent(db, current_user.user_id),
+                provider_enabled=True,
+                current_turn_has_emotional_weight=True,
+                purely_technical_turn=False,
+                visible_text=crisis_plan.visible_text,
+                reason_codes=tuple(getattr(_sos_debug, "reason_codes", []) or []),
+            ))
+            voice_result = _enqueue_voice_policy(
                 db=db,
                 user_id=current_user.user_id,
                 session_id=session.session_id,
-                assistant_reply_for_tts=crisis_plan.voice_script,
-                snapshot=snap,
+                decision=voice_decision,
+                snap=snap,
                 trigger_reason="sos_gate_forced",
                 rolling_window_turns=1,
                 delta_score=0.0,
-                voice_scripts=crisis_plan.all_voice_scripts,
             )
+            data["voice_policy"] = voice_result["voice_policy"]
+            data["intervention"] = voice_result["intervention"]
             _mark_stage(latency_trace, "tts_enqueue_ms", stage_started)
             latency_trace["total_backend_ms"] = int((time.perf_counter() - request_started) * 1000)
             latency_trace["total_frontend_visible_latency_ms"] = latency_trace["total_backend_ms"]
@@ -735,17 +927,16 @@ def send_message(
                 distress_score=distress,
             )
             _mark_stage(latency_trace, "memory_load_ms", memory_started)
-            try:
-                active_card = get_active_card_for_context(db, current_user.user_id)
-                mc_text = f"{active_card.title}: {active_card.content}" if active_card else ""
-            except Exception:
-                mc_text = ""
             llm_started = time.perf_counter()
             _graph_patterns: dict = {}
             try:
                 _graph_patterns = asyncio.run(get_user_patterns_async(current_user.user_id))
             except Exception as _neo4j_exc:
                 logger.debug("neo4j pre-fetch failed in send_message: %s", _neo4j_exc)
+            _nutrition_meals = _load_today_meals(db, current_user.user_id)
+            _base_traits = dict(memory_ctx.traits if memory_ctx else {})
+            if memory_ctx and memory_ctx.onboarding:
+                _base_traits.setdefault("onboarding", memory_ctx.onboarding)
             turn = run_non_sos_turn(
                 user_message=raw_text,
                 recent_messages=ctx.recent_messages,
@@ -753,7 +944,7 @@ def send_message(
                 distress_score=distress,
                 long_term_memories=(memory_ctx.recent_summaries if memory_ctx else compat_longterm),
                 mem0_facts=(memory_ctx.mem0_facts if memory_ctx else []),
-                user_traits=(memory_ctx.traits if memory_ctx else {}),
+                user_traits=_base_traits,
                 top_triggers=(memory_ctx.top_triggers if memory_ctx else []),
                 active_goals=(memory_ctx.active_goals if memory_ctx else []),
                 effective_coping=(memory_ctx.effective_coping if memory_ctx else []),
@@ -761,8 +952,9 @@ def send_message(
                 persona_id=_active_persona_id(db, current_user.user_id, distress=distress),
                 user_id=current_user.user_id,
                 session_id=session.session_id,
-                active_memory_card_text=mc_text,
+                active_memory_text="",
                 graph_patterns=_graph_patterns,
+                nutrition_meals=_nutrition_meals or None,
             )
             _mark_stage(latency_trace, "friend_llm_call_ms", llm_started)
             set_cached_turn(
@@ -823,14 +1015,6 @@ def send_message(
         args=(current_user.user_id, raw_text, assistant_content),
         daemon=True,
     ).start()
-    session_text_for_cards = " ".join(
-        str(m.get("content") or "") for m in ctx.recent_messages if m.get("role") == "user"
-    )
-    threading.Thread(
-        target=_maybe_extract_cards,
-        args=(current_user.user_id, session.session_id, session_text_for_cards),
-        daemon=True,
-    ).start()
 
     vhint = None
     if snap.safety_tier == "voice_recommended":
@@ -852,17 +1036,50 @@ def send_message(
     if review_decision.requires_human_review:
         data["pending_human_review"] = True
         data["review_reason"] = review_decision.reason
-    data["intervention"] = _maybe_enqueue_voice(
+    distress_for_voice = float(snap.distress_score)
+    history_for_voice = _recent_distress_history(ctx.recent_messages, max_turns=settings.proactive_voice_window_turns)
+    signal_for_voice = compute_escalation_signal(
+        current_distress=distress_for_voice,
+        previous_distress=history_for_voice,
+        threshold=settings.proactive_voice_threshold,
+        delta_threshold=settings.proactive_voice_delta_threshold,
+        window_turns=settings.proactive_voice_window_turns,
+    )
+    keyword_voice = message_suggests_proactive_voice(str(raw_text or ""))
+    emotional_weight = (
+        distress_for_voice >= 0.55
+        or signal_for_voice.escalate
+        or keyword_voice
+        or any(k in str(raw_text or "").lower() for k in ("buon", "met", "lo", "stress", "ap luc", "khong on"))
+    )
+    purely_technical = any(k in str(raw_text or "").lower() for k in ("api", "code", "bug", "deploy", "database")) and distress_for_voice < 0.55
+    voice_decision = VoiceMessagePolicyEngine.decide(VoicePolicyContext(
+        user_id=current_user.user_id,
+        session_id=session.session_id,
+        distress_score=distress_for_voice,
+        safety_tier=str(snap.safety_tier),
+        sos_triggered=False,
+        cooldown_active=cooldown_is_active,
+        cooldown_seconds_remaining=cooldown_seconds,
+        user_voice_enabled=get_voice_consent(db, current_user.user_id),
+        provider_enabled=True,
+        current_turn_has_emotional_weight=emotional_weight,
+        purely_technical_turn=purely_technical,
+        visible_text=assistant_content,
+        reason_codes=tuple([signal_for_voice.trigger_reason] if signal_for_voice.escalate else []),
+    ))
+    voice_result = _enqueue_voice_policy(
         db=db,
         user_id=current_user.user_id,
         session_id=session.session_id,
+        decision=voice_decision,
         snap=snap,
-        assistant_content=assistant_content,
-        recent_messages=ctx.recent_messages,
-        cooldown_is_active=cooldown_is_active,
-        cooldown_seconds=cooldown_seconds,
-        settings=settings,
+        trigger_reason=signal_for_voice.trigger_reason if signal_for_voice.escalate else f"{voice_decision.risk_mode}_voice_policy",
+        rolling_window_turns=signal_for_voice.rolling_window_turns,
+        delta_score=signal_for_voice.delta_score,
     )
+    data["voice_policy"] = voice_result["voice_policy"]
+    data["intervention"] = voice_result["intervention"]
     _mark_stage(latency_trace, "tts_enqueue_ms", stage_started)
     latency_trace.setdefault("memory_load_ms", 0)
     latency_trace.setdefault("friend_llm_call_ms", 0)
@@ -885,10 +1102,10 @@ def send_message(
 def send_message_stream(
     payload: ChatMessageRequest,
     request: Request,
-    current_user: User = Depends(ensure_policy_acknowledged),
-    db: Session = Depends(get_db),
+    current_user: User = Depends(ensure_policy_acknowledged_for_stream),
 ):
     def event_stream():
+        db: Session | None = get_session_factory()()
         try:
             yield "event: status\ndata: " + json.dumps({"stage": "queued"}, ensure_ascii=False) + "\n\n"
             started_at = time.perf_counter()
@@ -1021,13 +1238,41 @@ def send_message_stream(
                             Message.sos_triggered == True,  # noqa: E712
                         )
                     ) or 0
-                    assistant_content = assistant_text_for_sos(raw_text, sos_count)
+                    _is_alone = is_alone_signal(raw_text)
+                    _settings = get_settings()
+                    _crisis_plan_base = build_fallback_crisis_plan(
+                        is_alone=_is_alone,
+                        session_sos_count=sos_count,
+                        reason_codes=list(getattr(_sos_debug, "reason_codes", []) or []),
+                    )
+                    try:
+                        crisis_plan = asyncio.run(build_llm_crisis_plan(
+                            user_message=raw_text,
+                            session_sos_count=sos_count,
+                            is_alone=_is_alone,
+                            openai_api_key=_settings.openai_api_key,
+                        ))
+                        crisis_plan = crisis_plan.model_copy(update={
+                            "action_cards": _crisis_plan_base.action_cards,
+                            "safety_reason_codes": _crisis_plan_base.safety_reason_codes,
+                            "should_enqueue_voice": _crisis_plan_base.should_enqueue_voice,
+                        })
+                        safety_tracer.generation(
+                            "safety_crisis_enrichment",
+                            model="gpt-4o-mini",
+                            input_messages=[{"role": "user", "content": {"message_len": len(raw_text), "is_alone": _is_alone, "stream": True}}],
+                            output="crisis_plan_llm",
+                            metadata={"agent": "safety", "session_sos_count": int(sos_count or 0), "stream": True},
+                        )
+                    except Exception as _exc:
+                        logger.warning("LLM crisis plan failed, using base plan: %s", _exc)
+                        crisis_plan = _crisis_plan_base
                     assistant_msg = Message(
                         message_id=make_id("msg"),
                         session_id=session.session_id,
                         user_id=current_user.user_id,
                         role="assistant",
-                        content=assistant_content,
+                        content=crisis_plan.visible_text,
                         assistant_tone=None,
                         sos_triggered=True,
                         created_at=now,
@@ -1043,50 +1288,38 @@ def send_message_stream(
                         request_host=host,
                     )
                     db.commit()
-                    _is_alone = is_alone_signal(raw_text)
-                    _settings = get_settings()
-                    _crisis_plan_base = build_fallback_crisis_plan(
-                        is_alone=_is_alone,
-                        session_sos_count=sos_count,
-                    )
-                    try:
-                        _llm_texts, _llm_voices = asyncio.run(build_llm_crisis_messages(
-                            user_message=raw_text,
-                            session_sos_count=sos_count if sos_count is not None else 0,
-                            is_alone=_is_alone,
-                            openai_api_key=_settings.openai_api_key,
-                        ))
-                        crisis_plan = _crisis_plan_base.model_copy(update={
-                            "follow_up_texts": _llm_texts,
-                            "voice_script": _llm_voices[0],
-                            "additional_voice_scripts": _llm_voices[1:],
-                            "source": "llm",
-                        })
-                        safety_tracer.generation(
-                            "safety_crisis_enrichment",
-                            model=_settings.openai_model_analyst,
-                            input_messages=[{"role": "user", "content": {"message_len": len(raw_text), "is_alone": _is_alone, "stream": True}}],
-                            output="crisis_plan_enriched",
-                            metadata={"agent": "safety", "session_sos_count": int(sos_count or 0), "stream": True},
-                        )
-                    except Exception as _exc:
-                        logger.warning("LLM crisis enrichment failed, using base plan: %s", _exc)
-                        crisis_plan = _crisis_plan_base
                     data = build_sos_chat_response_data(session.session_id, snap, assistant_text=crisis_plan.visible_text)
                     data["voice_script"] = crisis_plan.voice_script
                     data["crisis_plan"] = crisis_plan.model_dump()
-                    data["scoring_debug"] = _sos_debug.model_dump()
-                    data["intervention"] = _build_voice_intervention(
+                    if settings.chat_expose_scoring_debug:
+                        data["scoring_debug"] = _sos_debug.model_dump()
+                    voice_decision = VoiceMessagePolicyEngine.decide(VoicePolicyContext(
+                        user_id=current_user.user_id,
+                        session_id=session.session_id,
+                        distress_score=float(distress0),
+                        safety_tier=str(snap.safety_tier),
+                        sos_triggered=True,
+                        cooldown_active=cooldown_is_active,
+                        cooldown_seconds_remaining=cooldown_seconds,
+                        user_voice_enabled=get_voice_consent(db, current_user.user_id),
+                        provider_enabled=True,
+                        current_turn_has_emotional_weight=True,
+                        purely_technical_turn=False,
+                        visible_text=crisis_plan.visible_text,
+                        reason_codes=tuple(getattr(_sos_debug, "reason_codes", []) or []),
+                    ))
+                    voice_result = _enqueue_voice_policy(
                         db=db,
                         user_id=current_user.user_id,
                         session_id=session.session_id,
-                        assistant_reply_for_tts=crisis_plan.voice_script,
-                        snapshot=snap,
+                        decision=voice_decision,
+                        snap=snap,
                         trigger_reason="sos_gate_forced",
                         rolling_window_turns=1,
                         delta_score=0.0,
-                        voice_scripts=crisis_plan.all_voice_scripts,
                     )
+                    data["voice_policy"] = voice_result["voice_policy"]
+                    data["intervention"] = voice_result["intervention"]
                     elapsed_ms = int((time.perf_counter() - started_at) * 1000)
                     safety_tracer.score("distress_score", distress0, comment="sos_gate_forced")
                     safety_tracer.update_output(
@@ -1124,11 +1357,6 @@ def send_message_stream(
                     recent_messages=ctx.recent_messages,
                     distress_score=distress,
                 )
-                try:
-                    active_card = get_active_card_for_context(db, current_user.user_id)
-                    mc_text = f"{active_card.title}: {active_card.content}" if active_card else ""
-                except Exception:
-                    mc_text = ""
                 last_heartbeat, hb = _build_heartbeat_event(
                     started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_memory_ready"
                 )
@@ -1140,6 +1368,25 @@ def send_message_stream(
                     _stream_graph_patterns = asyncio.run(get_user_patterns_async(current_user.user_id))
                 except Exception as _neo4j_exc:
                     logger.debug("neo4j pre-fetch failed in send_message_stream: %s", _neo4j_exc)
+                _stream_nutrition_meals = _load_today_meals(db, current_user.user_id)
+                _stream_base_traits = dict(memory_ctx.traits if memory_ctx else {})
+                if memory_ctx and memory_ctx.onboarding:
+                    _stream_base_traits.setdefault("onboarding", memory_ctx.onboarding)
+                _stream_persona_id = _active_persona_id(db, current_user.user_id, distress=distress)
+                _stream_session_id = session.session_id
+                _stream_user_id = current_user.user_id
+                # Return the pooled connection before the long LLM stream so parallel
+                # requests (auth, WS, voice) do not block on pool_size=1 deployments.
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+                try:
+                    db.close()
+                except Exception:
+                    pass
+                db = None
+
                 for ev in stream_non_sos_turn_events(
                     user_message=raw_text,
                     recent_messages=ctx.recent_messages,
@@ -1147,16 +1394,17 @@ def send_message_stream(
                     distress_score=distress,
                     long_term_memories=(memory_ctx.recent_summaries if memory_ctx else compat_longterm),
                     mem0_facts=(memory_ctx.mem0_facts if memory_ctx else []),
-                    user_traits=(memory_ctx.traits if memory_ctx else {}),
+                    user_traits=_stream_base_traits,
                     top_triggers=(memory_ctx.top_triggers if memory_ctx else []),
                     active_goals=(memory_ctx.active_goals if memory_ctx else []),
                     effective_coping=(memory_ctx.effective_coping if memory_ctx else []),
                     clinical_trajectory=(memory_ctx.clinical_trajectory if memory_ctx else ""),
-                    persona_id=_active_persona_id(db, current_user.user_id, distress=distress),
-                    user_id=current_user.user_id,
-                    session_id=session.session_id,
-                    active_memory_card_text=mc_text,
+                    persona_id=_stream_persona_id,
+                    user_id=_stream_user_id,
+                    session_id=_stream_session_id,
+                    active_memory_text="",
                     graph_patterns=_stream_graph_patterns,
+                    nutrition_meals=_stream_nutrition_meals or None,
                 ):
                     if ev.get("type") == "token":
                         yield "event: delta\ndata: " + json.dumps({"text": str(ev.get("text") or "")}, ensure_ascii=False) + "\n\n"
@@ -1165,11 +1413,22 @@ def send_message_stream(
                 if not turn:
                     raise AppError("LLM_TIMEOUT", "Phản hồi quá lâu, vui lòng thử lại", 504)
                 set_cached_turn(
-                    session.session_id,
+                    _stream_session_id,
                     message_hash,
                     turn,
                     ttl_seconds=settings.chat_response_cache_ttl_seconds,
                 )
+
+                db = get_session_factory()()
+                session = db.scalar(
+                    select(Conversation).where(
+                        Conversation.session_id == _stream_session_id,
+                        Conversation.user_id == _stream_user_id,
+                        Conversation.deleted_at.is_(None),
+                    )
+                )
+                if not session:
+                    raise AppError("SESSION_NOT_FOUND", "Session không tồn tại", 404)
 
             snap = turn["session_fields"]
             assistant_content = turn["reply"]
@@ -1219,14 +1478,6 @@ def send_message_stream(
                 args=(current_user.user_id, raw_text, assistant_content),
                 daemon=True,
             ).start()
-            stream_session_text_for_cards = " ".join(
-                str(m.get("content") or "") for m in ctx.recent_messages if m.get("role") == "user"
-            )
-            threading.Thread(
-                target=_maybe_extract_cards,
-                args=(current_user.user_id, session.session_id, stream_session_text_for_cards),
-                daemon=True,
-            ).start()
 
             vhint = None
             if snap.safety_tier == "voice_recommended":
@@ -1246,17 +1497,50 @@ def send_message_stream(
             if review_decision.requires_human_review:
                 data["pending_human_review"] = True
                 data["review_reason"] = review_decision.reason
-            data["intervention"] = _maybe_enqueue_voice(
+            distress_for_voice = float(snap.distress_score)
+            history_for_voice = _recent_distress_history(ctx.recent_messages, max_turns=settings.proactive_voice_window_turns)
+            signal_for_voice = compute_escalation_signal(
+                current_distress=distress_for_voice,
+                previous_distress=history_for_voice,
+                threshold=settings.proactive_voice_threshold,
+                delta_threshold=settings.proactive_voice_delta_threshold,
+                window_turns=settings.proactive_voice_window_turns,
+            )
+            keyword_voice = message_suggests_proactive_voice(str(raw_text or ""))
+            emotional_weight = (
+                distress_for_voice >= 0.55
+                or signal_for_voice.escalate
+                or keyword_voice
+                or any(k in str(raw_text or "").lower() for k in ("buon", "met", "lo", "stress", "ap luc", "khong on"))
+            )
+            purely_technical = any(k in str(raw_text or "").lower() for k in ("api", "code", "bug", "deploy", "database")) and distress_for_voice < 0.55
+            voice_decision = VoiceMessagePolicyEngine.decide(VoicePolicyContext(
+                user_id=current_user.user_id,
+                session_id=session.session_id,
+                distress_score=distress_for_voice,
+                safety_tier=str(snap.safety_tier),
+                sos_triggered=False,
+                cooldown_active=cooldown_is_active,
+                cooldown_seconds_remaining=cooldown_seconds,
+                user_voice_enabled=get_voice_consent(db, current_user.user_id),
+                provider_enabled=True,
+                current_turn_has_emotional_weight=emotional_weight,
+                purely_technical_turn=purely_technical,
+                visible_text=assistant_content,
+                reason_codes=tuple([signal_for_voice.trigger_reason] if signal_for_voice.escalate else []),
+            ))
+            voice_result = _enqueue_voice_policy(
                 db=db,
                 user_id=current_user.user_id,
                 session_id=session.session_id,
+                decision=voice_decision,
                 snap=snap,
-                assistant_content=assistant_content,
-                recent_messages=ctx.recent_messages,
-                cooldown_is_active=cooldown_is_active,
-                cooldown_seconds=cooldown_seconds,
-                settings=settings,
+                trigger_reason=signal_for_voice.trigger_reason if signal_for_voice.escalate else f"{voice_decision.risk_mode}_voice_policy",
+                rolling_window_turns=signal_for_voice.rolling_window_turns,
+                delta_score=signal_for_voice.delta_score,
             )
+            data["voice_policy"] = voice_result["voice_policy"]
+            data["intervention"] = voice_result["intervention"]
 
             elapsed_ms = int((time.perf_counter() - started_at) * 1000)
             yield "event: status\ndata: " + json.dumps({"stage": "ready", "latency_ms": elapsed_ms}, ensure_ascii=False) + "\n\n"
@@ -1269,10 +1553,15 @@ def send_message_stream(
         finally:
             # Ensure any uncommitted transaction is rolled back when the generator
             # exits — including mid-stream client disconnects that abandon the generator.
-            try:
-                db.rollback()
-            except Exception:
-                pass
+            if db is not None:
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+                try:
+                    db.close()
+                except Exception:
+                    pass
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
@@ -1396,17 +1685,18 @@ def get_voice_job_status(
 @router.get("/voice-jobs/{tts_job_id}/events")
 async def stream_voice_job_events(
     tts_job_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_for_stream),
 ):
-    job_check = get_voice_job(db, tts_job_id)
-    if not job_check or job_check.get("user_id") != current_user.user_id:
-        raise AppError("VOICE_JOB_NOT_FOUND", "Voice job không tồn tại", 404)
+    with get_session_factory()() as db:
+        job_check = get_voice_job(db, tts_job_id)
+        if not job_check or job_check.get("user_id") != current_user.user_id:
+            raise AppError("VOICE_JOB_NOT_FOUND", "Voice job không tồn tại", 404)
 
     async def event_stream():
         previous_status = None
         for _ in range(30):
-            job = get_voice_job(db, tts_job_id)
+            with get_session_factory()() as db:
+                job = get_voice_job(db, tts_job_id)
             if not job:
                 yield "event: error\ndata: {\"code\":\"VOICE_JOB_NOT_FOUND\"}\n\n"
                 return
