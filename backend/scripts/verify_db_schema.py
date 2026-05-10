@@ -21,7 +21,7 @@ REQUIRED_TABLES = [
     "resources",
     "bookmarks",
     "play_events",
-    "conversation_memories",
+    "mem0_memories",
     "session_summaries_archive",
     "user_profiles",
     "user_profile_snapshots",
@@ -41,14 +41,72 @@ REQUIRED_TABLES = [
     "persona_unlock_states",
     "reward_store_items",
     "user_inventory_items",
-    "memory_cards",
-    "memory_card_audit_events",
     "knowledge_packs",
     "knowledge_cards",
     "user_knowledge_progress",
     "user_notifications",
     "user_notification_preferences",
 ]
+
+REQUIRED_COLUMNS = {
+    "sync_outbox": {
+        "outbox_id",
+        "user_id",
+        "event_type",
+        "payload",
+        "status",
+        "retry_count",
+        "error_message",
+        "created_at",
+        "processing_started_at",
+        "processed_at",
+    },
+    "clinical_profiles": {
+        "profile_id",
+        "user_id",
+        "phq9_score",
+        "gad7_score",
+        "crisis_level",
+        "score_source",
+        "last_scored_at",
+    },
+    "risk_inference_log": {
+        "log_id",
+        "user_id",
+        "session_id",
+        "inferred_signal",
+        "score",
+        "detail",
+        "created_at",
+    },
+    "session_risk_snapshots": {
+        "snapshot_id",
+        "session_id",
+        "user_id",
+        "risk_score",
+        "intent_severity",
+        "intent_immediacy",
+        "crisis_mode",
+        "escalation_flag",
+        "components",
+        "source",
+        "created_at",
+    },
+    "insight_hypotheses": {
+        "insight_id",
+        "user_id",
+        "hypothesis_type",
+        "title",
+        "user_safe_summary",
+        "internal_rationale",
+        "evidence_count",
+        "severity_band",
+        "display_allowed",
+        "status",
+    },
+    "heart_wallets": {"user_id", "balance", "lifetime_earned", "lifetime_spent"},
+    "knowledge_cards": {"card_id", "pack_id", "title", "content_markdown", "order_index"},
+}
 
 
 def main() -> None:
@@ -60,11 +118,11 @@ def main() -> None:
 
     engine = sa.create_engine(
         db_url,
-        connect_args={"options": "-c search_path=app,public,extensions", "connect_timeout": 10},
+        connect_args={"options": "-c search_path=app,extensions", "connect_timeout": 10},
     )
     try:
         with engine.connect() as conn:
-            conn.execute(sa.text("SET search_path TO app, public, extensions"))
+            conn.execute(sa.text("SET search_path TO app, extensions"))
             print(f"OK: connected: {db_url[:50]}...")
 
             result = conn.execute(
@@ -78,6 +136,13 @@ def main() -> None:
             for table in sorted(existing):
                 marker = "OK" if table in REQUIRED_TABLES else "EXTRA"
                 print(f"  {marker} {table}")
+
+            public_schema_exists = conn.execute(
+                sa.text("SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name='public')")
+            ).scalar()
+            if public_schema_exists:
+                print("\nERROR: public schema still exists; canonical database must use only app plus extension/system schemas")
+                sys.exit(1)
 
             missing = set(REQUIRED_TABLES) - existing
             if missing:
@@ -99,6 +164,23 @@ def main() -> None:
                 print("  ERROR: messages.assistant_tone is missing")
             if "tone_cam_xuc" in msg_cols:
                 print("  WARNING: legacy messages.tone_cam_xuc still exists")
+
+            for table_name, required_cols in REQUIRED_COLUMNS.items():
+                cols_result = conn.execute(
+                    sa.text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_schema='app' AND table_name=:table_name"
+                    ),
+                    {"table_name": table_name},
+                )
+                present_cols = {row[0] for row in cols_result}
+                missing_cols = required_cols - present_cols
+                if missing_cols:
+                    print(f"\nERROR: app.{table_name} missing columns: {sorted(missing_cols)}")
+                    sys.exit(1)
+                if table_name == "sync_outbox" and "attempts" in present_cols:
+                    print("\nERROR: legacy app.sync_outbox.attempts exists; canonical column is retry_count")
+                    sys.exit(1)
 
             mood_cols_result = conn.execute(
                 sa.text(
@@ -141,7 +223,8 @@ def main() -> None:
             profile_schemas = [row[0] for row in profile_schema_result]
             print(f"\nuser_profiles schemas: {profile_schemas}")
             if "public" in profile_schemas:
-                print("WARNING: public.user_profiles exists; verify runtime search_path prefers app.")
+                print("ERROR: public.user_profiles exists; canonical runtime must use only app.")
+                sys.exit(1)
 
             feature_schema_result = conn.execute(
                 sa.text(
