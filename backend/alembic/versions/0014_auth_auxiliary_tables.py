@@ -18,7 +18,7 @@ depends_on = None
 
 def upgrade() -> None:
     op.execute("CREATE SCHEMA IF NOT EXISTS app")
-    op.execute("SET search_path TO app, public, extensions")
+    op.execute("SET search_path TO app, extensions")
     op.execute(
         """
         CREATE TABLE IF NOT EXISTS app.user_identities (
