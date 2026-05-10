@@ -45,21 +45,6 @@ export default function AdminLetters() {
     const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({})
     const [isReplying, setIsReplying] = useState<Record<string, boolean>>({})
     const [sendingReplyId, setSendingReplyId] = useState<string | null>(null)
-    const [logs, setLogs] = useState<any[]>([])
-
-    const fetchLogs = async () => {
-        try {
-            const res = await adminService.getAutomationStatus()
-            const letterLogs = (res.logs || []).filter((l: any) => l.worker === 'letter').slice(0, 5)
-            setLogs(letterLogs)
-        } catch (err) {}
-    }
-
-    useEffect(() => {
-        fetchLogs()
-        const inv = setInterval(fetchLogs, 15000)
-        return () => clearInterval(inv)
-    }, [])
 
     const loadNormal = async (force = false) => {
         if (!force && dataNormal.length > 0) return
@@ -199,37 +184,7 @@ export default function AdminLetters() {
                     </button>
                 </div>
             </header>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-1">
-                    <WorkerAutomationCard 
-                        workerKey="letter" 
-                        icon={Brain} 
-                        description="Tự động trả lời thư Public chưa có hồi đáp sau ngưỡng thời gian cấu hình."
-                    />
-                </div>
-                <div className="lg:col-span-2 bg-black/40 border border-white/10 rounded-2xl p-6 flex flex-col">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                            <Activity size={14} className="text-indigo-400" /> Nhật ký AI mới nhất
-                        </h3>
-                    </div>
-                    <div className="space-y-2 flex-1 overflow-y-auto max-h-[140px] custom-scrollbar pr-2">
-                        {logs.length > 0 ? (
-                            logs.map((log, i) => (
-                                <div key={i} className="flex gap-3 text-[11px] border-l border-indigo-500/20 pl-3 py-1 hover:bg-white/5 transition-all">
-                                    <span className="text-slate-600 shrink-0">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
-                                    <span className="text-slate-300 line-clamp-1">{log.message}</span>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-xs text-slate-600 italic py-4 text-center">Chưa có hoạt động nào được ghi nhận.</p>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            <div className="h-[1px] bg-white/5 w-full" />
+            <div className="h-[1px] bg-white/5 w-full my-4" />
 
             <div className="grid gap-4">
                 {loading && currentData.length === 0 ? (

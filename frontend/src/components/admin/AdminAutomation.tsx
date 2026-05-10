@@ -17,16 +17,19 @@ import {
     Database,
     Globe,
     ChevronRight,
-    Loader2
+    Loader2,
+    Mail
 } from 'lucide-react'
+import WorkerAutomationCard from './automation/WorkerAutomationCard'
 
 type Trigger = {
     trigger_id: string
     name: string
     trigger_type: 'fixed' | 'custom'
-    action_key: 'batch_notification' | 'ai_moderation' | 'resource_crawler' | 'custom_webhook'
+    action_key: 'batch_notification' | 'ai_moderation' | 'resource_crawler' | 'custom_webhook' | 'daily_reminder'
     config: any
-    schedule_interval: string
+    schedule_type: 'daily' | 'interval'
+    schedule_value: string
     is_active: boolean
     last_run_at: string | null
     created_at: string
@@ -40,7 +43,8 @@ export default function AdminAutomation() {
     const [formData, setFormData] = useState({
         name: '',
         action_key: 'batch_notification',
-        schedule_interval: '0 9 * * *',
+        schedule_type: 'daily',
+        schedule_value: '09:00',
         config: '{}'
     })
 
@@ -85,24 +89,24 @@ export default function AdminAutomation() {
         e.preventDefault()
         try {
             const configObj = JSON.parse(formData.config)
+            const payload = {
+                name: formData.name,
+                action_key: formData.action_key,
+                schedule_type: (formData as any).schedule_type,
+                schedule_value: (formData as any).schedule_value,
+                config: configObj
+            }
             if (editingTrigger) {
-                await adminService.updateAutomationTrigger(editingTrigger.trigger_id, {
-                    name: formData.name,
-                    schedule_interval: formData.schedule_interval,
-                    config: configObj
-                })
-                toast.success('Đã cập nhật trigger')
+                await adminService.updateAutomationTrigger(editingTrigger.trigger_id, payload)
+                toast.success('Đã cập nhật trigger thành công')
             } else {
-                await adminService.createAutomationTrigger({
-                    ...formData,
-                    config: configObj
-                })
-                toast.success('Đã tạo trigger mới')
+                await adminService.createAutomationTrigger(payload)
+                toast.success('Đã kích hoạt trigger mới')
             }
             setIsModalOpen(false)
             fetchTriggers()
         } catch (err) {
-            toast.error('Dữ liệu không hợp lệ hoặc lỗi server')
+            toast.error('Dữ liệu JSON không hợp lệ hoặc lỗi kết nối')
         }
     }
 
@@ -131,7 +135,7 @@ export default function AdminAutomation() {
                 <button 
                     onClick={() => {
                         setEditingTrigger(null)
-                        setFormData({ name: '', action_key: 'batch_notification', schedule_interval: '0 9 * * *', config: '{}' })
+                        setFormData({ name: '', action_key: 'batch_notification', schedule_type: 'daily', schedule_value: '09:00', config: '{}' })
                         setIsModalOpen(true)
                     }}
                     className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
@@ -141,87 +145,140 @@ export default function AdminAutomation() {
                 </button>
             </header>
 
-            {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="h-64 bg-white/5 border border-white/10 rounded-3xl animate-pulse" />
-                    ))}
+                    <section className="space-y-6">
+                <h2 className="text-sm font-bold text-slate-500 uppercase tracking-[0.2em] flex items-center gap-3">
+                    <Shield size={16} className="text-indigo-400" /> Worker Hệ thống
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                    <WorkerAutomationCard 
+                        workerKey="letter" 
+                        icon={Brain} 
+                        description="Tự động trả lời thư Public chưa có hồi đáp sau ngưỡng thời gian cấu hình."
+                    />
+                    <WorkerAutomationCard 
+                        workerKey="resource" 
+                        icon={Database} 
+                        description="Tự động quét và cập nhật tài nguyên từ YouTube dựa trên xu hướng tâm trạng."
+                    />
+                    <WorkerAutomationCard 
+                        workerKey="notif_morning" 
+                        icon={Bell} 
+                        description="Gửi lời chào & nhắc nhở check-in buổi sáng (07:00 AM)."
+                    />
+                    <WorkerAutomationCard 
+                        workerKey="notif_reminder" 
+                        icon={Activity} 
+                        description="Nhắc nhở người dùng dành thời gian tự chăm sóc bản thân (02:00 PM)."
+                    />
+                    <WorkerAutomationCard 
+                        workerKey="notif_letters" 
+                        icon={Mail} 
+                        description="Khuyến khích người dùng tham gia viết/trả lời thư (08:00 PM)."
+                    />
                 </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {triggers.map((trigger) => (
-                        <div 
-                            key={trigger.trigger_id} 
-                            className={`group relative bg-white/5 border border-white/10 rounded-3xl p-6 hover:bg-white/[0.08] transition-all duration-300 ${!trigger.is_active ? 'opacity-70' : ''}`}
-                        >
-                            <div className="flex items-start justify-between mb-6">
-                                <div className={`p-3 rounded-2xl ${trigger.trigger_type === 'fixed' ? 'bg-indigo-500/10 border border-indigo-500/20' : 'bg-slate-500/10 border border-slate-500/20'}`}>
-                                    {getActionIcon(trigger.action_key)}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button 
-                                        onClick={() => handleToggle(trigger)}
-                                        className={`p-2 rounded-xl transition-all ${trigger.is_active ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20' : 'bg-slate-500/10 text-slate-400 hover:bg-slate-500/20'}`}
-                                    >
-                                        {trigger.is_active ? <Pause size={18} /> : <Play size={18} />}
-                                    </button>
-                                    <button 
-                                        onClick={() => {
-                                            setEditingTrigger(trigger)
-                                            setFormData({
-                                                name: trigger.name,
-                                                action_key: trigger.action_key,
-                                                schedule_interval: trigger.schedule_interval,
-                                                config: JSON.stringify(trigger.config, null, 2)
-                                            })
-                                            setIsModalOpen(true)
-                                        }}
-                                        className="p-2 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
-                                    >
-                                        <Settings size={18} />
-                                    </button>
-                                    {trigger.trigger_type !== 'fixed' && (
+            </section>
+
+            <section className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-bold text-slate-500 uppercase tracking-[0.2em] flex items-center gap-3">
+                        <Zap size={16} className="text-amber-400" /> Triggers Tùy chỉnh
+                    </h2>
+                    <div className="h-[1px] flex-1 bg-white/5 mx-6" />
+                </div>
+
+                {loading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {[1, 2].map(i => (
+                            <div key={i} className="h-64 bg-white/5 border border-white/10 rounded-[2.5rem] animate-pulse" />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {triggers.map((trigger) => (
+                            <div 
+                                key={trigger.trigger_id} 
+                                className={`group relative bg-[#1a1c2e]/50 backdrop-blur-md border rounded-[2.5rem] p-8 transition-all duration-500 hover:shadow-2xl hover:shadow-amber-500/10 ${trigger.is_active ? 'border-amber-500/20' : 'border-white/5'}`}
+                            >
+                                <div className="flex items-start justify-between mb-8">
+                                    <div className={`p-4 rounded-2xl border transition-all ${trigger.is_active ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-white/5 border-white/10 text-slate-500'}`}>
+                                        {getActionIcon(trigger.action_key)}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <button 
+                                            onClick={() => handleToggle(trigger)}
+                                            className={`p-3 rounded-xl transition-all ${trigger.is_active ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20' : 'bg-white/5 text-slate-500 hover:text-white hover:bg-white/10'}`}
+                                        >
+                                            {trigger.is_active ? <Pause size={18} /> : <Play size={18} />}
+                                        </button>
+                                        <button 
+                                            onClick={() => {
+                                                setEditingTrigger(trigger)
+                                                setFormData({
+                                                    name: trigger.name,
+                                                    action_key: trigger.action_key,
+                                                    schedule_type: (trigger as any).schedule_type || 'daily',
+                                                    schedule_value: (trigger as any).schedule_value || '',
+                                                    config: JSON.stringify(trigger.config, null, 2)
+                                                })
+                                                setIsModalOpen(true)
+                                            }}
+                                            className="p-3 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+                                        >
+                                            <Settings size={18} />
+                                        </button>
                                         <button 
                                             onClick={() => handleDelete(trigger.trigger_id)}
-                                            className="p-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-xl transition-all"
+                                            className="p-3 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-xl transition-all"
                                         >
                                             <Trash2 size={18} />
                                         </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div>
-                                    <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
-                                        {trigger.name}
-                                        {trigger.trigger_type === 'fixed' && (
-                                            <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full uppercase tracking-widest font-black">Hệ thống</span>
-                                        )}
-                                    </h3>
-                                    <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
-                                        <Clock size={12} />
-                                        {trigger.schedule_interval}
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-3 pt-2">
-                                    <div className="bg-black/20 rounded-2xl p-3 border border-white/5">
-                                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Loại Action</p>
-                                        <p className="text-xs text-slate-300 capitalize">{trigger.action_key.replace('_', ' ')}</p>
+                                <div className="space-y-6">
+                                    <div>
+                                        <h3 className="text-xl font-bold text-white mb-2">{trigger.name}</h3>
+                                        <div className="flex items-center gap-3">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest ${trigger.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-500'}`}>
+                                                {trigger.is_active ? 'Active' : 'Paused'}
+                                            </span>
+                                            <div className="flex items-center gap-2 text-slate-500 text-xs font-bold">
+                                                <Clock size={12} />
+                                                {(trigger as any).schedule_type === 'daily' ? `Hàng ngày lúc ${(trigger as any).schedule_value}` : `Mỗi ${(trigger as any).schedule_value} phút`}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="bg-black/20 rounded-2xl p-3 border border-white/5">
-                                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Lần chạy cuối</p>
-                                        <p className="text-xs text-slate-300">{trigger.last_run_at ? new Date(trigger.last_run_at).toLocaleTimeString() : 'Chưa chạy'}</p>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-black/20 rounded-2xl p-4 border border-white/5">
+                                            <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Loại Action</p>
+                                            <p className="text-xs text-slate-300 font-bold capitalize">{trigger.action_key.replace('_', ' ')}</p>
+                                        </div>
+                                        <div className="bg-black/20 rounded-2xl p-4 border border-white/5">
+                                            <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Lần chạy cuối</p>
+                                            <p className="text-xs text-slate-300 font-bold">{trigger.last_run_at ? new Date(trigger.last_run_at).toLocaleTimeString() : '---'}</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            
-                            <div className="absolute bottom-0 left-6 right-6 h-[2px] bg-gradient-to-r from-transparent via-indigo-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                    ))}
-                </div>
-            )}
+                        ))}
+                        
+                        <button 
+                            onClick={() => {
+                                setEditingTrigger(null)
+                                setFormData({ name: '', action_key: 'batch_notification', schedule_type: 'daily', schedule_value: '09:00', config: '{}' })
+                                setIsModalOpen(true)
+                            }}
+                            className="group border-2 border-dashed border-white/5 rounded-[2.5rem] p-8 flex flex-col items-center justify-center gap-4 hover:border-indigo-500/30 hover:bg-indigo-500/5 transition-all duration-500"
+                        >
+                            <div className="p-4 bg-white/5 rounded-2xl text-slate-500 group-hover:text-indigo-400 group-hover:bg-indigo-500/10 transition-all">
+                                <Plus size={32} />
+                            </div>
+                            <span className="text-slate-500 font-bold group-hover:text-slate-300">Thêm Trigger Tùy chỉnh</span>
+                        </button>
+                    </div>
+                )}
+            </section>
 
             {/* Modal */}
             {isModalOpen && (
@@ -232,71 +289,85 @@ export default function AdminAutomation() {
                             <h2 className="text-xl font-bold text-white">{editingTrigger ? 'Chỉnh sửa Trigger' : 'Tạo Trigger mới'}</h2>
                         </header>
                         
-                        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Tên Trigger</label>
+                        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+                            <div className="space-y-2">
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Tên Trigger</label>
                                 <input 
                                     type="text" 
                                     value={formData.name}
                                     onChange={e => setFormData({...formData, name: e.target.value})}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-indigo-500 outline-none transition-all"
+                                    className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-white focus:border-indigo-500 outline-none transition-all placeholder:text-slate-700"
                                     placeholder="Ví dụ: Daily Morning Alert"
                                     required
                                 />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Action</label>
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Loại Action</label>
                                     <select 
                                         value={formData.action_key}
                                         onChange={e => setFormData({...formData, action_key: e.target.value as any})}
                                         disabled={!!editingTrigger}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-indigo-500 outline-none transition-all disabled:opacity-50"
+                                        className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-white focus:border-indigo-500 outline-none transition-all disabled:opacity-50 appearance-none"
                                     >
                                         <option value="batch_notification">Notification</option>
+                                        <option value="daily_reminder">Daily Reminder</option>
                                         <option value="ai_moderation">AI Moderation</option>
                                         <option value="resource_crawler">Crawler</option>
                                         <option value="custom_webhook">Webhook</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Lịch trình (Cron)</label>
-                                    <input 
-                                        type="text" 
-                                        value={formData.schedule_interval}
-                                        onChange={e => setFormData({...formData, schedule_interval: e.target.value})}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-indigo-500 outline-none transition-all"
-                                        placeholder="0 9 * * *"
-                                        required
-                                    />
+                                <div className="space-y-2">
+                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Loại lịch trình</label>
+                                    <select 
+                                        value={(formData as any).schedule_type}
+                                        onChange={e => setFormData({...formData, schedule_type: e.target.value} as any)}
+                                        className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-white focus:border-indigo-500 outline-none transition-all appearance-none"
+                                    >
+                                        <option value="daily">Hàng ngày (Daily)</option>
+                                        <option value="interval">Định kỳ (Interval)</option>
+                                    </select>
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Cấu hình (JSON)</label>
+                            <div className="space-y-2">
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                    {(formData as any).schedule_type === 'daily' ? 'Giờ gửi (HH:mm)' : 'Khoảng cách (Phút)'}
+                                </label>
+                                <input 
+                                    type={(formData as any).schedule_type === 'daily' ? 'time' : 'number'} 
+                                    value={(formData as any).schedule_value}
+                                    onChange={e => setFormData({...formData, schedule_value: e.target.value} as any)}
+                                    className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-white focus:border-indigo-500 outline-none transition-all"
+                                    required
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Cấu hình JSON (Tùy chọn)</label>
                                 <textarea 
                                     value={formData.config}
                                     onChange={e => setFormData({...formData, config: e.target.value})}
-                                    rows={5}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-sm focus:border-indigo-500 outline-none transition-all"
+                                    rows={4}
+                                    className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-white font-mono text-xs focus:border-indigo-500 outline-none transition-all resize-none"
                                     placeholder="{}"
                                 />
                             </div>
 
-                            <div className="flex gap-3 pt-4">
+                            <div className="flex gap-4 pt-6">
                                 <button 
                                     type="button"
                                     onClick={() => setIsModalOpen(false)}
-                                    className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-xl transition-all"
+                                    className="flex-1 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white font-bold py-4 rounded-2xl transition-all border border-white/5"
                                 >
                                     Hủy
                                 </button>
                                 <button 
                                     type="submit"
-                                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-indigo-600/20"
+                                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-indigo-600/20 active:scale-95"
                                 >
-                                    {editingTrigger ? 'Cập nhật' : 'Tạo ngay'}
+                                    {editingTrigger ? 'Lưu thay đổi' : 'Kích hoạt ngay'}
                                 </button>
                             </div>
                         </form>

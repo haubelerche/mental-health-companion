@@ -89,22 +89,12 @@ export default function AdminNotifications() {
             </header>
 
             <div className="flex flex-col xl:flex-row gap-6 mb-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
-                    <WorkerAutomationCard 
-                        workerKey="notif_morning" 
-                        icon={Coffee} 
-                        description="Gửi lời chào & nhắc nhở check-in buổi sáng."
-                    />
-                    <WorkerAutomationCard 
-                        workerKey="notif_reminder" 
-                        icon={Sparkles} 
-                        description="Nhắc nhở người dùng dành thời gian tự chăm sóc bản thân."
-                    />
-                    <WorkerAutomationCard 
-                        workerKey="notif_letters" 
-                        icon={MessageCircle} 
-                        description="Khuyến khích người dùng tham gia viết/trả lời thư."
-                    />
+                <div className="xl:w-2/3 bg-black/40 border border-white/10 rounded-2xl p-8 flex items-center justify-center text-center">
+                    <div>
+                        <Zap size={32} className="text-indigo-400 mx-auto mb-4 animate-pulse" />
+                        <h3 className="text-white font-bold text-lg">Cấu hình Tự động hóa đã được di chuyển</h3>
+                        <p className="text-slate-400 text-sm mt-2">Toàn bộ các Trigger thông báo định kỳ hiện được quản lý tại tab <span className="text-indigo-400 font-bold">Tự động hóa</span>.</p>
+                    </div>
                 </div>
                 <div className="xl:w-1/3 bg-black/40 border border-white/10 rounded-2xl p-6 flex flex-col">
                     <div className="flex items-center justify-between mb-4">

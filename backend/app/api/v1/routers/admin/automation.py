@@ -43,7 +43,8 @@ async def create_trigger(
     request: Request,
     name: str = Body(...),
     action_key: str = Body(...),
-    schedule_interval: str = Body(...),
+    schedule_type: str = Body("daily"),
+    schedule_value: str = Body(...),
     config: dict = Body({}),
     db: Session = Depends(get_db),
     claims: dict = Depends(get_admin_claims),
@@ -54,7 +55,8 @@ async def create_trigger(
         name=name,
         trigger_type="custom",
         action_key=action_key,
-        schedule_interval=schedule_interval,
+        schedule_type=schedule_type,
+        schedule_value=schedule_value,
         config=config,
         is_active=True
     )
@@ -68,7 +70,8 @@ async def update_trigger(
     request: Request,
     trigger_id: str = Path(...),
     name: str | None = Body(None),
-    schedule_interval: str | None = Body(None),
+    schedule_type: str | None = Body(None),
+    schedule_value: str | None = Body(None),
     config: dict | None = Body(None),
     is_active: bool | None = Body(None),
     db: Session = Depends(get_db),
@@ -80,7 +83,8 @@ async def update_trigger(
         return ok({"success": False, "message": "Trigger không tồn tại"}, status_code=404)
     
     if name is not None: trigger.name = name
-    if schedule_interval is not None: trigger.schedule_interval = schedule_interval
+    if schedule_type is not None: trigger.schedule_type = schedule_type
+    if schedule_value is not None: trigger.schedule_value = schedule_value
     if config is not None: trigger.config = config
     if is_active is not None: trigger.is_active = is_active
     

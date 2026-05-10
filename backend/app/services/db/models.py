@@ -1021,13 +1021,23 @@ class AutomationTrigger(Base):
     action_key: Mapped[str] = mapped_column(
         String(50),
         CheckConstraint(
-            "action_key IN ('batch_notification','ai_moderation','resource_crawler','custom_webhook')",
+            "action_key IN ('batch_notification','ai_moderation','resource_crawler','custom_webhook','daily_reminder')",
             name="ck_automation_action_key"
         ),
         nullable=False
     )
     config: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, default=dict, nullable=False)
-    schedule_interval: Mapped[str] = mapped_column(String(100), nullable=False)
+    
+    # New schedule structure
+    schedule_type: Mapped[str] = mapped_column(
+        String(20),
+        CheckConstraint("schedule_type IN ('daily', 'interval')", name="ck_automation_schedule_type"),
+        default="daily",
+        server_default="daily",
+        nullable=False
+    )
+    schedule_value: Mapped[str] = mapped_column(String(100), nullable=False) # "07:00" or "60" (minutes)
+    
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

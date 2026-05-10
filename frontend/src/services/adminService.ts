@@ -192,9 +192,9 @@ export const adminService = {
 
     // Automation Triggers (Milestone 1 - Plan V2)
     listAutomationTriggers: () => httpClient.get<{ triggers: any[] }>('/admin/automation/triggers'),
-    createAutomationTrigger: (payload: { name: string; action_key: string; schedule_interval: string; config?: any }) =>
+    createAutomationTrigger: (payload: { name: string; action_key: string; schedule_type: string; schedule_value: string; config?: any }) =>
         httpClient.post<{ trigger: any }>('/admin/automation/triggers', payload),
-    updateAutomationTrigger: (triggerId: string, payload: { name?: string; schedule_interval?: string; config?: any; is_active?: boolean }) =>
+    updateAutomationTrigger: (triggerId: string, payload: { name?: string; schedule_type?: string; schedule_value?: string; config?: any; is_active?: boolean }) =>
         httpClient.patch<{ trigger: any }>(`/admin/automation/triggers/${encodeURIComponent(triggerId)}`, payload),
     deleteAutomationTrigger: (triggerId: string) =>
         httpClient.delete<any>(`/admin/automation/triggers/${encodeURIComponent(triggerId)}`),
