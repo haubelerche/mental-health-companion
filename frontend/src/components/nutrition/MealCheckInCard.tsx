@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { httpClient } from '../../api/httpClient'
 import { ApiRequestError } from '../../api/types'
+import Mascot from '../pixel/Mascot'
 
 type MealSlot = 'breakfast' | 'lunch' | 'dinner'
 
@@ -49,7 +50,10 @@ export default function MealCheckInCard({ claimedSlots = [], onCheckin }: Props)
 
     return (
         <div className="rounded-xl border border-theme-border/20 bg-theme-surface/60 p-4">
-            <p className="text-sm font-semibold text-theme-text-primary mb-3">Ghi nhận bữa ăn hôm nay</p>
+            <div className="mb-3 flex items-center gap-3">
+                <Mascot variant="eat" size="sm" decorative />
+                <p className="text-sm font-semibold text-theme-text-primary">Ghi nhận bữa ăn hôm nay</p>
+            </div>
             <div className="flex gap-2">
                 {(Object.keys(SLOT_LABELS) as MealSlot[]).map((slot) => {
                     const claimed = localClaimed.has(slot)
