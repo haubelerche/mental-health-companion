@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { notificationService } from '../../../services/notificationService'
 import type { UserNotification } from '../../../services/notificationService'
 import Loading from '../../ui/Loading'
-import bg from '../../../assets_gif/hai-meo-cam-den.gif'
+import bg from '../../../assets/assets_gif/cat-soul.gif'
 import { parseTime } from '@/utils/parseTime'
+import PixelEmptyState from '../../pixel/PixelEmptyState'
 
 
 export default function NotificationsPage() {
@@ -84,10 +85,11 @@ export default function NotificationsPage() {
 
           <div>
             {(!notifications || notifications.length === 0) ? (
-              <div className="text-center py-20">
-                <div className="text-6xl mb-4">🔔</div>
-                <p className={ui.subtext}>Bạn chưa có thông báo nào.</p>
-              </div>
+              <PixelEmptyState
+                mascot="bucket"
+                title="Chưa có thông báo nào"
+                description="Khi có cập nhật thật từ hệ thống, thông báo sẽ xuất hiện tại đây."
+              />
             ) : (
               <div className="space-y-3">
                 {notifications.map((n) => {
