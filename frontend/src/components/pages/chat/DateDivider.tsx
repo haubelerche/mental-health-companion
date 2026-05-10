@@ -26,12 +26,12 @@ function formatDateLabel(ts: number): string {
 
 export function DateDivider({ timestamp }: Props) {
   return (
-    <div className="flex items-center gap-3 py-1 mb-3">
-      <div className="h-px flex-1 bg-theme-border/60" />
-      <span className="rounded-full bg-theme-surface/60 border border-theme-border/30 px-3 py-1 text-[11px] font-medium text-theme-text-secondary shadow-sm backdrop-blur-sm">
+    <div className="mb-3 flex items-center gap-3 py-1">
+      <div className="h-px flex-1 bg-[#d7d9b8]/30" />
+      <span className="border border-[#6e5437]/45 bg-[#fff4dc]/90 px-3 py-1 text-[11px] font-medium text-[#5b4b35] shadow-[2px_2px_0_rgba(0,0,0,0.18)] backdrop-blur-sm">
         {formatDateLabel(timestamp)}
       </span>
-      <div className="h-px flex-1 bg-theme-border/60" />
+      <div className="h-px flex-1 bg-[#d7d9b8]/30" />
     </div>
   )
 }
