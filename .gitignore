@@ -19,11 +19,9 @@ package-lock.json
 # Loại bỏ tất cả các tệp hình ảnh
 CLAUDE.md
 
-# AI coding agent workflow docs (Claude Code, Cursor, Codex, Copilot, etc.) — local only, do not push
-COMMIT_PLAYBOOK.MD
+
 COMMIT_PLAYBOOK.md
-**/COMMIT_PLAYBOOK.*
-COMMIT_PLAYBOOK.MD.backup-*
+
 
 .claude/
 .codex/
@@ -40,6 +38,13 @@ scripts/supabase/
 # AI logs — tracked structure, ignored content
 .ai-log/*.jsonl
 .ai-log/*.md
+backend/.ai-log/
+
+# Pytest temp workspace (local only)
+.pytest_tmp/
+
+# Local TTS renders (regenerate in dev)
+backend/generated_voice/
 
 # Docker Compose may contain local secrets — do not commit
 docker-compose.yml
@@ -71,15 +76,21 @@ backend/data/emotion_centroids.pkl
 
 # Local design reference / screenshots (not shipped with app; app assets live under frontend/src/assets)
 reference-images/
-tham-khao/
 
 .agent/skills/
 
 test-results/
 tests/
+!backend/tests/
+backend/tests/*
+!backend/tests/test_database_boundary_regression.py
+!backend/tests/test_pool_soak.py
 
 # Ignore all Markdown files at repository root only
 /*.md
 /*.MD
+!DATABASE_DESIGN_AUDIT_REPORT.md
+!DATABASE_ARCHITECTURE.md
+!DATABASE_REFACTOR_PHASE_PLAN.md
 .ts
-/*.yaml 
+/*.yaml
