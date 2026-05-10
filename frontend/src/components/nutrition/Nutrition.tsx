@@ -1,10 +1,12 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Search, Sparkles, X } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import nutritionContent from '../../../data/nutritionContent.json'
 import a1 from '../../assets/nutrition-a1.jpg'
 import a2 from '../../assets/nutrition-a2.jpg'
+import Mascot from '../pixel/Mascot'
+import PixelEmptyState from '../pixel/PixelEmptyState'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -58,13 +60,12 @@ export default function Nutrition() {
     const [query, setQuery] = useState('')
     const [activeTag, setActiveTag] = useState<string | null>(null)
 
-    const todayFact = useMemo(
-        () => CONTENT.dailyFacts[Math.floor(Math.random() * CONTENT.dailyFacts.length)] ?? 'Một bữa ăn đều đặn, đủ chất và ít chế biến là nền tảng tốt cho sức khỏe thể chất lẫn tinh thần.',
-        [],
-    )
+    const todayFact = useMemo(() => {
+        return CONTENT.dailyFacts[0] ?? 'Một bữa ăn đều đặn, đủ chất và ít chế biến là nền tảng tốt cho sức khỏe thể chất lẫn tinh thần.'
+    }, [])
 
     const featuredRecipes = useMemo(() => {
-        return [...CONTENT.recipes].sort(() => Math.random() - 0.5).slice(0, 3)
+        return CONTENT.recipes.slice(0, 3)
     }, [])
 
     useEffect(() => {
@@ -93,7 +94,7 @@ export default function Nutrition() {
 
             {/* ── Daily fact banner ───────────────────────────────────────── */}
             <section className="flex items-start gap-3 rounded-[22px] bg-theme-surface/80 px-5 py-4 backdrop-blur-sm">
-                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-theme-accent" />
+                <Mascot variant="eat" size="sm" decorative />
                 <div>
                     <p className="mb-1 text-[10px] uppercase tracking-[0.28em] text-theme-text-primary font-bold">Fact hôm nay</p>
                     <p className="text-sm leading-relaxed text-theme-text-secondary">{todayFact}</p>
@@ -221,9 +222,13 @@ export default function Nutrition() {
                 {/* Recipe cards */}
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {filteredRecipes.length === 0 ? (
-                        <p className="col-span-3 py-10 text-center text-sm text-theme-text-secondary/60">
-                            Không tìm thấy công thức phù hợp.
-                        </p>
+                        <div className="col-span-3">
+                            <PixelEmptyState
+                                mascot="eat"
+                                title="Chưa tìm thấy công thức phù hợp"
+                                description="Thử một nguyên liệu hoặc nhãn khác để tìm gợi ý chăm cơ thể nhẹ nhàng hơn."
+                            />
+                        </div>
                     ) : (
                         filteredRecipes.map((recipe) => (
                             <article
