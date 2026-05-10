@@ -3,6 +3,7 @@ import { httpClient } from '../api/httpClient'
 export type AdminDashboardAggregate = {
     period: { from: string; to: string }
     total_sessions: number
+    session_trend: number
     avg_session_depth: number
     mood_distribution: Record<string, number>
     sos_events: number
@@ -39,6 +40,9 @@ export type AdminCrisisLog = {
     triggered_at: string
     muc_do: string
     reviewed: boolean
+    user_id: string
+    user_name: string
+    context_summary?: string
 }
 
 export type AdminCrisisLogsResponse = {
@@ -145,10 +149,11 @@ export const adminService = {
     getHeartAnalytics: (days: number = 30) => httpClient.get<any>(`/admin/analytics/hearts?days=${days}`),
 
     // Task 3.5: Letter Management
-    listLetters: (params?: { status?: string; query?: string; limit?: number; offset?: number }) => {
+    listLetters: (params?: { status?: string; query?: string; replied_by?: string; limit?: number; offset?: number }) => {
         const query = new URLSearchParams()
         if (params?.status) query.set('status', params.status)
         if (params?.query) query.set('query', params.query)
+        if (params?.replied_by) query.set('replied_by', params.replied_by)
         if (typeof params?.limit === 'number') query.set('limit', String(params.limit))
         if (typeof params?.offset === 'number') query.set('offset', String(params.offset))
         return httpClient.get<{ letters: any[]; total: number }>(`/admin/letters?${query.toString()}`)
@@ -174,8 +179,7 @@ export const adminService = {
         return httpClient.get<{ items: any[]; total: number }>(`/admin/audit-logs?${query.toString()}`)
     },
 
-    // Task 3.8: AI Letter Responder
-    runAiResponder: (hours: number = 6) => httpClient.post<any>(`/admin/run-ai-responder?hours=${hours}`, {}),
+    // Task 3.8: AI Letter Responder (Đã định nghĩa ở trên)
 
     // Task 3.10: Bulk Notifications
     broadcastNotification: (payload: { title?: string; body: string; category?: string }) =>
@@ -198,5 +202,7 @@ export const adminService = {
         httpClient.patch<{ trigger: any }>(`/admin/automation/triggers/${encodeURIComponent(triggerId)}`, payload),
     deleteAutomationTrigger: (triggerId: string) =>
         httpClient.delete<any>(`/admin/automation/triggers/${encodeURIComponent(triggerId)}`),
+    getAutomationLogs: (targetId: string) =>
+        httpClient.get<{ logs: any[] }>(`/admin/automation/logs/${encodeURIComponent(targetId)}`),
 }
 

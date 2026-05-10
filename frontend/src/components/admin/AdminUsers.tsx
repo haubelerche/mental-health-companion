@@ -12,11 +12,13 @@ export default function AdminUsers() {
     const [loading, setLoading] = useState(cached.users.length === 0)
     const [query, setQuery] = useState(cached.query)
     const [total, setTotal] = useState(cached.total)
+    const [page, setPage] = useState(0)
+    const limit = 20
 
     const load = async () => {
         setLoading(true)
         try {
-            const data = await adminService.listUsers({ query })
+            const data = await adminService.listUsers({ query, limit, offset: page * limit })
             setUsers(data.users)
             setTotal(data.total)
             adminCache.setUsers({ users: data.users, total: data.total, query })
@@ -30,7 +32,7 @@ export default function AdminUsers() {
 
     useEffect(() => {
         load()
-    }, [])
+    }, [page])
 
     const toggleStatus = async (userId: string, current: boolean) => {
         try {
@@ -62,11 +64,11 @@ export default function AdminUsers() {
                             className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-white outline-none focus:border-emerald-500/50 transition-all"
                             value={query}
                             onChange={e => setQuery(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && load()}
+                            onKeyDown={e => e.key === 'Enter' && (setPage(0), load())}
                         />
                     </div>
                     <button 
-                        onClick={load}
+                        onClick={() => { setPage(0); load(); }}
                         className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20 font-medium"
                     >
                         Tìm
@@ -74,81 +76,141 @@ export default function AdminUsers() {
                 </div>
             </header>
 
-            <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm shadow-2xl">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="bg-white/5 text-slate-400 text-[11px] uppercase tracking-widest font-bold">
-                                <th className="px-6 py-4">Thông tin cơ bản</th>
-                                <th className="px-6 py-4">Liên lạc</th>
-                                <th className="px-6 py-4">Ngày tham gia</th>
-                                <th className="px-6 py-4">Trạng thái</th>
-                                <th className="px-6 py-4 text-right">Hành động</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5 text-slate-300">
-                            {users.map((u) => (
-                                <tr key={u.user_id} className="hover:bg-white/5 transition-all group">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold">
-                                                {u.display_name?.charAt(0).toUpperCase() || 'U'}
-                                            </div>
-                                            <div>
-                                                <p className="font-bold text-white group-hover:text-emerald-400 transition-colors">{u.display_name}</p>
-                                                <p className="text-[10px] text-slate-500 font-mono">{u.user_id}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                                            <Mail size={14} className="text-slate-600" />
-                                            {u.email}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                                            <Calendar size={14} className="text-slate-600" />
-                                            {new Date(u.created_at).toLocaleDateString('vi-VN')}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${u.is_active ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-400/20'}`}>
-                                            <div className={`w-1.5 h-1.5 rounded-full ${u.is_active ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-                                            {u.is_active ? 'Đang hoạt động' : 'Đã bị khóa'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex justify-end gap-2">
-                                            <button 
-                                                onClick={() => toggleStatus(u.user_id, u.is_active)}
-                                                className={`p-2.5 rounded-xl transition-all shadow-sm ${u.is_active ? 'bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white' : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white'}`}
-                                                title={u.is_active ? 'Khóa tài khoản' : 'Mở khóa'}
-                                            >
-                                                {u.is_active ? <UserX size={18} /> : <UserCheck size={18} />}
-                                            </button>
-                                            <button className="p-2.5 bg-blue-500/10 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all shadow-sm">
-                                                <Info size={18} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+            {/* Top Pagination Bar Removed */}
 
+            <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm shadow-2xl relative">
+                {/* Loading Overlay */}
                 {loading && (
-                    <div className="py-20 flex flex-col items-center justify-center text-slate-500 gap-4">
-                        <Loader2 className="animate-spin text-emerald-500" size={32} />
-                        <p className="text-sm font-medium animate-pulse">Đang tải danh sách người dùng...</p>
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] animate-in fade-in duration-300">
+                        <div className="bg-slate-900/80 p-6 rounded-3xl border border-white/10 shadow-2xl flex flex-col items-center gap-4">
+                            <Loader2 className="animate-spin text-emerald-500" size={40} />
+                            <p className="text-xs font-black text-emerald-500 uppercase tracking-widest">Đang cập nhật...</p>
+                        </div>
                     </div>
                 )}
+
+                <div className={`p-6 transition-all duration-500 ${loading ? 'opacity-30 grayscale-[0.5] blur-[1px]' : 'opacity-100'}`}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {users.map((u) => (
+                            <div key={u.user_id} className="group relative bg-white/5 border border-white/10 rounded-3xl p-6 hover:bg-white/[0.08] hover:border-white/20 transition-all hover:-translate-y-1 shadow-xl">
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center border border-emerald-500/30 group-hover:scale-110 transition-transform">
+                                        <span className="text-xl font-black text-emerald-400">{u.display_name?.charAt(0).toUpperCase() || 'U'}</span>
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="text-white font-black truncate text-base leading-tight" title={u.display_name}>{u.display_name}</h3>
+                                        <p className="text-slate-500 text-[11px] font-bold uppercase tracking-tighter truncate">{u.user_id.slice(-8)}</p>
+                                    </div>
+                                    <div className={`w-2.5 h-2.5 rounded-full ${u.is_active ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-700'}`} />
+                                </div>
+
+                                <div className="space-y-4 mb-6">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Email</span>
+                                        <span className="text-slate-300 text-xs font-medium truncate">{u.email}</span>
+                                    </div>
+                                    <div className="flex justify-between items-end">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Joined</span>
+                                            <span className="text-slate-400 text-[11px]">{new Date(u.created_at).toLocaleDateString('vi-VN')}</span>
+                                        </div>
+                                        <span className="px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-indigo-400 text-[10px] font-black uppercase tracking-widest">Member</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => toggleStatus(u.user_id, u.is_active)}
+                                        className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all border ${
+                                            u.is_active 
+                                            ? 'bg-rose-500/10 border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white' 
+                                            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white'
+                                        }`}
+                                    >
+                                        {u.is_active ? 'Khóa tài khoản' : 'Mở khóa'}
+                                    </button>
+                                    <button className="px-4 py-2.5 bg-blue-500/10 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all border border-blue-500/20">
+                                        <Info size={16} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {users.length === 0 && !loading && (
+                        <div className="py-20 flex flex-col items-center justify-center text-slate-500 gap-2">
+                            <ShieldCheck size={48} className="text-slate-800" />
+                            <p className="text-sm font-medium">Không tìm thấy kết quả nào khớp với tìm kiếm.</p>
+                        </div>
+                    )}
+                </div>
+
                 
                 {!loading && users.length === 0 && (
                     <div className="py-20 flex flex-col items-center justify-center text-slate-500 gap-2">
                         <ShieldCheck size={48} className="text-slate-800" />
                         <p className="text-sm font-medium">Không tìm thấy kết quả nào khớp với tìm kiếm.</p>
+                    </div>
+                )}
+
+                {/* Bottom Pagination */}
+                {total > limit && (
+                    <div className="px-6 py-4 border-t border-white/5 flex items-center justify-between bg-white/5">
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                            Trang {page + 1} / {Math.ceil(total / limit)} • {total} Thành viên
+                        </p>
+                        
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                onClick={() => setPage(p => Math.max(0, p - 1))}
+                                disabled={page === 0 || loading}
+                                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-10 border border-white/5 rounded-md transition-all"
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+                            </button>
+
+                            {(() => {
+                                const totalPages = Math.ceil(total / limit);
+                                const current = page + 1;
+                                const range = [];
+                                
+                                if (totalPages <= 7) {
+                                    for (let i = 1; i <= totalPages; i++) range.push(i);
+                                } else {
+                                    if (current <= 4) {
+                                        range.push(1, 2, 3, 4, 5, '...', totalPages);
+                                    } else if (current >= totalPages - 3) {
+                                        range.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                    } else {
+                                        range.push(1, '...', current - 1, current, current + 1, '...', totalPages);
+                                    }
+                                }
+
+                                return range.map((p, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => typeof p === 'number' && setPage(p - 1)}
+                                        disabled={loading || p === '...'}
+                                        className={`w-8 h-8 flex items-center justify-center rounded-md text-[11px] font-bold transition-all border ${
+                                            p === current 
+                                            ? 'bg-emerald-500 border-emerald-500 text-white' 
+                                            : p === '...' 
+                                                ? 'text-slate-700 border-transparent cursor-default' 
+                                                : 'text-slate-500 border-white/5 hover:bg-white/5 hover:text-white'
+                                        }`}
+                                    >
+                                        {p}
+                                    </button>
+                                ));
+                            })()}
+
+                            <button
+                                onClick={() => setPage(p => p + 1)}
+                                disabled={(page + 1) * limit >= total || loading}
+                                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-10 border border-white/5 rounded-md transition-all"
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>

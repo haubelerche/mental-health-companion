@@ -1,50 +1,82 @@
 from app.services.db import models
 from app.services.db.session import Base, get_engine, get_session_factory
 from sqlalchemy import select
+from uuid import uuid4
+
+FIXED_TRIGGERS = [
+    {
+        "trigger_id": "fixed_notif_morning",
+        "name": "Chào buổi sáng",
+        "trigger_type": "fixed",
+        "action_key": "batch_notification",
+        "schedule_type": "daily",
+        "schedule_value": "07:00",
+        "config": {"template_index": 0}
+    },
+    {
+        "trigger_id": "fixed_notif_reminder",
+        "name": "Nhắc nhở tự chăm sóc",
+        "trigger_type": "fixed",
+        "action_key": "daily_reminder",
+        "schedule_type": "daily",
+        "schedule_value": "14:00",
+        "config": {"template_index": 1}
+    },
+    {
+        "trigger_id": "fixed_notif_letters",
+        "name": "Nhắc nhở hòm thư",
+        "trigger_type": "fixed",
+        "action_key": "batch_notification",
+        "schedule_type": "daily",
+        "schedule_value": "20:00",
+        "config": {"template_index": 2}
+    },
+    {
+        "trigger_id": "fixed_letter_responder",
+        "name": "AI Letter Responder",
+        "trigger_type": "fixed",
+        "action_key": "ai_moderation",
+        "schedule_type": "interval",
+        "schedule_value": "20",
+        "config": {}
+    },
+    {
+        "trigger_id": "fixed_resource_crawler",
+        "name": "AI Resource Crawler",
+        "trigger_type": "fixed",
+        "action_key": "resource_crawler",
+        "schedule_type": "interval",
+        "schedule_value": "60",
+        "config": {}
+    }
+]
 
 def init_db() -> None:
-    Base.metadata.create_all(bind=get_engine())
+    engine = get_engine()
+    Base.metadata.create_all(bind=engine)
     
+    # Fix constraint if needed
+    from sqlalchemy import text
+    db = get_session_factory()()
+    try:
+        # PostgreSQL specific fix for action_key constraint
+        db.execute(text("ALTER TABLE app.automation_triggers DROP CONSTRAINT IF EXISTS ck_automation_action_key"))
+        db.execute(text("ALTER TABLE app.automation_triggers ADD CONSTRAINT ck_automation_action_key CHECK (action_key IN ('batch_notification','ai_moderation','resource_crawler','custom_webhook','daily_reminder'))"))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"Constraint update skipped or failed (might not be Postgres): {e}")
+
     # Seed fixed triggers
-    factory = get_session_factory()
-    db = factory()
     try:
         from app.services.db.models import AutomationTrigger
-        fixed_triggers = [
-            {
-                "trigger_id": "fixed_batch_notification",
-                "name": "Gửi thông báo hàng loạt",
-                "trigger_type": "fixed",
-                "action_key": "batch_notification",
-                "schedule_interval": "0 9 * * *", # 9 AM daily
-                "config": {"template_id": "daily_greeting"}
-            },
-            {
-                "trigger_id": "fixed_ai_moderation",
-                "name": "Kiểm duyệt thư với AI",
-                "trigger_type": "fixed",
-                "action_key": "ai_moderation",
-                "schedule_interval": "*/30 * * * *", # Every 30 mins
-                "config": {"threshold": 0.8}
-            },
-            {
-                "trigger_id": "fixed_resource_crawler",
-                "name": "Crawler tài nguyên resource",
-                "trigger_type": "fixed",
-                "action_key": "resource_crawler",
-                "schedule_interval": "0 0 * * 0", # Every Sunday midnight
-                "config": {"sources": ["meditation_hub"]}
-            }
-        ]
-        
-        for ft in fixed_triggers:
-            exists = db.scalar(select(AutomationTrigger).where(AutomationTrigger.trigger_id == ft["trigger_id"]))
-            if not exists:
-                db.add(AutomationTrigger(**ft))
+        for ft in FIXED_TRIGGERS:
+            existing = db.get(AutomationTrigger, ft["trigger_id"])
+            if not existing:
+                trigger = AutomationTrigger(**ft)
+                db.add(trigger)
         db.commit()
     except Exception as e:
         print(f"Failed to seed automation triggers: {e}")
-        db.rollback()
     finally:
         db.close()
-

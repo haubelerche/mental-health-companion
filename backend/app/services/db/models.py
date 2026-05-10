@@ -1043,3 +1043,14 @@ class AutomationTrigger(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
+class AutomationLog(Base):
+    __tablename__ = "automation_logs"
+    __table_args__ = {"schema": "app"}
+
+    log_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    target_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True) # worker_key or trigger_id
+    action_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="success") # success, failure
+    message: Mapped[str | None] = mapped_column(Text)
+    details: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

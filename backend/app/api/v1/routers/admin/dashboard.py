@@ -19,6 +19,28 @@ def admin_dashboard(
     enforce_admin_ip(request)
 
     total_sessions = db.scalar(select(func.count(Conversation.session_id))) or 0
+    
+    # Calculate real session trend (this week vs last week)
+    now = local_date_utc7()
+    one_week_ago = now - timedelta(days=7)
+    two_weeks_ago = now - timedelta(days=14)
+    
+    this_week_sessions = db.scalar(
+        select(func.count(Conversation.session_id))
+        .where(Conversation.started_at >= one_week_ago)
+    ) or 0
+    last_week_sessions = db.scalar(
+        select(func.count(Conversation.session_id))
+        .where(Conversation.started_at >= two_weeks_ago)
+        .where(Conversation.started_at < one_week_ago)
+    ) or 0
+    
+    session_trend = 0
+    if last_week_sessions > 0:
+        session_trend = round(((this_week_sessions - last_week_sessions) / last_week_sessions) * 100)
+    elif this_week_sessions > 0:
+        session_trend = 100
+        
     sos_events = db.scalar(select(func.count(CrisisLog.log_id))) or 0
     
     # Real mood distribution from checkins (last 30 days)
@@ -30,10 +52,6 @@ def admin_dashboard(
     ).all()
     
     mood_dist = {row[0]: row[1] for row in mood_rows}
-    # Ensure default keys if empty
-    for k in ["great", "okay", "stressed", "struggling"]:
-        if k not in mood_dist:
-            mood_dist[k] = 0
 
     # Top resource categories by play events
     top_cats_rows = db.execute(
@@ -51,6 +69,7 @@ def admin_dashboard(
         {
             "period": {"from": thirty_days_ago.isoformat(), "to": local_date_utc7().isoformat()},
             "total_sessions": total_sessions,
+            "session_trend": session_trend,
             "avg_session_depth": 8.3,
             "mood_distribution": mood_dist,
             "sos_events": sos_events,

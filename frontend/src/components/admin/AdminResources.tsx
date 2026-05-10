@@ -74,6 +74,9 @@ export default function AdminResources() {
     const [form, setForm] = useState(defaultForm)
     const [tagsInput, setTagsInput] = useState('')
     const [activeTab, setActiveTab] = useState<TabMode>('agent')
+    const [page, setPage] = useState(0)
+    const [total, setTotal] = useState(0)
+    const limit = 20
 
     /* ───── agent state ───── */
     const [agentCategory, setAgentCategory] = useState('meditate')
@@ -96,10 +99,11 @@ export default function AdminResources() {
             const data = await adminService.listResources({
                 category: categoryFilter || undefined,
                 include_inactive: includeInactive,
-                limit: 100,
-                offset: 0,
+                limit: limit,
+                offset: page * limit,
             })
             setResources(data.items)
+            setTotal(data.total)
         } catch (err) {
             if (err instanceof ApiRequestError && err.handledByModal) return
             if (err instanceof ApiRequestError) setError(err.message)
@@ -111,7 +115,7 @@ export default function AdminResources() {
 
     useEffect(() => {
         void load()
-    }, [load])
+    }, [load, page])
 
     const resetForm = () => {
         setEditingId(null)
@@ -404,11 +408,6 @@ export default function AdminResources() {
             {/* ═════════ TAB: AGENT MODE ═════════ */}
             {activeTab === 'agent' && (
                 <div className="admin-agent-section">
-                    <div className="bg-black/40 border border-white/10 rounded-2xl p-10 flex flex-col items-center justify-center text-center mb-8">
-                        <Zap size={48} className="text-indigo-400 mb-4 animate-pulse" />
-                        <h3 className="text-white font-bold text-xl">Lịch trình Crawler đã được di chuyển</h3>
-                        <p className="text-slate-400 max-w-lg mt-2">Việc thiết lập tần suất quét tự động hiện được quản lý tập trung tại tab <span className="text-indigo-400 font-bold">Tự động hóa</span>. Tại đây bạn vẫn có thể sử dụng Agent để quét thủ công ngay lập tức.</p>
-                    </div>
 
                     {/* Control Panel */}
                     <div className="admin-agent-control-panel">
@@ -558,27 +557,128 @@ export default function AdminResources() {
                         <input type="checkbox" checked={includeInactive} onChange={(e) => setIncludeInactive(e.target.checked)} />
                         include inactive
                     </label>
-                    <button type="button" onClick={() => void load()} className="admin-res-btn-outline">
+                    <button type="button" onClick={() => { setPage(0); void load(); }} className="admin-res-btn-outline">
                         Refresh
                     </button>
+                    
+                    {/* Top Pagination Numbers Removed */}
                 </div>
-                {loading ? <p className="admin-res-loading">Đang tải resources...</p> : null}
-                <div className="admin-res-list">
-                    {resources.map((item) => (
-                        <div key={item.resource_id} className="admin-res-item">
-                            <div className="admin-res-item-info">
-                                <p className="admin-res-item-title">{item.title}</p>
-                                <p className="admin-res-item-meta">{item.resource_id} • {CATEGORY_LABELS[item.category] || item.category} • {item.format}</p>
-                                <p className="admin-res-item-meta">duration {item.duration_sec}s • {item.is_active ? '🟢 active' : '🔴 inactive'}</p>
-                            </div>
-                            <div className="admin-res-item-actions">
-                                <button type="button" onClick={() => { startEdit(item); setActiveTab('manual') }} className="admin-res-btn-outline admin-res-btn-sm">Edit</button>
-                                <button type="button" disabled={busy} onClick={() => void remove(item.resource_id)} className="admin-res-btn-danger admin-res-btn-sm">Delete</button>
+                <div className="admin-res-list-container">
+                    {loading && (
+                        <div className="admin-res-loading-overlay">
+                            <div className="admin-res-loading-box">
+                                <div className="admin-res-spinner" />
+                                <p>Đang tải dữ liệu...</p>
                             </div>
                         </div>
-                    ))}
-                    {!loading && resources.length === 0 ? <p className="admin-res-loading">Chưa có resource nào.</p> : null}
-                </div>
+                    )}
+                    
+                    <div className={`admin-res-grid ${loading ? 'admin-res-blur' : ''}`}>
+                        {resources.map((item) => (
+                            <div key={item.resource_id} className="admin-res-card">
+                                <div className="admin-res-card-thumb-wrapper">
+                                    {item.thumbnail_key ? (
+                                        <img src={item.thumbnail_key} alt={item.title} className="admin-res-card-thumb" />
+                                    ) : (
+                                        <div className="admin-res-card-thumb-placeholder">
+                                            <span>{item.format.toUpperCase()}</span>
+                                        </div>
+                                    )}
+                                    {item.external_url && (
+                                        <a href={item.external_url} target="_blank" rel="noreferrer" className="admin-res-card-play-overlay">
+                                            <svg viewBox="0 0 24 24" fill="currentColor" width="48" height="48"><path d="M8 5v14l11-7z"/></svg>
+                                        </a>
+                                    )}
+                                    <div className="admin-res-card-badge">
+                                        {CATEGORY_LABELS[item.category] || item.category}
+                                    </div>
+                                </div>
+                                
+                                <div className="admin-res-card-content">
+                                    <h3 className="admin-res-card-title" title={item.title}>
+                                        {item.external_url ? (
+                                            <a href={item.external_url} target="_blank" rel="noreferrer">{item.title}</a>
+                                        ) : item.title}
+                                    </h3>
+                                    <div className="admin-res-card-meta">
+                                        <span>ID: {item.resource_id.slice(-8)}</span>
+                                        <span>•</span>
+                                        <span>{item.duration_sec}s</span>
+                                        <span>•</span>
+                                        <span className={item.is_active ? 'text-emerald-500' : 'text-rose-500'}>
+                                            {item.is_active ? 'Active' : 'Inactive'}
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="admin-res-card-actions">
+                                        <button type="button" onClick={() => { startEdit(item); setActiveTab('manual') }} className="admin-res-card-btn-edit">
+                                            Edit
+                                        </button>
+                                        <button type="button" disabled={busy} onClick={() => void remove(item.resource_id)} className="admin-res-card-btn-delete">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+            </div>
+
+            {/* Bottom Pagination Numbers */}
+                {!loading && total > limit && (
+                    <div className="admin-res-pagination-bottom">
+                        <p className="admin-res-pagination-info">
+                            Trang <b>{page + 1}</b> / {Math.ceil(total / limit)} • {total} Tài nguyên
+                        </p>
+                        
+                        <div className="admin-res-numbers-row">
+                            <button
+                                onClick={() => setPage(p => Math.max(0, p - 1))}
+                                disabled={page === 0 || loading}
+                                className="admin-res-sq-btn"
+                            >
+                                ‹
+                            </button>
+
+                            {(() => {
+                                const totalPages = Math.ceil(total / limit);
+                                const current = page + 1;
+                                const range = [];
+                                
+                                if (totalPages <= 7) {
+                                    for (let i = 1; i <= totalPages; i++) range.push(i);
+                                } else {
+                                    if (current <= 4) {
+                                        range.push(1, 2, 3, 4, 5, '...', totalPages);
+                                    } else if (current >= totalPages - 3) {
+                                        range.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                    } else {
+                                        range.push(1, '...', current - 1, current, current + 1, '...', totalPages);
+                                    }
+                                }
+
+                                return range.map((p, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => typeof p === 'number' && setPage(p - 1)}
+                                        disabled={loading || p === '...'}
+                                        className={`admin-res-sq-btn ${p === current ? 'active' : ''} ${p === '...' ? 'dots' : ''}`}
+                                    >
+                                        {p}
+                                    </button>
+                                ));
+                            })()}
+
+                            <button
+                                onClick={() => setPage(p => p + 1)}
+                                disabled={(page + 1) * limit >= total || loading}
+                                className="admin-res-sq-btn"
+                            >
+                                ›
+                            </button>
+                        </div>
+                    </div>
+                )}
             </article>
         </section>
     )

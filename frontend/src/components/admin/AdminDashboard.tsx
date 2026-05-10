@@ -30,44 +30,83 @@ function numberOrDash(value: number | undefined): string {
     return value.toLocaleString('vi-VN')
 }
 
-/* ── Enhanced Mini Bar Chart ── */
-function MoodBarChart({ data }: { data: Record<string, number> }) {
-    const entries = Object.entries(data)
-    const max = Math.max(...entries.map(([, v]) => v), 1)
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
 
-    const MOOD_LABELS: Record<string, { label: string; color: string; emoji: string }> = {
-        great: { label: 'Rất tốt', color: '#10b981', emoji: '😊' },
-        okay: { label: 'Ổn', color: '#3b82f6', emoji: '🙂' },
+/* ── Modern Mood Pie Chart ── */
+function MoodPieChart({ data }: { data: Record<string, number> }) {
+    const MOOD_CONFIG: Record<string, { label: string; color: string; emoji: string }> = {
+        awesome: { label: 'Tuyệt vời', color: '#10b981', emoji: '🤩' },
+        great: { label: 'Rất tốt', color: '#059669', emoji: '🥰' },
+        good: { label: 'Tốt', color: '#34d399', emoji: '😊' },
+        fine: { label: 'Ổn', color: '#3b82f6', emoji: '🙂' },
+        okay: { label: 'Bình thường', color: '#60a5fa', emoji: '😐' },
         stressed: { label: 'Căng thẳng', color: '#f59e0b', emoji: '😰' },
-        struggling: { label: 'Khó khăn', color: '#ef4444', emoji: '😞' },
+        bad: { label: 'Tệ', color: '#f87171', emoji: '😞' },
+        struggling: { label: 'Khó khăn', color: '#ef4444', emoji: '😫' },
+    }
+
+    const chartData = Object.entries(data)
+        .filter(([, value]) => value > 0)
+        .map(([key, value]) => ({
+            name: MOOD_CONFIG[key]?.label || key,
+            value,
+            color: MOOD_CONFIG[key]?.color || '#64748b',
+            emoji: MOOD_CONFIG[key]?.emoji || '•'
+        }))
+
+    const CustomTooltip = ({ active, payload }: any) => {
+        if (active && payload && payload.length) {
+            return (
+                <div className="bg-slate-900 border border-white/10 p-3 rounded-xl shadow-2xl backdrop-blur-md">
+                    <p className="text-xs font-black text-white uppercase flex items-center gap-2">
+                        <span className="text-lg">{payload[0].payload.emoji}</span>
+                        {payload[0].name}
+                    </p>
+                    <p className="text-[10px] text-indigo-400 font-bold mt-1 uppercase">
+                        {payload[0].value} Lượt check-in
+                    </p>
+                </div>
+            )
+        }
+        return null
     }
 
     return (
-        <div className="space-y-4 pt-2">
-            {entries.map(([key, value]) => {
-                const info = MOOD_LABELS[key] || { label: key, color: '#64748b', emoji: '•' }
-                const pct = Math.round((value / max) * 100)
-                return (
-                    <div key={key} className="group flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-400 px-1">
-                            <span className="flex items-center gap-2">
-                                <span className="text-sm">{info.emoji}</span>
-                                <span className="group-hover:text-white transition-colors">{info.label}</span>
+        <div className="h-[280px] w-full flex flex-col md:flex-row items-center gap-4">
+            <div className="flex-1 h-full w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie
+                            data={chartData}
+                            innerRadius={60}
+                            outerRadius={90}
+                            paddingAngle={5}
+                            dataKey="value"
+                            stroke="none"
+                        >
+                            {chartData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                    </PieChart>
+                </ResponsiveContainer>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3 px-4 max-h-full overflow-y-auto">
+                {chartData.map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 group cursor-default">
+                        <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)]" style={{ backgroundColor: item.color }} />
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-slate-400 group-hover:text-white transition-colors uppercase tracking-tighter flex items-center gap-1">
+                                <span>{item.emoji}</span>
+                                {item.name}
                             </span>
-                            <span className="text-white bg-white/5 px-2 py-0.5 rounded-md">{value}</span>
-                        </div>
-                        <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-[1px]">
-                            <div
-                                className="h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(0,0,0,0.5)]"
-                                style={{ 
-                                    width: `${pct}%`, 
-                                    background: `linear-gradient(90deg, ${info.color}88, ${info.color})` 
-                                }}
-                            />
+                            <span className="text-[9px] text-slate-600 font-bold">{item.value} lượt</span>
                         </div>
                     </div>
-                )
-            })}
+                ))}
+            </div>
         </div>
     )
 }
@@ -265,7 +304,7 @@ export default function AdminDashboard() {
                     icon={MessageSquare}
                     color="indigo"
                     loading={loading}
-                    trend="+12% so với tuần trước"
+                    trend={aggregate?.session_trend !== undefined ? `${aggregate.session_trend >= 0 ? '+' : ''}${aggregate.session_trend}% so với tuần trước` : 'Đang tính toán...'}
                 />
                 <KPICard 
                     title="Sự kiện SOS"
@@ -315,7 +354,7 @@ export default function AdminDashboard() {
                             ))}
                         </div>
                     ) : aggregate?.mood_distribution ? (
-                        <MoodBarChart data={aggregate.mood_distribution} />
+                        <MoodPieChart data={aggregate.mood_distribution} />
                     ) : (
                         <div className="py-20 text-center text-slate-600">Không có dữ liệu hiển thị</div>
                     )}

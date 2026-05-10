@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import enforce_admin_ip, get_admin_claims, get_db
 from app.core.responses import ok
 from app.services.worker_manager import worker_manager
-from app.services.db.models import AutomationTrigger
+from app.services.db.models import AutomationTrigger, AutomationLog
 from .shared import router
 
 @router.get("/automation/status")
@@ -104,12 +104,21 @@ async def delete_trigger(
     if not trigger:
         return ok({"success": False, "message": "Trigger không tồn tại"}, status_code=404)
     
-    if trigger.trigger_type == "fixed":
-        return ok({"success": False, "message": "Không thể xóa trigger cố định của hệ thống"}, status_code=400)
-        
+    # Cho phép xóa cả trigger cố định nếu admin muốn (có thể re-seed sau)
     db.delete(trigger)
     db.commit()
     return ok({"success": True})
+@router.patch("/automation/config")
+async def update_worker_config(
+    request: Request,
+    worker_name: str = Body(..., embed=True),
+    interval_min: int | None = Body(None, embed=True),
+    daily_time: str | None = Body(None, embed=True),
+    claims: dict = Depends(get_admin_claims),
+):
+    enforce_admin_ip(request)
+    success = worker_manager.update_config(worker_name, interval_min, daily_time)
+    return ok({"success": success, "status": worker_manager.get_status()})
 
 @router.post("/automation/run-now")
 async def run_worker_now(
@@ -126,3 +135,18 @@ async def run_worker_now(
         return ok({"success": True, "message": f"Đã kích hoạt {worker_name} chạy ngay lập tức"})
     return ok({"success": False, "message": "Worker không tồn tại"})
 
+@router.get("/automation/logs/{target_id}")
+async def get_automation_logs(
+    request: Request,
+    target_id: str = Path(...),
+    db: Session = Depends(get_db),
+    claims: dict = Depends(get_admin_claims),
+):
+    enforce_admin_ip(request)
+    logs = db.scalars(
+        select(AutomationLog)
+        .where(AutomationLog.target_id == target_id)
+        .order_by(AutomationLog.created_at.desc())
+        .limit(20)
+    ).all()
+    return ok({"logs": logs})

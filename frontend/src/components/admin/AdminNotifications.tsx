@@ -88,34 +88,6 @@ export default function AdminNotifications() {
                 <p className="text-slate-400">Gửi thông báo hàng loạt đến toàn bộ người dùng đang hoạt động.</p>
             </header>
 
-            <div className="flex flex-col xl:flex-row gap-6 mb-4">
-                <div className="xl:w-2/3 bg-black/40 border border-white/10 rounded-2xl p-8 flex items-center justify-center text-center">
-                    <div>
-                        <Zap size={32} className="text-indigo-400 mx-auto mb-4 animate-pulse" />
-                        <h3 className="text-white font-bold text-lg">Cấu hình Tự động hóa đã được di chuyển</h3>
-                        <p className="text-slate-400 text-sm mt-2">Toàn bộ các Trigger thông báo định kỳ hiện được quản lý tại tab <span className="text-indigo-400 font-bold">Tự động hóa</span>.</p>
-                    </div>
-                </div>
-                <div className="xl:w-1/3 bg-black/40 border border-white/10 rounded-2xl p-6 flex flex-col">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                            <Activity size={14} className="text-indigo-400" /> Nhật ký Gửi tự động
-                        </h3>
-                    </div>
-                    <div className="space-y-2 flex-1 overflow-y-auto max-h-[160px] custom-scrollbar pr-2">
-                        {logs.length > 0 ? (
-                            logs.map((log, i) => (
-                                <div key={i} className="flex gap-3 text-[11px] border-l border-indigo-500/20 pl-3 py-1 hover:bg-white/5 transition-all">
-                                    <span className="text-slate-600 shrink-0">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
-                                    <span className="text-slate-300 line-clamp-1">{log.message}</span>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-xs text-slate-600 italic py-4 text-center">Chưa có hoạt động nào được ghi nhận.</p>
-                        )}
-                    </div>
-                </div>
-            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Templates Section */}
