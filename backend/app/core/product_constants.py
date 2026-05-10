@@ -24,6 +24,6 @@ FEATURE_FLAGS = {
     "persona_meo_unlock_enabled": True,
     "persona_crush_unlock_enabled": False,
     "persona_voice_styles_enabled": False,
-    "memory_cards_enabled": True,
+    "user_memories_enabled": True,
     "knowledge_unlocks_enabled": True,
 }
