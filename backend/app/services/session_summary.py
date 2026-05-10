@@ -14,8 +14,6 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.services.db.models import Conversation, Message, UserProfile
 from app.services.mem0_service import MemoryManager
-from app.memory.extractor import extract_memory_candidates
-from app.memory.service import create_cards_from_candidates
 from app.services.memory_enrichment import StructuredExtract, apply_to_profile, extract_structured
 from app.services.pii_mask import mask_pii
 from app.services.redis_client import cache_delete, profile_cache_key
@@ -138,12 +136,6 @@ def close_session_summary(db: Session, *, session: Conversation, user_id: str) -
         session_id=session.session_id,
         extract=extract,
     )
-    try:
-        card_extraction = extract_memory_candidates(blob, session_id=session.session_id)
-        create_cards_from_candidates(db, user_id, card_extraction)
-    except Exception as exc:
-        logger.warning("memory card extraction at session close failed for %s: %s", user_id, exc)
-
     try:
         sig_id = record_analyst_signal(
             db,
