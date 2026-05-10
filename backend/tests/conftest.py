@@ -84,7 +84,7 @@ def real_db_url() -> str:
 def real_engine(real_db_url: str):
     engine = create_engine(
         real_db_url,
-        connect_args={"options": "-c search_path=app,public,extensions", "connect_timeout": 15},
+        connect_args={"options": "-c search_path=app,extensions", "connect_timeout": 15},
         poolclass=NullPool,
     )
     yield engine
@@ -98,7 +98,7 @@ def real_db(real_engine):
     opened = False
     try:
         try:
-            session.execute(text("SET search_path TO app, public, extensions"))
+            session.execute(text("SET search_path TO app, extensions"))
             opened = True
         except OperationalError as exc:
             session.close()

@@ -28,8 +28,26 @@ class FakeDB:
     def commit(self) -> None:
         self.committed = True
 
+    def rollback(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
     def scalar(self, *_args, **_kwargs):
         return 0
+
+
+class StreamFakeDB(FakeDB):
+    """Fake session for chat stream tests (post-LLM refetch loads Conversation from items)."""
+
+    def scalar(self, *_args, **_kwargs):
+        from app.services.db.models import Conversation
+
+        for item in reversed(self.items):
+            if isinstance(item, Conversation):
+                return item
+        return super().scalar()
 
 
 def _override_user():
@@ -238,7 +256,12 @@ def test_chat_message_triggers_voice_when_graph_raises_distress(monkeypatch):
 
 
 def test_chat_message_stream_returns_sse(monkeypatch):
-    fake_db = FakeDB()
+    fake_db = StreamFakeDB()
+
+    def _fake_session_factory():
+        return fake_db
+
+    monkeypatch.setattr(chat_router, "get_session_factory", lambda: _fake_session_factory)
     monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
     monkeypatch.setattr(chat_router, "decide_sos", lambda *_args, **_kwargs: (False, 0.2))
     monkeypatch.setattr(chat_router, "get_cached_turn", lambda *_args, **_kwargs: None)
@@ -273,12 +296,12 @@ def test_chat_message_stream_returns_sse(monkeypatch):
             ]
         ),
     )
-
-    def override_db():
-        yield fake_db
+    monkeypatch.setattr(chat_router, "_active_persona_id", lambda *_a, **_k: "ban_than")
+    monkeypatch.setattr(chat_router, "_load_today_meals", lambda *_a, **_k: [])
+    monkeypatch.setattr(chat_router, "persist_turn_memory", lambda *_a, **_k: None)
+    monkeypatch.setattr(chat_router, "_maybe_enqueue_voice", lambda **_kw: None)
 
     app.dependency_overrides[chat_router.ensure_policy_acknowledged] = _override_user
-    app.dependency_overrides[chat_router.get_db] = override_db
     try:
         with TestClient(app) as client:
             resp = client.post("/v1/chat/message/stream", json={"message": "chao"})

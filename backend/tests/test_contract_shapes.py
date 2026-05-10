@@ -160,7 +160,7 @@ def test_purchase_result_shape(db):
 
 
 # ---------------------------------------------------------------------------
-# Memory card out schema
+# User memory out schema
 # ---------------------------------------------------------------------------
 
 def test_user_memory_out_schema_fields():

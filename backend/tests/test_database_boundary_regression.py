@@ -16,6 +16,44 @@ def test_mem0_config_does_not_enable_neo4j_graph_store() -> None:
     assert '"provider": "neo4j"' not in src
 
 
+def test_mem0_pgvector_uses_app_schema() -> None:
+    src = _read("backend/app/services/mem0_service.py")
+    assert 'MEM0_COLLECTION_NAME = f"{MEM0_SCHEMA}.mem0_memories"' in src
+    assert '"collection_name": MEM0_COLLECTION_NAME' in src
+    assert "search_path={MEM0_SCHEMA},extensions" in src
+
+
+def test_public_schema_cleanup_drops_public_schema() -> None:
+    src = _read("backend/alembic/versions/0022_consolidate_public_schema_into_app.py")
+    assert "DROP SCHEMA IF EXISTS public CASCADE" in src
+    assert "DROP TABLE public.%I CASCADE" in src
+    assert 'BACKUP_SCHEMA = "schema_cleanup_backup_20260509"' in src
+
+
+def test_memory_schema_keeps_only_active_memory_tables() -> None:
+    migration = _read("backend/alembic/versions/0022_consolidate_public_schema_into_app.py")
+    retirement = _read("backend/alembic/versions/0023_retire_memory_cards.py")
+    verify = _read("backend/scripts/verify_db_schema.py")
+    models = _read("backend/app/services/db/models.py")
+
+    assert '"mem0_memories"' in migration
+    assert '"memory_cards"' in retirement
+    assert '"memory_card_audit_events"' in retirement
+    assert "DROP TABLE app.{table} CASCADE" in retirement
+    assert "RETIRED_MEMORY_TABLES" in migration
+    assert '"conversation_memories"' in migration
+    assert '"mem0_memories_entities"' in migration
+    assert '"mem0migrations"' in migration
+
+    required_tables = verify.split("REQUIRED_COLUMNS", 1)[0]
+    assert '"mem0_memories"' in required_tables
+    assert '"memory_cards"' not in required_tables
+    assert '"memory_card_audit_events"' not in required_tables
+    assert '"conversation_memories"' not in required_tables
+    assert "class ConversationMemory" not in models
+    assert "class MemoryCard" not in models
+
+
 def test_session_summary_does_not_enqueue_user_graph_events() -> None:
     src = _read("backend/app/services/session_summary.py")
     assert 'event_type="session.ended"' not in src
