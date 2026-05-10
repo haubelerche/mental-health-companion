@@ -3,6 +3,8 @@ from __future__ import annotations
 import base64
 import logging
 import os
+import re
+import unicodedata
 import threading
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -25,6 +27,41 @@ from app.voice.dedup import compute_event_signature, dedup_status_for, find_dedu
 from app.voice.style_mapping import resolve_active_style
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_for_voice_cues(text: str) -> str:
+    lowered = (text or "").lower().strip()
+    decomposed = unicodedata.normalize("NFKD", lowered)
+    no_accent = "".join(ch for ch in decomposed if not unicodedata.combining(ch)).replace("đ", "d")
+    compact = re.sub(r"[^a-z0-9\s@$]", " ", no_accent)
+    return re.sub(r"\s+", " ", compact).strip()
+
+
+def message_suggests_proactive_voice(user_message: str) -> bool:
+    """High-intensity / extremist-leaning phrasing: offer TTS even when SOS gate did not fire."""
+    n = _normalize_for_voice_cues(user_message)
+    if not n:
+        return False
+    cues = (
+        "cuc doan",
+        "cuc dai",
+        "thu han",
+        "tra thu",
+        "giet nguoi",
+        "giet ",
+        "danh chet",
+        "dam chet",
+        "bao luc",
+        "diet chung",
+        "phan no",
+        "cuong no",
+        "diet bo",
+        "thanh chien",
+        "khung bo",
+        "danh bom",
+    )
+    return any(c in n for c in cues)
+
 
 _INFLIGHT_LOCK = threading.Lock()
 _INFLIGHT_JOBS: set[int] = set()
@@ -57,6 +94,20 @@ def _assign_payload(row: SyncOutbox, payload: dict[str, Any]) -> None:
 
 def _voice_audio_file(job_id: int) -> Path:
     return _AUDIO_DIR / f"tts_{job_id}.mp3"
+
+
+def _seconds_since(timestamp: datetime | None) -> int:
+    if timestamp is None:
+        return 0
+    from app.services.utils import get_now
+    now = get_now()
+    if timestamp.tzinfo is not None and timestamp.utcoffset() is not None:
+        comparable_now = now.astimezone(timestamp.tzinfo)
+        comparable_timestamp = timestamp
+    else:
+        comparable_now = now.replace(tzinfo=None)
+        comparable_timestamp = timestamp.replace(tzinfo=None)
+    return max(0, int((comparable_now - comparable_timestamp).total_seconds()))
 
 
 def _normalize_voice_provider(provider: str | None) -> str:
@@ -135,6 +186,10 @@ def enqueue_voice_job(
     trigger_snapshot: dict[str, Any],
     persona_id: str | None = None,
     user_owns_voice_style: bool = False,
+    risk_mode: str = "normal",
+    voice_intent: str = "unspecified",
+    priority: str = "normal",
+    template_version: str = "voice_policy_v1",
 ) -> dict[str, Any]:
     global _VOICE_PROVIDER_BLOCKED_CODE
     settings = get_settings()
@@ -168,6 +223,7 @@ def enqueue_voice_job(
     )
     voice_id = str(getattr(settings, "elevenlabs_voice_id", "") or "")
     signature = compute_event_signature(
+        user_id=user_id,
         session_id=session_id,
         voice_style_id=voice_style_id,
         voice_script=voice_script,
@@ -175,6 +231,9 @@ def enqueue_voice_job(
         voice_id=voice_id,
         locale="vi",
         speech_rate=1.0,
+        risk_mode=risk_mode,
+        voice_intent=voice_intent,
+        template_version=template_version,
     )
     existing = find_dedup_job(db, signature)
     if existing:
@@ -196,6 +255,7 @@ def enqueue_voice_job(
             "requested_tts_provider": provider,
             "voice_style_id": voice_style_id,
             "event_signature": signature,
+            "voice_script_hash": signature,
         }
     # ── Create new job ─────────────────────────────────────────────────────
     # Always create a fresh execution job id. Reuse belongs to result-cache layer,
@@ -208,13 +268,18 @@ def enqueue_voice_job(
             "voice_script": voice_script,
             "trigger_reason": trigger_reason,
             "trigger_snapshot": trigger_snapshot,
-            "voice": {
-                "status": "queued",
-                "requested_tts_provider": provider,
-                "event_signature": signature,
-                "voice_style_id": voice_style_id,
+                "voice": {
+                    "status": "queued",
+                    "requested_tts_provider": provider,
+                    "event_signature": signature,
+                    "voice_script_hash": signature,
+                    "voice_style_id": voice_style_id,
+                    "risk_mode": risk_mode,
+                    "voice_intent": voice_intent,
+                    "priority": priority,
+                    "template_version": template_version,
+                },
             },
-        },
         status="pending",
     )
     db.add(outbox)
@@ -245,6 +310,7 @@ def enqueue_voice_job(
         "requested_tts_provider": provider,
         "voice_style_id": voice_style_id,
         "event_signature": signature,
+        "voice_script_hash": signature,
     }
 
 
@@ -291,6 +357,8 @@ def _process_job(job_id: int, owner_token: str | None = None) -> None:
         voice_script = str(payload.get("voice_script") or "").strip()
         logger.info("voice_job_start job_id=%s instance=%s", job_id, _CR_INSTANCE)
         row.status = "processing"
+        from app.services.utils import get_now
+        row.processing_started_at = get_now().replace(tzinfo=None)
         payload.setdefault("voice", {})
         payload["voice"]["status"] = "processing"
         _assign_payload(row, payload)
@@ -359,8 +427,9 @@ def _process_job(job_id: int, owner_token: str | None = None) -> None:
             payload["voice"]["status"] = "ready"
             payload["voice"]["audio_path"] = str(audio_path)
             payload["voice"]["audio_url"] = f"/v1/chat/voice-jobs/tts_{job_id}/audio"
+            payload["voice"].pop("error_code", None)
+            payload["voice"].pop("error_message", None)
             row.status = "done"
-            from app.services.utils import get_now
             row.processed_at = get_now().replace(tzinfo=None)
             logger.info(
                 "voice_job_complete job_id=%s chars=%s instance=%s",
@@ -453,13 +522,40 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
     row = db.get(SyncOutbox, outbox_id)
     if not row or row.event_type != VOICE_JOB_EVENT_TYPE:
         return None
-    from app.services.utils import get_now
-    now = get_now().replace(tzinfo=None)
     payload = dict(row.payload or {})
     voice = dict(payload.get("voice") or {})
     voice_status = str(voice.get("status") or row.status)
-    created_at = row.created_at or now
-    age_seconds = max(0, int((now - created_at).total_seconds()))
+    created_age_seconds = _seconds_since(getattr(row, "created_at", None))
+    processing_age_seconds = _seconds_since(
+        getattr(row, "processing_started_at", None) or getattr(row, "created_at", None)
+    )
+
+    audio_path_from_payload = Path(str(voice.get("audio_path"))) if voice.get("audio_path") else None
+    has_ready_audio = bool(
+        voice.get("audio_url")
+        or (audio_path_from_payload and audio_path_from_payload.exists())
+        or _voice_audio_file(outbox_id).exists()
+    )
+
+    if row.status == "done" and (voice_status != "ready" or has_ready_audio):
+        if has_ready_audio:
+            audio_path = audio_path_from_payload if audio_path_from_payload and audio_path_from_payload.exists() else _voice_audio_file(outbox_id)
+            voice["status"] = "ready"
+            if audio_path.exists():
+                voice["audio_path"] = str(audio_path)
+            voice["audio_url"] = voice.get("audio_url") or f"/v1/chat/voice-jobs/tts_{outbox_id}/audio"
+            voice.pop("error_code", None)
+            voice.pop("error_message", None)
+            payload["voice"] = voice
+            _assign_payload(row, payload)
+            db.commit()
+            if voice_status != "ready":
+                logger.warning(
+                    "voice_job_repaired_done_payload job_id=%s previous_voice_status=%s",
+                    outbox_id,
+                    voice_status,
+                )
+            voice_status = "ready"
 
     if row.status == "done" and voice_status in {"queued", "processing", "pending"}:
         audio_path = _voice_audio_file(outbox_id)
@@ -487,7 +583,7 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
             logger.warning("voice_job_done_missing_audio job_id=%s", outbox_id)
             voice_status = "failed"
 
-    if row.status == "processing" and age_seconds >= VOICE_JOB_PROCESSING_STALE_SECONDS:
+    if row.status == "processing" and processing_age_seconds >= VOICE_JOB_PROCESSING_STALE_SECONDS:
         voice["status"] = "failed"
         voice["error_code"] = "stale_lock"
         voice["error_message"] = "Voice job xử lý quá lâu; hệ thống đã đánh dấu thất bại."
@@ -498,13 +594,13 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
         logger.warning(
             "voice_job_failed_stale_processing job_id=%s age_seconds=%s",
             outbox_id,
-            age_seconds,
+            processing_age_seconds,
         )
         voice_status = "failed"
 
     settings = get_settings()
     if row.status == "pending" and voice_status == "queued":
-        if age_seconds >= VOICE_JOB_PENDING_TIMEOUT_SECONDS:
+        if created_age_seconds >= VOICE_JOB_PENDING_TIMEOUT_SECONDS:
             voice["status"] = "failed"
             voice["error_code"] = "voice_job_timeout"
             voice["error_message"] = "Voice job xếp hàng quá lâu, hệ thống đã hủy và chuyển fallback text."
@@ -515,7 +611,7 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
             logger.warning(
                 "voice_job_timeout_failed job_id=%s age_seconds=%s",
                 outbox_id,
-                age_seconds,
+                created_age_seconds,
             )
             voice_status = "failed"
         elif bool(getattr(settings, "voice_tts_auto_process_on_enqueue", False)):
@@ -523,7 +619,7 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
             logger.info(
                 "voice_job_self_heal_kick job_id=%s age_seconds=%s",
                 outbox_id,
-                age_seconds,
+                created_age_seconds,
             )
     return {
         "tts_job_id": tts_job_id,
@@ -567,17 +663,19 @@ def get_voice_audio_path(db: Session, tts_job_id: str) -> Path | None:
 
 
 def reclaim_stale_processing_jobs(db: Session, *, stale_after_seconds: int = 180) -> int:
-    from app.services.utils import get_now
-    threshold = get_now().replace(tzinfo=None) - timedelta(seconds=stale_after_seconds)
     rows = db.scalars(
         select(SyncOutbox).where(
             SyncOutbox.event_type == VOICE_JOB_EVENT_TYPE,
             SyncOutbox.status == "processing",
-            SyncOutbox.created_at < threshold,
         )
     ).all()
     count = 0
     for row in rows:
+        processing_age_seconds = _seconds_since(
+            getattr(row, "processing_started_at", None) or getattr(row, "created_at", None)
+        )
+        if processing_age_seconds < stale_after_seconds:
+            continue
         payload = dict(row.payload or {})
         payload.setdefault("voice", {})
         payload["voice"]["status"] = "failed"
@@ -592,6 +690,8 @@ def reclaim_stale_processing_jobs(db: Session, *, stale_after_seconds: int = 180
 
 
 def lease_pending_voice_jobs(db: Session, *, limit: int = 20) -> list[int]:
+    from app.services.utils import get_now
+    claimed_at = get_now().replace(tzinfo=None)
     rows = db.scalars(
         select(SyncOutbox)
         .where(
@@ -605,6 +705,7 @@ def lease_pending_voice_jobs(db: Session, *, limit: int = 20) -> list[int]:
     job_ids: list[int] = []
     for row in rows:
         row.status = "processing"
+        row.processing_started_at = claimed_at
         row.retry_count = int(row.retry_count or 0) + 1
         payload = dict(row.payload or {})
         payload.setdefault("voice", {})
