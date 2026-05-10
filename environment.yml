@@ -1,0 +1,10 @@
+name: serene-py314
+channels:
+  - conda-forge
+dependencies:
+  - python=3.14
+  - pip
+  - setuptools
+  - wheel
+  - pip:
+      - -r requirements.txt
