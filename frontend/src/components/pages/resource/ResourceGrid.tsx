@@ -2,6 +2,7 @@ import { Play, ChevronDown, ChevronUp, BookOpen, Volume2 } from 'lucide-react'
 import { useState } from 'react'
 import { type ResourceItem } from '../../../services/resourceService'
 import { useThemeContext } from '../../../contexts/ThemeContext'
+import PixelEmptyState from '../../pixel/PixelEmptyState'
 function minutes(durationSec: number): string {
     return `${Math.max(1, Math.round(durationSec / 60))} phút`
 }
@@ -19,9 +20,11 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
 
     if (items.length === 0) {
         return (
-            <div className={`flex h-40 items-center justify-center rounded-3xl ${isDark ? 'bg-white/5 border border-white/10' : 'bg-white/30'} text-sm ${isDark ? 'text-white/40' : 'text-serene-muted'}`}>
-                Chưa có nội dung cho chủ đề này.
-            </div>
+            <PixelEmptyState
+                mascot="rock"
+                title="Chưa có nội dung cho chủ đề này"
+                description="Tài nguyên mới sẽ xuất hiện khi backend trả về nội dung phù hợp."
+            />
         )
     }
 
