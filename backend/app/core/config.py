@@ -34,15 +34,11 @@ class Settings(BaseSettings):
 
     database_url: str = Field(default="")
     auto_create_schema: bool = False
-    db_pool_size: int = Field(default=5, validation_alias=AliasChoices("DB_POOL_SIZE"))
-    db_max_overflow: int = Field(default=5, validation_alias=AliasChoices("DB_MAX_OVERFLOW"))
+    db_pool_size: int = Field(default=3, validation_alias=AliasChoices("DB_POOL_SIZE"))
+    db_max_overflow: int = Field(default=2, validation_alias=AliasChoices("DB_MAX_OVERFLOW"))
     db_pool_timeout_seconds: int = Field(default=10, validation_alias=AliasChoices("DB_POOL_TIMEOUT_SECONDS"))
     db_pool_recycle_seconds: int = Field(default=1800, validation_alias=AliasChoices("DB_POOL_RECYCLE_SECONDS"))
     db_pool_pre_ping: bool = Field(default=True, validation_alias=AliasChoices("DB_POOL_PRE_PING"))
-    background_workers_enabled: bool = Field(default=True, validation_alias=AliasChoices("BACKGROUND_WORKERS_ENABLED"))
-    idle_summarizer_enabled: bool = Field(default=True, validation_alias=AliasChoices("IDLE_SUMMARIZER_ENABLED"))
-    notification_outbox_worker_enabled: bool = Field(default=True, validation_alias=AliasChoices("NOTIFICATION_OUTBOX_WORKER_ENABLED"))
-    voice_tts_worker_enabled: bool = Field(default=True, validation_alias=AliasChoices("VOICE_TTS_WORKER_ENABLED"))
 
     access_token_ttl_seconds: int = 2592000  # 30 days
     refresh_token_ttl_days: int = 3650       # 10 years
@@ -72,10 +68,6 @@ class Settings(BaseSettings):
     openai_model_friend_fast: str = "gpt-4o-mini"
     llm_timeout_seconds: float = 10.0
     chat_response_cache_ttl_seconds: int = 45
-    chat_expose_scoring_debug: bool = Field(
-        default=False,
-        validation_alias=AliasChoices("CHAT_EXPOSE_SCORING_DEBUG"),
-    )
 
     distress_voice_hint: float = 0.78
     distress_critical: float = 0.88
@@ -84,7 +76,7 @@ class Settings(BaseSettings):
     proactive_voice_cooldown_seconds: int = 120
     proactive_voice_window_turns: int = 6
     proactive_voice_auto_distress_threshold: float = Field(
-        default=0.68,
+        default=0.8,
         validation_alias=AliasChoices("PROACTIVE_VOICE_AUTO_DISTRESS_THRESHOLD"),
     )
     voice_tts_auto_process_on_enqueue: bool = True
@@ -144,10 +136,7 @@ class Settings(BaseSettings):
     # Langfuse LLM observability (optional — leave blank to disable)
     langfuse_public_key: str = Field(default="", validation_alias=AliasChoices("LANGFUSE_PUBLIC_KEY"))
     langfuse_secret_key: str = Field(default="", validation_alias=AliasChoices("LANGFUSE_SECRET_KEY"))
-    langfuse_host: str = Field(
-        default="https://cloud.langfuse.com",
-        validation_alias=AliasChoices("LANGFUSE_BASE_URL", "LANGFUSE_HOST"),
-    )
+    langfuse_host: str = Field(default="https://cloud.langfuse.com", validation_alias=AliasChoices("LANGFUSE_HOST"))
 
     @model_validator(mode="after")
     def _aura_neo4j_defaults(self) -> "Settings":
