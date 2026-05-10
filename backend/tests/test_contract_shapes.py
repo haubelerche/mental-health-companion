@@ -165,6 +165,7 @@ def test_purchase_result_shape(db):
 
 def test_user_memory_out_schema_fields():
     from app.memory.routes import UserMemoryOut
+
     fields = UserMemoryOut.model_fields
     required = {"memory_id", "content", "source", "created_at", "metadata"}
     for f in required:
