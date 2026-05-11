@@ -36,6 +36,7 @@ export default function WhySereneSection() {
                         initial="hidden"
                         whileInView="visible"
                         viewport={{ once: true, amount: 0.35 }}
+                        
                     >
                         <span className="section-label">Vì sao có SereneAI</span>
                         <h2

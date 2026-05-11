@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import starGif from '../../../assets/motion/star.gif'
-import catSoul2 from '../../../assets/motion/cat-soul-2.gif'
-import birdGif from '../../../assets/motion/bird.gif'
+import plan from '../../../assets/motion/plan.png'
+
 
 export default function FinalCTASection() {
     return (
@@ -29,22 +29,6 @@ export default function FinalCTASection() {
             />
 
             <div className="section-inner" style={{ position: 'relative', zIndex: 1 }}>
-                {/* Bird decoration */}
-                <img
-                    src={birdGif}
-                    alt=""
-                    aria-hidden="true"
-                    className="pixel-img"
-                    style={{
-                        position: 'absolute',
-                        top: '0',
-                        right: '5%',
-                        width: '50px',
-                        height: 'auto',
-                        opacity: 0.6,
-                    }}
-                />
-
                 <motion.div
                     initial={{ opacity: 0, y: 28 }}
                     whileInView={{ opacity: 1, y: 0 }}
@@ -52,9 +36,8 @@ export default function FinalCTASection() {
                     transition={{ duration: 0.7, ease: 'easeOut' }}
                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem' }}
                 >
-                    {/* Cat-soul-2 — warmth before CTA */}
                     <img
-                        src={catSoul2}
+                        src={plan}
                         alt="Mèo ấm áp — một bước nhỏ để đi tiếp"
                         className="pixel-img"
                         style={{ width: 250, height: 'auto', opacity: 0.9 }}
