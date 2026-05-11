@@ -116,9 +116,9 @@
   font-size: 1.5rem;
   background: var(--mint);
   color: var(--bg-midnight);
-  border: 2px solid var(--mint-dim);
-  border-bottom-width: 5px;
-  border-radius: 3px;
+  border: 3px solid var(--mint-dim);
+  border-bottom-width: 7px;
+  border-radius: 5px;
   padding: 14px 32px;
   cursor: pointer;
   transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.2s ease;
