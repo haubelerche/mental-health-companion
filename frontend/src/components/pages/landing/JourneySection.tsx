@@ -11,7 +11,7 @@ const STEPS = [
         enLabel: 'Talk',
         vnLabel: 'Nói Ra',
         desc: 'Chia sẻ điều bạn đang cảm thấy — ẩn danh, an toàn, không áp lực.',
-        color: 'var(--mint)',
+        color: 'var(--orange)',
         image: catHouse,
     },
     {
