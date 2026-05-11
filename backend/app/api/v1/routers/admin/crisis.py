@@ -19,25 +19,32 @@ def admin_crisis_logs(
 ):
     enforce_admin_ip(request)
     try:
+        from app.services.db.models import User
         total = db.scalar(select(func.count(CrisisLog.log_id)))
-        logs = db.scalars(
-            select(CrisisLog)
+        
+        stmt = (
+            select(CrisisLog, User.display_name)
+            .join(User, CrisisLog.user_id == User.user_id)
             .order_by(CrisisLog.triggered_at.desc())
             .offset(offset)
             .limit(limit)
-        ).all()
+        )
+        results = db.execute(stmt).all()
 
         _audit(db, claims["sub"], "GET_CRISIS_LOGS", request)
 
         return ok({
             "logs": [
                 {
-                    "log_id": row.log_id,
-                    "session_id": row.session_id,
-                    "triggered_at": row.triggered_at.isoformat(),
-                    "muc_do": row.severity_level,
-                    "reviewed": row.reviewed
-                } for row in logs
+                    "log_id": row[0].log_id,
+                    "session_id": row[0].session_id,
+                    "user_id": row[0].user_id,
+                    "user_name": row[1],
+                    "triggered_at": row[0].triggered_at.isoformat(),
+                    "muc_do": row[0].severity_level,
+                    "reviewed": row[0].reviewed,
+                    "context_summary": row[0].context_summary
+                } for row in results
             ],
             "total": total or 0,
             "has_more": offset + limit < (total or 0)

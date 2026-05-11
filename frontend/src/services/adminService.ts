@@ -3,10 +3,18 @@ import { httpClient } from '../api/httpClient'
 export type AdminDashboardAggregate = {
     period: { from: string; to: string }
     total_sessions: number
-    avg_session_depth: number
-    mood_distribution: Record<string, number>
+    session_trend: number
     sos_events: number
-    top_resource_categories: string[]
+    sos_trend: number
+    avg_session_depth: number
+    depth_trend: number
+    mood_distribution: Record<string, number>
+    total_turns: number
+    total_tokens: number
+    total_input_tokens: number
+    total_output_tokens: number
+    estimated_cost_usd: number
+    cost_trend: number
 }
 
 export type AdminLatencySla = {
@@ -39,6 +47,9 @@ export type AdminCrisisLog = {
     triggered_at: string
     muc_do: string
     reviewed: boolean
+    user_id: string
+    user_name: string
+    context_summary?: string
 }
 
 export type AdminCrisisLogsResponse = {
@@ -143,12 +154,15 @@ export const adminService = {
     getClinicalAnalytics: () => httpClient.get<any>('/admin/analytics/clinical-overview'),
     getResourceAnalytics: () => httpClient.get<any>('/admin/analytics/resources'),
     getHeartAnalytics: (days: number = 30) => httpClient.get<any>(`/admin/analytics/hearts?days=${days}`),
+    getChatMetrics: (days: number = 30) => httpClient.get<any>(`/admin/analytics/chat-metrics?days=${days}`),
+    getAIInsights: (refresh: boolean = false) => httpClient.get<any>(`/admin/analytics/ai-insights${refresh ? '?refresh=true' : ''}`),
 
     // Task 3.5: Letter Management
-    listLetters: (params?: { status?: string; query?: string; limit?: number; offset?: number }) => {
+    listLetters: (params?: { status?: string; query?: string; replied_by?: string; limit?: number; offset?: number }) => {
         const query = new URLSearchParams()
         if (params?.status) query.set('status', params.status)
         if (params?.query) query.set('query', params.query)
+        if (params?.replied_by) query.set('replied_by', params.replied_by)
         if (typeof params?.limit === 'number') query.set('limit', String(params.limit))
         if (typeof params?.offset === 'number') query.set('offset', String(params.offset))
         return httpClient.get<{ letters: any[]; total: number }>(`/admin/letters?${query.toString()}`)
@@ -157,6 +171,12 @@ export const adminService = {
         httpClient.patch<any>(`/admin/letters/${encodeURIComponent(letterId)}/review?action=${action}`, {}),
     aiAnalyzeLetter: (letterId: string) =>
         httpClient.post<any>(`/admin/letters/${encodeURIComponent(letterId)}/ai-analyze`, {}),
+    getAiReplySuggestions: (letterId: string) =>
+        httpClient.get<{ suggestions: Array<{ style: string, content: string }> }>(`/admin/letters/${encodeURIComponent(letterId)}/ai-suggest`),
+    replyToLetter: (letterId: string, payload: { content: string, anonymous_name?: string }) =>
+        httpClient.post<any>(`/admin/letters/${encodeURIComponent(letterId)}/reply`, payload),
+    runAiResponder: (hours: number = 6) =>
+        httpClient.post<any>(`/admin/run-ai-responder?hours=${hours}`, {}),
 
     // Task 3.6: Emotion-Driven Agent
     getEmotionResourceSuggestion: () => httpClient.get<any>('/admin/analytics/emotion-resource-suggestion'),
@@ -168,8 +188,7 @@ export const adminService = {
         return httpClient.get<{ items: any[]; total: number }>(`/admin/audit-logs?${query.toString()}`)
     },
 
-    // Task 3.8: AI Letter Responder
-    runAiResponder: (hours: number = 6) => httpClient.post<any>(`/admin/run-ai-responder?hours=${hours}`, {}),
+    // Task 3.8: AI Letter Responder (Đã định nghĩa ở trên)
 
     // Task 3.10: Bulk Notifications
     broadcastNotification: (payload: { title?: string; body: string; category?: string }) =>
@@ -183,4 +202,16 @@ export const adminService = {
         httpClient.patch<any>('/admin/automation/config', { worker_name, interval_min, daily_time }),
     runWorkerNow: (worker_name: string) =>
         httpClient.post<any>('/admin/automation/run-now', { worker_name }),
+
+    // Automation Triggers (Milestone 1 - Plan V2)
+    listAutomationTriggers: () => httpClient.get<{ triggers: any[] }>('/admin/automation/triggers'),
+    createAutomationTrigger: (payload: { name: string; action_key: string; schedule_type: string; schedule_value: string; config?: any }) =>
+        httpClient.post<{ trigger: any }>('/admin/automation/triggers', payload),
+    updateAutomationTrigger: (triggerId: string, payload: { name?: string; schedule_type?: string; schedule_value?: string; config?: any; is_active?: boolean }) =>
+        httpClient.patch<{ trigger: any }>(`/admin/automation/triggers/${encodeURIComponent(triggerId)}`, payload),
+    deleteAutomationTrigger: (triggerId: string) =>
+        httpClient.delete<any>(`/admin/automation/triggers/${encodeURIComponent(triggerId)}`),
+    getAutomationLogs: (targetId: string) =>
+        httpClient.get<{ logs: any[] }>(`/admin/automation/logs/${encodeURIComponent(targetId)}`),
 }
+
