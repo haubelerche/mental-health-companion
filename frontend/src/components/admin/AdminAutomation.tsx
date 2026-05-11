@@ -1,25 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react'
 import { adminService } from '../../services/adminService'
 import { toast } from 'react-toastify'
-import { 
-    Zap, 
-    Plus, 
-    Settings, 
-    Play, 
-    Pause, 
-    Trash2, 
-    Clock, 
-    Shield, 
-    Activity, 
-    Bell, 
-    Search,
-    Brain,
-    Database,
-    Globe,
-    ChevronRight,
-    Loader2,
-    Mail
-} from 'lucide-react'
+import { Zap, Plus, Activity, Bell, Brain, Database, Globe, Mail } from 'lucide-react'
 import WorkerAutomationCard from './automation/WorkerAutomationCard'
 
 type Trigger = {
@@ -56,7 +39,7 @@ export default function AdminAutomation() {
         try {
             const res = await adminService.listAutomationTriggers()
             setTriggers(res.triggers)
-        } catch (err) {
+        } catch {
             toast.error('Không thể tải danh sách triggers')
         } finally {
             setLoading(false)
@@ -67,23 +50,13 @@ export default function AdminAutomation() {
         fetchTriggers()
     }, [])
 
-    const handleToggle = async (trigger: Trigger) => {
-        try {
-            await adminService.updateAutomationTrigger(trigger.trigger_id, { is_active: !trigger.is_active })
-            setTriggers(prev => prev.map(t => t.trigger_id === trigger.trigger_id ? { ...t, is_active: !t.is_active } : t))
-            toast.success(`${trigger.is_active ? 'Đã tắt' : 'Đã bật'} trigger ${trigger.name}`)
-        } catch (err) {
-            toast.error('Thao tác thất bại')
-        }
-    }
-
     const handleDelete = async (triggerId: string) => {
         if (!confirm('Bạn có chắc chắn muốn xóa trigger này?')) return
         try {
             await adminService.deleteAutomationTrigger(triggerId)
             setTriggers(prev => prev.filter(t => t.trigger_id !== triggerId))
             toast.success('Đã xóa trigger')
-        } catch (err) {
+        } catch {
             toast.error('Không thể xóa trigger')
         }
     }
@@ -124,7 +97,7 @@ export default function AdminAutomation() {
             }
             setIsModalOpen(false)
             fetchTriggers()
-        } catch (err) {
+        } catch {
             toast.error('Dữ liệu JSON không hợp lệ hoặc lỗi kết nối')
         }
     }

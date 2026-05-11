@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from 'react'
 import { adminService } from '../../../services/adminService'
 import { toast } from 'react-toastify'
@@ -51,8 +52,8 @@ export default function WorkerAutomationCard({
                     schedule_type: trigger.schedule_type
                 })
             }
-        } catch (err) {
-            console.error("Failed to fetch status", err)
+        } catch {
+            console.error("Failed to fetch status")
         } finally {
             setLoading(false)
         }
@@ -63,7 +64,7 @@ export default function WorkerAutomationCard({
             setTempValue(worker.daily_time || String(worker.interval_min || ''))
             setIsDirty(false)
         }
-    }, [worker?.daily_time, worker?.interval_min])
+    }, [worker])
 
     const fetchLogs = async () => {
         setLoadingLogs(true)
@@ -73,7 +74,7 @@ export default function WorkerAutomationCard({
                 const res = await adminService.getAutomationLogs(targetId)
                 setLogs(res.logs)
             }
-        } catch (err) {
+        } catch {
             toast.error("Không thể lấy lịch sử")
         } finally {
             setLoadingLogs(false)
@@ -88,6 +89,7 @@ export default function WorkerAutomationCard({
             clearInterval(interval)
             clearInterval(tick)
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [workerKey, trigger])
 
     const getCountdown = () => {
@@ -107,8 +109,9 @@ export default function WorkerAutomationCard({
             const targetId = workerKey || trigger?.trigger_id
             await adminService.toggleWorker(targetId, !worker.active)
             toast.success(`${worker.active ? 'Đã dừng' : 'Đã bật'} tác vụ`)
+            onRefresh?.()
             fetchStatus()
-        } catch (err) {
+        } catch {
             toast.error("Thao tác thất bại")
         } finally {
             setUpdating(false)
@@ -128,8 +131,9 @@ export default function WorkerAutomationCard({
             )
             toast.success("Cập nhật lịch trình thành công")
             setIsDirty(false)
+            onRefresh?.()
             fetchStatus()
-        } catch (err) {
+        } catch {
             toast.error("Cập nhật thất bại")
         } finally {
             setUpdating(false)
@@ -150,8 +154,9 @@ export default function WorkerAutomationCard({
             )
             
             toast.success("Đã chuyển đổi chế độ lịch trình")
+            onRefresh?.()
             fetchStatus()
-        } catch (err) {
+        } catch {
             toast.error("Chuyển đổi thất bại")
         } finally {
             setUpdating(false)
@@ -163,8 +168,9 @@ export default function WorkerAutomationCard({
             const targetId = workerKey || trigger?.trigger_id
             await adminService.runWorkerNow(targetId)
             toast.success("Đã kích hoạt chạy ngay")
+            onRefresh?.()
             fetchStatus()
-        } catch (e) {
+        } catch {
             toast.error("Không thể chạy ngay")
         }
     }

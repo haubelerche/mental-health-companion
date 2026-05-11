@@ -1,9 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from 'react'
 import { adminService } from '../../services/adminService'
 import { ApiRequestError } from '../../api/types'
 import { toast } from 'react-toastify'
-import { Bell, Send, Info, Coffee, Sparkles, MessageCircle, Activity } from 'lucide-react'
-import WorkerAutomationCard from './automation/WorkerAutomationCard'
+import { Bell, Send, Info, Coffee, Sparkles, MessageCircle } from 'lucide-react'
 
 const TEMPLATES = [
     {
@@ -42,7 +42,7 @@ export default function AdminNotifications() {
             const res = await adminService.getAutomationStatus()
             const notifLogs = (res.logs || []).filter((l: any) => l.worker.startsWith('notif_')).slice(0, 5)
             setLogs(notifLogs)
-        } catch (err) {}
+        } catch (_err) { console.warn(_err) }
     }
 
     useEffect(() => {
@@ -115,6 +115,16 @@ export default function AdminNotifications() {
                                 <p className="text-xs text-slate-400 line-clamp-2">{tpl.body}</p>
                             </button>
                         ))}
+                    {logs.length > 0 && (
+                        <div className="mt-4 text-xs text-slate-400">
+                            <h4 className="text-[10px] uppercase font-black text-slate-500 mb-2">Recent notif logs</h4>
+                            <ul className="space-y-1">
+                                {logs.map((l: any, i: number) => (
+                                    <li key={i} className="truncate">{l.worker} • {new Date(l.last_run_at).toLocaleTimeString()}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                     </div>
                 </div>
 

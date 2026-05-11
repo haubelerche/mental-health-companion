@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from 'react'
 import { adminService } from '../../services/adminService'
 import { ApiRequestError } from '../../api/types'
