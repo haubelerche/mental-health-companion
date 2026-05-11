@@ -307,16 +307,29 @@ async function postStreamWithCsrf(path: string, body?: unknown, init: RequestIni
     const token = await ensureCsrfToken()
     const headers = new Headers(init.headers || {})
     headers.set('Content-Type', 'application/json')
+    headers.set('Accept', 'text/event-stream')
     headers.set('X-CSRF-Token', token)
 
-    const response = await fetchWithRetry(`${API_BASE_URL}${path}`, {
-        method: 'POST',
-        credentials: 'include',
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-        ...init,
-        headers,
-    }, path)
-    return response
+    try {
+        return await fetchWithRetry(`${API_BASE_URL}${path}`, {
+            method: 'POST',
+            credentials: 'include',
+            body: body !== undefined ? JSON.stringify(body) : undefined,
+            ...init,
+            headers,
+        }, path)
+    } catch (err) {
+        const isNetwork =
+            err instanceof TypeError ||
+            (err instanceof Error && /Failed to fetch|NetworkError|Load failed/i.test(err.message))
+        if (isNetwork) {
+            throw new ApiRequestError('Streaming chat không kết nối được, chuyển sang chế độ chat thường.', {
+                code: 'NETWORK_ERROR',
+                status: 0,
+            })
+        }
+        throw err
+    }
 }
 
 export const httpClient = {

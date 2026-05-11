@@ -7,7 +7,7 @@ import { toast } from 'react-toastify'
 import { ChevronLeft, Info } from 'lucide-react'
 import { StreakCelebration } from './StreakCelebration'
 import { MoodWordChips } from './MoodWordChips'
-import bg from '../../assets_gif/3.gif'
+import bg from '../../assets/assets_gif/page-serene-landing.gif'
 
 export type CheckinLocationState = {
   moodWords?: string[]

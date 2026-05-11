@@ -151,6 +151,24 @@
         @apply bg-white/20 backdrop-blur-xl transition hover:bg-white/15;
     }
 
+    .pixel-mascot {
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+    }
+
+    .pixel-card {
+        border: 1px solid var(--theme-border);
+        border-radius: 1.5rem;
+        background: var(--theme-surface);
+    }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pixel-mascot {
+        animation: none !important;
+        transition: none !important;
+    }
 }
 
 
@@ -278,8 +296,8 @@
 
 .notification-icon {
     flex-shrink: 0;
-    width: 24px;
-    height: 24px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
