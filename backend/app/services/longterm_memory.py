@@ -246,5 +246,5 @@ def persist_turn_memory(
         max_items=120,
     )
     row.profile = updated
-    row.updated_at = get_now().replace(tzinfo=None)
+    row.updated_at = get_now()
     cache_set_json(profile_cache_key(user_id), updated, ttl_sec=15)

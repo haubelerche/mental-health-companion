@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
 from app.services.db.session import get_session_factory
@@ -28,7 +29,7 @@ class AdminWorker:
         self._task: Optional[asyncio.Task] = None
 
     def _calculate_next_run(self):
-        now = get_now().replace(tzinfo=None)
+        now = get_now()
         if self.daily_time:
             try:
                 hour, minute = map(int, self.daily_time.split(':'))
@@ -59,7 +60,7 @@ class AdminWorker:
 
     async def _loop(self):
         while self.active:
-            now = get_now().replace(tzinfo=None)
+            now = get_now()
             if self.next_run and now >= self.next_run:
                 self.running = True
                 try:
@@ -92,7 +93,7 @@ class AdminWorker:
             "daily_time": self.daily_time,
             "last_run": self.last_run.isoformat() if self.last_run else None,
             "next_run": self.next_run.isoformat() if self.next_run else None,
-            "seconds_until_next": int((self.next_run - get_now().replace(tzinfo=None)).total_seconds()) if self.next_run else None
+            "seconds_until_next": int((self.next_run - get_now()).total_seconds()) if self.next_run else None
         }
 
 # --- Task Functions ---
@@ -125,7 +126,7 @@ async def letter_task(config=None, trigger_id=None):
             details={
                 "count": count,
                 "replied_items": details,
-                "timestamp": get_now().replace(tzinfo=None).isoformat(),
+                "timestamp": get_now().isoformat(),
                 "action": "ai_reply_letters"
             }
         )
@@ -161,7 +162,7 @@ async def resource_task(config=None, trigger_id=None):
                 "inserted_count": inserted_count,
                 "total_processed": len(resource_details),
                 "items": resource_details,
-                "timestamp": get_now().replace(tzinfo=None).isoformat(),
+                "timestamp": get_now().isoformat(),
                 "action": "youtube_crawl"
             }
         )
@@ -281,7 +282,7 @@ class WorkerManager:
 
     def add_log(self, target_id: str, message: str, status: str = "success", details: dict = None):
         log_entry = {
-            "timestamp": get_now().replace(tzinfo=None).isoformat(),
+            "timestamp": get_now().isoformat(),
             "worker": target_id,
             "message": message,
             "status": status,
@@ -298,7 +299,7 @@ class WorkerManager:
                 status=status,
                 message=message,
                 details=details or {},
-                created_at=get_now().replace(tzinfo=None)
+                created_at=get_now()
             ))
             db.commit()
         except Exception as e:

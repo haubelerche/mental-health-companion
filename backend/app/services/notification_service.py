@@ -45,7 +45,7 @@ def send_instant_notification(db: Session, user_id: str, event_type: str, payloa
             body=body,
             data_json=payload,
             is_read=False,
-            created_at=get_now().replace(tzinfo=None),
+            created_at=get_now(),
         )
         db.add(notification)
         db.flush()
@@ -90,7 +90,7 @@ async def async_send_instant_notification(db: Session, user_id: str, event_type:
             body=body,
             data_json=payload,
             is_read=False,
-            created_at=get_now().replace(tzinfo=None),
+            created_at=get_now(),
         )
         db.add(notification)
         db.flush()

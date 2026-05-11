@@ -18,7 +18,7 @@ def _audit(db: Session, admin_id: str, action: str, request: Request):
             resource_accessed=str(request.url.path),
             ip_address=request.client.host if request.client else "0.0.0.0",
             metadata_json={},
-            created_at=get_now().replace(tzinfo=None)
+            created_at=get_now()
         )
     )
     try:
