@@ -110,7 +110,7 @@ export default function HeroScene() {
                 {/* Content */}
                 <div className="hero-content">
                     <span className="section-label" style={{ marginBottom: '1rem' }}>
-                        SereneAI · Người bạn đồng hành sức khoẻ tâm thần
+                        SereneAI·Người bạn đồng hành sức khoẻ tâm thần
                     </span>
 
                     <h1
@@ -133,6 +133,7 @@ export default function HeroScene() {
                             marginBottom: '2.5rem',
                             transition: 'opacity 0.5s ease',
                             color: 'rgba(237,247,255,0.92)',
+                            letterSpacing: '0.05rem'
                         }}
                     >
                         {subtitleMap[phase]}
