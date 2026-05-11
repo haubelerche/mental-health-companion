@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import catFriend from '../../../assets/motion/cat-and-friend.gif'
+import flowerGif from '../../../assets/motion/flower.gif'
 
 const fadeUp = {
     hidden: { opacity: 0, y: 28 },
@@ -35,7 +36,6 @@ export default function WhySereneSection() {
                         initial="hidden"
                         whileInView="visible"
                         viewport={{ once: true, amount: 0.35 }}
-                        variants={fadeUp}
                     >
                         <span className="section-label">Vì sao có SereneAI</span>
                         <h2
@@ -89,8 +89,25 @@ export default function WhySereneSection() {
                                 flexDirection: 'column',
                                 alignItems: 'center',
                                 gap: '1.25rem',
+                                position: 'relative',
                             }}
                         >
+                            {/* Flower decoration */}
+                            <img
+                                src={flowerGif}
+                                alt=""
+                                aria-hidden="true"
+                                className="pixel-img"
+                                style={{
+                                    position: 'absolute',
+                                    top: '-15px',
+                                    left: '-15px',
+                                    width: '40px',
+                                    height: 'auto',
+                                    zIndex: 2,
+                                }}
+                            />
+
                             <img
                                 src={catFriend}
                                 alt="Mèo và người bạn — cảm giác được đồng hành"
