@@ -2,6 +2,9 @@ import { ApiRequestError } from '@/api/types'
 import { useThemeContext } from '@/contexts/ThemeContext'
 import type { RewardStoreItem } from '@/services/rewardsService'
 import { Gift, Heart } from 'lucide-react'
+import crushIcon from '../../../assets/rewards/crush.gif'
+import cunIcon from '../../../assets/rewards/cun.gif'
+import meoIcon from '../../../assets/assets_gif/meo-buon-ba.gif'
 
 
 type Props = {
@@ -22,12 +25,35 @@ function sanitizeTitle(title: string): string {
     return title
 }
 
+const PERSONA_ICON_BY_ID: Record<string, string> = {
+    crush: crushIcon,
+    cun: cunIcon,
+    meo: meoIcon,
+}
+
+function normalizePersonaKey(item: RewardStoreItem): string {
+    return [item.item_id, item.icon_key, item.title]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+}
+
+function getPersonaIcon(item: RewardStoreItem): string | null {
+    if (item.item_type !== 'persona') return null
+    const key = normalizePersonaKey(item)
+    if (key.includes('crush')) return PERSONA_ICON_BY_ID.crush
+    if (key.includes('cun') || key.includes('cún')) return PERSONA_ICON_BY_ID.cun
+    if (key.includes('meo') || key.includes('mèo')) return PERSONA_ICON_BY_ID.meo
+    return null
+}
+
 export default function RewardCard({ item, balance, owned, onPurchase }: Props) {
     const canAfford = balance >= item.price_hearts
     const requirementsMet = !item.requirements || Object.keys(item.requirements).length === 0
     const disabled = owned || !canAfford || !requirementsMet
-        const { effectiveTheme } = useThemeContext()
-        const isDark = effectiveTheme === 'dark'
+    const personaIcon = getPersonaIcon(item)
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
 
     async function handleClick() {
         if (disabled) return
@@ -47,8 +73,17 @@ export default function RewardCard({ item, balance, owned, onPurchase }: Props) 
                 </div>
             )}
             
-            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${isDark ? 'bg-amber-500/10' : 'bg-amber-100'}`}>
-                <Gift className={`h-6 w-6 ${item.icon_key ? 'text-amber-500' : 'text-amber-500/50'}`} aria-hidden />
+            <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl ${isDark ? 'bg-amber-500/10' : 'bg-amber-100'}`}>
+                {personaIcon ? (
+                    <img
+                        src={personaIcon}
+                        alt=""
+                        className="h-12 w-12 object-contain [image-rendering:pixelated]"
+                        aria-hidden="true"
+                    />
+                ) : (
+                    <Gift className={`h-6 w-6 ${item.icon_key ? 'text-amber-500' : 'text-amber-500/50'}`} aria-hidden />
+                )}
             </div>
             
             <div className="flex-1">
