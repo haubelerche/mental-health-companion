@@ -18,13 +18,13 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import quotesJson from '../../../famous-quotes.json'
-import beachMessageBg from '../../assets_gif/nature-dark.gif'
-import exerciseImg from '../../assets_gif/cau-ca.gif'
-import morningRhythmImg from '../../assets_gif/chao-mung.gif'
-import dayRhythmImg from '../../assets_gif/cau-ca-3.gif'
-import eveningRhythmImg from '../../assets_gif/3.gif'
-import healingImg from '../../assets_gif/hai-meo-cam-den.gif'
-import nutritionImg from '../../assets_gif/meo.gif'
+import beachMessageBg from '../../assets/assets_gif/rain.gif'
+import exerciseImg from '../../assets/assets_gif/fishing.gif'
+import morningRhythmImg from '../../assets/assets_gif/serene-landing-day-welcome.gif'
+import dayRhythmImg from '../../assets/assets_gif/afternoon-serene-bamboo-page.gif'
+import eveningRhythmImg from '../../assets/assets_gif/serene-landing-night-welcome.gif'
+import healingImg from '../../assets/assets_gif/calmness.gif'
+import nutritionImg from '../../assets/assets_gif/meo-buon-ba.gif'
 import { Link, useNavigate } from 'react-router-dom'
 import { homeService } from '../../services/homeService'
 import { rewardsService } from '../../services/rewardsService'
@@ -37,6 +37,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import { REWARD_UPDATED_EVENT } from '../../utils/rewardProgress'
+import Mascot from '../pixel/Mascot'
 
 type RecoCard = {
     icon: typeof Wind
@@ -334,7 +335,7 @@ export default function Home() {
     const [nutritionTip, setNutritionTip] = useState<NutritionDailyTip | null>(null)
     const [homeMoodWords, setHomeMoodWords] = useState<string[]>([])
     const [quoteIndex, setQuoteIndex] = useState(0)
-    const currentHour = new Date().getHours()
+    const [currentHour, setCurrentHour] = useState(() => new Date().getHours())
     const recoCards = useMemo(() => getRecoCards(currentHour, isDark), [currentHour, isDark])
     const currentSlot = useMemo<TimeSlot>(() => getCurrentTimeSlot(currentHour), [currentHour])
 
@@ -350,7 +351,18 @@ export default function Home() {
     const quoteContent = activeQuote?.content_vi || activeQuote?.content_en || quote?.text || 'Giây phút hiện tại là nơi duy nhất sự sống thực sự tồn tại.'
     const quoteAuthor = activeQuote?.author || quote?.author || 'Thích Nhất Hạnh'
 
-    
+    useEffect(() => {
+        const tick = () => setCurrentHour(new Date().getHours())
+        const id = window.setInterval(tick, 60_000)
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') tick()
+        }
+        document.addEventListener('visibilitychange', onVisible)
+        return () => {
+            window.clearInterval(id)
+            document.removeEventListener('visibilitychange', onVisible)
+        }
+    }, [])
 
     useEffect(() => {
         if (!user) {
@@ -431,12 +443,10 @@ export default function Home() {
         return () => window.clearInterval(timer)
     }, [quotes.length])
 
-    useEffect(() => {
-        if (currentReminders.some((item) => item.id === selectedReminderId)) return
-        setSelectedReminderId(currentReminders[0]?.id ?? '')
-    }, [currentReminders, selectedReminderId])
-
     const displayName = user?.displayName || 'bạn'
+    const effectiveSelectedReminderId = currentReminders.some((item) => item.id === selectedReminderId)
+        ? selectedReminderId
+        : currentReminders[0]?.id ?? ''
 
     return (
         <div className="relative min-h-screen overflow-hidden ">
@@ -444,8 +454,13 @@ export default function Home() {
             <div className="space-y-6 pb-8 lg:space-y-8">
                 {/* ── Greeting header ── */}
                 <header className="flex items-start justify-between gap-4">
-                    <div>
-
+                    <div className="flex min-w-0 items-center gap-3">
+                        <Mascot
+                            variant="main"
+                            size="lg"
+                            decorative
+                            className="hidden sm:block"
+                        />
                         <h1 className={`mt-1 font-display text-2xl italic ${isDark ? 'text-theme-text-primary' : 'text-white'} sm:text-3xl`}>
                             {getGreeting()}! {displayName}
                         </h1>
@@ -485,7 +500,7 @@ export default function Home() {
 
                             <div className="space-y-3">
                                 {currentReminders.map((item) => {
-                                    const active = selectedReminderId === item.id
+                                    const active = effectiveSelectedReminderId === item.id
                                     return (
                                         <button
                                             key={item.id}
@@ -730,12 +745,13 @@ export default function Home() {
                 >
                     <div className="grid gap-5 lg:grid-cols-[220px_1fr_auto] lg:items-center cursor-pointer">
                         <div className="relative overflow-hidden rounded-[24px] min-h-[170px] shadow-sm">
-                            <img
-                                src={nutritionImg}
-                                alt="Món ăn gợi ý cho phần dinh dưỡng"
-                                className={`absolute inset-0 h-full w-full object-cover`}
+                            <Mascot
+                                variant="eat"
+                                size="xl"
+                                alt="Mèo Serene đang ăn nhẹ"
+                                className="absolute inset-0 m-auto h-32 w-32"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
                             <div className="absolute inset-x-0 bottom-0 p-4 text-white">
                                 <p className="text-xs uppercase tracking-[0.19em] text-theme-text-secondary">Nuôi dưỡng cơ thể</p>
                                 <p className="mt-1 text-xs font-semibold">Ăn đủ để mood cũng được nâng lên</p>
@@ -849,7 +865,7 @@ export default function Home() {
                                             transition={{ duration: 2, repeat: Infinity }}
                                             className="mb-2 flex justify-center text-theme-accent"
                                         >
-                                            <Leaf className="h-10 w-10 opacity-90" aria-hidden />
+                                            <Mascot variant="sunflower" size="lg" decorative />
                                         </motion.div>
                                         <p className="text-center text-[11px] text-theme-text-secondary leading-relaxed font-medium">
                                             Hãy check-in cảm xúc để khám phá sức khỏe của bạn
