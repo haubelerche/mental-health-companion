@@ -840,9 +840,10 @@ PostgreSQL tables:
 users, refresh_tokens, guest_sessions, conversations, messages,
 mood_checkins, screening_results, clinical_profiles, crisis_logs,
 admin_audit_log, user_profiles, user_profile_snapshots,
-conversation_memories, session_summaries_archive, resources,
-bookmarks, play_events, sync_outbox, heart_ledger,
-reward_inventory, memory_cards, tts_jobs
+mem0_memories, session_summaries_archive, resources,
+bookmarks, play_events, sync_outbox, heart_wallets,
+heart_reward_events, heart_spend_events, reward_store_items,
+user_inventory_items, persona_unlock_states, memory_cards
 ```
 
 Redis keys:
@@ -1026,9 +1027,9 @@ Access control:
 | crisis_logs | safety/admin role only |
 | admin_audit_log | append-only admin/service role |
 | Neo4j user subgraph | service role only; no raw PII |
-| heart_ledger | user read + service write |
+| heart_wallets / heart_reward_events / heart_spend_events | user read + service write |
 | memory_cards | user controls + service role |
-| tts_jobs | user read + service write |
+| sync_outbox (voice.tts_request jobs) | user read via API + service write |
 
 ---
 
