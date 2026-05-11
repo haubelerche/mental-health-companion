@@ -56,7 +56,7 @@ export default function LandingHeader() {
             >
                 {/* Logo */}
                 <Link
-                    to="/landing"
+                    to="/"
                     style={{
                         fontFamily: 'var(--font-pixel)',
                         fontSize: 'clamp(2rem, 3vw, 2.5rem)',
