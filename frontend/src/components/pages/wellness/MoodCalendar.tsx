@@ -9,12 +9,12 @@ export type MoodPoint = {
 
 type Props = {
     points?: MoodPoint[]
-    mode?: 'score' | 'completion'
-    /** ISO yyyy-mm-dd for completion mode */
+    mode?: 'score' | 'completion' | 'combined'
+    /** ISO yyyy-mm-dd for completion / combined mode */
     completedDates?: Set<string>
     className?: string
     onDayClick?: (date: string, score: number, label: string) => void
-    /** When set with completion mode, opens shared history modal */
+    /** When set with completion / combined mode, opens shared history modal */
     onOpenHistory?: () => void
 }
 
@@ -85,6 +85,38 @@ function buildCompletionGrid(completedDates: Set<string>): Array<{ date: string;
     return weeks
 }
 
+type CombinedCell = { date: string; score: number | null; completed: boolean; isFuture: boolean }
+
+function buildCombinedGrid(points: MoodPoint[], completedDates: Set<string>): CombinedCell[][] {
+    const today = new Date()
+    const dayOfWeek = today.getDay()
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+    const startDate = new Date(today)
+    startDate.setDate(today.getDate() - daysToMonday - 21)
+
+    const scoreMap = new Map<string, number>()
+    for (const p of points) {
+        const pct = Math.round((p.mood_score / 5) * 100)
+        scoreMap.set(p.date.slice(0, 10), pct)
+    }
+
+    const weeks: CombinedCell[][] = []
+    for (let week = 0; week < 4; week++) {
+        const row: CombinedCell[] = []
+        for (let day = 0; day < 7; day++) {
+            const d = new Date(startDate)
+            d.setDate(startDate.getDate() + week * 7 + day)
+            const iso = d.toISOString().slice(0, 10)
+            const isFuture = d > today
+            const score = isFuture ? null : scoreMap.get(iso) ?? null
+            const completed = !isFuture && completedDates.has(iso)
+            row.push({ date: iso, score, completed, isFuture })
+        }
+        weeks.push(row)
+    }
+    return weeks
+}
+
 function formatDate(iso: string): string {
     const d = new Date(iso)
     return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
@@ -105,6 +137,8 @@ export function MoodCalendar({
 }: Props) {
     const scoreWeeks = mode === 'score' ? buildScoreGrid(points) : []
     const completionWeeks = mode === 'completion' ? buildCompletionGrid(completedDates ?? new Set()) : []
+    const combinedWeeks =
+        mode === 'combined' ? buildCombinedGrid(points, completedDates ?? new Set()) : []
 
     return (
         <div className={className}>
@@ -188,6 +222,66 @@ export function MoodCalendar({
                                         ].join(' ')}
                                     >
                                         {completed ? <span className="text-[10px] font-bold">✓</span> : null}
+                                    </motion.button>
+                                )
+                            })}
+                        </div>
+                    ))}
+
+                {mode === 'combined' &&
+                    combinedWeeks.map((week, wi) => (
+                        <div key={wi} className="grid grid-cols-7 gap-1.5">
+                            {week.map(({ date, score, completed, isFuture }, di) => {
+                                const idx = wi * 7 + di
+                                const hasScore = score !== null
+                                const openDayDetail = hasScore && !!onDayClick
+                                const openHistoryOnly = !hasScore && completed && !!onOpenHistory
+                                const clickable = openDayDetail || openHistoryOnly
+                                return (
+                                    <motion.button
+                                        key={date}
+                                        type="button"
+                                        disabled={!clickable}
+                                        onClick={() => {
+                                            if (openDayDetail && score !== null) {
+                                                onDayClick(date, (score / 100) * 5, findLabel(points, date))
+                                            } else if (openHistoryOnly) {
+                                                onOpenHistory?.()
+                                            }
+                                        }}
+                                        initial={{ opacity: 0, scale: 0.6 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ delay: idx * 0.012, duration: 0.2, ease: 'backOut' }}
+                                        title={
+                                            hasScore
+                                                ? `${formatDate(date)}: ${Math.round(score)}%`
+                                                : completed
+                                                  ? `${formatDate(date)} — đã check-in`
+                                                  : formatDate(date)
+                                        }
+                                        className={[
+                                            'flex aspect-square items-center justify-center rounded-xl border transition border-theme-primary/40',
+                                            clickable
+                                                ? 'cursor-pointer hover:scale-110 hover:shadow-sm active:scale-95'
+                                                : 'cursor-default',
+                                            hasScore
+                                                ? scoreToClasses(score)
+                                                : completed
+                                                  ? 'border-theme-accent bg-theme-accent text-white shadow-sm'
+                                                  : isFuture
+                                                    ? 'border-transparent bg-transparent'
+                                                    : 'bg-theme-surface/80',
+                                        ].join(' ')}
+                                    >
+                                        {hasScore ? (
+                                            <span className="select-none text-[10px] font-semibold tabular-nums leading-none">
+                                                {scoreAbbrev(score)}
+                                            </span>
+                                        ) : completed ? (
+                                            <span className="text-[10px] font-bold">✓</span>
+                                        ) : !isFuture ? (
+                                            <span className="h-1.5 w-1.5 rounded-full bg-serene-outline" />
+                                        ) : null}
                                     </motion.button>
                                 )
                             })}
