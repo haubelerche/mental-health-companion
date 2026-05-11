@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import pageSerene from '../../../assets/motion/page-serene-landing.gif'
+import birdGif from '../../../assets/motion/bird.gif'
 
 const LINKS = [
     { label: 'Về chúng tôi', href: '#vi-sao' },
@@ -68,7 +69,17 @@ export default function LandingFooter() {
                             Luôn lắng nghe, không phán xét.
                         </p>
                     </div>
-
+   <img
+                    src={birdGif}
+                    alt=""
+                    aria-hidden="true"
+                    className="pixel-img"
+                    style={{
+                        width: '100px',
+                        height: 'auto',
+                        opacity: 0.9,
+                    }}
+                />
                     {/* Links */}
                     <nav aria-label="Footer navigation">
                         <p
