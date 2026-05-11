@@ -6,7 +6,8 @@
 import React, { useEffect, useState } from "react";
 import { useNotification } from "../../../contexts/NotificationContext";
 import type { Notification } from "../../../contexts/NotificationTypes";
-import { X, AlertCircle, CheckCircle, Info, MessageSquare } from "lucide-react";
+import { X, AlertCircle, Info, MessageSquare } from "lucide-react";
+import Mascot from "../../pixel/Mascot";
 
 const NotificationToast: React.FC<{ notification: Notification; onClose: () => void }> = ({
   notification,
@@ -39,10 +40,10 @@ const NotificationToast: React.FC<{ notification: Notification; onClose: () => v
       case "crisis.detected":
         return <AlertCircle size={18} className="text-red-500" />;
       case "reward.earned":
-        return <CheckCircle size={18} className="text-green-500" />;
+        return <Mascot variant="idle" size="xs" decorative />;
       case "persona.unlocked":
       case "memory.completed":
-        return <CheckCircle size={18} className="text-blue-500" />;
+        return <Mascot variant="main" size="xs" decorative />;
       default:
         return <Info size={18} className="text-gray-500" />;
     }
