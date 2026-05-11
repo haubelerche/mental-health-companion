@@ -116,7 +116,7 @@ export default function JourneySection() {
                                     <p className="vn-body" style={{ margin: 0, fontSize: '0.9rem' }}>
                                         {step.desc}
                                     </p>
-                                    <div
+                                    {/* <div
                                         style={{
                                             border: `2px solid ${step.color}`,
                                             borderRadius: 2,
@@ -132,7 +132,7 @@ export default function JourneySection() {
                                             style={{ display: 'block', width: '100%', borderRadius: 1 }}
                                             loading="lazy"
                                         />
-                                    </div>
+                                    </div> */}
                                 </div>
 
                                 {/* Decoration fish for step 2 */}
