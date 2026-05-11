@@ -36,7 +36,7 @@ def admin_login(payload: AdminLoginRequest, request: Request, response: Response
     return ok({"admin_id": admin_id, "expires_in": 7200}, response=response)
 
 @router.get("/auth/latency-sla")
-def admin_auth_latency_sla(
+async def admin_auth_latency_sla(
     request: Request,
     db: Session = Depends(get_db),
     claims: dict = Depends(get_admin_claims),
@@ -74,3 +74,4 @@ def admin_auth_latency_sla(
 def admin_logout(response: Response):
     clear_admin_auth_cookies(response)
     return ok({"message": "Đã đăng xuất admin"})
+

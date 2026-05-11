@@ -1,26 +1,30 @@
 import asyncio
 import logging
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
 from app.services.db.session import get_session_factory
 from app.services.letter_ai_worker import run_ai_reply_worker
 from app.services.youtube_agent import run_youtube_crawl_agent, CATEGORIES
-from app.services.db.models import User, SyncOutbox
 from app.services.utils import get_now
-from sqlalchemy import select
+from sqlalchemy import select, insert
 import random
+import uuid
+from app.services.db.models import User, SyncOutbox, AutomationLog
 
 logger = logging.getLogger(__name__)
 
 class AdminWorker:
-    def __init__(self, name: str, interval_min: Optional[int], task_func, daily_time: Optional[str] = None):
+    def __init__(self, name: str, interval_min: Optional[int], task_func, daily_time: Optional[str] = None, trigger_id: str = None, config: dict = None, last_run: Optional[datetime] = None):
         self.name = name
         self.interval_min = interval_min
-        self.daily_time = daily_time # e.g. "08:00"
+        self.daily_time = daily_time 
         self.task_func = task_func
+        self.trigger_id = trigger_id # DB Reference
+        self.config = config or {}
         self.active = False
         self.running = False
-        self.last_run: Optional[datetime] = None
+        self.last_run = last_run
         self.next_run: Optional[datetime] = None
         self._task: Optional[asyncio.Task] = None
 
@@ -61,8 +65,17 @@ class AdminWorker:
                 self.running = True
                 try:
                     logger.info(f"Worker {self.name} executing task...")
-                    await self.task_func()
+                    await self.task_func(config=self.config or {}, trigger_id=self.trigger_id)
                     self.last_run = now
+                    # Update last_run_at in DB
+                    if self.trigger_id:
+                        db = get_session_factory()()
+                        try:
+                            from app.services.db.models import AutomationTrigger
+                            db.query(AutomationTrigger).filter(AutomationTrigger.trigger_id == self.trigger_id).update({"last_run_at": now})
+                            db.commit()
+                        finally:
+                            db.close()
                 except Exception as e:
                     logger.error(f"Worker {self.name} error: {e}")
                 finally:
@@ -85,63 +98,127 @@ class AdminWorker:
 
 # --- Task Functions ---
 
-async def letter_task():
+async def notification_morning_task(config=None, trigger_id=None):
+    idx = config.get("template_index", 0) if config else 0
+    await _send_templated_notification(NOTIFICATION_TEMPLATES[idx], trigger_id=trigger_id, config=config)
+
+async def notification_reminder_task(config=None, trigger_id=None):
+    idx = config.get("template_index", 1) if config else 1
+    await _send_templated_notification(NOTIFICATION_TEMPLATES[idx], trigger_id=trigger_id, config=config)
+
+async def notification_letters_task(config=None, trigger_id=None):
+    idx = config.get("template_index", 2) if config else 2
+    await _send_templated_notification(NOTIFICATION_TEMPLATES[idx], trigger_id=trigger_id, config=config)
+
+async def letter_task(config=None, trigger_id=None):
     db = get_session_factory()()
     try:
-        # Change threshold to 0 for immediate testing
-        count = await run_ai_reply_worker(db, hours_threshold=0)
-        worker_manager.add_log("letter", f"Hoàn thành: Đã trả lời {count} lá thư.")
+        # We might want to update run_ai_reply_worker to return list of IDs/content
+        # For now, let's just enhance the log here if possible or just log the count with context
+        result = await run_ai_reply_worker(db, hours_threshold=0)
+        count = result["count"]
+        details = result["details"]
+        
+        msg = f"Đã hoàn thành trả lời tự động {count} lá thư." if count > 0 else "Không có thư mới cần phản hồi."
+        worker_manager.add_log(
+            trigger_id or "letter", 
+            msg, 
+            details={
+                "count": count,
+                "replied_items": details,
+                "timestamp": get_now().isoformat(),
+                "action": "ai_reply_letters"
+            }
+        )
     except Exception as e:
-        worker_manager.add_log("letter", f"Lỗi: {str(e)}")
+        worker_manager.add_log(trigger_id or "letter", f"Lỗi: {str(e)}", status="failure")
     finally:
         db.close()
 
-async def resource_task():
+async def resource_task(config=None, trigger_id=None):
     db = get_session_factory()()
     try:
         category = random.choice(CATEGORIES)
-        async for _ in run_youtube_crawl_agent(category, limit=3, db=db):
-            pass
-        worker_manager.add_log("resource", f"Hoàn thành: Đã cập nhật tài nguyên mục {category}.")
+        resource_details = []
+        async for res_line in run_youtube_crawl_agent(category, limit=3, db=db):
+            if "event\": \"done\"" in res_line:
+                try:
+                    json_str = res_line.strip()
+                    if json_str.startswith("data: "):
+                        json_str = json_str[6:]
+                    data = json.loads(json_str)
+                    results = data.get("data", {}).get("results", [])
+                    resource_details = results
+                except Exception as e:
+                    logger.error(f"Error parsing resource_task results: {e}")
+            
+        inserted_count = len([r for r in resource_details if r.get("status") == "inserted"])
+        msg = f"Đã cập nhật {inserted_count} tài nguyên mới cho mục {category}." if inserted_count > 0 else f"Không có tài nguyên mới cho mục {category}."
+        worker_manager.add_log(
+            trigger_id or "resource", 
+            msg, 
+            details={
+                "category": category,
+                "inserted_count": inserted_count,
+                "total_processed": len(resource_details),
+                "items": resource_details,
+                "timestamp": get_now().isoformat(),
+                "action": "youtube_crawl"
+            }
+        )
     except Exception as e:
-        worker_manager.add_log("resource", f"Lỗi: {str(e)}")
+        worker_manager.add_log(trigger_id or "resource", f"Lỗi: {str(e)}", status="failure")
     finally:
         db.close()
 
-async def notification_morning_task():
-    await _send_templated_notification(NOTIFICATION_TEMPLATES[0])
+async def _send_templated_notification(tpl, trigger_id=None, config=None):
+    from app.services.db.session import get_session_factory
+    from app.services.db.models import User, NotificationOutbox
+    from sqlalchemy import select
+    
+    # Priority: Config > Template
+    title = (config or {}).get("title") or tpl["title"]
+    body = (config or {}).get("body") or tpl["body"]
+    category = (config or {}).get("category") or tpl["category"]
 
-async def notification_reminder_task():
-    await _send_templated_notification(NOTIFICATION_TEMPLATES[1])
-
-async def notification_letters_task():
-    await _send_templated_notification(NOTIFICATION_TEMPLATES[2])
-
-async def _send_templated_notification(tpl: dict):
     db = get_session_factory()()
     try:
-        users = db.scalars(select(User).where(User.is_active == True)).all()
-        outbox_entries = []
-        for user in users:
-            outbox_entries.append(
-                SyncOutbox(
-                    user_id=user.user_id,
-                    event_type="admin.broadcast",
-                    payload={
-                        "title": tpl["title"],
-                        "message": tpl["body"],
-                        "category": tpl["category"]
-                    },
-                    status="pending"
-                )
+        users = db.scalars(select(User).filter(User.is_active == True)).all()
+        outbox_entries = [
+            NotificationOutbox(
+                user_id=u.user_id,
+                title=title,
+                body=body,
+                category=category,
+                metadata_json={"trigger_id": trigger_id}
             )
+            for u in users
+        ]
         db.add_all(outbox_entries)
         db.commit()
-        worker_manager.add_log(f"notif_{tpl['category']}", f"Hoàn thành: Đã gửi thông báo '{tpl['title']}' đến {len(outbox_entries)} người.")
+        
+        worker_manager.add_log(
+            trigger_id or f"notif_{category}", 
+            f"Chiến dịch thông báo: '{title}'", 
+            details={
+                "title": title,
+                "body": body,
+                "user_count": len(outbox_entries),
+                "category": category,
+                "action": "push_notifications"
+            }
+        )
     except Exception as e:
-        worker_manager.add_log(f"notif_{tpl['category']}", f"Lỗi: {str(e)}")
+        worker_manager.add_log(trigger_id or f"notif_{tpl['category']}", f"Lỗi: {str(e)}", status="failure")
     finally:
         db.close()
+
+ACTION_MAPPING = {
+    "ai_moderation": letter_task,
+    "resource_crawler": resource_task,
+    "batch_notification": notification_morning_task,
+    "daily_reminder": notification_reminder_task,
+}
 
 # --- Templates ---
 
@@ -167,60 +244,126 @@ NOTIFICATION_TEMPLATES = [
 
 class WorkerManager:
     def __init__(self):
-        self.workers: Dict[str, AdminWorker] = {
-            "letter": AdminWorker("Letter Responder", 20, letter_task),
-            "resource": AdminWorker("Resource Crawler", 60, resource_task),
-            "notif_morning": AdminWorker("Chào buổi sáng", None, notification_morning_task, daily_time="07:00"),
-            "notif_reminder": AdminWorker("Nhắc nhở tự chăm sóc", None, notification_reminder_task, daily_time="14:00"),
-            "notif_letters": AdminWorker("Gửi trao tâm tình", None, notification_letters_task, daily_time="20:00")
-        }
+        self.workers: Dict[str, AdminWorker] = {}
         self.logs = []
+        asyncio.create_task(self.initialize())
 
-    def add_log(self, worker_name: str, message: str):
-        self.logs.append({
+    async def initialize(self):
+        await asyncio.sleep(2)
+        logger.info("Initializing WorkerManager from Database...")
+        db = get_session_factory()()
+        try:
+            from app.services.db.models import AutomationTrigger
+            triggers = db.scalars(select(AutomationTrigger)).all()
+            for t in triggers:
+                task_func = ACTION_MAPPING.get(t.action_key)
+                if not task_func: continue
+                from app.services.utils import VN_TZ
+                last_run = t.last_run_at
+                if last_run and last_run.tzinfo is None:
+                    last_run = last_run.replace(tzinfo=VN_TZ)
+
+                worker = AdminWorker(
+                    name=t.name,
+                    interval_min=int(t.schedule_value) if t.schedule_type == 'interval' else None,
+                    daily_time=t.schedule_value if t.schedule_type == 'daily' else None,
+                    task_func=task_func,
+                    trigger_id=t.trigger_id,
+                    config=t.config,
+                    last_run=last_run
+                )
+                self.workers[t.trigger_id] = worker
+                if t.is_active:
+                    worker.start()
+        except Exception as e:
+            logger.error(f"WorkerManager initialization failed: {e}")
+        finally:
+            db.close()
+
+    def add_log(self, target_id: str, message: str, status: str = "success", details: dict = None):
+        log_entry = {
             "timestamp": get_now().isoformat(),
-            "worker": worker_name,
-            "message": message
-        })
-        # Keep only last 50 logs
+            "worker": target_id,
+            "message": message,
+            "status": status,
+            "details": details or {}
+        }
+        self.logs.append(log_entry)
+        
+        db = get_session_factory()()
+        try:
+            db.execute(insert(AutomationLog).values(
+                log_id=str(uuid.uuid4()),
+                target_id=target_id,
+                action_key="automation_event",
+                status=status,
+                message=message,
+                details=details or {},
+                created_at=get_now()
+            ))
+            db.commit()
+        except Exception as e:
+            logger.error(f"Failed to persist automation log: {e}")
+        finally:
+            db.close()
+
         if len(self.logs) > 50:
             self.logs = self.logs[-50:]
 
     def get_status(self):
         return {
             "workers": {k: w.to_dict() for k, w in self.workers.items()},
-            "logs": self.logs[::-1] # Newest first
+            "logs": self.logs[::-1]
         }
 
-    def toggle(self, name: str, active: bool):
-        if name in self.workers:
+    def toggle(self, target_id: str, active: bool):
+        if target_id in self.workers:
+            worker = self.workers[target_id]
             if active:
-                self.workers[name].start()
+                worker.start()
             else:
-                self.workers[name].stop()
-            self.add_log(name, f"Worker {'bắt đầu' if active else 'dừng'}")
+                worker.stop()
+            
+            db = get_session_factory()()
+            try:
+                from app.services.db.models import AutomationTrigger
+                db.query(AutomationTrigger).filter(AutomationTrigger.trigger_id == target_id).update({"is_active": active})
+                db.commit()
+            finally:
+                db.close()
+                
+            self.add_log(target_id, f"Tác vụ {'bắt đầu' if active else 'dừng'}")
             return True
         return False
 
-    def update_config(self, name: str, interval_min: Optional[int] = None, daily_time: Optional[str] = None):
-        if name in self.workers:
-            old_interval = self.workers[name].interval_min
-            old_time = self.workers[name].daily_time
+    def update_config(self, target_id: str, interval_min: Optional[int] = None, daily_time: Optional[str] = None):
+        if target_id in self.workers:
+            worker = self.workers[target_id]
             
+            # Reset values to ensure only one mode is active
             if interval_min is not None:
-                self.workers[name].interval_min = interval_min
-            if daily_time is not None:
-                self.workers[name].daily_time = daily_time
-                
-            # If running, restart to apply new config
-            if self.workers[name].active:
-                self.workers[name].stop()
-                self.workers[name].start()
-                
-            msg = f"Cập nhật config: "
-            if interval_min: msg += f"Interval {old_interval}m -> {interval_min}m. "
-            if daily_time: msg += f"Time {old_time} -> {daily_time}. "
-            self.add_log(name, msg)
+                worker.interval_min = interval_min
+                worker.daily_time = None
+            elif daily_time is not None:
+                worker.daily_time = daily_time
+                worker.interval_min = None
+            
+            db = get_session_factory()()
+            try:
+                from app.services.db.models import AutomationTrigger
+                val = str(interval_min) if interval_min is not None else daily_time
+                dtype = 'interval' if interval_min is not None else 'daily'
+                db.query(AutomationTrigger).filter(AutomationTrigger.trigger_id == target_id).update({
+                    "schedule_type": dtype,
+                    "schedule_value": val
+                })
+                db.commit()
+            finally:
+                db.close()
+
+            if worker.active:
+                worker.stop()
+                worker.start()
             return True
         return False
 

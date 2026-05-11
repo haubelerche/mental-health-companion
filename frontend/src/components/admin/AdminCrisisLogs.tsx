@@ -192,10 +192,20 @@ export default function AdminCrisisLogs() {
                                     </div>
                                 </div>
                                 <div className="crisis-card-meta">
-                                    <span>📍 Phiên: {item.session_id.slice(0, 16)}...</span>
+                                    <span className="font-bold text-white">👤 {item.user_name}</span>
+                                    <span>📍 Phiên: {item.session_id.slice(0, 8)}...</span>
                                     <span>🕐 {formatTime(item.triggered_at)}</span>
                                     <span className="crisis-card-relative">{formatRelative(item.triggered_at)}</span>
                                 </div>
+
+                                {item.context_summary && (
+                                    <div className="mt-3 p-3 bg-black/20 rounded-xl border border-white/5">
+                                        <p className="text-xs text-slate-400 leading-relaxed">
+                                            <span className="text-indigo-400 font-bold mr-2">BỐI CẢNH:</span>
+                                            {item.context_summary}
+                                        </p>
+                                    </div>
+                                )}
 
                                 {/* Expanded content */}
                                 {isExpanded && (

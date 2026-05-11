@@ -46,6 +46,48 @@ async def generate_ai_reply(letter_content: str, mood_info: str = None, clinical
         print(f"AI Letter Reply Error: {e}")
         return "Mình đã đọc được tâm sự của bạn. Dù thế nào, mình vẫn ở đây lắng nghe và ủng hộ bạn. Chúc bạn một ngày bình yên nhé."
 
+async def generate_multi_reply_suggestions(letter_content: str, mood_info: str = None, clinical_info: str = None) -> list[dict]:
+    """Generates 3 different reply styles for Admin to choose."""
+    client = openai.AsyncClient(api_key=settings.openai_api_key)
+    
+    system_prompt = (
+        "Bạn là trợ lý ảo Serene - chuyên hỗ trợ Admin phản hồi thư của người dùng. "
+        "Dựa trên nội dung thư, hãy sinh ra 3 phương án trả lời khác nhau theo các phong cách: "
+        "1. 'Trang trọng' (Formal): Chuyên nghiệp, lịch sự, đúng chuẩn chuyên gia. "
+        "2. 'Thân thiện' (Casual): Gần gũi như một người bạn, nhẹ nhàng, thấu cảm. "
+        "3. 'Ngắn gọn' (Brief): Đi thẳng vào vấn đề, súc tích nhưng vẫn chân thành. "
+        "Kết quả trả về dưới dạng JSON với trường 'suggestions' là một danh sách các object, "
+        "mỗi object có: 'style' (tên phong cách), 'content' (nội dung câu trả lời)."
+    )
+    
+    user_context = f"Nội dung thư: \"{letter_content}\"\n"
+    if mood_info:
+        user_context += f"Tâm trạng: {mood_info}\n"
+    if clinical_info:
+        user_context += f"Sức khỏe tinh thần: {clinical_info}\n"
+        
+    try:
+        response = await client.chat.completions.create(
+            model=settings.openai_model_friend,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_context}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.7
+        )
+        import json
+        data = json.loads(response.choices[0].message.content.strip())
+        return data.get("suggestions", [])
+    except Exception as e:
+        print(f"AI Suggestion Error: {e}")
+        return [
+            {"style": "Thân thiện", "content": "Cảm ơn bạn đã chia sẻ tâm sự này với mình. Mình luôn ở đây để lắng nghe bạn."},
+            {"style": "Trang trọng", "content": "Chúng tôi đã nhận được thông tin từ bạn và rất thấu hiểu tình huống này. Hãy cùng nhau tìm giải pháp nhé."},
+            {"style": "Ngắn gọn", "content": "Cố gắng lên bạn nhé, mọi chuyện rồi sẽ ổn thôi!"}
+        ]
+
+
 async def analyze_reported_letter(letter_content: str, report_reason: str = None) -> dict:
     """Analyze a reported letter to help admin decide the action."""
     client = openai.AsyncClient(api_key=settings.openai_api_key)
@@ -91,17 +133,20 @@ async def run_ai_reply_worker(db: Session, hours_threshold: int = 6):
     Finds letters older than threshold with no replies, 
     generates AI response, and handles the original letter.
     """
+    import time
+    start_time = time.time()
+    
     # Ensure AI user exists (simplified check/create)
     ai_user = db.get(User, AI_SERENE_USER_ID)
     if not ai_user:
         ai_user = User(
             user_id=AI_SERENE_USER_ID,
-            email="ai@serene.app",
-            display_name="Serene AI",
+            email="healer.friend@serene.app",
+            display_name="Người bạn chữa lành",
             is_active=True
         )
         db.add(ai_user)
-        db.commit()
+        db.flush()
 
     threshold_time = get_now().replace(tzinfo=None) - timedelta(hours=hours_threshold)
     
@@ -117,6 +162,7 @@ async def run_ai_reply_worker(db: Session, hours_threshold: int = 6):
     
     letters = db.scalars(stmt).all()
     processed_count = 0
+    replied_details = []
     
     for letter in letters:
         # Check if already replied by someone else
@@ -161,7 +207,35 @@ async def run_ai_reply_worker(db: Session, hours_threshold: int = 6):
         
         db.add(reply)
         db.add(letter)
+        
+        # Send notification to the user
+        try:
+            from app.services.notification_service import async_send_instant_notification
+            await async_send_instant_notification(
+                db, 
+                user_id=letter.user_id, 
+                event_type="letter.replied", 
+                payload={
+                    "letter_id": letter.letter_id,
+                    "reply_id": reply.letter_id,
+                    "message": f"Ai đó vừa phản hồi lá thư tâm sự của bạn."
+                }
+            )
+        except Exception as e:
+            print(f"Failed to send notification: {e}")
+
+        replied_details.append({
+            "letter_id": letter.letter_id,
+            "user_id": letter.user_id,
+            "content_brief": letter.content[:100] + "..." if len(letter.content) > 100 else letter.content,
+            "reply_brief": reply_content[:100] + "..." if len(reply_content) > 100 else reply_content
+        })
         processed_count += 1
         
     db.commit()
-    return processed_count
+    duration = time.time() - start_time
+    return {
+        "count": processed_count,
+        "details": replied_details,
+        "duration_sec": round(duration, 2)
+    }

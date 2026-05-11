@@ -47,7 +47,7 @@ INET_COMPAT = String(45)
 if PG_INET is not None:  # pragma: no branch
     INET_COMPAT = INET_COMPAT.with_variant(PG_INET(), "postgresql")
 
-TIMESTAMP_COMPAT = TIMESTAMP().with_variant(TIMESTAMP(timezone=True), "postgresql")
+TIMESTAMP_COMPAT = DateTime
 
 
 class User(Base):
@@ -558,7 +558,7 @@ class AdminAuditLog(Base):
     resource_accessed: Mapped[str | None] = mapped_column(String(255))
     ip_address: Mapped[str] = mapped_column(INET_COMPAT, nullable=False)
     metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
 
 
 class UserProfile(Base):
@@ -938,3 +938,65 @@ class UserNotification(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
+
+# ---------------------------------------------------------------------------
+# Admin Automation (Plan V2)
+# ---------------------------------------------------------------------------
+
+class AutomationTrigger(Base):
+    __tablename__ = "automation_triggers"
+
+    trigger_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    trigger_type: Mapped[str] = mapped_column(
+        String(20),
+        CheckConstraint("trigger_type IN ('fixed','custom')", name="ck_automation_trigger_type"),
+        default="custom",
+        nullable=False
+    )
+    action_key: Mapped[str] = mapped_column(
+        String(50),
+        CheckConstraint(
+            "action_key IN ('batch_notification','ai_moderation','resource_crawler','custom_webhook','daily_reminder')",
+            name="ck_automation_action_key"
+        ),
+        nullable=False
+    )
+    config: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, default=dict, nullable=False)
+    
+    # New schedule structure
+    schedule_type: Mapped[str] = mapped_column(
+        String(20),
+        CheckConstraint("schedule_type IN ('daily', 'interval')", name="ck_automation_schedule_type"),
+        default="daily",
+        server_default="daily",
+        nullable=False
+    )
+    schedule_value: Mapped[str] = mapped_column(String(100), nullable=False) # "07:00" or "60" (minutes)
+    
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+class AutomationLog(Base):
+    __tablename__ = "automation_logs"
+    __table_args__ = {"schema": "app"}
+
+    log_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    target_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True) # worker_key or trigger_id
+    action_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="success") # success, failure
+    message: Mapped[str | None] = mapped_column(Text)
+    details: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, default=dict)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
+
+class SystemInsight(Base):
+    __tablename__ = "system_insights"
+
+    insight_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    insight_type: Mapped[str] = mapped_column(String(50), nullable=False) # 'mood_trend', 'engagement', 'cost'
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
