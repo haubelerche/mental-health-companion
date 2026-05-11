@@ -59,11 +59,13 @@ export default function LandingHeader() {
                     to="/"
                     style={{
                         fontFamily: 'var(--font-pixel)',
-                        fontSize: 'clamp(2rem, 3vw, 2.5rem)',
+                        fontSize: 'clamp(2.5rem, 2vw, 2.5rem)',
                         color: 'var(--yellow)',
                         textDecoration: 'none',
                         textShadow: '2px 2px 0 rgba(2,8,18,0.8)',
                         flexShrink: 0,
+                        fontWeight: '800',
+                        letterSpacing: '2px',
                     }}
                 >
                     SereneAI
