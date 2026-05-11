@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import trangNgu from '../../../assets/motion/trang-ngu.gif'
+import trangNgu from '../../../assets/motion/cat-soul.gif'
 
 export default function SleepyNightSection() {
     return (
