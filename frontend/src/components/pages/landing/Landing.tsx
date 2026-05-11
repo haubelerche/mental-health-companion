@@ -1,24 +1,33 @@
-import bg from '../../../assets/bg.png'
-import Header from '../../layout/HeaderLanding'
-import AboutAiSection from './AboutAiSection'
-import BreathSection from './BreathSection'
-import HeroSection from './HeroSection'
-import OceanSoundSection from './OceanSoundSection'
+import './landing.css'
+import LandingHeader from './LandingHeader'
+import HeroScene from './HeroScene'
+import WhySereneSection from './WhySereneSection'
+import SleepyNightSection from './SleepyNightSection'
+import FeaturesSection from './FeaturesSection'
+import PersonaSection from './PersonaSection'
+import JourneySection from './JourneySection'
+import FinalCTASection from './FinalCTASection'
+import LandingFooter from './LandingFooter'
+import FloatingCat from './FloatingCat'
 
-export default function Home() {
+export default function Landing() {
     return (
-        <div className="relative min-h-screen text-gray-50">
-            <div className="fixed inset-0 -z-20">
-                <img src={bg} alt="Serene sunset ocean" className="h-full w-full object-cover" />
-                <div className="absolute inset-0 bg-black/20" />
-            </div>
-            <Header />
-            <main className="relative z-10">
-                <HeroSection />
-                <AboutAiSection />
-                <OceanSoundSection />
-                <BreathSection />
+        <div className="serene-landing">
+            {/* Fixed elements */}
+            <LandingHeader />
+            <FloatingCat />
+            {/* Main content */}
+            <main>
+                <HeroScene />
+                {/* Content sections */}
+                <WhySereneSection />
+                <SleepyNightSection />
+                <FeaturesSection />
+                <PersonaSection />
+                <JourneySection />
+                <FinalCTASection />
             </main>
+            <LandingFooter />
         </div>
     )
 }

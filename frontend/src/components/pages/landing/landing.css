@@ -1,0 +1,480 @@
+/* ============================================================
+   SereneAI Landing — Pixel Narrative CSS
+   Design system: dark, cozy, pixel-art healing aesthetic
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=VT323&family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap');
+
+/* ────────────────────────────────────────────
+   1. CSS Variables (Landing-scoped tokens)
+   ──────────────────────────────────────────── */
+.serene-landing {
+  --bg-midnight: #07111f;
+  --bg-deep: #0b1728;
+  --bg-card: rgba(15, 31, 48, 0.88);
+  --border-soft: #27435a;
+  --border-bright: #3a6080;
+  --text-main: #edf7ff;
+  --text-muted: #a8bdd0;
+  --mint: #55dda1;
+  --mint-dim: #3db880;
+  --yellow: #f6cf34;
+  --orange: #f6c89a;
+  --yellow-dim: #d4a800;
+  --rain-blue: #5d8faf;
+  --leaf-green: #56b887;
+  --pixel-shadow: #020812;
+  --pixel-shadow-mint: rgba(85, 221, 161, 0.25);
+  --pixel-shadow-yellow: rgba(246, 207, 52, 0.2);
+  --font-pixel: 'VT323', monospace;
+  --font-vn: 'Be Vietnam Pro', sans-serif;
+  --transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+  font-family: var(--font-vn);
+  background-color: var(--bg-midnight);
+  color: var(--text-main);
+  overflow-x: hidden;
+}
+
+/* ────────────────────────────────────────────
+   2. Typography utilities
+   ──────────────────────────────────────────── */
+.serene-landing .pixel-headline {
+  font-family: var(--font-pixel);
+  font-size: 3rem;
+  color: var(--yellow);
+  text-shadow:
+    3px 3px 0 var(--pixel-shadow),
+    0 0 20px var(--yellow-dim);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.serene-landing .pixel-headline-sm {
+  font-family: var(--font-pixel);
+  font-size: 2rem;
+  color: var(--yellow);
+  text-shadow: 2px 2px 0 var(--pixel-shadow);
+  line-height: 1.3;
+}
+
+.serene-landing .pixel-label {
+  font-family: var(--font-pixel);
+  font-size: 1.5rem;
+  letter-spacing: 0.15em;
+  color: var(--mint);
+  text-transform: uppercase;
+}
+
+.serene-landing .vn-body {
+  font-family: var(--font-vn);
+  color: var(--text-muted);
+  line-height: 1.85;
+}
+
+.serene-landing .vn-body-bright {
+  font-family: var(--font-vn);
+  color: var(--text-main);
+  line-height: 1.85;
+}
+
+/* ────────────────────────────────────────────
+   3. Pixel-art Card component
+   ──────────────────────────────────────────── */
+.serene-landing .pixel-card {
+  background: var(--bg-card);
+  border: 2px solid var(--border-soft);
+  border-radius: 4px;
+  box-shadow:
+    4px 4px 0 var(--pixel-shadow),
+    inset 1px 1px 0 rgba(255,255,255,0.06);
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.serene-landing .pixel-card:hover {
+  box-shadow:
+    4px 4px 0 var(--pixel-shadow),
+    0 0 24px var(--pixel-shadow-mint),
+    inset 1px 1px 0 rgba(255,255,255,0.08);
+  border-color: var(--border-bright);
+}
+
+.serene-landing .pixel-card-mint {
+  border-color: var(--mint);
+  box-shadow: 4px 4px 0 var(--pixel-shadow), 0 0 18px rgba(85, 221, 161, 0.15);
+}
+
+.serene-landing .pixel-card-yellow {
+  border-color: var(--yellow);
+  box-shadow: 4px 4px 0 var(--pixel-shadow), 0 0 18px rgba(246, 207, 52, 0.15);
+}
+
+/* ────────────────────────────────────────────
+   4. Pixel CTA Button
+   ──────────────────────────────────────────── */
+.serene-landing .pixel-btn {
+  font-family: var(--font-pixel);
+  font-size: 1.5rem;
+  background: var(--mint);
+  color: var(--bg-midnight);
+  border: 3px solid var(--mint-dim);
+  border-bottom-width: 7px;
+  border-radius: 5px;
+  padding: 14px 32px;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.2s ease;
+  box-shadow: 0 0 20px var(--pixel-shadow-mint);
+  line-height: 1.8;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  position: relative;
+}
+
+.serene-landing .pixel-btn:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 32px var(--pixel-shadow-mint), 0 0 60px rgba(85,221,161,0.15);
+}
+
+.serene-landing .pixel-btn:active {
+  transform: translateY(3px);
+  border-bottom-width: 2px;
+}
+
+.serene-landing .pixel-btn-outline {
+  background: transparent;
+  color: var(--mint);
+  border: 2px solid var(--mint);
+  box-shadow: none;
+  padding: 12px 24px;
+}
+
+.serene-landing .pixel-btn-outline:hover {
+  background: rgba(85, 221, 161, 0.08);
+  box-shadow: 0 0 20px rgba(85,221,161,0.15);
+}
+
+/* ────────────────────────────────────────────
+   5. Hero Scene
+   ──────────────────────────────────────────── */
+.serene-landing .hero-wrapper {
+  position: relative;
+  height: 120dvh; /* sticky scroll space */
+}
+
+.serene-landing .hero-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.serene-landing .hero-scene-layer {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center top;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.serene-landing .hero-scene-layer img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.serene-landing .hero-sunny {
+  z-index: 1;
+  transition: opacity 0.8s var(--transition-smooth);
+}
+
+.serene-landing .hero-rain {
+  z-index: 2;
+  transition: opacity 0.8s var(--transition-smooth);
+}
+
+.serene-landing .hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(7, 17, 31, 0.25) 0%,
+    rgba(7, 17, 31, 0.1) 40%,
+    rgba(7, 17, 31, 0.6) 100%
+  );
+  z-index: 3;
+}
+
+.serene-landing .hero-content {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+}
+
+.serene-landing .hero-scroll-hint {
+  position: absolute;
+  bottom: 2.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  animation: bounce-hint 2s ease-in-out infinite;
+}
+
+.serene-landing .hero-bird {
+  position: absolute;
+  top: 12%;
+  right: 8%;
+  z-index: 5;
+  image-rendering: pixelated;
+  width: 48px;
+  animation: bird-float 6s ease-in-out infinite;
+}
+
+@keyframes bounce-hint {
+  0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.7; }
+  50% { transform: translateX(-50%) translateY(8px); opacity: 1; }
+}
+
+@keyframes bird-float {
+  0%, 100% { transform: translateY(0px); }
+  33% { transform: translateY(-8px) translateX(4px); }
+  66% { transform: translateY(-3px) translateX(-2px); }
+}
+
+/* ────────────────────────────────────────────
+   6. Floating Cat
+   ──────────────────────────────────────────── */
+.serene-landing .floating-cat-wrap {
+  position: fixed;
+  bottom: 32px;
+  right: 28px;
+  z-index: 999;
+  pointer-events: none;
+}
+
+.serene-landing .floating-cat-img {
+  image-rendering: pixelated;
+  width: 110px;
+  height: 110px;
+  object-fit: contain;
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  transition: opacity 0.7s var(--transition-smooth);
+  animation: cat-float 4s ease-in-out infinite;
+  filter: drop-shadow(0 4px 12px rgba(85,221,161,0.2));
+}
+
+@keyframes cat-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* ────────────────────────────────────────────
+   7. Section layout utilities
+   ──────────────────────────────────────────── */
+.serene-landing section {
+  padding: 6rem 1.5rem;
+  position: relative;
+}
+
+.serene-landing .section-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.serene-landing .section-label {
+  font-family: var(--font-pixel);
+  font-size: 2.5rem;
+  color: var(--mint);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+  display: block;
+}
+
+/* ────────────────────────────────────────────
+   8. Pixel image rendering
+   ──────────────────────────────────────────── */
+.serene-landing .pixel-img {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ────────────────────────────────────────────
+   9. Glow & Ambient effects
+   ──────────────────────────────────────────── */
+.serene-landing .glow-mint {
+  box-shadow: 0 0 40px rgba(85, 221, 161, 0.2), 0 0 80px rgba(85, 221, 161, 0.08);
+}
+
+.serene-landing .glow-yellow {
+  box-shadow: 0 0 40px rgba(246, 207, 52, 0.2), 0 0 80px rgba(246, 207, 52, 0.08);
+}
+
+.serene-landing .ambient-dot {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  opacity: 0.35;
+}
+
+/* ────────────────────────────────────────────
+   10. Journey step connector
+   ──────────────────────────────────────────── */
+.serene-landing .journey-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  position: relative;
+}
+
+.serene-landing .journey-steps::before {
+  content: '';
+  position: absolute;
+  top: 40px;
+  left: calc(12.5% + 20px);
+  right: calc(12.5% + 20px);
+  height: 2px;
+  background: repeating-linear-gradient(
+    to right,
+    var(--border-soft) 0,
+    var(--border-soft) 8px,
+    transparent 8px,
+    transparent 16px
+  );
+  z-index: 0;
+}
+
+.serene-landing .journey-step-num {
+  font-family: var(--font-pixel);
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 2px;
+  border: 2px solid var(--mint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mint);
+  background: var(--bg-deep);
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+/* ────────────────────────────────────────────
+   11. Persona cards
+   ──────────────────────────────────────────── */
+.serene-landing .persona-badge {
+  display: inline-block;
+  font-family: var(--font-pixel);
+  font-size: 1.2rem;
+  padding: 6px 12px;
+  border-radius: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.serene-landing .persona-badge-mint {
+  background: rgba(85, 221, 161, 0.12);
+  color: var(--mint);
+  border: 1px solid var(--mint);
+}
+
+.serene-landing .persona-badge-blue {
+  background: rgba(93, 143, 175, 0.12);
+  color: var(--rain-blue);
+  border: 1px solid var(--rain-blue);
+}
+
+/* ────────────────────────────────────────────
+   12. Footer
+   ──────────────────────────────────────────── */
+.serene-landing .landing-footer {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-midnight);
+  border-top: 1px solid var(--border-soft);
+}
+
+.serene-landing .footer-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.15;
+  image-rendering: pixelated;
+}
+
+.serene-landing .footer-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, var(--bg-midnight) 0%, transparent 40%, var(--bg-midnight) 100%);
+}
+
+/* ────────────────────────────────────────────
+   13. Responsive
+   ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .serene-landing .pixel-headline {
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+  }
+
+  .serene-landing .journey-steps {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .serene-landing .journey-steps::before {
+    display: none;
+  }
+
+  .serene-landing .floating-cat-img {
+    width: 80px;
+    height: 80px;
+  }
+
+  .serene-landing .hero-bird {
+    width: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .serene-landing .journey-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .serene-landing section {
+    padding: 4rem 1rem;
+  }
+}
+
+/* ────────────────────────────────────────────
+   14. Scrollbar override for landing
+   ──────────────────────────────────────────── */
+.serene-landing::-webkit-scrollbar {
+  width: 4px;
+}
+.serene-landing::-webkit-scrollbar-thumb {
+  background: var(--border-soft);
+  border-radius: 0;
+}
+.serene-landing::-webkit-scrollbar-thumb:hover {
+  background: var(--rain-blue);
+}
