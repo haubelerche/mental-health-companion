@@ -170,6 +170,8 @@ def admin_emotion_resource_suggestion(
             "reason": "Cải thiện giấc ngủ luôn là nhu cầu cơ bản cho sức khỏe tâm thần."
         })
         
+    return ok({"suggestions": suggestions})
+
 @router.get("/analytics/chat-metrics")
 def admin_analytics_chat_metrics(
     request: Request,

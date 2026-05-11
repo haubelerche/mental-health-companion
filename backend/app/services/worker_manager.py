@@ -14,7 +14,7 @@ from app.services.db.models import User, SyncOutbox, AutomationLog
 logger = logging.getLogger(__name__)
 
 class AdminWorker:
-    def __init__(self, name: str, interval_min: Optional[int], task_func, daily_time: Optional[str] = None, trigger_id: str = None, config: dict = None):
+    def __init__(self, name: str, interval_min: Optional[int], task_func, daily_time: Optional[str] = None, trigger_id: str = None, config: dict = None, last_run: Optional[datetime] = None):
         self.name = name
         self.interval_min = interval_min
         self.daily_time = daily_time 
@@ -23,12 +23,12 @@ class AdminWorker:
         self.config = config or {}
         self.active = False
         self.running = False
-        self.last_run: Optional[datetime] = None
+        self.last_run = last_run
         self.next_run: Optional[datetime] = None
         self._task: Optional[asyncio.Task] = None
 
     def _calculate_next_run(self):
-        now = get_now()
+        now = get_now().replace(tzinfo=None)
         if self.daily_time:
             try:
                 hour, minute = map(int, self.daily_time.split(':'))
@@ -59,7 +59,7 @@ class AdminWorker:
 
     async def _loop(self):
         while self.active:
-            now = get_now()
+            now = get_now().replace(tzinfo=None)
             if self.next_run and now >= self.next_run:
                 self.running = True
                 try:
@@ -95,7 +95,7 @@ class AdminWorker:
             "daily_time": self.daily_time,
             "last_run": self.last_run.isoformat() if self.last_run else None,
             "next_run": self.next_run.isoformat() if self.next_run else None,
-            "seconds_until_next": int((self.next_run - get_now()).total_seconds()) if self.next_run else None
+            "seconds_until_next": int((self.next_run - get_now().replace(tzinfo=None)).total_seconds()) if self.next_run else None
         }
 
 # --- Task Functions ---
@@ -115,8 +115,20 @@ async def notification_letters_task(config=None, trigger_id=None):
 async def letter_task(config=None, trigger_id=None):
     db = get_session_factory()()
     try:
+        # We might want to update run_ai_reply_worker to return list of IDs/content
+        # For now, let's just enhance the log here if possible or just log the count with context
         count = await run_ai_reply_worker(db, hours_threshold=0)
-        worker_manager.add_log(trigger_id or "letter", f"Đã trả lời {count} lá thư tự động.", details={"count": count})
+        
+        msg = f"Đã hoàn thành trả lời tự động {count} lá thư." if count > 0 else "Không có thư mới cần phản hồi."
+        worker_manager.add_log(
+            trigger_id or "letter", 
+            msg, 
+            details={
+                "count": count,
+                "timestamp": get_now().replace(tzinfo=None).isoformat(),
+                "action": "ai_reply_letters"
+            }
+        )
     except Exception as e:
         worker_manager.add_log(trigger_id or "letter", f"Lỗi: {str(e)}", status="failure")
     finally:
@@ -126,10 +138,33 @@ async def resource_task(config=None, trigger_id=None):
     db = get_session_factory()()
     try:
         category = random.choice(CATEGORIES)
-        count = 0
-        async for _ in run_youtube_crawl_agent(category, limit=3, db=db):
-            count += 1
-        worker_manager.add_log(trigger_id or "resource", f"Đã cập nhật {count} tài nguyên mục {category}.", details={"category": category, "count": count})
+        titles = []
+        async for res_line in run_youtube_crawl_agent(category, limit=3, db=db):
+            # run_youtube_crawl_agent yields SSE strings like "data: {...}\n\n"
+            if "event\": \"done\"" in res_line:
+                try:
+                    json_str = res_line.strip()
+                    if json_str.startswith("data: "):
+                        json_str = json_str[6:]
+                    data = json.loads(json_str)
+                    results = data.get("data", {}).get("results", [])
+                    # Lấy title của các tài nguyên mới được insert
+                    titles = [r["title"] for r in results if r.get("status") == "inserted"]
+                except Exception as e:
+                    logger.error(f"Error parsing resource_task results: {e}")
+            
+        count = len(titles)
+        msg = f"Đã cập nhật {count} tài nguyên mục {category}." if count > 0 else f"Không tìm thấy tài nguyên mới cho mục {category}."
+        worker_manager.add_log(
+            trigger_id or "resource", 
+            msg, 
+            details={
+                "category": category, 
+                "count": count,
+                "titles": titles,
+                "action": "crawl_resources"
+            }
+        )
     except Exception as e:
         worker_manager.add_log(trigger_id or "resource", f"Lỗi: {str(e)}", status="failure")
     finally:
@@ -163,12 +198,13 @@ async def _send_templated_notification(tpl, trigger_id=None, config=None):
         
         worker_manager.add_log(
             trigger_id or f"notif_{category}", 
-            f"Đã gửi thông báo '{title}'", 
+            f"Chiến dịch thông báo: '{title}'", 
             details={
                 "title": title,
                 "body": body,
                 "user_count": len(outbox_entries),
-                "category": category
+                "category": category,
+                "action": "push_notifications"
             }
         )
     except Exception as e:
@@ -221,14 +257,19 @@ class WorkerManager:
             for t in triggers:
                 task_func = ACTION_MAPPING.get(t.action_key)
                 if not task_func: continue
-                
+                from app.services.utils import VN_TZ
+                last_run = t.last_run_at
+                if last_run and last_run.tzinfo is None:
+                    last_run = last_run.replace(tzinfo=VN_TZ)
+
                 worker = AdminWorker(
                     name=t.name,
                     interval_min=int(t.schedule_value) if t.schedule_type == 'interval' else None,
                     daily_time=t.schedule_value if t.schedule_type == 'daily' else None,
                     task_func=task_func,
                     trigger_id=t.trigger_id,
-                    config=t.config
+                    config=t.config,
+                    last_run=last_run
                 )
                 self.workers[t.trigger_id] = worker
                 if t.is_active:
@@ -240,7 +281,7 @@ class WorkerManager:
 
     def add_log(self, target_id: str, message: str, status: str = "success", details: dict = None):
         log_entry = {
-            "timestamp": get_now().isoformat(),
+            "timestamp": get_now().replace(tzinfo=None).isoformat(),
             "worker": target_id,
             "message": message,
             "status": status,
@@ -257,7 +298,7 @@ class WorkerManager:
                 status=status,
                 message=message,
                 details=details or {},
-                created_at=get_now()
+                created_at=get_now().replace(tzinfo=None)
             ))
             db.commit()
         except Exception as e:

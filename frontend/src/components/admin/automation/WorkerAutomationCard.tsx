@@ -311,20 +311,51 @@ export default function WorkerAutomationCard({
                                             </div>
                                             <p className="text-[11px] text-slate-300 font-medium line-clamp-2 mb-1">{log.message}</p>
                                             
-                                            {/* Hiển thị Nội dung chi tiết nếu có (như nội dung tin nhắn) */}
-                                            {log.details?.body && (
-                                                <div className="mt-2 p-2.5 bg-white/5 rounded-xl border border-white/5">
-                                                    <p className="text-[10px] text-indigo-300 leading-relaxed italic">
-                                                        "{log.details.body}"
-                                                    </p>
-                                                </div>
-                                            )}
+                                            {/* Enhanced Details View */}
+                                            {log.details && (
+                                                <div className="mt-2 space-y-2">
+                                                    {log.details.action === 'push_notifications' && (
+                                                        <div className="p-2.5 bg-indigo-500/5 rounded-xl border border-indigo-500/10">
+                                                            <div className="flex items-center justify-between text-[9px] font-black text-indigo-400 uppercase mb-1">
+                                                                <span>Chiến dịch: {log.details.category}</span>
+                                                                <span>{log.details.user_count} Users</span>
+                                                            </div>
+                                                            <p className="text-[10px] text-slate-400 leading-relaxed italic">"{log.details.body}"</p>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {log.details.action === 'crawl_resources' && log.details.titles && log.details.titles.length > 0 && (
+                                                        <div className="p-2.5 bg-amber-500/5 rounded-xl border border-amber-500/10">
+                                                            <p className="text-[9px] font-black text-amber-400 uppercase mb-2 flex items-center gap-1">
+                                                                <Database size={10} /> Danh sách tài nguyên mới ({log.details.count})
+                                                            </p>
+                                                            <ul className="space-y-1">
+                                                                {log.details.titles.map((t: string, i: number) => (
+                                                                    <li key={i} className="text-[10px] text-slate-400 flex items-start gap-1.5">
+                                                                        <span className="text-amber-500/50">•</span>
+                                                                        <span className="line-clamp-1">{t}</span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    )}
 
-                                            {log.details && Object.keys(log.details).filter(k => k !== 'body').length > 0 && (
-                                                <div className="hidden group-hover/log:block bg-black/40 rounded-xl p-2 mt-2">
-                                                    <pre className="text-[8px] text-indigo-300/60 font-mono">
-                                                        {JSON.stringify(log.details, null, 2)}
-                                                    </pre>
+                                                    {log.details.action === 'ai_reply_letters' && (
+                                                        <div className="p-2.5 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
+                                                            <p className="text-[10px] text-emerald-400 font-bold italic">
+                                                                ✓ Đã xử lý xong {log.details.count} lá thư tồn đọng trong hệ thống.
+                                                            </p>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Fallback for other details */}
+                                                    {!log.details.action && Object.keys(log.details).length > 0 && (
+                                                        <div className="hidden group-hover/log:block bg-black/40 rounded-xl p-2">
+                                                            <pre className="text-[8px] text-indigo-300/60 font-mono">
+                                                                {JSON.stringify(log.details, null, 2)}
+                                                            </pre>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

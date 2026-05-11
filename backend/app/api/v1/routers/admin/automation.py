@@ -5,6 +5,7 @@ from sqlalchemy import select, delete
 from sqlalchemy.orm import Session
 from app.api.deps import enforce_admin_ip, get_admin_claims, get_db
 from app.core.responses import ok
+from app.services.utils import make_id, get_now
 from app.services.worker_manager import worker_manager
 from app.services.db.models import AutomationTrigger, AutomationLog
 from .shared import router
@@ -50,6 +51,7 @@ async def create_trigger(
     claims: dict = Depends(get_admin_claims),
 ):
     enforce_admin_ip(request)
+    now_naive = get_now().replace(tzinfo=None)
     trigger = AutomationTrigger(
         trigger_id=str(uuid4()),
         name=name,
@@ -58,7 +60,9 @@ async def create_trigger(
         schedule_type=schedule_type,
         schedule_value=schedule_value,
         config=config,
-        is_active=True
+        is_active=True,
+        created_at=now_naive,
+        updated_at=now_naive
     )
     db.add(trigger)
     db.commit()

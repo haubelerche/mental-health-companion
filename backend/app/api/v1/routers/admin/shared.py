@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from app.core.errors import AppError
 from app.services.db.models import AdminAuditLog
 
+from app.services.utils import get_now
+
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 RESOURCE_CATEGORIES = ["meditate", "sleep", "music", "work_study", "wisdom", "movement"]
@@ -16,6 +18,7 @@ def _audit(db: Session, admin_id: str, action: str, request: Request):
             resource_accessed=str(request.url.path),
             ip_address=request.client.host if request.client else "0.0.0.0",
             metadata_json={},
+            created_at=get_now().replace(tzinfo=None)
         )
     )
     try:

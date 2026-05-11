@@ -47,7 +47,7 @@ INET_COMPAT = String(45)
 if PG_INET is not None:  # pragma: no branch
     INET_COMPAT = INET_COMPAT.with_variant(PG_INET(), "postgresql")
 
-TIMESTAMP_COMPAT = TIMESTAMP().with_variant(TIMESTAMP(timezone=True), "postgresql")
+TIMESTAMP_COMPAT = DateTime
 
 
 class User(Base):
@@ -576,7 +576,7 @@ class AdminAuditLog(Base):
     resource_accessed: Mapped[str | None] = mapped_column(String(255))
     ip_address: Mapped[str] = mapped_column(INET_COMPAT, nullable=False)
     metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
 
 
 class UserProfile(Base):
@@ -636,6 +636,7 @@ class SyncOutbox(Base):
     status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    processing_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
@@ -1053,7 +1054,7 @@ class AutomationLog(Base):
     status: Mapped[str] = mapped_column(String(20), default="success") # success, failure
     message: Mapped[str | None] = mapped_column(Text)
     details: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
 
 class SystemInsight(Base):
     __tablename__ = "system_insights"
