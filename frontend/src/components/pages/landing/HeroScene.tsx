@@ -152,9 +152,7 @@ export default function HeroScene() {
                         <Link to="/serene" className="pixel-btn">
                             Bắt đầu ngay →
                         </Link>
-                        <Link to="/login" className="pixel-btn pixel-btn-outline">
-                            Đăng nhập
-                        </Link>
+
                     </div>
                 </div>
 
