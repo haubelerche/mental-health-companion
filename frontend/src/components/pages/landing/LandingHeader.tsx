@@ -111,23 +111,10 @@ export default function LandingHeader() {
                             <>
                                 <Link
                                     to="/login"
-                                    style={{
-                                        fontFamily: 'var(--font-pixel)',
-                                        fontSize: '1.5rem',
-                                        textDecoration: 'none',
-                                        transition: 'color 0.2s',
-                                    }}
-                                    onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--mint)')}
-                                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-main)')}
-                                >
-                                    Đăng nhập
-                                </Link>
-                                <Link
-                                    to="/register"
                                     className="pixel-btn"
-                                    style={{ padding: '10px 20px', fontSize: '1.2rem' }}
+                                    style={{ padding: '5px  20px', fontSize: '1.25rem' }}
                                 >
-                                    Bắt đầu →
+                                    Đăng nhập →
                                 </Link>
                             </>
                         )
