@@ -160,7 +160,7 @@
    ──────────────────────────────────────────── */
 .serene-landing .hero-wrapper {
   position: relative;
-  height: 150vh; /* sticky scroll space */
+  height: 120dvh; /* sticky scroll space */
 }
 
 .serene-landing .hero-sticky {
