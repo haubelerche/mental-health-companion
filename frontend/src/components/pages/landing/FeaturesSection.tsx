@@ -72,7 +72,7 @@ export default function FeaturesSection() {
                     <h2
                         id="features-heading"
                         className="pixel-headline"
-                        style={{ fontSize: 'clamp(1.8rem, 1.8vw, 2.15rem)' }}
+                        style={{ fontSize: 'clamp(2.8rem, 1.8vw, 2.15rem)' }}
                     >
                         Đồng hành từng ngày,<br />
                         theo cách riêng của bạn.
