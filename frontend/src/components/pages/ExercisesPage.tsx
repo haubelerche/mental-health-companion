@@ -1,380 +1,423 @@
 import { useEffect, useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Pause, Play, Waves, X, Wind, Focus, Accessibility, LayoutGrid, Clock } from 'lucide-react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { Accessibility, Focus, LayoutGrid, Leaf, Sparkles, Waves, Wind, Volume2, VolumeX, Pause, Play, ArrowLeft } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import ocean from '../../assets/bg-reflect.png'
 import { ROUTE_PATHS } from '../../routes/paths'
-import { exerciseService, FALLBACK_EXERCISES, findFallbackExercise, type ExerciseItem } from '../../services/exerciseService'
 import { useThemeContext } from '../../contexts/ThemeContext'
-import Loading from '../ui/Loading'
+import dayBackground from '../../assets/motion/serene-landing-day-welcome.gif'
+import nightBackground from '../../assets/motion/serene-landing-night-welcome.gif'
+import BackgroundLayer from './exercises/BackgroundLayer'
+import ExerciseHero from './exercises/ExerciseHero'
+import ExerciseFilterChips, { type ExerciseTabId } from './exercises/ExerciseFilterChips'
+import ExerciseCard, { type ExerciseCardData } from './exercises/ExerciseCard'
+import { useAmbientSound } from './exercises/useAmbientSound'
 
-type TabType = 'all' | 'breathing_exercise' | 'grounding_exercise' | 'body_scan'
+const AMBIENT_AUDIO_SRC = '/audio/ambient-water-birds-leaves.mp3'
 
-const TABS: { id: TabType; label: string; icon: any }[] = [
-    { id: 'all', label: 'Tất cả', icon: LayoutGrid },
-    { id: 'breathing_exercise', label: 'Hít thở', icon: Wind },
-    { id: 'grounding_exercise', label: 'Tâm thức', icon: Focus },
-    { id: 'body_scan', label: 'Quét cơ thể', icon: Accessibility },
+const EXERCISES: ExerciseCardData[] = [
+  {
+    id: 'box_breath',
+    type: 'breathing_exercise',
+    title: 'Hít thở nhịp 4',
+    durationLabel: '5 phút',
+    description: 'Nhịp 4-4-4-4 giúp bạn lấy lại bình tĩnh.',
+    structure: '4-4-4-4',
+    recommendedFor: 'Khi căng thẳng hoặc cần bình tĩnh',
+    tone: 'Ổn định',
+    gradient: 'from-[#5F7F68]/20 via-[#F4E8C8]/14 to-transparent',
+    icon: Wind,
+  },
+  {
+    id: 'breath_478',
+    type: 'breathing_exercise',
+    title: 'Hít thở sâu',
+    durationLabel: '2 phút',
+    description: 'Một bài ngắn để hít thở sâu, giảm cảm giác gấp gáp.',
+    structure: '4-7-8',
+    recommendedFor: 'Khi lo lắng, bồn chồn',
+    tone: 'Làm dịu',
+    gradient: 'from-[#E8B38E]/24 via-[#F4E8C8]/14 to-transparent',
+    icon: Waves,
+  },
+  {
+    id: 'equal_breath',
+    type: 'breathing_exercise',
+    title: 'Hít thở đều',
+    durationLabel: '5 phút',
+    description: 'Giữ nhịp thở đều để cân bằng lại sự tập trung.',
+    structure: '5-0-5',
+    recommendedFor: 'Khi cần tập trung',
+    tone: 'Tập trung',
+    gradient: 'from-[#10231F]/12 via-[#5F7F68]/14 to-transparent',
+    icon: Sparkles,
+  },
+  {
+    id: 'grounding_54321',
+    type: 'grounding_exercise',
+    title: 'Neo hiện tại',
+    durationLabel: '3 phút',
+    description: 'Kéo sự chú ý về quanh bạn bằng nhịp 5-4-3-2-1.',
+    structure: '5-4-3-2-1',
+    recommendedFor: 'Khi tâm trí chạy quá nhanh',
+    tone: 'Bình tâm',
+    gradient: 'from-[#5F7F68]/18 via-[#F4E8C8]/12 to-transparent',
+    icon: Focus,
+  },
+  {
+    id: 'body_scan',
+    type: 'body_scan',
+    title: 'Thiền định',
+    durationLabel: '5 phút',
+    description: 'Buông lỏng từng vùng cơ thể sau một ngày quá tải.',
+    structure: 'Thả lỏng cơ tứ chi chân, loại bỏ suy nghĩ ra khỏi đầu',
+    recommendedFor: 'Khi mệt hoặc khó ngủ',
+    tone: 'Tĩnh tâm, thả lỏng cơ thể',
+    gradient: 'from-[#F4D28A]/20 via-[#F4E8C8]/12 to-transparent',
+    icon: Accessibility,
+  },
+]
+
+const TABS: { id: ExerciseTabId; label: string; icon: typeof LayoutGrid }[] = [
+  { id: 'all', label: 'Tất cả', icon: LayoutGrid },
+  { id: 'breathing_exercise', label: 'Hít thở', icon: Wind },
+  { id: 'grounding_exercise', label: 'Bình tâm', icon: Focus },
+  { id: 'body_scan', label: 'Quét cơ thể', icon: Accessibility },
 ]
 
 function formatTime(totalSeconds: number): string {
-    const minutes = Math.floor(totalSeconds / 60)
-    const seconds = totalSeconds % 60
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
 
-function getBreathPhase(exercise: ExerciseItem, elapsed: number) {
-    if (!exercise.pattern) {
-        const stepDuration = Math.max(1, Math.floor(exercise.duration_sec / exercise.steps.length))
-        const stepIndex = Math.min(exercise.steps.length - 1, Math.floor(elapsed / stepDuration))
-        return {
-            label: exercise.steps[stepIndex],
-            count: Math.max(1, stepDuration - (elapsed % stepDuration)),
-            scale: 1.04,
-            stepIndex,
-        }
-    }
-
-    const sequence = [
-        { label: 'Hít vào', duration: exercise.pattern.inhale, scale: 1.2 },
-        { label: 'Giữ', duration: exercise.pattern.hold, scale: 1.32 },
-        { label: 'Thở ra', duration: exercise.pattern.exhale, scale: 0.92 },
-    ]
-    if (exercise.pattern.hold2 && exercise.pattern.hold2 > 0) {
-        sequence.push({ label: 'Giữ', duration: exercise.pattern.hold2, scale: 1.08 })
-    }
-    const cycleDuration = sequence.reduce((sum, phase) => sum + phase.duration, 0)
-    let cursor = elapsed % cycleDuration
-    for (const phase of sequence) {
-        if (cursor < phase.duration) {
-            return {
-                label: phase.label,
-                count: phase.duration - cursor,
-                scale: phase.scale,
-                stepIndex: sequence.findIndex((item) => item.label === phase.label),
-            }
-        }
-        cursor -= phase.duration
-    }
-    return { label: 'Hít vào', count: exercise.pattern.inhale, scale: 1.1, stepIndex: 0 }
+function getActiveExercise(selectedId: string | null) {
+  return EXERCISES.find((exercise) => exercise.id === selectedId) ?? EXERCISES[0]
 }
 
 export function ExercisesPage() {
-    const navigate = useNavigate()
-    const [searchParams, setSearchParams] = useSearchParams()
-    const { effectiveTheme } = useThemeContext()
-    const isDark = effectiveTheme === 'dark'
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { effectiveTheme } = useThemeContext()
+  const ambient = useAmbientSound(AMBIENT_AUDIO_SRC)
+  const reduceMotion = useReducedMotion()
 
-    const [exercises, setExercises] = useState<ExerciseItem[]>(FALLBACK_EXERCISES)
-    const [selectedId, setSelectedId] = useState(FALLBACK_EXERCISES[0].id)
-    const [elapsed, setElapsed] = useState(0)
-    const [isRunning, setIsRunning] = useState(false)
-    const [loading, setLoading] = useState(true)
-    const [activeTab, setActiveTab] = useState<TabType>('all')
+  const isDark = effectiveTheme === 'dark'
+  const [activeTab, setActiveTab] = useState<ExerciseTabId>('all')
+  const [elapsed, setElapsed] = useState(0)
+  const [isRunning, setIsRunning] = useState(false)
 
-    useEffect(() => {
-        exerciseService.list()
-            .then((data) => {
-                if (data.items.length) setExercises(data.items)
-            })
-            .catch(() => undefined)
-            .finally(() => setLoading(false))
-    }, [])
+  const selectedFromQuery = searchParams.get('exercise')
+  const activeExercise = useMemo(() => getActiveExercise(selectedFromQuery), [selectedFromQuery])
+  const isHubMode = !selectedFromQuery
 
-    const selectedFromQuery = searchParams.get('exercise')
-    const isHubMode = !selectedFromQuery
-    const activeId = searchParams.get('exercise') || selectedId
-    const exercise = exercises.find((item) => item.id === activeId) ?? findFallbackExercise(activeId)
-    const remaining = Math.max(0, exercise.duration_sec - elapsed)
-    const progress = Math.min(100, Math.round((elapsed / exercise.duration_sec) * 100))
-    const phase = useMemo(() => getBreathPhase(exercise, elapsed), [exercise, elapsed])
-    const isDone = elapsed >= exercise.duration_sec
+  const filteredExercises = useMemo(() => {
+    if (activeTab === 'all') return EXERCISES
+    return EXERCISES.filter((exercise) => exercise.type === activeTab)
+  }, [activeTab])
 
-    const filteredExercises = useMemo(() => {
-        if (activeTab === 'all') return exercises
-        return exercises.filter(ex => ex.type === activeTab)
-    }, [exercises, activeTab])
+  const remaining = Math.max(0, 300 - elapsed)
+  const progress = Math.min(100, Math.round((elapsed / 300) * 100))
+  const currentBackground = isDark ? nightBackground : dayBackground
 
-    const getPatternLabel = (item: ExerciseItem) => {
-        if (!item.pattern) return 'Nhịp tự do'
-        const parts = [item.pattern.inhale, item.pattern.hold, item.pattern.exhale]
-        if (item.pattern.hold2 && item.pattern.hold2 > 0) parts.push(item.pattern.hold2)
-        return parts.join('-')
-    }
+  useEffect(() => {
+    if (!isRunning || !selectedFromQuery) return undefined
+    const timer = window.setInterval(() => {
+      setElapsed((value) => Math.min(300, value + 1))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [isRunning, selectedFromQuery])
 
-    useEffect(() => {
-        if (!isRunning || isDone) return undefined
-        const timer = window.setInterval(() => {
-            setElapsed((value) => {
-                const next = Math.min(exercise.duration_sec, value + 1)
-                if (next >= exercise.duration_sec) setIsRunning(false)
-                return next
-            })
-        }, 1000)
-        return () => window.clearInterval(timer)
-    }, [exercise.duration_sec, isDone, isRunning])
+  const startExercise = (id: string) => {
+    setSearchParams({ exercise: id })
+    setElapsed(0)
+    setIsRunning(false)
+  }
 
-    const startExercise = (id: string) => {
-        setSearchParams({ exercise: id })
-        setSelectedId(id)
-        setElapsed(0)
-        setIsRunning(false)
-    }
+  const backToHub = () => {
+    setSearchParams({})
+    setElapsed(0)
+    setIsRunning(false)
+  }
 
-    const backToHub = () => {
-        setSearchParams({})
-        setElapsed(0)
-        setIsRunning(false)
-    }
+  return (
+    <div className="relative min-h-screen overflow-hidden text-[#24352D] dark:text-[#F4E8C8]">
+      <BackgroundLayer src={currentBackground} mode={isDark ? 'dark' : 'light'} />
 
-    const resetExercise = () => {
-        setElapsed(0)
-        setIsRunning(false)
-    }
+      <div className="relative z-10 mx-auto max-w-[1040px] px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+        {isHubMode ? (
+          <motion.main
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
+            className="space-y-6"
+          >
+            <ExerciseHero
+              onBack={() => navigate(ROUTE_PATHS.resources)}
+              title="Chọn một bài ngắn để thở chậm lại, thả lỏng cơ thể."
+              subtitle="Mỗi bài được thiết kế để bắt đầu thật nhẹ. Bạn chỉ cần chọn một trạng thái gần nhất, rồi bấm bắt đầu."
+            />
 
-    if (loading) return <Loading text="Đang chuẩn bị không gian tĩnh lặng..." />
+            <section className="grid gap-6 lg:grid-cols-[0.7fr_1.3fr]">
+              <aside className="rounded-[28px] border border-white/35 bg-[#F8F1DC]/88 p-6 shadow-[0_18px_40px_rgba(16,35,31,0.10)] backdrop-blur-sm dark:border-white/15 dark:bg-[#10231F]/78 sm:p-8">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#5F7F68]/15 text-[#5F7F68] dark:bg-white/10 dark:text-[#F4E8C8]">
+                    <Volume2 className="h-6 w-6" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[#5F7F68] dark:text-[#F4D28A]">
+                      Âm thanh nền
+                    </p>
+                    <h2 className="mt-1 text-xl font-semibold text-[#24352D] dark:text-[#F4E8C8]">
+                      Nước nhẹ, chim nhỏ, lá khẽ
+                    </h2>
+                    <p className="mt-2 text-sm leading-6 text-[#24352D]/78 dark:text-[#F4E8C8]/78">
+                      Trang sẽ cố phát âm thanh nền ngay khi vào. Nếu trình duyệt chặn, chỉ cần bấm mở âm thanh.
+                    </p>
+                  </div>
+                </div>
 
-    return (
-        <div className={`relative min-h-screen overflow-hidden text-theme-text-primary`}>
-            {/* Background Layer */}
-            <div className="fixed inset-0 z-0">
-                <img src={ocean} alt="Background" className="h-full w-full object-cover" />
-                <div className={`absolute inset-0 ${isDark ? 'brightness-60 ' : 'brightness-80'} backdrop-blur-[2px]`} />
-            </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  {[
+                    { label: 'Chim chóc', icon: Sparkles },
+                    { label: 'Lá cây', icon: Leaf },
+                    { label: 'Tiếng nước', icon: Waves },
+                  ].map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <div
+                        key={item.label}
+                        className="rounded-[18px] border border-white/30 bg-white/30 px-3 py-3 text-center text-sm text-[#24352D] dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]"
+                      >
+                        <Icon className="mx-auto h-4 w-4 opacity-80" />
+                        <p className="mt-2">{item.label}</p>
+                      </div>
+                    )
+                  })}
+                </div>
 
-            <div className="relative z-10 mx-auto max-w-6xl px-4 py-8 md:px-8">
-                {isHubMode ? (
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={ambient.toggle}
+                    className="inline-flex items-center gap-2 rounded-full bg-[#5F7F68] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2"
+                    aria-label={ambient.isPlaying ? 'Tắt âm thanh nền' : 'Bật âm thanh nền'}
+                  >
+                    {ambient.isPlaying ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                    {ambient.isPlaying ? 'Đang phát' : 'Bật âm thanh'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => ambient.setMuted(!ambient.isMuted)}
+                    className="rounded-full border border-white/30 bg-white/25 px-4 py-2.5 text-sm font-medium text-[#24352D] transition-colors hover:bg-white/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]"
+                    aria-label={ambient.isMuted ? 'Bỏ tắt tiếng' : 'Tắt tiếng'}
+                  >
+                    {ambient.isMuted ? 'Bỏ tắt tiếng' : 'Tắt tiếng'}
+                  </button>
+                  <span className="text-xs text-[#24352D]/60 dark:text-[#F4E8C8]/65">
+                    {ambient.hasLoaded ? 'Âm thanh đã sẵn sàng.' : ambient.autoplayBlocked ? 'Trình duyệt cần bạn chạm để phát.' : 'Đang nạp âm thanh...'}
+                  </span>
+                </div>
+              </aside>
+
+              <div className="space-y-4">
+                <ExerciseFilterChips tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+                <section aria-label="Danh sách bài tập" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <AnimatePresence mode="popLayout">
+                    {filteredExercises.map((exercise, index) => (
+                      <ExerciseCard key={exercise.id} exercise={exercise} onStart={startExercise} index={index} />
+                    ))}
+                  </AnimatePresence>
+                </section>
+              </div>
+            </section>
+          </motion.main>
+        ) : (
+          <motion.main
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="rounded-[28px] border border-white/35 bg-[#F8F1DC]/88 p-4 shadow-[0_18px_40px_rgba(16,35,31,0.10)] backdrop-blur-sm dark:border-white/15 dark:bg-[#10231F]/78 sm:p-6 lg:p-8"
+          >
+            <header className="flex flex-wrap items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={backToHub}
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-white/35 bg-white/25 px-4 text-sm font-medium text-[#24352D] transition-colors hover:bg-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]"
+                aria-label="Quay lại"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Quay lại
+              </button>
+
+              <div className="text-center">
+                <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[#5F7F68] dark:text-[#F4D28A]">
+                  {activeExercise.tone}
+                </p>
+                <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#24352D] dark:text-[#F4E8C8] sm:text-3xl">
+                  {activeExercise.title}
+                </h1>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setElapsed(0)
+                  setIsRunning(false)
+                }}
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-white/35 bg-white/25 px-4 text-sm font-medium text-[#24352D] transition-colors hover:bg-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]"
+                aria-label="Làm lại bài tập"
+              >
+                Làm lại
+              </button>
+            </header>
+
+            <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-center">
+              <section className="flex flex-col items-center text-center">
+                <div className="relative flex h-[260px] w-full max-w-[340px] items-center justify-center sm:h-[320px] sm:max-w-[400px]">
+                  <motion.div
+                    animate={reduceMotion ? { scale: 1, opacity: 0.25 } : {
+                      scale: isRunning ? [1, 1.04, 1] : 1,
+                      opacity: isRunning ? [0.3, 0.5, 0.3] : 0.25,
+                    }}
+                    transition={{ duration: 3.6, repeat: Infinity, ease: 'easeInOut' }}
+                    className="absolute inset-6 rounded-full border border-[#5F7F68]/30"
+                  />
+                  <motion.div
+                    animate={reduceMotion ? { scale: 1, opacity: 0.16 } : {
+                      scale: isRunning ? [1, 1.08, 1] : 1,
+                      opacity: isRunning ? [0.18, 0.28, 0.18] : 0.16,
+                    }}
+                    transition={{ duration: 4.8, repeat: Infinity, ease: 'easeInOut' }}
+                    className="absolute inset-0 rounded-full border border-[#5F7F68]/20"
+                  />
+
+                  <motion.div
+                    animate={reduceMotion ? { scale: 1 } : { scale: isRunning ? [1, 1.06, 1] : 1 }}
+                    transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+                    className="relative flex h-[180px] w-[180px] items-center justify-center rounded-full bg-white/25 shadow-[0_16px_38px_rgba(16,35,31,0.18)] backdrop-blur-md dark:bg-white/5 sm:h-[220px] sm:w-[220px]"
+                  >
+                    <div className="flex h-32 w-32 items-center justify-center rounded-full bg-white/40 text-[#5F7F68] dark:bg-white/10 dark:text-[#F4E8C8] sm:h-40 sm:w-40">
+                      <Waves className="h-12 w-12" />
+                    </div>
+                  </motion.div>
+                </div>
+
+                <div className="mt-6 space-y-3">
+                  <motion.p
+                    key={isRunning ? 'running' : 'idle'}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-3xl font-semibold tracking-tight text-[#24352D] dark:text-[#F4E8C8] sm:text-4xl"
+                  >
+                    {isRunning ? 'Đang thở cùng bạn' : 'Đợi bạn bấm bắt đầu'}
+                  </motion.p>
+                  <p className="text-5xl font-light tabular-nums text-[#5F7F68] dark:text-[#F4D28A]">
+                    {isRunning ? '•' : '0'}
+                  </p>
+                  <p className="max-w-lg text-sm leading-6 text-[#24352D]/78 dark:text-[#F4E8C8]/78">
+                    {activeExercise.description}
+                  </p>
+                </div>
+
+                <div className="mt-8 w-full max-w-md space-y-3">
+                  <div className="h-2 overflow-hidden rounded-full bg-white/35 dark:bg-white/10">
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="space-y-8"
+                      className="h-full rounded-full bg-[#5F7F68]"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${progress}%` }}
+                      transition={{ duration: 0.35 }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs font-medium uppercase tracking-[0.22em] text-[#24352D]/55 dark:text-[#F4E8C8]/55">
+                    <span>Đã qua: {formatTime(elapsed)}</span>
+                    <span>Còn lại: {formatTime(remaining)}</span>
+                  </div>
+                </div>
+
+                <motion.button
+                  type="button"
+                  onClick={() => setIsRunning((value) => !value)}
+                  whileTap={{ scale: 0.96 }}
+                  className={`mt-8 inline-flex h-20 w-20 items-center justify-center rounded-full text-white shadow-[0_18px_34px_rgba(16,35,31,0.20)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2 ${isRunning ? 'bg-[#5F7F68]' : 'bg-[#24352D]'}`}
+                  aria-label={isRunning ? 'Tạm dừng' : 'Bắt đầu'}
+                >
+                  {isRunning ? <Pause className="h-8 w-8" /> : <Play className="ml-1 h-8 w-8" />}
+                </motion.button>
+              </section>
+
+              <aside className="space-y-4 rounded-[24px] border border-white/35 bg-white/20 p-5 backdrop-blur-sm dark:border-white/10 dark:bg-white/5 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#5F7F68]/12 text-[#5F7F68] dark:bg-white/10 dark:text-[#F4E8C8]">
+                    <Waves className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#5F7F68] dark:text-[#F4D28A]">
+                      Cấu trúc bài
+                    </p>
+                    <p className="mt-1 text-lg font-semibold text-[#24352D] dark:text-[#F4E8C8]">
+                      {activeExercise.structure}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-[18px] border border-white/30 bg-white/20 p-4 text-[#24352D] dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#5F7F68] dark:text-[#F4D28A]">
+                      Thời lượng
+                    </p>
+                    <p className="mt-2 text-xl font-semibold">{activeExercise.durationLabel}</p>
+                  </div>
+                  <div className="rounded-[18px] border border-white/30 bg-white/20 p-4 text-[#24352D] dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#5F7F68] dark:text-[#F4D28A]">
+                      Phù hợp khi
+                    </p>
+                    <p className="mt-2 text-sm leading-6">{activeExercise.recommendedFor}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-[20px] border border-white/30 bg-white/20 p-4 text-sm leading-6 text-[#24352D]/82 dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]/82">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#5F7F68] dark:text-[#F4D28A]">
+                    Gợi ý nhẹ
+                  </p>
+                  <p className="mt-2">
+                    Giữ vai mềm, thả lỏng hàm và để hơi thở đi chậm hơn một chút so với nhịp bình thường.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {[ambient.isPlaying ? 'Âm thanh đang mở' : 'Âm thanh tĩnh', activeExercise.id === 'body_scan' ? 'Dành cho buổi tối' : 'Dùng vào lúc cần nhẹ lại'].map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-white/30 bg-white/20 px-3 py-1 text-xs font-medium text-[#24352D] dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]"
                     >
-                        {/* Header Section */}
-                        <div className="flex items-center justify-between bg-theme-surface/80 backdrop-blur-xl rounded-4xl p-4">
-                            <div>
-                                <h1 className="font-display text-4xl font-semibold tracking-tight md:text-5xl">
-                                    Hành trình tâm thức
-                                </h1>
-                                <p className="mt-2 text-theme-text-secondary/80">
-                                    Chọn một bài tập để bắt đầu kết nối với chính mình
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => navigate(ROUTE_PATHS.resources)}
-                                className={`group flex h-12 w-12 items-center justify-center rounded-full border border-theme-border bg-theme-surface/50 backdrop-blur-md transition-all hover:bg-theme-surface`}
-                            >
-                                <X className="h-5 w-5 transition-transform group-hover:rotate-90" />
-                            </button>
-                        </div>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
 
-                        {/* Tabs Navigation */}
-                        <div className="flex flex-wrap gap-2 md:gap-3">
-                            {TABS.map((tab) => {
-                                const Icon = tab.icon
-                                const isActive = activeTab === tab.id
-                                return (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
-                                        className={`flex items-center gap-2.5 rounded-2xl px-5 py-3 text-sm font-medium transition-all duration-300 ${isActive
-                                                ? 'bg-theme-accent text-white shadow-lg shadow-theme-accent/20 scale-105'
-                                                : 'bg-theme-surface border border-theme-border/50 hover:bg-theme-surface/60'
-                                            }`}
-                                    >
-                                        <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-theme-accent'}`} />
-                                        {tab.label}
-                                    </button>
-                                )
-                            })}
-                        </div>
-
-                        {/* Exercises Grid */}
-                        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                            <AnimatePresence mode="popLayout">
-                                {filteredExercises.map((item, idx) => (
-                                    <motion.button
-                                        layout
-                                        key={item.id}
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.95 }}
-                                        transition={{ duration: 0.2, delay: idx * 0.05 }}
-                                        onClick={() => startExercise(item.id)}
-                                        className={`group relative flex flex-col overflow-hidden rounded-[2.5rem] border border-theme-border bg-theme-surface/80 p-7 text-left shadow-xl backdrop-blur-xl transition-all hover:-translate-y-1.5 hover:bg-theme-surface/80`}
-                                    >
-                                        <div className="flex-1">
-                                            <div className="flex items-center justify-between">
-                                                <span className="rounded-full bg-theme-accent/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-theme-accent">
-                                                    {item.type.replace(/_/g, ' ')}
-                                                </span>
-                                                <div className="flex items-center gap-1.5 text-xs text-theme-text-secondary">
-                                                    <Clock className="h-3.5 w-3.5" />
-                                                    {Math.round(item.duration_sec / 60)} phút
-                                                </div>
-                                            </div>
-
-                                            <h3 className="mt-5 font-display text-3xl font-semibold leading-tight">
-                                                {item.title}
-                                            </h3>
-                                            <p className="mt-2 text-sm leading-relaxed text-theme-text-secondary/80 line-clamp-2">
-                                                {item.description}
-                                            </p>
-                                        </div>
-
-                                        <div className="mt-8 flex items-center justify-between">
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] uppercase tracking-widest text-theme-text-secondary/60">Cấu trúc</span>
-                                                <span className="text-xl font-semibold text-theme-accent">{getPatternLabel(item)}</span>
-                                            </div>
-                                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-theme-accent text-white opacity-0 transition-all group-hover:opacity-100">
-                                                <Play className="h-5 w-5 fill-current" />
-                                            </div>
-                                        </div>
-                                    </motion.button>
-                                ))}
-                            </AnimatePresence>
-                        </div>
-
-                        {/* Featured Tip Section */}
-                        <div className={`mt-8 overflow-hidden rounded-[3rem] border border-theme-border bg-theme-surface/70 p-8 backdrop-blur-xl`}>
-                            <div className="flex flex-col gap-6 md:flex-row md:items-center">
-                                <div className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-theme-accent/10 text-4xl`}>
-                                    🌬️
-                                </div>
-                                <div className="space-y-2">
-                                    <h3 className="font-display text-2xl font-semibold">Lời khuyên nhỏ</h3>
-                                    <p className="max-w-2xl text-theme-text-secondary/80">
-                                        Hãy tìm một không gian yên tĩnh, ngồi hoặc nằm thoải mái. Đừng quá ép buộc bản thân, hãy để hơi thở trôi chảy tự nhiên nhất có thể.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </motion.div>
-                ) : (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className={`flex min-h-[80vh] flex-col rounded-[3rem] border border-theme-border bg-theme-surface/70 p-6 shadow-2xl backdrop-blur-2xl md:p-10`}
-                    >
-                        {/* Player Header */}
-                        <header className="flex items-center justify-between">
-                            <button
-                                onClick={backToHub}
-                                className={`flex h-12 w-12 items-center justify-center rounded-full border border-theme-border bg-theme-surface/50 transition-all hover:bg-theme-surface`}
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
-                            <div className="text-center">
-                                <p className="font-display text-2xl font-semibold md:text-3xl">{exercise.title}</p>
-                                <p className="text-[10px] uppercase tracking-[0.3em] text-theme-text-secondary/60 mt-1">{exercise.type.replace(/_/g, ' ')}</p>
-                            </div>
-                            <button
-                                onClick={resetExercise}
-                                className={`rounded-full border border-theme-border px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary transition-all hover:bg-theme-surface`}
-                            >
-                                Reset
-                            </button>
-                        </header>
-
-                        {/* Player Main Area */}
-                        <main className="flex flex-1 flex-col items-center justify-center py-12 text-center">
-                            <div className="relative mb-12 flex items-center justify-center">
-                                {/* Animated Rings */}
-                                <motion.div
-                                    animate={{ 
-                                        scale: isRunning ? phase.scale * 1.1 : 1,
-                                        opacity: isRunning ? [0.2, 0.4, 0.2] : 0.2
-                                    }}
-                                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                                    className="absolute h-80 w-80 rounded-full border-2 border-theme-accent/30"
-                                />
-                                <motion.div
-                                    animate={{ 
-                                        scale: isRunning ? phase.scale * 1.3 : 1,
-                                        opacity: isRunning ? [0.1, 0.2, 0.1] : 0.1
-                                    }}
-                                    transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-                                    className="absolute h-96 w-96 rounded-full border-2 border-theme-accent/20"
-                                />
-
-                                <motion.div
-                                    animate={{ scale: isRunning ? phase.scale : 1 }}
-                                    transition={{ duration: 1.1, ease: 'easeInOut' }}
-                                    className={`relative flex h-64 w-64 items-center justify-center rounded-full bg-theme-surface/40 shadow-2xl backdrop-blur-md md:h-80 md:w-80`}
-                                >
-                                    <div className={`relative flex h-32 w-32 items-center justify-center rounded-full bg-theme-accent text-white shadow-xl`}>
-                                        <Waves className="h-10 w-10" />
-                                    </div>
-                                </motion.div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <motion.p 
-                                    key={phase.label}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className={`font-display text-4xl font-semibold tracking-wide`}
-                                >
-                                    {isDone ? 'Phiên tập kết thúc' : phase.label}
-                                </motion.p>
-                                <p className="text-5xl font-light text-theme-accent tabular-nums">
-                                    {isDone ? '✨' : phase.count}
-                                </p>
-                            </div>
-
-                            {/* Progress Bar */}
-                            <div className="mt-12 w-full max-w-md space-y-3">
-                                <div className={`h-2 overflow-hidden rounded-full bg-theme-border/30`}>
-                                    <motion.div 
-                                        className={`h-full rounded-full bg-theme-accent`}
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${progress}%` }}
-                                        transition={{ duration: 0.5 }}
-                                    />
-                                </div>
-                                <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary/60">
-                                    <span>Đã qua: {formatTime(elapsed)}</span>
-                                    <span>Còn lại: {formatTime(remaining)}</span>
-                                </div>
-                            </div>
-
-                            {/* Control Button */}
-                            <motion.button
-                                onClick={() => (isDone ? resetExercise() : setIsRunning(!isRunning))}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                className={`mt-12 flex h-24 w-24 items-center justify-center rounded-full ${isRunning ? 'bg-theme-surface border border-theme-border text-theme-accent' : 'bg-theme-accent text-white'} shadow-2xl transition-all`}
-                            >
-                                {isRunning ? <Pause className="h-10 w-10 fill-current" /> : <Play className="ml-1 h-10 w-10 fill-current" />}
-                            </motion.button>
-                        </main>
-
-                        {/* Pattern Overview */}
-                        <div className="mt-auto grid grid-cols-3 gap-4 border-t border-theme-border/30 pt-8">
-                            {exercise.pattern ? (
-                                <>
-                                    <div className="text-center">
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary/60">Hít vào</p>
-                                        <p className="mt-1 font-display text-2xl">{exercise.pattern.inhale}s</p>
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary/60">Giữ</p>
-                                        <p className="mt-1 font-display text-2xl">{exercise.pattern.hold}s</p>
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary/60">Thở ra</p>
-                                        <p className="mt-1 font-display text-2xl">{exercise.pattern.exhale}s</p>
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="col-span-3 text-center px-4">
-                                    <p className="text-sm italic text-theme-text-secondary/80">"{exercise.description}"</p>
-                                </div>
-                            )}
-                        </div>
-                    </motion.div>
-                )}
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={ambient.toggle}
+                    className="inline-flex items-center gap-2 rounded-full bg-[#5F7F68] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2"
+                  >
+                    {ambient.isPlaying ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                    {ambient.isPlaying ? 'Tạm dừng âm thanh' : 'Bật âm thanh'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={backToHub}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/20 px-4 py-2.5 text-sm font-medium text-[#24352D] transition-colors hover:bg-white/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Về danh sách
+                  </button>
+                </div>
+              </aside>
             </div>
-        </div>
-    )
+          </motion.main>
+        )}
+      </div>
+    </div>
+  )
 }

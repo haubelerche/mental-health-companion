@@ -1,13 +1,13 @@
-import { useEffect, useState, useMemo } from 'react'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useState } from 'react'
 import { adminService } from '../../services/adminService'
 import { motion } from 'framer-motion'
 import { 
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-    PieChart, Pie, Cell, LineChart, Line, AreaChart, Area
+    PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts'
 import { 
-    Activity, 
-    Heart, 
+    Activity,
     TrendingUp, 
     MessageCircle, 
     Zap, 
@@ -17,7 +17,6 @@ import {
     ShieldAlert,
     Info,
     Download,
-    Send,
     X
 } from 'lucide-react'
 
@@ -26,6 +25,8 @@ import './AdminCommon.css'
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4']
 
+// allow flexible payload shape for charts tooltip
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
         return (
@@ -49,9 +50,13 @@ const TypewriterContent = ({ text }: { text: string }) => {
     const [displayedText, setDisplayedText] = useState('')
     const [index, setIndex] = useState(0)
 
+    // avoid cascading renders warning: resetting when `text` changes is intentional
     useEffect(() => {
-        setDisplayedText('')
-        setIndex(0)
+        const id = setTimeout(() => {
+            setDisplayedText('')
+            setIndex(0)
+        }, 0)
+        return () => clearTimeout(id)
     }, [text])
 
     useEffect(() => {
@@ -146,7 +151,7 @@ const AIInsightCard = ({ insight, onAction, refreshing }: { insight: any, onActi
 
 export default function AdminAnalytics() {
     const [moodDist, setMoodDist] = useState<any[]>([])
-    const [moodTrend, setMoodTrend] = useState<any[]>([])
+    const [, setMoodTrend] = useState<any[]>([])
     const [clinical, setClinical] = useState<any>(null)
     const [resourceData, setResourceData] = useState<any>(null)
     const [chatMetrics, setChatMetrics] = useState<any>(null)

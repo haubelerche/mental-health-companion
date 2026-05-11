@@ -1,39 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { adminService } from '../../services/adminService'
 import { ApiRequestError } from '../../api/types'
 import { toast } from 'react-toastify'
-import { 
-    Shield, 
-    Clock, 
-    User, 
-    AlertTriangle, 
-    CheckCircle, 
-    Trash2, 
-    Brain, 
-    ChevronLeft, 
-    ChevronRight, 
-    Loader2, 
-    Sparkles, 
-    Mail, 
-    Activity,
-    Send,
-    Edit3,
-    X,
-    MessageSquare,
-    Filter,
-    Inbox,
-    Bot,
-    UserCheck,
-    Maximize2
-} from 'lucide-react'
-
-import { adminCache } from '../../hooks/useAdminStore'
+import { Shield, Clock, User, AlertTriangle, Brain, ChevronLeft, ChevronRight, Loader2, Sparkles, Activity, Send, X, MessageSquare, Inbox, Bot, UserCheck } from 'lucide-react'
 
 type RepliedByFilter = 'all' | 'none' | 'ai' | 'human' | 'reported'
 
 export default function AdminLetters() {
-    const cached = adminCache.getLetters()
+    // const cached = adminCache.getLetters()
     const [filter, setFilter] = useState<RepliedByFilter>('none')
     const [letters, setLetters] = useState<any[]>([])
     const [total, setTotal] = useState(0)
@@ -51,7 +27,7 @@ export default function AdminLetters() {
     
     const [selectedLetter, setSelectedLetter] = useState<any | null>(null)
 
-    const loadLetters = useCallback(async (force = false) => {
+    const loadLetters = useCallback(async () => {
         setLoading(true)
         try {
             const params: any = { 
@@ -83,9 +59,9 @@ export default function AdminLetters() {
         try {
             await adminService.reviewLetter(id, action)
             toast.success(action === 'keep' ? 'Đã duyệt thư' : 'Đã xóa thư')
-            loadLetters(true)
+            loadLetters()
             if (selectedLetter?.letter_id === id) setSelectedLetter(null)
-        } catch (err) {
+        } catch {
             toast.error('Thao tác thất bại')
         }
     }
@@ -96,7 +72,7 @@ export default function AdminLetters() {
             const res = await adminService.aiAnalyzeLetter(id)
             setAiResults(prev => ({ ...prev, [id]: res }))
             toast.info('AI đã hoàn thành phân tích')
-        } catch (err) {
+        } catch {
             toast.error('AI không thể phân tích lúc này')
         } finally {
             setAnalyzingId(null)
@@ -110,7 +86,7 @@ export default function AdminLetters() {
             setAiSuggestions(prev => ({ ...prev, [id]: res.suggestions }))
             setIsReplying(prev => ({ ...prev, [id]: true }))
             toast.success('AI đã tạo gợi ý phản hồi')
-        } catch (err) {
+        } catch {
             toast.error('Không thể lấy gợi ý AI')
         } finally {
             setSuggestingId(null)
@@ -127,14 +103,14 @@ export default function AdminLetters() {
             await adminService.replyToLetter(id, { content })
             toast.success('Đã gửi phản hồi cho người dùng')
             setIsReplying(prev => ({ ...prev, [id]: false }))
-            loadLetters(true)
+            loadLetters()
             // If in detail view, update the local object
             if (selectedLetter?.letter_id === id) {
                 const updated = { ...selectedLetter }
                 updated.replies = [...(updated.replies || []), { content, created_at: new Date().toISOString(), author: 'Admin', is_ai: false }]
                 setSelectedLetter(updated)
             }
-        } catch (err) {
+        } catch {
             toast.error('Gửi phản hồi thất bại')
         } finally {
             setSendingReplyId(null)

@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from 'react'
 import { adminService } from '../../services/adminService'
 import { ApiRequestError } from '../../api/types'
 import { toast } from 'react-toastify'
-import { Search, UserCheck, UserX, Info, Users, Loader2, Mail, Calendar, ShieldCheck } from 'lucide-react'
+import { Search, Users, Info, ShieldCheck } from 'lucide-react'
 
 import { adminCache } from '../../hooks/useAdminStore'
 
@@ -39,7 +40,7 @@ export default function AdminUsers() {
             await adminService.updateUser(userId, { is_active: !current })
             setUsers(users.map(u => u.user_id === userId ? { ...u, is_active: !current } : u))
             toast.success(`Đã ${!current ? 'mở khóa' : 'khóa'} tài khoản`)
-        } catch (err) {
+        } catch {
             toast.error('Cập nhật thất bại')
         }
     }

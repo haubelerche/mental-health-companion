@@ -5,7 +5,6 @@ import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
     adminService,
-    type AdminCostDashboardResponse,
     type AdminDashboardAggregate,
 } from '../../services/adminService'
 import { 
@@ -38,19 +37,37 @@ function TrendBadge({ value }: { value: number }) {
     )
 }
 
+const MOOD_CONFIG: Record<string, { label: string; color: string; emoji: string }> = {
+    awesome: { label: 'Tuyệt vời', color: '#10b981', emoji: '🤩' },
+    great: { label: 'Rất tốt', color: '#059669', emoji: '🥰' },
+    good: { label: 'Tốt', color: '#34d399', emoji: '😊' },
+    fine: { label: 'Ổn', color: '#3b82f6', emoji: '🙂' },
+    okay: { label: 'Bình thường', color: '#60a5fa', emoji: '😐' },
+    stressed: { label: 'Căng thẳng', color: '#f59e0b', emoji: '😰' },
+    bad: { label: 'Tệ', color: '#f87171', emoji: '😞' },
+    struggling: { label: 'Khó khăn', color: '#ef4444', emoji: '😫' },
+}
+
+function MoodTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload?: { emoji?: string; name?: string; value?: number } }> }) {
+    if (active && payload && payload.length) {
+        const p = payload[0].payload ?? {}
+        return (
+            <div className="bg-slate-900/90 border border-white/10 p-4 rounded-2xl shadow-2xl backdrop-blur-xl">
+                <p className="text-xs font-black text-white uppercase flex items-center gap-2">
+                    <span className="text-xl">{p.emoji}</span>
+                    {p.name}
+                </p>
+                <p className="text-[10px] text-indigo-400 font-black mt-1 uppercase tracking-tighter">
+                    {p.value} Lượt check-in
+                </p>
+            </div>
+        )
+    }
+    return null
+}
+
 /* ── Modern Mood Pie Chart ── */
 function MoodPieChart({ data, loading }: { data: Record<string, number>, loading?: boolean }) {
-    const MOOD_CONFIG: Record<string, { label: string; color: string; emoji: string }> = {
-        awesome: { label: 'Tuyệt vời', color: '#10b981', emoji: '🤩' },
-        great: { label: 'Rất tốt', color: '#059669', emoji: '🥰' },
-        good: { label: 'Tốt', color: '#34d399', emoji: '😊' },
-        fine: { label: 'Ổn', color: '#3b82f6', emoji: '🙂' },
-        okay: { label: 'Bình thường', color: '#60a5fa', emoji: '😐' },
-        stressed: { label: 'Căng thẳng', color: '#f59e0b', emoji: '😰' },
-        bad: { label: 'Tệ', color: '#f87171', emoji: '😞' },
-        struggling: { label: 'Khó khăn', color: '#ef4444', emoji: '😫' },
-    }
-
     const chartData = useMemo(() => {
         return Object.entries(data)
             .filter(([, value]) => value > 0)
@@ -83,22 +100,7 @@ function MoodPieChart({ data, loading }: { data: Record<string, number>, loading
         )
     }
 
-    const CustomTooltip = ({ active, payload }: any) => {
-        if (active && payload && payload.length) {
-            return (
-                <div className="bg-slate-900/90 border border-white/10 p-4 rounded-2xl shadow-2xl backdrop-blur-xl">
-                    <p className="text-xs font-black text-white uppercase flex items-center gap-2">
-                        <span className="text-xl">{payload[0].payload.emoji}</span>
-                        {payload[0].name}
-                    </p>
-                    <p className="text-[10px] text-indigo-400 font-black mt-1 uppercase tracking-tighter">
-                        {payload[0].value} Lượt check-in
-                    </p>
-                </div>
-            )
-        }
-        return null
-    }
+    // tooltip uses module-scoped component `MoodTooltip`
 
     return (
         <div className="h-[280px] w-full flex flex-col md:flex-row items-center gap-8">
@@ -119,7 +121,7 @@ function MoodPieChart({ data, loading }: { data: Record<string, number>, loading
                                 <Cell key={`cell-${index}`} fill={entry.color} className="hover:opacity-80 transition-opacity cursor-pointer focus:outline-none" />
                             ))}
                         </Pie>
-                        <Tooltip content={<CustomTooltip />} />
+                        <Tooltip content={<MoodTooltip />} />
                     </PieChart>
                 </ResponsiveContainer>
             </div>
@@ -226,7 +228,7 @@ export default function AdminDashboard() {
 
     const itemVariants = {
         hidden: { opacity: 0, y: 20 },
-        visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+        visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' as const } }
     }
 
     const kpis = [

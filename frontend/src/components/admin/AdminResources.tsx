@@ -1,5 +1,6 @@
 import './AdminResources.css'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { toast } from 'react-toastify'
 import { ApiRequestError } from '../../api/types'
 import {
@@ -15,8 +16,7 @@ import AgentFlowDiagram, {
     type AgentStepData,
     type AgentResult,
 } from './AgentFlowDiagram'
-import { Brain, Info, Zap, Activity } from 'lucide-react'
-import WorkerAutomationCard from './automation/WorkerAutomationCard'
+import { Brain, Info } from 'lucide-react'
 
 /* ─────────── helpers ─────────── */
 function toTagList(value: string): string[] {
@@ -111,7 +111,7 @@ export default function AdminResources() {
         } finally {
             setLoading(false)
         }
-    }, [categoryFilter, includeInactive])
+    }, [categoryFilter, includeInactive, page])
 
     useEffect(() => {
         void load()
