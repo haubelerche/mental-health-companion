@@ -6,6 +6,7 @@ import { connectService, type ClinicItem, type HotlineItem } from '../../service
 import { safetyService } from '../../services/safetyService'
 import type { ReferralOption } from '../../services/safetyService'
 import { useThemeContext } from '../../contexts/ThemeContext'
+import Mascot from '../pixel/Mascot'
 const DEFAULT_HOTLINES: HotlineItem[] = [
     { name: 'Hotline 24/7', number: '1800-599-920', description: 'Hỗ trợ khẩn cấp và lắng nghe ngay lập tức' },
     { name: 'Cấp cứu y tế', number: '115', description: 'Gọi cấp cứu trong tình huống nguy hiểm' },
@@ -79,16 +80,19 @@ export default function Support() {
                     Serene là AI, không thay thế chuyên gia
                 </div>
 
-                <header className="mt-8">
-                    <p className="text-[0.68rem] font-bold uppercase tracking-[0.34em] text-theme-accent/70">
-                        Referral & Human Support
-                    </p>
-                    <h1 className="mt-2 font-display text-5xl italic leading-none text-theme-text-primary md:text-7xl">
-                        You are not alone.
-                    </h1>
-                    <p className="mt-5 max-w-2xl text-sm leading-relaxed text-theme-text-secondary md:text-base">
-                        Nhận sự hỗ trợ chuyên sâu từ con người khi bạn cần. Chúng tôi luôn đồng hành cùng bạn.
-                    </p>
+                <header className="mt-8 flex items-start justify-between gap-5">
+                    <div>
+                        <p className="text-[0.68rem] font-bold uppercase tracking-[0.34em] text-theme-accent/70">
+                            Referral & Human Support
+                        </p>
+                        <h1 className="mt-2 font-display text-5xl italic leading-none text-theme-text-primary md:text-7xl">
+                            You are not alone.
+                        </h1>
+                        <p className="mt-5 max-w-2xl text-sm leading-relaxed text-theme-text-secondary md:text-base">
+                            Nhận sự hỗ trợ chuyên sâu từ con người khi bạn cần. Chúng tôi luôn đồng hành cùng bạn.
+                        </p>
+                    </div>
+                    <Mascot variant="quiet" size="lg" decorative className="hidden md:block" />
                 </header>
 
                 <section className={`mt-9 grid gap-6 rounded-[2rem] p-6 shadow-inner lg:grid-cols-[1fr_220px] ${isDark ? 'bg-black/20 border border-white/5' : 'bg-theme-surface/40'}`}>
