@@ -85,6 +85,7 @@ tests/
 backend/tests/*
 !backend/tests/test_database_boundary_regression.py
 !backend/tests/test_pool_soak.py
+!backend/tests/test_vietnamese_chat_style.py
 
 # Ignore all Markdown files at repository root only
 /*.md
