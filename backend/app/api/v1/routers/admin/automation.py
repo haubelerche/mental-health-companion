@@ -135,8 +135,9 @@ async def run_worker_now(
         worker = worker_manager.workers[worker_name]
         if worker.running:
             return ok({"success": False, "message": "Worker đang chạy rồi"})
-        asyncio.create_task(worker.task_func())
-        return ok({"success": True, "message": f"Đã kích hoạt {worker_name} chạy ngay lập tức"})
+        # Pass trigger_id so logs are mapped correctly
+        asyncio.create_task(worker.task_func(config=worker.config or {}, trigger_id=worker.trigger_id))
+        return ok({"success": True, "message": f"Đã kích hoạt {worker.name} chạy ngay lập tức"})
     return ok({"success": False, "message": "Worker không tồn tại"})
 
 @router.get("/automation/logs/{target_id}")

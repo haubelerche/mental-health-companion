@@ -64,10 +64,7 @@ class AdminWorker:
                 self.running = True
                 try:
                     logger.info(f"Worker {self.name} executing task...")
-                    if self.config:
-                        await self.task_func(config=self.config, trigger_id=self.trigger_id)
-                    else:
-                        await self.task_func()
+                    await self.task_func(config=self.config or {}, trigger_id=self.trigger_id)
                     self.last_run = now
                     # Update last_run_at in DB
                     if self.trigger_id:
@@ -117,7 +114,9 @@ async def letter_task(config=None, trigger_id=None):
     try:
         # We might want to update run_ai_reply_worker to return list of IDs/content
         # For now, let's just enhance the log here if possible or just log the count with context
-        count = await run_ai_reply_worker(db, hours_threshold=0)
+        result = await run_ai_reply_worker(db, hours_threshold=0)
+        count = result["count"]
+        details = result["details"]
         
         msg = f"Đã hoàn thành trả lời tự động {count} lá thư." if count > 0 else "Không có thư mới cần phản hồi."
         worker_manager.add_log(
@@ -125,6 +124,7 @@ async def letter_task(config=None, trigger_id=None):
             msg, 
             details={
                 "count": count,
+                "replied_items": details,
                 "timestamp": get_now().replace(tzinfo=None).isoformat(),
                 "action": "ai_reply_letters"
             }
@@ -138,9 +138,8 @@ async def resource_task(config=None, trigger_id=None):
     db = get_session_factory()()
     try:
         category = random.choice(CATEGORIES)
-        titles = []
+        resource_details = []
         async for res_line in run_youtube_crawl_agent(category, limit=3, db=db):
-            # run_youtube_crawl_agent yields SSE strings like "data: {...}\n\n"
             if "event\": \"done\"" in res_line:
                 try:
                     json_str = res_line.strip()
@@ -148,21 +147,22 @@ async def resource_task(config=None, trigger_id=None):
                         json_str = json_str[6:]
                     data = json.loads(json_str)
                     results = data.get("data", {}).get("results", [])
-                    # Lấy title của các tài nguyên mới được insert
-                    titles = [r["title"] for r in results if r.get("status") == "inserted"]
+                    resource_details = results
                 except Exception as e:
                     logger.error(f"Error parsing resource_task results: {e}")
             
-        count = len(titles)
-        msg = f"Đã cập nhật {count} tài nguyên mục {category}." if count > 0 else f"Không tìm thấy tài nguyên mới cho mục {category}."
+        inserted_count = len([r for r in resource_details if r.get("status") == "inserted"])
+        msg = f"Đã cập nhật {inserted_count} tài nguyên mới cho mục {category}." if inserted_count > 0 else f"Không có tài nguyên mới cho mục {category}."
         worker_manager.add_log(
             trigger_id or "resource", 
             msg, 
             details={
-                "category": category, 
-                "count": count,
-                "titles": titles,
-                "action": "crawl_resources"
+                "category": category,
+                "inserted_count": inserted_count,
+                "total_processed": len(resource_details),
+                "items": resource_details,
+                "timestamp": get_now().replace(tzinfo=None).isoformat(),
+                "action": "youtube_crawl"
             }
         )
     except Exception as e:

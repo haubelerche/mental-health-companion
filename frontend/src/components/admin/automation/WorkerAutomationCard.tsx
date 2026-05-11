@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { adminService } from '../../../services/adminService'
 import { toast } from 'react-toastify'
-import { Settings, Play, Clock, Zap, Loader2, Trash2, Pause, History, Calendar, Repeat, CheckCircle } from 'lucide-react'
+import { Settings, Play, Clock, Zap, Loader2, Trash2, Pause, History, Calendar, Repeat, CheckCircle, Database, Mail, ArrowRight, ExternalLink } from 'lucide-react'
 
 interface WorkerAutomationCardProps {
     workerKey?: string;
@@ -309,49 +309,116 @@ export default function WorkerAutomationCard({
                                                 </span>
                                                 <span className="text-[9px] text-slate-600 font-bold">{new Date(log.created_at).toLocaleTimeString('vi-VN')}</span>
                                             </div>
-                                            <p className="text-[11px] text-slate-300 font-medium line-clamp-2 mb-1">{log.message}</p>
+                                            <p className="text-[11px] text-slate-200 font-bold mb-2">{log.message}</p>
                                             
                                             {/* Enhanced Details View */}
+                                            {/* Enhanced Details View */}
                                             {log.details && (
-                                                <div className="mt-2 space-y-2">
-                                                    {log.details.action === 'push_notifications' && (
-                                                        <div className="p-2.5 bg-indigo-500/5 rounded-xl border border-indigo-500/10">
-                                                            <div className="flex items-center justify-between text-[9px] font-black text-indigo-400 uppercase mb-1">
-                                                                <span>Chiến dịch: {log.details.category}</span>
+                                                <div className="mt-3 space-y-3">
+                                                    {/* Push Notifications (New & Old format) */}
+                                                    {(log.details.action === 'push_notifications' || (log.details.user_count && log.details.body)) && (
+                                                        <div className="p-3 bg-indigo-500/5 rounded-2xl border border-indigo-500/10">
+                                                            <div className="flex items-center justify-between text-[9px] font-black text-indigo-400 uppercase mb-2">
+                                                                <span>Chiến dịch: {log.details.category || 'N/A'}</span>
                                                                 <span>{log.details.user_count} Users</span>
                                                             </div>
-                                                            <p className="text-[10px] text-slate-400 leading-relaxed italic">"{log.details.body}"</p>
-                                                        </div>
-                                                    )}
-                                                    
-                                                    {log.details.action === 'crawl_resources' && log.details.titles && log.details.titles.length > 0 && (
-                                                        <div className="p-2.5 bg-amber-500/5 rounded-xl border border-amber-500/10">
-                                                            <p className="text-[9px] font-black text-amber-400 uppercase mb-2 flex items-center gap-1">
-                                                                <Database size={10} /> Danh sách tài nguyên mới ({log.details.count})
-                                                            </p>
-                                                            <ul className="space-y-1">
-                                                                {log.details.titles.map((t: string, i: number) => (
-                                                                    <li key={i} className="text-[10px] text-slate-400 flex items-start gap-1.5">
-                                                                        <span className="text-amber-500/50">•</span>
-                                                                        <span className="line-clamp-1">{t}</span>
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
+                                                            {log.details.body && <p className="text-[10px] text-slate-400 leading-relaxed italic">"{log.details.body}"</p>}
                                                         </div>
                                                     )}
 
-                                                    {log.details.action === 'ai_reply_letters' && (
-                                                        <div className="p-2.5 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
-                                                            <p className="text-[10px] text-emerald-400 font-bold italic">
-                                                                ✓ Đã xử lý xong {log.details.count} lá thư tồn đọng trong hệ thống.
-                                                            </p>
+                                                    {/* YouTube Crawler (New format) */}
+                                                    {log.details.action === 'youtube_crawl' && log.details.items && (
+                                                        <div className="p-3 bg-amber-500/5 rounded-2xl border border-amber-500/10">
+                                                            <div className="flex items-center justify-between text-[9px] font-black text-amber-400 uppercase mb-3">
+                                                                <span className="flex items-center gap-2"><Database size={12} /> Chủ đề: {log.details.category}</span>
+                                                                <span>{log.details.inserted_count}/{log.details.total_processed} mới</span>
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                {log.details.items.slice(0, 5).map((item: any, i: number) => (
+                                                                    <div key={i} className="flex items-center gap-3 bg-white/5 p-2 rounded-xl border border-white/5">
+                                                                        {item.thumbnail && <img src={item.thumbnail} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />}
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <p className="text-[10px] text-white font-bold line-clamp-1">{item.title}</p>
+                                                                            <span className={`text-[8px] font-black uppercase tracking-tighter ${item.status === 'inserted' ? 'text-emerald-400' : 'text-slate-500'}`}>
+                                                                                {item.status === 'inserted' ? 'Đã thêm mới' : 'Đã tồn tại'}
+                                                                            </span>
+                                                                        </div>
+                                                                        {item.url && (
+                                                                            <a href={item.url} target="_blank" rel="noreferrer" className="p-1.5 text-slate-500 hover:text-white transition-colors">
+                                                                                <ExternalLink size={10} />
+                                                                            </a>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                                {log.details.items.length > 5 && (
+                                                                    <p className="text-[9px] text-slate-600 text-center font-bold pt-1">và {log.details.items.length - 5} tài nguyên khác...</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* YouTube Crawler (Old format / Legacy) */}
+                                                    {!log.details.action && log.details.category && !log.details.body && (
+                                                        <div className="p-3 bg-amber-500/5 rounded-2xl border border-amber-500/10">
+                                                            <div className="flex items-center justify-between text-[9px] font-black text-amber-400 uppercase">
+                                                                <span className="flex items-center gap-2"><Database size={12} /> Chủ đề: {log.details.category}</span>
+                                                                {log.details.count !== undefined && <span>{log.details.count} tài nguyên</span>}
+                                                            </div>
+                                                            {log.details.titles && log.details.titles.length > 0 && (
+                                                                <ul className="mt-2 space-y-1">
+                                                                    {log.details.titles.map((t: string, i: number) => (
+                                                                        <li key={i} className="text-[10px] text-slate-400 flex items-start gap-1.5">
+                                                                            <span className="text-amber-500/50">•</span>
+                                                                            <span className="line-clamp-1">{t}</span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {/* AI Reply Letters (New & Old format) */}
+                                                    {(log.details.action === 'ai_reply_letters' || (log.details.count !== undefined && !log.details.category)) && (
+                                                        <div className="p-3 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
+                                                            <div className="flex items-center justify-between text-[9px] font-black text-emerald-400 uppercase mb-2">
+                                                                <span className="flex items-center gap-2"><Mail size={12} /> Phản hồi: {log.details.count} lá thư</span>
+                                                                {log.details.duration_sec && (
+                                                                    <span className="flex items-center gap-1 text-slate-500"><Clock size={10} /> {log.details.duration_sec}s</span>
+                                                                )}
+                                                            </div>
+                                                            {log.details.replied_items && (
+                                                                <div className="space-y-3 mt-3">
+                                                                    {log.details.replied_items.slice(0, 3).map((item: any, i: number) => (
+                                                                        <div key={i} className="space-y-1.5 border-b border-white/5 pb-2 last:border-0 last:pb-0">
+                                                                            <div className="flex items-center gap-2 text-[9px] text-slate-400 font-bold">
+                                                                                <span className="bg-white/10 px-1.5 py-0.5 rounded uppercase">{item.letter_id}</span>
+                                                                                <ArrowRight size={8} />
+                                                                                <span className="text-emerald-400/70 italic">AI Replying...</span>
+                                                                            </div>
+                                                                            <p className="text-[10px] text-slate-300 line-clamp-1 italic">"{item.content_brief}"</p>
+                                                                            <p className="text-[10px] text-emerald-400/80 line-clamp-1 font-medium bg-emerald-500/5 p-1.5 rounded-lg border border-emerald-500/10">
+                                                                                {item.reply_brief}
+                                                                            </p>
+                                                                        </div>
+                                                                    ))}
+                                                                    {log.details.replied_items.length > 3 && (
+                                                                        <p className="text-[9px] text-slate-600 text-center font-bold pt-1">và {log.details.replied_items.length - 3} thư khác...</p>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                            {log.details.count === 0 && (
+                                                                <p className="text-[10px] text-slate-500 italic text-center">Không có thư mới cần phản hồi.</p>
+                                                            )}
                                                         </div>
                                                     )}
 
                                                     {/* Fallback for other details */}
-                                                    {!log.details.action && Object.keys(log.details).length > 0 && (
-                                                        <div className="hidden group-hover/log:block bg-black/40 rounded-xl p-2">
-                                                            <pre className="text-[8px] text-indigo-300/60 font-mono">
+                                                    {Object.keys(log.details).length > 0 && 
+                                                     !log.details.action && 
+                                                     !log.details.category && 
+                                                     log.details.count === undefined && (
+                                                        <div className="group-hover/log:block bg-black/40 rounded-xl p-2">
+                                                            <pre className="text-[8px] text-indigo-300/60 font-mono overflow-x-auto">
                                                                 {JSON.stringify(log.details, null, 2)}
                                                             </pre>
                                                         </div>
