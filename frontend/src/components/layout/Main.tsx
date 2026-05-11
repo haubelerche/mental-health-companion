@@ -32,7 +32,7 @@ export default function Main() {
         const currentSettings = readAppSettings()
         return themeBackgroundMap[currentSettings.theme]
     })
-    const isFullBleedPage = location.pathname === ROUTE_PATHS.bamboo
+    const isFullBleedPage = location.pathname === ROUTE_PATHS.bamboo || location.pathname === ROUTE_PATHS.chat
 
     useEffect(() => {
         const handleSettingsUpdated = (event: Event) => {
@@ -81,7 +81,7 @@ export default function Main() {
             />
 
             <main
-                className={`min-h-screen transition-all duration-300 ${isSidebarOpen ? 'lg:ml-60' : 'lg:ml-0'}`}
+                className={`min-h-screen transition-all duration-300 ${isFullBleedPage ? '' : isSidebarOpen ? 'lg:ml-60' : 'lg:ml-0'}`}
             >
                 <div
                     className={

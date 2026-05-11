@@ -18,40 +18,7 @@ depends_on = None
 
 def upgrade() -> None:
     op.execute("CREATE SCHEMA IF NOT EXISTS app")
-    op.execute("SET search_path TO app, public, extensions")
-    op.execute(
-        """
-        DO $$
-        DECLARE
-          feature_table text;
-        BEGIN
-          FOREACH feature_table IN ARRAY ARRAY[
-            'heart_wallets',
-            'heart_reward_events',
-            'heart_spend_events',
-            'streak_states',
-            'nutrition_meal_checkins',
-            'persona_unlock_states',
-            'reward_store_items',
-            'user_inventory_items',
-            'memory_cards',
-            'memory_card_audit_events',
-            'knowledge_packs',
-            'knowledge_cards',
-            'user_knowledge_progress',
-            'user_notifications',
-            'user_notification_preferences'
-          ]
-          LOOP
-            IF to_regclass(format('app.%I', feature_table)) IS NULL
-               AND to_regclass(format('public.%I', feature_table)) IS NOT NULL
-            THEN
-              EXECUTE format('ALTER TABLE public.%I SET SCHEMA app', feature_table);
-            END IF;
-          END LOOP;
-        END $$;
-        """
-    )
+    op.execute("SET search_path TO app, extensions")
     op.execute(
         """
         CREATE TABLE IF NOT EXISTS app.heart_wallets (

@@ -30,6 +30,7 @@ class UserMemoryContext:
     active_goals: list[str]
     effective_coping: list[str]
     clinical_trajectory: str
+    onboarding: dict[str, Any]
 
 
 def _memory_context_cache_key(user_id: str, current_query: str) -> str:
@@ -94,6 +95,7 @@ def build_user_memory_context(
             active_goals=list(cached.get("active_goals") or []),
             effective_coping=list(cached.get("effective_coping") or []),
             clinical_trajectory=str(cached.get("clinical_trajectory") or ""),
+            onboarding=dict(cached.get("onboarding") or {}),
         )
 
     cache_key = profile_cache_key(user_id)
@@ -167,6 +169,7 @@ def build_user_memory_context(
         active_goals=active_goals,
         effective_coping=effective_coping,
         clinical_trajectory=_compute_clinical_trajectory(profile_data),
+        onboarding=dict(profile_data.get("onboarding") or {}),
     )
     cache_set_json(
         _memory_context_cache_key(user_id, current_query),
@@ -177,6 +180,7 @@ def build_user_memory_context(
             "traits": context.traits,
             "active_goals": context.active_goals,
             "effective_coping": context.effective_coping,
+            "onboarding": context.onboarding,
             "clinical_trajectory": context.clinical_trajectory,
         },
         ttl_sec=5,

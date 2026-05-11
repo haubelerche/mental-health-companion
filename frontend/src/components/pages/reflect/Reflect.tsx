@@ -1,7 +1,6 @@
-import { ArrowRight, ChevronRight, Flame, PenLine, Sparkles, Sprout, Star, Wind } from 'lucide-react'
+import { Flame, Sparkles, Sprout, Star, Wind } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
     Area,
     AreaChart,
@@ -19,27 +18,18 @@ import { useThemeContext } from '../../../contexts/ThemeContext'
 import { DayDetailSheet, type DayDetail } from '../wellness/DayDetailSheet'
 import { ProgressStats } from '../wellness/ProgressStats'
 import { dashboardService, type DashboardReflectSummary } from '../../../services/dashboardService'
-import { TinHieuCard } from '../../dashboard/TinHieuCard'
+import { SignCard } from '../../dashboard/SignCard'
 import { WellnessDimensionCards } from '../../dashboard/WellnessDimensionCards'
 import { CheckinHistoryModal } from '../../dashboard/CheckinHistoryModal'
 import { Skeleton } from './Skeleton'
+import Mascot from '../../pixel/Mascot'
+import PixelEmptyState from '../../pixel/PixelEmptyState'
 
 type WeeklyNotePayload = {
     week_of: string
     content: string
     generated_at: string
     is_cached: boolean
-}
-
-type JournalsPayload = {
-    journals: Array<{
-        journal_id: string
-        content_preview: string
-        prompt_id: string | null
-        created_at: string
-    }>
-    total: number
-    has_more: boolean
 }
 
 function dimsToRadarScores(dimensions: DashboardReflectSummary['wellness_dimensions']): WellnessScores {
@@ -68,23 +58,15 @@ function toShortWeekday(isoDate: string): string {
     return WEEKDAY_LABELS[parsed.getDay()] || ''
 }
 
-function formatPercent(value: number | null | undefined): string {
-    if (value == null || Number.isNaN(value)) return '--'
-    return `${Math.round(value * 100)}%`
-}
-
 export default function Reflect() {
     const { user } = useAuth()
     const { effectiveTheme } = useThemeContext()
     const isDark = effectiveTheme === 'dark'
-    const navigate = useNavigate()
 
     const [reflectSummary, setReflectSummary] = useState<DashboardReflectSummary | null>(null)
     const [weeklyNote, setWeeklyNote] = useState<WeeklyNotePayload | null>(null)
-    const [recentJournal, setRecentJournal] = useState<JournalsPayload['journals'][number] | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-    const [prompts, setPrompts] = useState<Array<{ id: string; text: string }>>([])
     const [selectedDay, setSelectedDay] = useState<DayDetail | null>(null)
     const [historyOpen, setHistoryOpen] = useState(false)
 
@@ -99,22 +81,13 @@ export default function Reflect() {
             setLoading(true)
             setError(null)
             try {
-                const [dashSummary, weeklyNoteData, journalsData] = await Promise.all([
+                const [dashSummary, weeklyNoteData] = await Promise.all([
                     dashboardService.getReflectSummary(),
                     httpClient.get<WeeklyNotePayload>('/reflect/weekly-note'),
-                    httpClient.get<JournalsPayload>('/reflect/journals?limit=1&offset=0'),
                 ])
                 if (!mounted) return
                 setReflectSummary(dashSummary)
                 setWeeklyNote(weeklyNoteData)
-                setRecentJournal(journalsData.journals[0] || null)
-                httpClient.get<{ prompts: Array<{ id: string; text: string }> }>('/reflect/journal-prompts')
-                    .then(d => {
-                        if (mounted) setPrompts(d.prompts)
-                    })
-                    .catch(() => {
-                        if (import.meta.env.DEV) console.warn('[Reflect] journal prompts fetch failed')
-                    })
             } catch {
                 if (!mounted) return
                 setError('Không tải được dữ liệu. Vui lòng thử lại sau.')
@@ -182,7 +155,7 @@ export default function Reflect() {
     const displayName = user?.displayName || 'bạn'
 
     return (
-        <div className={`relative min-h-screen overflow-hidden ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>
+        <div className={`relative min-h-screen overflow-x-hidden ${isDark ? 'text-theme-text-primary' : 'text-serene-ink'}`}>
 
             {/* DayDetailSheet rendered outside stacking context */}
             <DayDetailSheet detail={selectedDay} onClose={() => setSelectedDay(null)} />
@@ -191,7 +164,13 @@ export default function Reflect() {
             <div className="flex-1">
                 <div className="mx-auto flex w-full max-w-5xl flex-col items-center">
                     <section className={`w-full rounded-[2.5rem] border border-theme-border bg-theme-surface/80 p-4 backdrop-blur-3xl md:p-7 lg:p-8`}>
-                        <div className="text-center">
+                        <div className="flex flex-col items-center text-center">
+                            <Mascot
+                                variant={reflectSummary && chartData.some((point) => point.mood < 45) ? 'quiet' : 'sunflower'}
+                                size="xl"
+                                decorative
+                                className="mb-3 max-sm:h-20 max-sm:w-20"
+                            />
                             <p className={`mb-3 text-xs font-semibold uppercase tracking-[0.28em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-primary/70'}`}>
                                 Nhìn Lại
                             </p>
@@ -215,7 +194,7 @@ export default function Reflect() {
 
                         {!loading && reflectSummary && (
                             <div className="mt-6">
-                                <TinHieuCard sufficiency={reflectSummary.sufficiency} insights={reflectSummary.top_insights} isDark={isDark} />
+                                <SignCard sufficiency={reflectSummary.sufficiency} insights={reflectSummary.top_insights} isDark={isDark} />
                             </div>
                         )}
 
@@ -289,11 +268,12 @@ export default function Reflect() {
                                             </AreaChart>
                                         </ResponsiveContainer>
                                     ) : (
-                                        <div className={`flex min-h-72 flex-col items-center justify-center gap-2 rounded-3xl border px-6 text-center text-sm ${isDark ? 'border-theme-border/30 bg-theme-surface/40 text-theme-text-secondary' : 'border-theme-border/10 bg-theme-surface/50 text-serene-muted'} md:min-h-80`}>
-                                            <p>Chưa đủ dữ liệu để vẽ xu hướng.</p>
-                                            <p className="text-xs leading-relaxed opacity-70 md:text-sm">
-                                                Cần ít nhất 3 ngày có check-in hoặc 5 check-in để Serene vẽ mood trend đáng tin hơn.
-                                            </p>
+                                        <div className={`${isDark ? 'text-theme-text-secondary' : 'text-serene-muted'}`}>
+                                            <PixelEmptyState
+                                                mascot="quiet"
+                                                title="Chưa đủ dữ liệu để vẽ xu hướng"
+                                                description="Cần ít nhất 3 ngày có check-in hoặc 5 check-in để Serene vẽ mood trend đáng tin hơn."
+                                            />
                                         </div>
                                     )}
                                 </div>
@@ -325,25 +305,15 @@ export default function Reflect() {
                                     </button>
                                 </div>
                                 <p className={`mb-3 text-xs ${isDark ? 'text-theme-text-secondary/90' : 'text-serene-muted'}`}>
-                                    Ô xanh là ngày đã có ít nhất một check-in. Chạm vào lịch để mở chi tiết các lần check-in.
+                                    Số trong ô là mood ước lượng (chạm để xem chi tiết ngày). Dấu ✓ là ngày đã check-in chưa có điểm mood — chạm để mở lịch sử check-in.
                                 </p>
                                 <MoodCalendar
-                                    mode="completion"
+                                    mode="combined"
+                                    points={moodCalendarPoints}
                                     completedDates={completedDateSet}
+                                    onDayClick={(date, score, label) => setSelectedDay({ date, score, label })}
                                     onOpenHistory={() => setHistoryOpen(true)}
                                 />
-                                {moodCalendarPoints.length > 0 && (
-                                    <div className="mt-8 border-t border-white/20 pt-6 dark:border-theme-border/30">
-                                        <p className={`mb-3 text-[10px] uppercase tracking-[0.28em] ${isDark ? 'text-theme-text-secondary' : 'text-serene-muted'}`}>
-                                            Chi tiết mood theo ngày (ước lượng)
-                                        </p>
-                                        <MoodCalendar
-                                            points={moodCalendarPoints}
-                                            mode="score"
-                                            onDayClick={(date, score, label) => setSelectedDay({ date, score, label })}
-                                        />
-                                    </div>
-                                )}
                             </section>
                         )}
 

@@ -124,7 +124,7 @@ class TestVoiceInterventionPayload:
                 db=MagicMock(),
                 user_id="u1",
                 session_id="s1",
-                assistant_reply_for_tts="Nếu bạn đang gặp nguy hiểm, hãy gọi hotline hỗ trợ ngay.",
+                voice_script="Nếu bạn đang gặp nguy hiểm, hãy gọi hotline hỗ trợ ngay.",
                 snapshot=SafetySnapshot(
                     distress_score=0.95,
                     risk_level=5,
@@ -151,7 +151,7 @@ class TestVoiceInterventionPayload:
                 db=MagicMock(),
                 user_id="u2",
                 session_id="s2",
-                assistant_reply_for_tts="Mình ở đây với bạn. Hít thở chậm cùng mình nhé.",
+                voice_script="Mình ở đây với bạn. Hít thở chậm cùng mình nhé.",
                 snapshot=SafetySnapshot(
                     distress_score=0.9,
                     risk_level=5,

@@ -170,7 +170,7 @@
           },
           "summary_embedding_ref": {
             "type": ["string", "null"],
-            "description": "memory_id of the session_summary row in conversation_memories (for RAG lookup)."
+            "description": "Optional reference to the retrieval memory row when one is produced."
           },
           "dominant_emotion": {
             "type": ["string", "null"],

@@ -57,7 +57,8 @@ def auth_test_db():
         future=True,
     )
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, class_=Session)
-    Base.metadata.create_all(bind=engine)
+    tables_for_sqlite = [t for t in Base.metadata.sorted_tables if not t.schema]
+    Base.metadata.create_all(bind=engine, tables=tables_for_sqlite)
 
     def override_db():
         db = SessionLocal()

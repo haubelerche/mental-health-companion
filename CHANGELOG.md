@@ -4,9 +4,206 @@
 
 ---
 
+## [Unreleased] — Chat router: stream tests and voice policy · 2026-05-10
+
+### Fixed
+- `backend/app/api/v1/routers/chat.py` — removed unreachable duplicate block after `return` in `_enqueue_voice_policy`; restored correct Vietnamese strings in `_build_voice_intervention` crisis footer.
+- `backend/tests/test_chat_router_integration.py` — stream endpoint tests now override `ensure_policy_acknowledged_for_stream`, mock `get_voice_consent`, and stub `_enqueue_voice_policy` instead of legacy `_build_voice_intervention` hooks.
+- `backend/tests/test_voice_escalation.py` — use `voice_script=` kwarg matching `_build_voice_intervention` signature.
+- `backend/tests/test_vietnamese_chat_style.py` — broaden assertion for `build_response_plan` output tied to deadline stress wording.
+
+---
+
+## [Unreleased] — Response quality: Vietnamese short replies · 2026-05-10
+
+### Fixed
+- `backend/app/services/safety_output_validator.py` — heuristic `missing_context_anchor` trước đây gần như luôn fail với câu chat tiếng Việt ngắn hợp lệ (yêu cầu ≥16 token), khiến `build_response_plan` thay toàn bộ bằng fallback viết sẵn thay vì giữ output LLM đã qua `render_final_text`. Nay dùng ngưỡng mềm hơn (≥40 ký tự hoặc ≥6 token).
+- `frontend/src/components/pages/chat/Chat.tsx` — thông báo khi SSE không nhận được sự kiện `final` (thường gặp khi backend `--reload` ngắt stream) rõ hơn cho người dùng dev.
+
+### Added
+- `backend/tests/test_safety_output_validator.py` — kiểm tra ngưỡng context anchor với câu trả lời ngắn tiếng Việt.
+
+---
+
+## [Unreleased] — Chat scene: frame doorway cats · 2026-05-10
+
+### Changed
+- `frontend/src/components/pages/chat/Chat.tsx` — vùng pixel-art phía trên: tăng nhẹ chiều cao (`38vh` → `42vh`), `object-position` dọc `62%` → `78%` để đưa hai chú mèo ở cửa lên giữa khung; thu overlay gradient đáy (28% → 20%) và làm fade mềm hơn để mèo ít bị che.
+
+---
+
+## [Unreleased] — SOS voice: clickable play button when browser blocks autoplay · 2026-05-09
+
+### Fixed
+- `frontend/src/components/pages/chat/Chat.tsx` — khi trình duyệt chặn auto-play (do chính sách autoplay), `playAudioUrl` trước đây bỏ mất URL âm thanh và chỉ hiện toast "bấm play thủ công" mà không có nút nào để bấm. Nay URL được lưu vào state `pendingAudioUrl`; HUD hiển thị nút "Nhấn để nghe" (▶) có thể bấm; khi người dùng bấm, trình duyệt cho phép phát vì có user gesture. Nút tự biến mất sau khi âm thanh bắt đầu phát thành công. Trạng thái `pendingAudioUrl` cũng được xóa khi bắt đầu cuộc trò chuyện mới.
+
+---
+
+## [Unreleased] — SOS response diversity: LLM crisis plan + voice dedup fix · 2026-05-09
+
+### Changed
+- `backend/app/core/config.py` — mặc định `DB_POOL_SIZE` / `DB_MAX_OVERFLOW` tăng lên 5 để dev ít bị cạn pool khi chat stream + WS + request khác chạy song song.
+- `backend/app/api/v1/routers/chat.py` — `POST /v1/chat/message/stream` tự mở session (`get_session_factory`), `commit` + `close` session trước khi gọi LLM stream dài, rồi mở session mới cho bước ghi assistant/voice; tránh giữ 1 kết nối suốt SSE (gây `QueuePool` timeout → 500 không có CORS trên browser).
+- `.env.example` — ghi chú và ví dụ pool 5/5 cho local.
+- `backend/tests/test_chat_router_integration.py` — stream test monkeypatch `get_session_factory` + `StreamFakeDB` / noop memory-voice cho khớp luồng mới.
+- `backend/tests/test_pool_soak.py` — soak dùng `create_engine(real_db_url, pool_size=10, …)` riêng, không dùng singleton app (tránh `DB_POOL_SIZE=1` làm fail 8 worker).
+- `backend/tests/test_text_encoding_contract.py` — sửa đường dẫn `Chat.tsx` / `CheckinFlow.tsx` theo cấu trúc thư mục hiện tại.
+- `backend/tests/test_oauth_flows.py` — override `get_db` từ `app.services.db.session`; engine SQLite thêm `schema_translate_map` để bảng schema `app` không gây `unknown database app`.
+- `frontend/src/components/dashboard/WellnessDimensionCards.tsx` — khối “6 chiều sức khỏe” chuyển từ lưới 6 cột (thẻ quá hẹp trên màn rộng) sang một hàng cuộn ngang: mỗi thẻ `min-width` cố định (~20rem / 80 trên `sm`), `snap-x`, gợi ý “Vuốt ngang”.
+- `frontend/src/components/pages/reflect/Reflect.tsx` — gốc trang dùng `overflow-x-hidden` thay cho `overflow-hidden` để tránh cắt / xung đột cuộn với vùng cuộn ngang.
+- `frontend/src/components/pages/wellness/MoodCalendar.tsx` — thêm `mode="combined"`: một lưới 28 ngày vừa điểm mood (số %) vừa ngày chỉ check-in (✓).
+- `frontend/src/components/pages/reflect/Reflect.tsx` — gộp hai `MoodCalendar` (check-in + mood) thành một lịch `combined`; chú thích một dòng cho cả hai loại ô.
+
+### Fixed
+- `backend/app/services/crisis_intervention_planner.py` — `build_llm_crisis_messages()` was a no-op stub that deleted its arguments and called the fallback, causing every SOS turn to show the same 3 hardcoded `visible_text` variants forever. Replaced with `build_llm_crisis_plan()` that actually calls the LLM (`openai_model_analyst`, temperature=0.9) to generate contextual `visible_text`, `voice_script`, and `follow_up_question` specific to the user's message; output validated by `validate_crisis_plan()` with fallback to deterministic template on any error.
+- `backend/app/api/v1/routers/chat.py` — SOS path (both stream and non-stream): crisis plan is now built before `assistant_msg` creation so `Message.content` stored in DB is consistent with `crisis_plan.visible_text` shown on frontend; `action_cards` and `safety_reason_codes` remain from deterministic base.
+- `frontend/src/components/pages/chat/Chat.tsx` — `applyIntervention` replayed the same voice job IDs on every call; added `playedVoiceJobsRef` (Set) to skip already-processed job IDs. Cleared on new chat.
+
+---
+
+## [Unreleased] — Multi-agent audit: voice fix + nutrition wiring + memory diagnosis · 2026-05-09
+
+### Changed
+- `frontend/src/components/pages/Home.tsx` — khung “Nhịp sống hôm nay” import GIF đêm từ `assets_gif/serene-landing-night-welcome.gif` cho khung buổi tối (18:00–24:00); đồng hồ giờ cục bộ cập nhật mỗi phút và khi quay lại tab để ảnh/khung giờ khớp thời gian thực.
+- `frontend/src/assets_gif/serene-landing-night-welcome.gif` — asset pixel đêm cho thẻ nhịp buổi tối.
+
+### Fixed
+- `backend/app/services/proactive_voice.py` — `get_voice_job` crashed with `TypeError: can't subtract offset-naive and offset-aware datetimes` because `row.created_at` is `timestamptz` (timezone-aware) but `now` had tzinfo stripped. Fix: strip tzinfo from `row.created_at` before subtraction.
+- `backend/app/services/proactive_voice.py` — `reclaim_stale_processing_jobs` computed a naive `threshold` that would be incorrectly compared to a `timestamptz` column; changed to use timezone-aware `get_now()` directly.
+
+### Added
+- `backend/app/services/langgraph_chat.py` — `ChatGraphState` now includes `nutrition_meals: list[dict] | None`; both `run_non_sos_turn` and `stream_non_sos_turn_events` accept and forward this field.
+- `backend/app/services/langgraph_chat.py` — `analyst_node` injects today's meal check-ins into the analyst user payload when `nutrition_meals` is present, enabling AnalystNode to reason about nutrition patterns.
+- `backend/app/api/v1/routers/chat.py` — both stream and non-stream chat paths now load today's meal check-ins from `NutritionMealCheckin` (per-user, current date) and pass them to the graph.
+- `backend/app/services/longterm_memory.py` — `UserMemoryContext` gains an `onboarding` field populated from `UserProfile.profile['onboarding']`; chat router merges this into `user_traits` so FriendNode sees onboarding context.
+- `backend/app/api/v1/routers/chat.py` — `_maybe_extract_cards` now logs extraction candidate count and created card count at `INFO` level for diagnosing memory card pipeline.
+
+---
+
+## [Unreleased] — Chat visual novel redesign + asset path fixes · 2026-05-09
+
+### Changed
+- `frontend/src/components/pages/chat/Chat.tsx` — redesigned to visual novel split layout: pixel scene panel (top 38vh) with HUD overlay, dark RPG dialogue panel below with nameplate system (`▸ SERENE` / `BẠN ◂`), cream AI boxes, dark teal user boxes, gold corner brackets, gradient border. Removed `[image-rendering:pixelated]` to restore GIF animation; `objectPosition: center 62%` keeps cats visible; bottom vignette reduced to 28%.
+- `frontend/src/components/pages/chat/Chat.tsx` — `QuickReplies` dark-themed; `showDivider` guards `!isNaN(timestamp)` to prevent "Invalid Date".
+
+### Fixed
+- `frontend/src/components/pages/Home.tsx`, `Notifications.tsx`, `RewardsPage.tsx`, `CheckinFlow.tsx`, `RewardCard.tsx` — broken imports from deleted `src/assets_gif/` root remapped to `src/assets/assets_gif/` equivalents; build passes clean.
+
+---
+
+## [Unreleased] — Chat full-bleed layout fix · 2026-05-09
+
+### Fixed
+- `frontend/src/components/layout/Main.tsx` — chat page was constrained by the shared `max-w-6xl px-4 pb-24` wrapper and shifted by the sidebar `lg:ml-60` margin, causing the pixel-scene chat to appear in a narrow centered column. Added `/serene/chat` to the `isFullBleedPage` check so the chat route gets a zero-padding, zero-margin, full-viewport container identical to the bamboo page.
+
+---
+
+## [Unreleased] — Pixel Scene Chat Layout · 2026-05-09
+
+### Added
+- `frontend/src/assets/chat/page-serene-chat.gif` — added the pixel storefront scene as the chat background asset.
+
+### Changed
+- `frontend/src/components/pages/chat/Chat.tsx` — restyled the chat screen around the pixel background with fullscreen square-edge layout, darker overlay chrome, cream assistant boxes, dark user boxes, pixel-styled attachment cards, and a bottom command-style input bar.
+- `frontend/src/components/pages/chat/TypingIndicator.tsx` and `DateDivider.tsx` — aligned transient chat UI with the pixel box style and removed the mascot from the typing indicator.
+
+---
+
+## [Unreleased] — Rewards Pixel Icon Refresh · 2026-05-09
+
+### Added
+- `frontend/src/assets/rewards/` — added reward shelf and persona GIF assets for book, hearts, plant, Cún, and Crush icons used by the store UI.
+
+### Changed
+- `frontend/src/components/pages/rewards/RewardShelf.tsx` and `KnowledgeShelf.tsx` — replaced shelf heading mascots with the requested pixel icons for Tri thức, Người đồng hành, Không gian, and Tính cách.
+- `frontend/src/components/pages/rewards/RewardCard.tsx` — persona reward cards now show Cún, Mèo, or Crush character art instead of the generic gift icon when the item maps to those personas.
+
+---
+
+## [Unreleased] — Chat UI Cleanup · 2026-05-09
+
+### Fixed
+- `frontend/src/components/pages/chat/Chat.tsx` — removed pixel mascot/cat rendering from the chat header, empty state, and assistant messages so the chat screen stays clean and non-scene-based.
+
+### Changed
+- `frontend/src/components/pages/chat/Chat.tsx` — refreshed the chat container, message bubbles, tab spacing, retry notice, and input bar to match a compact glass-card chat layout while preserving existing chat, SOS, voice, memory, and history behavior.
+
+---
+
+## [Unreleased] — Chat persona list, Friend reply context, proactive voice · 2026-05-09
+
+### Fixed
+- `backend/app/personas/progression.py` — `GET /rewards/personas/progress` now prepends core personas `ban_than` and `nguoi_thay` with `is_core` / `unlocked` so the chat persona dropdown can render all five entries
+- `backend/app/services/langgraph_chat.py` — `_postprocess_friend_reply` no longer replaces every non-empty `ban_than` LLM reply with the generic empathy template (short or casual user turns stayed on-script)
+- `frontend/src/components/pages/chat/PersonaSelector.tsx` — parallel loads use per-request timeout and distinct error copy for `/auth/me` vs `/rewards/personas/progress` (avoids infinite “Đang tải…” on hung fetch)
+
+### Changed
+- `backend/app/core/config.py` — default `proactive_voice_auto_distress_threshold` lowered from `0.8` to `0.68` (overridable via `PROACTIVE_VOICE_AUTO_DISTRESS_THRESHOLD`)
+- `.env.example` — sample `PROACTIVE_VOICE_AUTO_DISTRESS_THRESHOLD` aligned to `0.68`
+- `backend/app/services/proactive_voice.py` — `message_suggests_proactive_voice()` for high-intensity / extremist-leaning phrasing; `backend/app/api/v1/routers/chat.py` `_maybe_enqueue_voice` enqueues TTS when keyword cue matches and distress ≥ `0.48`, with `trigger_reason` `keyword_intensity_voice`
+
+### Added
+- `backend/tests/test_persona_progression.py` — regression test for core-first persona progress list
+- `backend/tests/test_proactive_voice.py` — tests for `message_suggests_proactive_voice`
+
+### Removed
+- `backend/app/api/v1/routers/chat.py` — duplicate imports of `route_persona` / `is_persona_unlocked`
+
+---
+
+## [Unreleased] — Fix Async Event-Loop in Neo4j Fetch · 2026-05-08
+
+### Fixed
+- `backend/app/services/crisis_intervention_planner.py` — restored backward-compatible SOS planner API expected by `chat.py` (`build_llm_crisis_messages`, `follow_up_texts`, `additional_voice_scripts`, and `all_voice_scripts`) so FastAPI app startup no longer crashes with `ImportError: cannot import name 'build_llm_crisis_messages'`
+- `backend/app/services/langgraph_chat.py` — removed `asyncio.run()` / `loop.run_until_complete()` blocks from `run_non_sos_turn` and `stream_non_sos_turn_events`; these calls silently fail inside FastAPI/uvicorn because there is already a running event loop
+- `backend/app/api/v1/routers/chat.py` — Neo4j fetch moved to route handler level via `asyncio.run(get_user_patterns_async(...))` before entering the graph; both `send_message` and the `event_stream()` generator (sync FastAPI paths running in threadpool where no event loop is active) now own the fetch and pass the result as `graph_patterns=` to `run_non_sos_turn` / `stream_non_sos_turn_events`
+
+### Changed
+- `backend/app/services/langgraph_chat.py` — `run_non_sos_turn` and `stream_non_sos_turn_events` each gain a new `graph_patterns: dict | None = None` keyword parameter; `graph_patterns or {}` is used when building the graph state; stream fallback path passes `_stream_graph_patterns` through to `run_non_sos_turn`
+
+---
+
+## [Unreleased] — Analyst Neo4j Graph Context · 2026-05-08
+
+### Added
+- `backend/app/services/neo4j_client.py` — `get_user_patterns_async(user_id, limit)` async function; wraps sync Neo4j driver via `asyncio.to_thread()` to avoid blocking the event loop; returns `{triggers, emotions, coping, available}` dict; fail-safe — returns `available=False` with empty lists on any error (no driver, query failure, or timeout)
+- `backend/tests/test_db_integration.py` — two new `@pytest.mark.asyncio` unit tests: `test_get_user_patterns_async_no_driver` (driver=None → available=False) and `test_get_user_patterns_async_filters_none_names` (None-name rows are filtered before return)
+- `backend/app/services/langgraph_chat.py` — `graph_patterns: dict` field added to `ChatGraphState` TypedDict; Neo4j patterns are now pre-fetched before graph invocation in both `run_non_sos_turn` and `stream_non_sos_turn_events`, then passed in as state; `analyst_node` reads from state instead of calling blocking I/O directly; injected graph context block is sanitized via `_sanitize_prompt_block` before prompt insertion
+
+### Changed
+- `backend/app/services/langgraph_chat.py` — `analyst_node()` now reads derived behavioral patterns from `state["graph_patterns"]` (pre-fetched by callers) instead of calling `_query_user_patterns_sync` (a blocking sync function) directly; removed private import `_query_user_patterns_sync`; replaced with `get_user_patterns_async`; both `run_non_sos_turn` and `stream_non_sos_turn_events` pre-fetch Neo4j patterns using `asyncio.run` (with event-loop fallback for test environments) before entering the graph; debug log `analyst_node graph_context_used=<bool>` emitted on every call
+
+### Fixed
+- `backend/app/services/langgraph_chat.py` — eliminated sync blocking call to `_query_user_patterns_sync` inside `analyst_node()` which is a sync LangGraph node invoked inside `graph.invoke()` from async FastAPI handlers; pattern fetch is now moved to the pre-graph stage where it can run safely; injected Neo4j context block is now sanitized through `_sanitize_prompt_block` to strip injection patterns before insertion into the system prompt (previously unsanitized)
+
+---
+
+## [Unreleased] — Database Audit Remediation · 2026-05-08
+
+### Added
+- `backend/app/services/risk_writer.py` — synchronous `RiskInferenceLog` and `SessionRiskSnapshot` writers; called from `_record_sos_side_effects` (score=1.0, source=sos_override) and `_queue_human_review` (score=distress_score, source=supervisor) in `chat.py`
+- `backend/app/services/analyst_writer.py` — analyst signal + insight hypothesis pipeline (`record_analyst_signal`, `upsert_insight_hypothesis`); wired into `close_session_summary` after profile rollup; SOS sessions are skipped
+- `backend/alembic/versions/0021_screening_answers_table.py` — migration adding `app.screening_answers` (backend-only raw questionnaire answer store with instrument check constraint and composite index)
+- `backend/app/services/db/models.py` — `ScreeningAnswer` ORM model (`answer_id`, `user_id`, `instrument_id`, `raw_score`, `answers`, `submitted_at`)
+
+### Changed
+- `backend/app/api/v1/routers/screening.py` — `POST /screenings/submit` now stores only coverage boolean metadata in `clinical_profiles.phq9_coverage`/`gad7_coverage`; raw answers go to `ScreeningAnswer` table — closes audit High severity finding §3
+- `backend/app/services/session_summary.py` — `close_session_summary` calls `record_analyst_signal` + `upsert_insight_hypothesis` after profile rollup; failures are caught and logged without blocking the summary commit
+- `backend/app/dashboard/service.py` — removed dead `_profile_insights()` and `_build_insight_cards()` heuristic card functions; `build_safe_insight_cards` signature drops unused `profile_data` parameter; all three callers updated
+- `backend/app/api/v1/routers/chat.py` — imports `record_risk_inference` and `record_session_risk_snapshot` from `risk_writer`; SOS and high-distress paths now write safety audit rows synchronously before commit
+- `DATABASE_DESIGN_AUDIT_REPORT.md` and `DATABASE_REFACTOR_PHASE_PLAN.md` — added deployment handoff notes confirming all remaining audit findings are closed, documenting the `build_safe_insight_cards` breaking change, and calling out required production migration `0021_screening_answers_table`
+
+### Fixed
+- Safety audit trail gap: `risk_inference_log` and `session_risk_snapshots` now receive writes on SOS and high-distress turns (previously models existed but had no writers)
+- Analyst pipeline gap: `analyst_signals` and `insight_hypotheses` now receive writes at session close (previously models existed but had no writers)
+- Heuristic insight cards no longer appear in `build_safe_insight_cards` output; only evidence-backed `InsightHypothesis` rows with `evidence_count > 0` are served to the dashboard
+
+---
+
 ## [Unreleased] — Sprint A Phase 5 · 2026-05-07
 
 ### Fixed
+- **Cursor agent token-waste guardrail**: Added an always-applied workspace rule at `.cursor/rules/no-auto-python-execution.mdc` to prevent automatic Python interpreter discovery and Python command execution (`python`, `py`, `pytest`, `alembic`) unless the user explicitly requests it.
 - **ORM column names aligned to SQL schema**: Renamed `tone_cam_xuc` → `assistant_tone` (with updated `CheckConstraint` accepting `supportive|validating|cheerful|calming|mentor|neutral`) and `muc_do` → `severity_level` (with `CheckConstraint` accepting `low|moderate|high|imminent|unknown`) in `backend/app/services/db/models.py`. Propagated the rename across all reference sites: `chat.py`, `admin.py`, `langgraph_chat.py` (TypedDict field, dict keys, LLM prompt, `build_normal_envelope` parameter), and `session_summarizer.py` (dataclass field, raw SQL query, attribute accesses).
 - **Chat stream 500 — `mood_checkins.time_bucket` undefined**: Local DB was stamped at `0005_letters_schema` while the model expected `0011_mood_checkin_time_bucket`; running `alembic upgrade head` failed at `0006_reports_enhancement` because the optional `reports` table never existed (no `Report` model is created by `init_db`). Made `0006_reports_enhancement` idempotent: it now no-ops when `reports` is absent, and column / index additions are guarded so re-runs are safe. Re-running `alembic upgrade head` now applies `0007 → 0011`, restoring the `time_bucket` column and unblocking `POST /v1/chat/message/stream`.
 

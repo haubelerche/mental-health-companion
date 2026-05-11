@@ -33,7 +33,8 @@ def db():
     def set_sqlite_pragma(conn, _):
         conn.execute("PRAGMA foreign_keys=ON")
 
-    Base.metadata.create_all(engine)
+    tables_for_sqlite = [t for t in Base.metadata.sorted_tables if not t.schema]
+    Base.metadata.create_all(engine, tables=tables_for_sqlite)
     with Session(engine) as session:
         user = User(
             user_id="usr_test",
@@ -45,7 +46,7 @@ def db():
         session.add(user)
         session.commit()
         yield session
-    Base.metadata.drop_all(engine)
+    Base.metadata.drop_all(engine, tables=tables_for_sqlite)
 
 
 # ---------------------------------------------------------------------------

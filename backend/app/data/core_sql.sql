@@ -33,7 +33,6 @@ create extension if not exists vector with schema extensions;
 drop table if exists extensions.admin_audit_log cascade;
 drop table if exists extensions.bookmarks cascade;
 drop table if exists extensions.clinical_profiles cascade;
-drop table if exists extensions.conversation_memories cascade;
 drop table if exists extensions.conversations cascade;
 drop table if exists extensions.crisis_logs cascade;
 drop table if exists extensions.messages cascade;
@@ -53,7 +52,7 @@ drop table if exists extensions.users cascade;
 drop schema if exists app cascade;
 create schema app;
 
-set search_path = app, public, extensions;
+set search_path = app, extensions;
 
 
 -- ============================================================
@@ -327,57 +326,6 @@ create table app.play_events (
 -- ============================================================
 -- 7. MEMORY / PROFILE / SESSION SUMMARY
 -- ============================================================
-
-create table app.conversation_memories (
-  memory_id text primary key default extensions.gen_random_uuid()::text,
-  user_id text not null references app.users(user_id) on delete cascade,
-  session_id text references app.conversations(session_id) on delete set null,
-
-  -- Store sanitized memory extracted from chat/check-in/session summary.
-  -- Do not store raw message text here because app.messages already stores transcript.
-  content text not null,
-
-  memory_type text check (
-    memory_type is null or memory_type in (
-      'preference',
-      'goal',
-      'trait',
-      'trigger',
-      'coping',
-      'relationship',
-      'routine',
-      'summary',
-      'other'
-    )
-  ),
-
-  source text not null default 'chat_turn'
-    check (source in ('chat_turn', 'session_summary', 'checkin', 'manual', 'system')),
-
-  embedding extensions.vector(1536),
-
-  importance_score double precision check (
-    importance_score is null or importance_score between 0 and 1
-  ),
-  confidence double precision check (
-    confidence is null or confidence between 0 and 1
-  ),
-
-  pii_checked boolean not null default false,
-  is_deleted boolean not null default false,
-
-  expires_at timestamptz,
-  created_at timestamptz not null default now()
-);
-
--- INDEX REMOVED FROM FAST CORE SCRIPT. Run optional index script after core migration.
-
--- INDEX REMOVED FROM FAST CORE SCRIPT. Run optional index script after core migration.
-
--- Optional vector index.
--- If your dataset is still small, you can create this later.
--- INDEX REMOVED FROM FAST CORE SCRIPT. Run optional index script after core migration.
-
 
 create table app.session_summaries_archive (
   archive_id bigint generated always as identity primary key,
@@ -699,6 +647,7 @@ create table app.sync_outbox (
   error_message text,
 
   created_at timestamptz not null default now(),
+  processing_started_at timestamptz,
   processed_at timestamptz,
 
   user_id text references app.users(user_id) on delete set null
@@ -747,7 +696,7 @@ returns text
 language sql
 stable
 security definer
-set search_path = app, public, extensions
+set search_path = app, extensions
 as $$
   select u.user_id
   from app.users u
@@ -766,7 +715,6 @@ alter table app.mood_checkins enable row level security;
 alter table app.resources enable row level security;
 alter table app.bookmarks enable row level security;
 alter table app.play_events enable row level security;
-alter table app.conversation_memories enable row level security;
 alter table app.session_summaries_archive enable row level security;
 alter table app.user_profiles enable row level security;
 alter table app.user_profile_snapshots enable row level security;
@@ -832,11 +780,6 @@ on app.play_events
 for all
 using (user_id = app.current_app_user_id())
 with check (user_id = app.current_app_user_id());
-
-create policy conversation_memories_owner_select
-on app.conversation_memories
-for select
-using (user_id = app.current_app_user_id() and is_deleted = false);
 
 create policy user_profiles_owner_select
 on app.user_profiles

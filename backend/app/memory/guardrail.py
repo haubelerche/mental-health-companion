@@ -10,18 +10,10 @@ Rules (plan 06):
 
 from __future__ import annotations
 
-import re
 from typing import TypedDict
 
-DIAGNOSIS_PATTERNS = [
-    r"\b(trầm cảm|rối loạn|tâm thần|hoang tưởng|tự kỷ|ám ảnh|lo âu rối loạn)\b",
-    r"\bbạn (bị|mắc|có)\b.{0,30}(rối loạn|disorder|syndrome|phobia)",
-    r"\b(depression|anxiety disorder|OCD|PTSD|bipolar|schizophrenia)\b",
-]
-
-SOS_PATTERNS = [
-    r"\b(tự tử|tự làm hại|muốn chết|kết thúc cuộc sống|suicide|self.harm|kill (myself|yourself))\b",
-]
+# Patterns are owned by safety/content_guardrail.py — do not duplicate here.
+from app.safety.content_guardrail import has_diagnosis_language, has_sos_signal
 
 MAX_CONTENT_CHARS = 300
 MAX_TITLE_CHARS = 120
@@ -67,14 +59,12 @@ def review_memory_candidate(
     if confidence is not None and not (0.0 <= confidence <= 1.0):
         return GuardrailResult(approved=False, rejection_reason="invalid_confidence")
 
-    text = f"{title} {content}".lower()
+    text = f"{title} {content}"
 
-    for pattern in SOS_PATTERNS:
-        if re.search(pattern, text, re.IGNORECASE):
-            return GuardrailResult(approved=False, rejection_reason="sos_content")
+    if has_sos_signal(text):
+        return GuardrailResult(approved=False, rejection_reason="sos_content")
 
-    for pattern in DIAGNOSIS_PATTERNS:
-        if re.search(pattern, text, re.IGNORECASE):
-            return GuardrailResult(approved=False, rejection_reason="diagnosis_language")
+    if has_diagnosis_language(text):
+        return GuardrailResult(approved=False, rejection_reason="diagnosis_language")
 
     return GuardrailResult(approved=True, rejection_reason=None)

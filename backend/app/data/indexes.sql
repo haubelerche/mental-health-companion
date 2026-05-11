@@ -7,7 +7,7 @@
 -- from a migration tool or psql session, not inside a transaction.
 -- ============================================================
 
-set search_path = app, public, extensions;
+set search_path = app, extensions;
 
 -- ============================================================
 -- NORMAL BTREE / GIN INDEXES
@@ -68,16 +68,6 @@ on app.play_events(user_id, tracked_at desc);
 
 create index idx_play_events_resource_tracked
 on app.play_events(resource_id, tracked_at desc);
-
-
-create index idx_conversation_memories_user_created
-on app.conversation_memories(user_id, created_at desc)
-where is_deleted = false;
-
-
-create index idx_conversation_memories_user_type
-on app.conversation_memories(user_id, memory_type)
-where is_deleted = false;
 
 
 create index idx_session_summaries_user_archived
@@ -179,21 +169,6 @@ on app.admin_audit_log(admin_id, created_at desc);
 
 create index idx_admin_audit_metadata_gin
 on app.admin_audit_log using gin (metadata);
-
-
--- ============================================================
--- OPTIONAL VECTOR INDEX
--- ============================================================
--- Run this only after pgvector is installed and after you confirm
--- conversation_memories has enough rows to benefit from ANN search.
--- For small datasets, exact vector search may be enough initially.
-
-
-create index idx_conversation_memories_embedding_ivfflat
-on app.conversation_memories
-using ivfflat (embedding extensions.vector_cosine_ops)
-with (lists = 100)
-where embedding is not null;
 
 
 -- ============================================================

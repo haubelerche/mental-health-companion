@@ -5,6 +5,7 @@ import logging
 import time
 
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.services.db.models import SyncOutbox
 from app.services.db.session import get_session_factory
@@ -36,10 +37,14 @@ async def _dispatch_async(event: SyncOutbox, db: Session) -> None:
         try:
             from app.services.notification_dispatcher import dispatch_notification_event
             # Call dispatcher directly since we are already in an async context
-            await dispatch_notification_event(event, db)
+            dispatched = await dispatch_notification_event(event, db)
+            if dispatched is False:
+                raise ValueError(f"Notification dispatcher rejected event_type={event_name}")
         except Exception as e:
             logger.error(f"Failed to dispatch notification event {event.outbox_id}: {e}")
+            raise
         return
+    raise ValueError(f"Outbox event_type is not owned by notification worker: {event_name}")
 
 async def process_outbox_batch_async(limit: int = 50) -> int:
     """Process a batch of events asynchronously"""
@@ -50,7 +55,10 @@ async def process_outbox_batch_async(limit: int = 50) -> int:
         # Fetch and lock pending rows so concurrent workers do not process the same batch.
         rows = db.scalars(
             select(SyncOutbox)
-            .where(SyncOutbox.status == "pending")
+            .where(
+                SyncOutbox.status == "pending",
+                SyncOutbox.event_type.in_(NOTIFICATION_EVENT_TYPES),
+            )
             .order_by(SyncOutbox.created_at.asc())
             .limit(limit)
             .with_for_update(skip_locked=True)
@@ -75,6 +83,7 @@ async def process_outbox_batch_async(limit: int = 50) -> int:
             except Exception as e:
                 logger.error(f"Error processing outbox {row.outbox_id}: {e}")
                 row.retry_count = int(row.retry_count or 0) + 1
+                row.error_message = str(e)[:1000]
                 row.status = "failed" if row.retry_count >= 3 else "pending"
             finally:
                 db.commit()

@@ -7,11 +7,14 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+MEM0_SCHEMA = "app"
+MEM0_COLLECTION_NAME = f"{MEM0_SCHEMA}.mem0_memories"
 
 
 CLINICAL_MEMORY_PROMPT = """Bạn đang phân tích hội thoại từ ứng dụng hỗ trợ tâm lý (tiếng Việt).
@@ -33,14 +36,20 @@ Mỗi memory: ngắn gọn tiếng Việt, dưới 80 từ.
 def _pgvector_config_from_database_url(database_url: str) -> dict[str, Any]:
     parsed = urlparse(database_url)
     db_name = parsed.path.lstrip("/") or "postgres"
+    conn_url = database_url.replace("postgresql+psycopg://", "postgresql://", 1)
+    conn_parsed = urlparse(conn_url)
+    query = dict(parse_qsl(conn_parsed.query, keep_blank_values=True))
+    query.setdefault("options", f"-c search_path={MEM0_SCHEMA},extensions")
+    connection_string = urlunparse(conn_parsed._replace(query=urlencode(query)))
     return {
         "host": parsed.hostname or "localhost",
         "port": parsed.port or 5432,
         "user": parsed.username or "",
         "password": parsed.password or "",
         "dbname": db_name,
-        "collection_name": "mem0_memories",
+        "collection_name": MEM0_COLLECTION_NAME,
         "embedding_model_dims": 1536,
+        "connection_string": connection_string,
     }
 
 
@@ -74,15 +83,8 @@ def get_mem0_config() -> dict[str, Any] | None:
         },
         "custom_prompt": CLINICAL_MEMORY_PROMPT,
     }
-    if settings.neo4j_uri and settings.neo4j_password:
-        config["graph_store"] = {
-            "provider": "neo4j",
-            "config": {
-                "url": settings.neo4j_uri,
-                "username": settings.neo4j_user,
-                "password": settings.neo4j_password,
-            },
-        }
+    # MVP boundary: Mem0 may use PostgreSQL/pgvector memory, but must not write
+    # user-derived memory to the Neo4j graph. Neo4j remains static/internal taxonomy only.
     return config
 
 

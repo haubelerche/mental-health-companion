@@ -29,7 +29,7 @@ def _has_column(table_name: str, column_name: str) -> bool:
 
 def upgrade() -> None:
     op.execute("CREATE SCHEMA IF NOT EXISTS app")
-    op.execute("SET search_path TO app, public, extensions")
+    op.execute("SET search_path TO app, extensions")
     # Rename only when legacy names still exist.
     if _has_column("messages", "tone_cam_xuc") and not _has_column("messages", "assistant_tone"):
         with op.batch_alter_table("messages", schema=APP_SCHEMA) as batch_op:

@@ -1,4 +1,4 @@
-import { Heart, Sparkles } from 'lucide-react'
+import { Heart } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { rewardsService } from '@/services/rewardsService'
 

@@ -52,6 +52,9 @@ def compute_event_signature(
     voice_id: str = "",
     locale: str = "vi",
     speech_rate: float = 1.0,
+    risk_mode: str = "normal",
+    voice_intent: str = "unspecified",
+    template_version: str = "voice_policy_v1",
 ) -> str:
     """Return a hex SHA-256 event signature for TTS dedup.
 
@@ -63,6 +66,7 @@ def compute_event_signature(
     key = (
         f"{uid}|{session_id}|{voice_style_id}|{normalized}"
         f"|{provider}|{voice_id}|{locale}|{speech_rate:.2f}"
+        f"|{risk_mode}|{voice_intent}|{template_version}"
     )
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
@@ -74,8 +78,9 @@ def find_dedup_job(
     """Search recent SyncOutbox TTS jobs for a matching event signature.
 
     Returns the first matching reusable job's payload dict, or None.
-    A job is reusable when its voice status is in TTS_REUSABLE_STATUSES
-    (queued / processing / ready / cache_hit) and it is NOT failed.
+    A job is reusable when its voice status is in TTS_REUSABLE_STATUSES, including
+    queued/processing jobs. This prevents duplicate provider work while the first
+    request is still in flight.
     """
     from app.services.utils import get_now
     cutoff = (get_now() - timedelta(hours=DEDUP_WINDOW_HOURS)).replace(tzinfo=None)
@@ -116,7 +121,7 @@ def find_dedup_job(
             "tts_job_id": f"tts_{row.outbox_id}",
             "voice_status": voice_status,
             "audio_url": voice.get("audio_url"),
-            "audio_data_uri": voice.get("audio_data_uri"),
+            "event_signature": signature,
         }
 
     return None

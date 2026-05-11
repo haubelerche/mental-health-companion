@@ -6,10 +6,21 @@ import { personasService } from '../../../services/personasService'
 import { ApiRequestError } from '../../../api/types'
 import { ROUTE_PATHS } from '../../../routes/paths'
 
-import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 
+const FETCH_TIMEOUT_MS = 20_000
+
 const PERSONA_ORDER = ['ban_than', 'nguoi_thay', 'cun', 'meo', 'crush'] as const
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = window.setTimeout(() => reject(new Error(`timeout:${label}`)), ms)
+    })
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+        if (timeoutId !== undefined) window.clearTimeout(timeoutId)
+    }) as Promise<T>
+}
 
 const PERSONA_LABEL: Record<string, string> = {
     ban_than: 'Bạn Tốt',
@@ -24,7 +35,6 @@ type Props = {
 }
 
 export default function PersonaSelector({ onSelect }: Props) {
-    const navigate = useNavigate()
     const [progress, setProgress] = useState<PersonaProgress[]>([])
     const [activePersonaId, setActivePersonaId] = useState<string>('ban_than')
     const [loading, setLoading] = useState(true)
@@ -37,21 +47,41 @@ export default function PersonaSelector({ onSelect }: Props) {
 
     useEffect(() => {
         let cancelled = false
-        setLoading(true)
-        setError(null)
-        Promise.all([personasService.getMe(), rewardsService.getPersonasProgress()])
-            .then(([me, prog]) => {
-                if (cancelled) return
-                setProgress(prog.personas)
-                const sel = me.persona_id?.trim()
-                setActivePersonaId(sel && sel.length > 0 ? sel : 'ban_than')
-            })
-            .catch(() => {
-                if (!cancelled) setError('Không tải được danh sách nhân vật.')
-            })
-            .finally(() => {
-                if (!cancelled) setLoading(false)
-            })
+        void (async () => {
+            const [meRes, progRes] = await Promise.allSettled([
+                withTimeout(personasService.getMe(), FETCH_TIMEOUT_MS, 'profile'),
+                withTimeout(rewardsService.getPersonasProgress(), FETCH_TIMEOUT_MS, 'personas_progress'),
+            ])
+            if (cancelled) return
+            if (meRes.status === 'rejected') {
+                const reason = meRes.reason
+                const isTimeout = reason instanceof Error && reason.message.startsWith('timeout:')
+                setError(
+                    isTimeout
+                        ? 'Tải hồ sơ quá lâu. Kiểm tra mạng hoặc backend rồi thử lại.'
+                        : 'Không tải được hồ sơ (auth/me).',
+                )
+                setLoading(false)
+                return
+            }
+            if (progRes.status === 'rejected') {
+                const reason = progRes.reason
+                const isTimeout = reason instanceof Error && reason.message.startsWith('timeout:')
+                setError(
+                    isTimeout
+                        ? 'Tải tiến độ nhân vật quá lâu. Thử lại sau.'
+                        : 'Không tải được tiến độ nhân vật (rewards/personas/progress).',
+                )
+                setLoading(false)
+                return
+            }
+            const me = meRes.value
+            const prog = progRes.value
+            setProgress(prog.personas)
+            const sel = me.persona_id?.trim()
+            setActivePersonaId(sel && sel.length > 0 ? sel : 'ban_than')
+            setLoading(false)
+        })()
         return () => {
             cancelled = true
         }

@@ -17,6 +17,31 @@ export function getApiBaseUrl(): string {
     return API_BASE_URL
 }
 
+function stripApiVersion(url: string): string {
+    return url.replace(/\/v1\/?$/, '').replace(/\/$/, '')
+}
+
+function normalizeConfiguredUrl(value: unknown): string {
+    const raw = typeof value === 'string' ? value.trim() : ''
+    return raw && raw !== 'undefined' && raw !== 'null' ? raw.replace(/\/$/, '') : ''
+}
+
+export function getWebSocketBaseUrl(): string {
+    const configured = normalizeConfiguredUrl(import.meta.env.VITE_API_WS)
+    if (configured) return configured
+
+    const apiBase = normalizeConfiguredUrl(API_BASE_URL)
+    if (apiBase.startsWith('https://')) return stripApiVersion(apiBase).replace(/^https:\/\//, 'wss://')
+    if (apiBase.startsWith('http://')) return stripApiVersion(apiBase).replace(/^http:\/\//, 'ws://')
+
+    if (typeof window !== 'undefined') {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        return `${protocol}//${window.location.host}`
+    }
+
+    return ''
+}
+
 /** Dùng cho `<Audio src>` khi `audio_url` là path tương đối `/v1/...`. */
 export function resolveMediaUrl(path: string): string {
     if (path.startsWith('http://') || path.startsWith('https://')) return path
@@ -282,16 +307,29 @@ async function postStreamWithCsrf(path: string, body?: unknown, init: RequestIni
     const token = await ensureCsrfToken()
     const headers = new Headers(init.headers || {})
     headers.set('Content-Type', 'application/json')
+    headers.set('Accept', 'text/event-stream')
     headers.set('X-CSRF-Token', token)
 
-    const response = await fetchWithRetry(`${API_BASE_URL}${path}`, {
-        method: 'POST',
-        credentials: 'include',
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-        ...init,
-        headers,
-    }, path)
-    return response
+    try {
+        return await fetchWithRetry(`${API_BASE_URL}${path}`, {
+            method: 'POST',
+            credentials: 'include',
+            body: body !== undefined ? JSON.stringify(body) : undefined,
+            ...init,
+            headers,
+        }, path)
+    } catch (err) {
+        const isNetwork =
+            err instanceof TypeError ||
+            (err instanceof Error && /Failed to fetch|NetworkError|Load failed/i.test(err.message))
+        if (isNetwork) {
+            throw new ApiRequestError('Streaming chat không kết nối được, chuyển sang chế độ chat thường.', {
+                code: 'NETWORK_ERROR',
+                status: 0,
+            })
+        }
+        throw err
+    }
 }
 
 export const httpClient = {

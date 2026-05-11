@@ -1,4 +1,10 @@
 {
     "python-envs.defaultEnvManager": "ms-python.python:conda",
-    "python-envs.defaultPackageManager": "ms-python.python:conda"
+    "python-envs.defaultPackageManager": "ms-python.python:conda",
+    "python.defaultInterpreterPath": "C:\\Users\\Admin\\anaconda3\\envs\\serene-py314\\python.exe",
+    "python.terminal.activateEnvironment": false,
+    "python.testing.pytestArgs": [
+        "backend/tests"
+    ],
+    "python.testing.pytestEnabled": true
 }

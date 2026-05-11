@@ -33,10 +33,11 @@ def db():
     def set_pragma(conn, _):
         conn.execute("PRAGMA foreign_keys=ON")
 
-    Base.metadata.create_all(engine)
+    tables_for_sqlite = [t for t in Base.metadata.sorted_tables if not t.schema]
+    Base.metadata.create_all(engine, tables=tables_for_sqlite)
     with Session(engine) as session:
         yield session
-    Base.metadata.drop_all(engine)
+    Base.metadata.drop_all(engine, tables=tables_for_sqlite)
 
 
 def _seed_user(db: Session, user_id: str = "usr_contract") -> None:
@@ -159,16 +160,16 @@ def test_purchase_result_shape(db):
 
 
 # ---------------------------------------------------------------------------
-# Memory card out schema
+# User memory out schema
 # ---------------------------------------------------------------------------
 
-def test_memory_card_out_schema_fields():
-    from app.memory.routes import MemoryCardOut
-    fields = MemoryCardOut.model_fields
-    required = {"card_id", "memory_type", "title", "content", "status",
-                "safety_review_status", "personalization_disabled", "created_at", "updated_at"}
+def test_user_memory_out_schema_fields():
+    from app.memory.routes import UserMemoryOut
+
+    fields = UserMemoryOut.model_fields
+    required = {"memory_id", "content", "source", "created_at", "metadata"}
     for f in required:
-        assert f in fields, f"MemoryCardOut missing field {f!r}"
+        assert f in fields, f"UserMemoryOut missing field {f!r}"
 
 
 # ---------------------------------------------------------------------------

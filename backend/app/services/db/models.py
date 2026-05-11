@@ -219,6 +219,30 @@ class ClinicalProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
+class ScreeningAnswer(Base):
+    """Raw questionnaire answers — backend-only; never exposed to frontend."""
+
+    __tablename__ = "screening_answers"
+    __table_args__ = (
+        CheckConstraint(
+            "instrument_id IN ('phq9','gad7')",
+            name="ck_screening_answers_instrument",
+        ),
+        {"schema": "app"},
+    )
+
+    answer_id: Mapped[int] = mapped_column(BIGINT, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(
+        String, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+    )
+    instrument_id: Mapped[str] = mapped_column(String(10), nullable=False)
+    raw_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    answers: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, nullable=False)
+    submitted_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=func.now(), server_default=func.now(), nullable=False
+    )
+
+
 class CrisisLog(Base):
     __tablename__ = "crisis_logs"
 
@@ -303,48 +327,6 @@ class PlayEvent(Base):
     duration_sec: Mapped[int] = mapped_column(Integer, nullable=False)
     percent: Mapped[int] = mapped_column(Integer, nullable=False)
     tracked_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
-
-
-class ConversationMemory(Base):
-    __tablename__ = "conversation_memories"
-    __table_args__ = (
-        CheckConstraint(
-            "importance_score IS NULL OR (importance_score >= 0 AND importance_score <= 1)",
-            name="chk_importance",
-        ),
-        CheckConstraint(
-            "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)",
-            name="chk_confidence",
-        ),
-    )
-
-    memory_id: Mapped[str] = mapped_column(String(50), primary_key=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
-    session_id: Mapped[str | None] = mapped_column(
-        ForeignKey("conversations.session_id", ondelete="SET NULL")
-    )
-    content: Mapped[str] = mapped_column(Text, nullable=False)
-    memory_type: Mapped[str | None] = mapped_column(String(50))
-    if Vector is not None:
-        embedding: Mapped[Any] = mapped_column(Vector(1536), nullable=False)
-    else:
-        embedding: Mapped[list[float]] = mapped_column(JSON, nullable=False)
-    importance_score: Mapped[float | None] = mapped_column(Float)
-    confidence: Mapped[float | None] = mapped_column(Float)
-    pii_checked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
-    expires_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP_COMPAT, nullable=True)
-    source: Mapped[str] = mapped_column(
-        String(20),
-        CheckConstraint(
-            "source IN ('chat_turn','session_summary','checkin','manual','system')",
-            name="ck_conv_memories_source",
-        ),
-        default="chat_turn",
-        server_default="chat_turn",
-        nullable=False,
-    )
-    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
 class SessionSummaryArchive(Base):
@@ -635,6 +617,7 @@ class SyncOutbox(Base):
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     processing_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -740,15 +723,38 @@ class TherapyLetter(Base):
     reaction_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
     
     # Safety & Status
-    status: Mapped[str] = mapped_column(String(30), default="active", nullable=False) # 'pending_review', 'active', 'reported', 'deleted'
+    # status: lifecycle — 'pending_review' | 'active' | 'reported' | 'deleted'
+    status: Mapped[str] = mapped_column(String(30), default="active", nullable=False)
+    # review_status: guardrail result — 'not_reviewed' | 'passed' | 'failed' | 'escalated' | 'manual_review_required'
+    review_status: Mapped[str] = mapped_column(String(40), default="not_reviewed", nullable=False)
+    review_reason_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
     report_data: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
-    
+    content_masked: Mapped[str | None] = mapped_column(Text, nullable=True)
+    safety_event_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     # Metrics
     word_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     reward_event_id: Mapped[str | None] = mapped_column(ForeignKey("heart_reward_events.event_id"), nullable=True)
-    
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class LetterReviewEvent(Base):
+    """Immutable audit log for each guardrail run on a therapy letter."""
+
+    __tablename__ = "letter_review_events"
+
+    event_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    letter_id: Mapped[str] = mapped_column(ForeignKey("therapy_letters.letter_id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    validator_version: Mapped[str] = mapped_column(String(30), nullable=False)
+    verdict: Mapped[str] = mapped_column(String(50), nullable=False)
+    reason_codes: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    confidence: Mapped[float | None] = mapped_column(nullable=True)
+    metadata_: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
 # ---------------------------------------------------------------------------
@@ -827,58 +833,6 @@ class PersonaUnlockState(Base):
 
 
 # ---------------------------------------------------------------------------
-# Memory Cards (Plan 06)
-# ---------------------------------------------------------------------------
-
-class MemoryCard(Base):
-    __tablename__ = "memory_cards"
-    __table_args__ = (
-        CheckConstraint(
-            "memory_type IN ('preference','emotional_pattern','coping_history',"
-            "'current_stressor','nutrition_pattern','kindness_pattern','persona_preference')",
-            name="chk_memory_type",
-        ),
-        CheckConstraint(
-            "status IN ('pending_user_review','active','edited_by_user',"
-            "'deleted_by_user','rejected_by_guardrail')",
-            name="chk_memory_status",
-        ),
-        CheckConstraint(
-            "safety_review_status IN ('pending','approved','rejected')",
-            name="chk_safety_review_status",
-        ),
-    )
-
-    card_id: Mapped[str] = mapped_column(String(50), primary_key=True)
-    user_id: Mapped[str] = mapped_column(
-        ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
-    )
-    source_session_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    memory_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
-    content: Mapped[str] = mapped_column(Text, nullable=False)
-    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
-    status: Mapped[str] = mapped_column(
-        String(30), default="pending_user_review", nullable=False
-    )
-    safety_review_status: Mapped[str] = mapped_column(
-        String(20), default="pending", nullable=False
-    )
-    personalization_disabled: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
-    metadata_json: Mapped[dict[str, Any]] = mapped_column(
-        "metadata", JSON, default=dict, nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False
-    )
-
-
-# ---------------------------------------------------------------------------
 # Knowledge Unlocks (Plan 07)
 # ---------------------------------------------------------------------------
 
@@ -941,24 +895,6 @@ class UserKnowledgeProgress(Base):
     )
 
 
-class MemoryCardAuditEvent(Base):
-    __tablename__ = "memory_card_audit_events"
-
-    event_id: Mapped[str] = mapped_column(String(50), primary_key=True)
-    memory_card_id: Mapped[str] = mapped_column(
-        ForeignKey("memory_cards.card_id", ondelete="CASCADE"), nullable=False
-    )
-    user_id: Mapped[str] = mapped_column(
-        ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
-    )
-    action: Mapped[str] = mapped_column(String(50), nullable=False)
-    old_value: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
-    new_value: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False
-    )
-
-
 # ---------------------------------------------------------------------------
 # WebSocket Notifications (Phase 08)
 # ---------------------------------------------------------------------------
@@ -973,7 +909,6 @@ class UserNotificationPreference(Base):
     )
     letter_replied: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     letter_reported: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    memory_card_review: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     reward_earned: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     persona_unlocked: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     knowledge_completed: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

@@ -18,7 +18,7 @@ depends_on = None
 
 def upgrade() -> None:
     op.execute("CREATE SCHEMA IF NOT EXISTS app")
-    op.execute("SET search_path TO app, public, extensions")
+    op.execute("SET search_path TO app, extensions")
     op.execute(
         """
         CREATE OR REPLACE FUNCTION app.set_updated_at()
@@ -119,7 +119,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("SET search_path TO app, public, extensions")
+    op.execute("SET search_path TO app, extensions")
     op.execute("ALTER TABLE IF EXISTS app.mood_checkins DROP CONSTRAINT IF EXISTS uq_mood_checkin_bucket")
     op.execute(
         """

@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
+from app.api import deps
 from app.api.v1.routers import chat as chat_router
 from app.main import app
 from app.services.safety_scoring import SafetySnapshot
@@ -28,12 +29,34 @@ class FakeDB:
     def commit(self) -> None:
         self.committed = True
 
+    def rollback(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
     def scalar(self, *_args, **_kwargs):
         return 0
 
 
+class StreamFakeDB(FakeDB):
+    """Fake session for chat stream tests (post-LLM refetch loads Conversation from items)."""
+
+    def scalar(self, *_args, **_kwargs):
+        from app.services.db.models import Conversation
+
+        for item in reversed(self.items):
+            if isinstance(item, Conversation):
+                return item
+        return super().scalar()
+
+
 def _override_user():
     return SimpleNamespace(user_id="usr_test")
+
+
+def _override_stream_user():
+    return SimpleNamespace(user_id="usr_test", policy_acknowledged_at="2025-01-01T00:00:00")
 
 
 def test_chat_message_non_sos_success(monkeypatch):
@@ -144,11 +167,23 @@ def test_chat_message_non_sos_triggers_proactive_voice(monkeypatch):
         "compute_escalation_signal",
         lambda **_kwargs: SimpleNamespace(escalate=True, trigger_reason="threshold_crossed", rolling_window_turns=4, delta_score=0.31),
     )
-    monkeypatch.setattr(
-        chat_router,
-        "_build_voice_intervention",
-        lambda **_kwargs: {"type": "proactive_voice", "voice": {"tts_job_id": "tts_100", "status": "queued"}},
-    )
+
+    def fake_enqueue_voice_policy(**_kwargs):
+        return {
+            "voice_policy": {
+                "should_attach_voice": True,
+                "risk_mode": "elevated_encouragement",
+                "ordinary_cooldown_bypassed": False,
+                "reason_codes": [],
+                "voice_messages": [],
+            },
+            "intervention": {
+                "type": "proactive_voice",
+                "voice": {"tts_job_id": "tts_100", "status": "queued"},
+            },
+        }
+
+    monkeypatch.setattr(chat_router, "_enqueue_voice_policy", fake_enqueue_voice_policy)
     monkeypatch.setattr(
         chat_router,
         "run_non_sos_turn",
@@ -197,11 +232,23 @@ def test_chat_message_triggers_voice_when_graph_raises_distress(monkeypatch):
     )
     captured: dict[str, object] = {}
 
-    def fake_voice_intervention(**kwargs):
-        captured.update(kwargs)
-        return {"type": "proactive_voice", "voice": {"tts_job_id": "tts_101", "status": "queued"}}
+    def fake_enqueue_voice_policy(**kwargs):
+        captured["snap"] = kwargs.get("snap")
+        return {
+            "voice_policy": {
+                "should_attach_voice": True,
+                "risk_mode": "elevated_encouragement",
+                "ordinary_cooldown_bypassed": False,
+                "reason_codes": [],
+                "voice_messages": [],
+            },
+            "intervention": {
+                "type": "proactive_voice",
+                "voice": {"tts_job_id": "tts_101", "status": "queued"},
+            },
+        }
 
-    monkeypatch.setattr(chat_router, "_build_voice_intervention", fake_voice_intervention)
+    monkeypatch.setattr(chat_router, "_enqueue_voice_policy", fake_enqueue_voice_policy)
     monkeypatch.setattr(
         chat_router,
         "run_non_sos_turn",
@@ -232,13 +279,18 @@ def test_chat_message_triggers_voice_when_graph_raises_distress(monkeypatch):
         body = resp.json()
         assert body["success"] is True
         assert body["data"]["intervention"]["type"] == "proactive_voice"
-        assert captured["snapshot"].distress_score == 0.92
+        assert captured["snap"].distress_score == 0.92
     finally:
         app.dependency_overrides.clear()
 
 
 def test_chat_message_stream_returns_sse(monkeypatch):
-    fake_db = FakeDB()
+    fake_db = StreamFakeDB()
+
+    def _fake_session_factory():
+        return fake_db
+
+    monkeypatch.setattr(chat_router, "get_session_factory", lambda: _fake_session_factory)
     monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
     monkeypatch.setattr(chat_router, "decide_sos", lambda *_args, **_kwargs: (False, 0.2))
     monkeypatch.setattr(chat_router, "get_cached_turn", lambda *_args, **_kwargs: None)
@@ -273,12 +325,14 @@ def test_chat_message_stream_returns_sse(monkeypatch):
             ]
         ),
     )
-
-    def override_db():
-        yield fake_db
+    monkeypatch.setattr(chat_router, "_active_persona_id", lambda *_a, **_k: "ban_than")
+    monkeypatch.setattr(chat_router, "_load_today_meals", lambda *_a, **_k: [])
+    monkeypatch.setattr(chat_router, "persist_turn_memory", lambda *_a, **_k: None)
+    monkeypatch.setattr(chat_router, "_maybe_enqueue_voice", lambda **_kw: None)
+    monkeypatch.setattr(chat_router, "get_voice_consent", lambda *_a, **_k: True)
 
     app.dependency_overrides[chat_router.ensure_policy_acknowledged] = _override_user
-    app.dependency_overrides[chat_router.get_db] = override_db
+    app.dependency_overrides[deps.ensure_policy_acknowledged_for_stream] = _override_stream_user
     try:
         with TestClient(app) as client:
             resp = client.post("/v1/chat/message/stream", json={"message": "chao"})

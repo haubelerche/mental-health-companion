@@ -12,13 +12,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.services.db.models import Conversation, Message, SyncOutbox, UserProfile
+from app.services.db.models import Conversation, Message, UserProfile
 from app.services.mem0_service import MemoryManager
-from app.memory.extractor import extract_memory_candidates
-from app.memory.service import create_cards_from_candidates
 from app.services.memory_enrichment import StructuredExtract, apply_to_profile, extract_structured
 from app.services.pii_mask import mask_pii
 from app.services.redis_client import cache_delete, profile_cache_key
+from app.services.analyst_writer import record_analyst_signal, upsert_insight_hypothesis
 from app.services.utils import get_now
 
 logger = logging.getLogger(__name__)
@@ -31,33 +30,11 @@ def _emit_memory_outbox_events(
     session_id: str,
     extract: StructuredExtract,
 ) -> None:
-    for trigger in extract.key_triggers:
-        db.add(
-            SyncOutbox(
-                user_id=user_id,
-                event_type="trigger.observed",
-                payload={
-                    "user_id": user_id,
-                    "session_id": session_id,
-                    "trigger_label": trigger,
-                    "emotion_label": extract.dominant_emotion,
-                },
-                status="pending",
-            )
-        )
-    for action in extract.coping_attempts:
-        db.add(
-            SyncOutbox(
-                user_id=user_id,
-                event_type="coping.attempted",
-                payload={
-                    "user_id": user_id,
-                    "session_id": session_id,
-                    "coping_action": action,
-                },
-                status="pending",
-            )
-        )
+    _ = db, user_id, session_id, extract
+    # MVP boundary: user-derived trigger/coping patterns stay in PostgreSQL
+    # profile rollups and memory tables. Neo4j user-pattern sync is deferred
+    # until a validator-backed aggregate graph is introduced.
+    return None
 
 
 def _enqueue_mem0_add(user_id: str, messages: list[dict[str, str]]) -> None:
@@ -153,21 +130,6 @@ def close_session_summary(db: Session, *, session: Conversation, user_id: str) -
     prof.profile = data
     prof.updated_at = now
 
-    db.add(
-        SyncOutbox(
-            user_id=user_id,
-            event_type="session.ended",
-            payload={
-                "user_id": user_id,
-                "session_id": session.session_id,
-                "ended_at": now.isoformat(),
-                "dominant_emotion": extract.dominant_emotion,
-                "key_triggers": extract.key_triggers,
-                "sos_triggered": had_sos,
-            },
-            status="pending",
-        )
-    )
     _emit_memory_outbox_events(
         db,
         user_id=user_id,
@@ -175,12 +137,24 @@ def close_session_summary(db: Session, *, session: Conversation, user_id: str) -
         extract=extract,
     )
     try:
-        card_extraction = extract_memory_candidates(blob, session_id=session.session_id)
-        create_cards_from_candidates(db, user_id, card_extraction)
+        sig_id = record_analyst_signal(
+            db,
+            user_id=user_id,
+            session_id=session.session_id,
+            extract=extract,
+        )
+        upsert_insight_hypothesis(
+            db,
+            user_id=user_id,
+            extract=extract,
+            signal_id=sig_id,
+            session_id=session.session_id,
+        )
     except Exception as exc:
-        logger.warning("memory card extraction at session close failed for %s: %s", user_id, exc)
+        logger.warning("analyst pipeline at session close failed for %s: %s", user_id, exc)
+
     cache_delete(profile_cache_key(user_id))
     db.commit()
-    mem0_messages = [{"role": str(m.role), "content": str(m.content)} for m in rows[-40:]]
+    mem0_messages = [{"role": str(m.role), "content": mask_pii(str(m.content))} for m in rows[-40:]]
     threading.Thread(target=_enqueue_mem0_add, args=(user_id, mem0_messages), daemon=True).start()
     return summary_text

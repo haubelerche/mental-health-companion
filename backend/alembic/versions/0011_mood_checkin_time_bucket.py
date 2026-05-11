@@ -18,7 +18,7 @@ depends_on = None
 def upgrade() -> None:
     bind = op.get_bind()
     op.execute("CREATE SCHEMA IF NOT EXISTS app")
-    op.execute("SET search_path TO app, public, extensions")
+    op.execute("SET search_path TO app, extensions")
     inspector = sa.inspect(bind)
     cols = [c["name"] for c in inspector.get_columns("mood_checkins", schema="app")]
     if "time_bucket" not in cols:

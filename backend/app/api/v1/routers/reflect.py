@@ -10,7 +10,7 @@ from app.api.deps import ensure_policy_acknowledged
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.services.db.models import ClinicalProfile, JournalEntry, JournalPrompt, MoodCheckin, User, UserProfile
+from app.services.db.models import JournalEntry, JournalPrompt, MoodCheckin, User, UserProfile
 from app.services.db.session import get_db
 from app.services.schemas.payloads import JournalCreateRequest
 from app.services.utils import local_date_utc7, make_id, get_now
@@ -118,7 +118,6 @@ def _normalize_trigger_payload(profile_data: dict[str, Any]) -> list[dict[str, A
 def _build_wellness_score(
     *,
     mood_points: list[dict[str, Any]],
-    clinical: ClinicalProfile | None,
     profile_data: dict[str, Any],
 ) -> tuple[int, str]:
     weighted_values: list[tuple[float, float]] = []
@@ -127,17 +126,6 @@ def _build_wellness_score(
         mood_avg = sum(float(item.get("mood_score") or 0.0) for item in mood_points) / max(len(mood_points), 1)
         mood_norm = max(0.0, min(100.0, (mood_avg / 5.0) * 100.0))
         weighted_values.append((mood_norm, 45.0))
-
-    phq = clinical.phq9_score if clinical else None
-    gad = clinical.gad7_score if clinical else None
-    if phq is None or gad is None:
-        clinical_snapshot = dict(profile_data.get("clinical_snapshot") or {})
-        phq = clinical_snapshot.get("phq9_score") if phq is None else phq
-        gad = clinical_snapshot.get("gad7_score") if gad is None else gad
-
-    if isinstance(phq, int) and isinstance(gad, int):
-        clinical_inv = (1.0 - ((phq / 27.0) * 0.5 + (gad / 21.0) * 0.5)) * 100.0
-        weighted_values.append((max(0.0, min(100.0, clinical_inv)), 30.0))
 
     stats = dict(profile_data.get("stats") or {})
     days_active = int(stats.get("days_active_last_30") or 0)
@@ -192,13 +180,10 @@ def _build_mental_health_summary(*, db: Session, user_id: str) -> dict[str, Any]
         reverse=True,
     )[:3]
 
-    clinical = db.scalar(select(ClinicalProfile).where(ClinicalProfile.user_id == user_id))
     score, label = _build_wellness_score(
         mood_points=list(mood_trend.get("points") or []),
-        clinical=clinical,
         profile_data=profile_data,
     )
-    clinical_snapshot = dict(profile_data.get("clinical_snapshot") or {})
     session_stats = dict(profile_data.get("stats") or {})
     goals = list(profile_data.get("goals") or [])[:5]
 
@@ -218,12 +203,7 @@ def _build_mental_health_summary(*, db: Session, user_id: str) -> dict[str, Any]
             "streak_days": int(session_stats.get("streak_days") or 0),
             "days_active_last_30": int(session_stats.get("days_active_last_30") or 0),
         },
-        "clinical_snapshot": {
-            "phq9_score": clinical.phq9_score if clinical else clinical_snapshot.get("phq9_score"),
-            "gad7_score": clinical.gad7_score if clinical else clinical_snapshot.get("gad7_score"),
-            "crisis_level": clinical.crisis_level if clinical else int(clinical_snapshot.get("crisis_level") or 0),
-            "last_scored_at": _to_iso_z(clinical.last_scored_at if clinical else _parse_datetime(clinical_snapshot.get("last_scored_at"))),
-        },
+        "clinical_snapshot": None,
         "goals": goals,
         "has_enough_data": len(recent_summaries) >= 2,
     }
@@ -310,11 +290,16 @@ def mood_trend(
     return ok(_build_mood_trend_data(db=db, user_id=current_user.user_id, days=days))
 
 
-@router.get("/mental-health-summary")
+@router.get("/mental-health-summary", deprecated=True)
 def mental_health_summary(
     current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
+    """Deprecated: legacy summary exposes clinical snapshot fields.
+
+    New dashboard surfaces must consume /dashboard/reflect-summary and
+    /dashboard/safe-insights instead.
+    """
     return ok(_build_mental_health_summary(db=db, user_id=current_user.user_id))
 
 

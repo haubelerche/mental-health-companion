@@ -24,8 +24,12 @@ from app.personas.registry import PERSONA_REGISTRY, get_persona
 from app.services.chat_cost_metrics import observe_chat_usage
 from app.services.langfuse_tracing import ChatTurnTracer, get_active_tracer, set_active_tracer
 from app.services.exercise_catalog import build_clinic_attachment, build_resource_attachment
+from app.services.fewshot_selector import build_fewshot_style_block
+from app.safety.output_validator import validate_output as _safety_validate_output
 from app.services.output_grounding import sanitize_grounded_reply
+from app.services.response_planner import build_response_plan
 from app.services.safety_scoring import build_snapshot
+from app.services.neo4j_client import get_user_patterns_async
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +59,7 @@ def _log_token_budget(stage: str, *texts: str) -> int:
 class ChatGraphState(TypedDict, total=False):
     # === IMMUTABLE INPUTS (set once in middleware, never mutated by nodes) ===
     correlation_id: str
+    user_id: str
     user_message: str
     recent_messages: list[dict[str, Any]]
     mood_today: dict[str, Any] | None
@@ -67,7 +72,9 @@ class ChatGraphState(TypedDict, total=False):
     clinical_trajectory: str | None
     distress_score: float           # FROZEN — distress_router must never mutate this
     active_persona_id: str
-    active_memory_card_text: str    # injected from DB before graph; empty string if none
+    active_memory_text: str         # optional canonical memory text; usually supplied via mem0_facts
+    graph_patterns: dict            # UserPatternsResult from Neo4j, pre-fetched async; {} if unavailable
+    nutrition_meals: list[dict[str, Any]] | None  # today's meal check-ins; None if none logged
 
     # === CONTROL FLAGS ===
     crisis_route_finalized: bool
@@ -841,6 +848,14 @@ def distress_router(state: ChatGraphState) -> dict[str, Any]:
         duration_ms=(time.perf_counter() - span_start) * 1000,
         extra={"route": route, "reason": reason, "distress_score": distress, "use_fast": use_fast},
     )
+    tracer = get_active_tracer()
+    if tracer:
+        tracer.event(
+            "distress_router_decision",
+            input_data={"distress_score": distress, "message_len": len(msg)},
+            output_data={"route_decision": route, "route_reason": reason, "use_fast_friend_model": use_fast},
+            metadata={"agent": "router", "route_decision": route, "route_reason": reason},
+        )
     return {
         "routing_history": hist,
         "route_decision": route,
@@ -862,10 +877,38 @@ def route_after_distress_router(state: ChatGraphState) -> str:
     return "analyst" if state.get("route_decision") == "analyst" else "friend"
 
 
+def _trace_analyst_route_decision(state: ChatGraphState) -> None:
+    tracer = get_active_tracer()
+    if tracer is None:
+        return
+    route = str(state.get("route_decision") or "friend")
+    reason = str(state.get("route_reason") or "")
+    tracer.event(
+        "analyst_route_decision",
+        input_data={
+            "distress_score": float(state.get("distress_score") or 0.0),
+            "message_len": len(str(state.get("user_message") or "")),
+        },
+        output_data={
+            "agent": "analyst",
+            "status": "scheduled" if route == "analyst" else "skipped",
+            "route_decision": route,
+            "route_reason": reason,
+        },
+        metadata={
+            "agent": "analyst",
+            "status": "scheduled" if route == "analyst" else "skipped",
+            "route_reason": reason,
+        },
+        as_type="agent",
+    )
+
+
 
 def analyst_node(state: ChatGraphState) -> dict[str, Any]:
     span_start = time.perf_counter()
     correlation_id = str(state.get("correlation_id") or "")
+    user_id = str(state.get("user_id") or "")
     settings = get_settings()
     hist = list(state.get("routing_history") or [])
     hist.append("analyst")
@@ -904,12 +947,49 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
     if trajectory:
         context_lines.append(f"Hành trình tâm lý: {trajectory}")
     profile_context = "\n".join(context_lines) if context_lines else "(chưa có profile context)"
+    nutrition_meals = state.get("nutrition_meals") or []
+    if nutrition_meals:
+        meal_lines = "\n".join(
+            f"- {m.get('slot', '?')}: {m.get('items') or '(chưa ghi)'}"
+            for m in nutrition_meals
+        )
+        nutrition_block = f"Bữa ăn hôm nay:\n{meal_lines}\n"
+    else:
+        nutrition_block = ""
     user_payload = (
         f"{profile_context}\n"
         f"{mood_note}\n"
+        f"{nutrition_block}"
         f"Lịch sử gần đây:\n{transcript}\n"
         f"Tin mới: {state.get('user_message', '')}"
     )
+
+    # Read Neo4j patterns pre-fetched by the async caller
+    _graph_raw: dict = state.get("graph_patterns") or {}
+    _graph_context_used = _graph_raw.get("available", False) and any(
+        _graph_raw.get(k) for k in ("triggers", "emotions", "coping")
+    )
+    _graph_context_block = ""
+    if _graph_context_used:
+        _t = ", ".join(
+            f"{x['name']} (×{x['count']})"
+            for x in _graph_raw.get("triggers", [])
+            if x.get("count")
+        ) or "chưa ghi nhận"
+        _e = ", ".join(x["name"] for x in _graph_raw.get("emotions", [])) or "chưa ghi nhận"
+        _c = ", ".join(
+            f"{x['name']} (hiệu quả={x['effectiveness']:.2f})"
+            for x in _graph_raw.get("coping", [])
+            if x.get("effectiveness") is not None
+        ) or "chưa ghi nhận"
+        _graph_context_block = (
+            f"\n\n[Lịch sử hành vi từ Neo4j — derived context]\n"
+            f"Tác nhân hay gặp: {_t}\n"
+            f"Cảm xúc hay gặp: {_e}\n"
+            f"Chiến lược đối phó đã thử: {_c}"
+        )
+    logger.debug("analyst_node graph_context_used=%s", _graph_context_used)
+    instruction = instruction + _sanitize_prompt_block(_graph_context_block)
 
     analyst_in_tokens = _log_token_budget("analyst_in", instruction, user_payload)
 
@@ -1003,7 +1083,9 @@ def _postprocess_friend_reply(
     # Keep persona-specific voice intact; aggressive rewrite is only for default/family tones
     # or when the model returns empty content.
     persona_id = normalize_persona_id(persona_id)
-    if str(raw_reply or "").strip() and persona_id != DEFAULT_PERSONA_ID:
+    # Keep model output for all personas (including ban_than). Full template replace via
+    # _enforce_reply_quality made short / casual turns read as generic scripted empathy.
+    if str(raw_reply or "").strip():
         improved = str(raw_reply).strip()
     else:
         improved = _enforce_reply_quality(raw_reply, user_text, distress_score)
@@ -1067,22 +1149,35 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         user_text, settings.openai_api_key or "", distress_score=distress_now
     )
     safe_mentalchat_block = _sanitize_prompt_block(mentalchat_block)
-    mc_text = str(state.get("active_memory_card_text") or "").strip()
-    memory_card_hint = (
-        f"[Ký ức đã xác nhận của người dùng — cá nhân hóa câu trả lời dựa trên điều này, không nhắc lại nguyên văn]\n{mc_text}\n"
-        if mc_text else ""
+    style_fewshot_block = _sanitize_prompt_block(
+        build_fewshot_style_block(
+            user_message=user_text,
+            risk_mode="elevated" if distress_now >= 0.55 else "normal",
+            distress_score=distress_now,
+            persona_id=persona_id,
+        )
+    )
+    memory_text = str(state.get("active_memory_text") or "").strip()
+    memory_hint = (
+        f"[Ký ức liên quan từ mem0_memories — cá nhân hóa câu trả lời dựa trên điều này, không nhắc lại nguyên văn]\n{memory_text}\n"
+        if memory_text else ""
     )
     base_system_prompt = (
         "Bạn là Serene, trợ lý đồng hành tinh thần bằng tiếng Việt tự nhiên. "
-        "Giữ giọng ngắn, ấm, không phán xét; phản chiếu trước rồi mới gợi ý. "
-        "Trả lời 1–3 câu; tối đa 1 emoji nếu thực sự phù hợp, không lạm dụng. "
+        "Viết như người Việt trẻ nhắn tin tự nhiên: ngắn, đúng ngữ cảnh, có duyên vừa đủ, không văn mẫu. "
+        "Có thể mở đầu câu bằng chữ thường trong chat cảm xúc; vẫn giữ đúng tên riêng, acronym, tên sản phẩm và thuật ngữ kỹ thuật. "
+        "Phản chiếu một chi tiết cụ thể từ tin nhắn của user trước rồi mới gợi ý. "
+        "Trả lời 1–3 câu, một đoạn gọn; không dùng markdown hoặc emoji trong chat cảm xúc. "
         "Mỗi lượt tối đa một câu hỏi nếu người dùng chưa xin phân tích sâu. "
-        "Không dùng giọng trị liệu khuôn mẫu, không chẩn đoán, không hứa hẹn phi thực tế. "
+        "Tránh các câu mặc định như 'tôi rất tiếc khi nghe điều đó', 'cảm xúc của bạn là hoàn toàn hợp lệ', "
+        "'bạn không đơn độc', 'mọi chuyện rồi sẽ ổn', 'hãy suy nghĩ tích cực'. "
+        "Không dùng giọng trị liệu khuôn mẫu, không chẩn đoán, không hứa hẹn phi thực tế, không đùa/slang khi distress cao. "
         "Không tự xưng là Friend hay thực thể con người ngoài đời. "
         "Trả lời JSON với các khóa: reply, assistant_tone (supportive|validating|cheerful|calming|mentor|neutral), "
         "goi_y_nhanh (3 chuỗi), the_dinh_kem (mảng object {type,id,title,description,duration_sec,action,route,thumbnail}). "
         "Chỉ dùng route bắt đầu bằng /serene/ và action thuộc open_exercise|open_resource|open_connect_map."
-        + (f"\n{memory_card_hint}" if memory_card_hint else "")
+        + (f"\n{memory_hint}" if memory_hint else "")
+        + (f"\n{style_fewshot_block}\n" if style_fewshot_block else "")
         + (f"\n{safe_mentalchat_block}\n" if safe_mentalchat_block else "")
     )
     persona_priority_prompt = (
@@ -1214,7 +1309,25 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         correlation_id,
         persona_id=persona_id,
     )
+    response_plan = build_response_plan(
+        user_message=user_text,
+        candidate_text=safe_reply,
+        distress_score=distress_now,
+        persona_id=persona_id,
+        sos_triggered=False,
+    )
+    safe_reply = response_plan.visible_text
     safe_reply = _enforce_persona_identity(safe_reply, persona_id)
+
+    _ov = _safety_validate_output(safe_reply, surface="chat")
+    if _ov.is_blocked:
+        logger.warning(
+            "SafetyOutputValidator blocked FriendNode reply: %s | fragments=%s",
+            _ov.reason_codes,
+            _ov.flagged_fragments,
+        )
+        safe_reply = "Mình hiểu bạn đang cần hỗ trợ. Hãy chia sẻ thêm để Serene có thể đồng hành cùng bạn nhé."
+
     _trace_span(
         correlation_id,
         "friend_generate",
@@ -1282,7 +1395,9 @@ def run_non_sos_turn(
     persona_id: str | None = None,
     user_id: str | None = None,
     session_id: str | None = None,
-    active_memory_card_text: str = "",
+    active_memory_text: str = "",
+    graph_patterns: dict | None = None,
+    nutrition_meals: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Run non-SOS graph flow and return normalized conversation payload fields."""
     started = time.perf_counter()
@@ -1309,36 +1424,51 @@ def run_non_sos_turn(
         voice_hint=settings.distress_voice_hint,
         critical=settings.distress_critical,
     )
-    graph = get_chat_graph()
-    out = graph.invoke(
-        {
-            "user_message": user_message,
-            "recent_messages": recent_messages,
-            "mood_today": mood_today,
-            "long_term_memories": list(long_term_memories or []),
-            "mem0_facts": list(mem0_facts or []),
-            "user_traits": dict(warmed_traits or {}),
-            "top_triggers": list(top_triggers or []),
-            "active_goals": list(active_goals or []),
-            "effective_coping": list(effective_coping or []),
-            "clinical_trajectory": clinical_trajectory or "",
-            "active_persona_id": persona_id or DEFAULT_PERSONA_ID,
-            "active_memory_card_text": active_memory_card_text or "",
-            "correlation_id": correlation_id,
-            # Cold-start screening note pre-seeded as a minimal bundle; analyst_node will
-            # overwrite with a richer bundle when routed to analyst.
-            "analyst_bundle": AnalystBundle(
-                clinical_note=screening_note[:200],
-                emotional_theme="cold_start_screen",
-                suggested_focus=None,
-                risk_indicators=[],
-            ) if screening_note else None,
-            "distress_score": distress_score,
-            "crisis_route_finalized": False,
-            "use_fast_friend_model": False,  # distress_router sets this
-            "routing_history": [],
-        }
+    _tracer.guardrail(
+        "safety_gate",
+        input_data={"user_message_len": len(user_message), "sos_path": False},
+        output_data={
+            "sos_triggered": False,
+            "distress_score": float(distress_score),
+            "risk_level": int(snap.risk_level),
+            "safety_tier": str(snap.safety_tier),
+        },
+        metadata={"agent": "safety", "route": "non_sos_langgraph"},
     )
+    _graph_patterns: dict = graph_patterns or {}
+    graph = get_chat_graph()
+    graph_input: ChatGraphState = {
+        "user_message": user_message,
+        "recent_messages": recent_messages,
+        "mood_today": mood_today,
+        "long_term_memories": list(long_term_memories or []),
+        "mem0_facts": list(mem0_facts or []),
+        "user_traits": dict(warmed_traits or {}),
+        "top_triggers": list(top_triggers or []),
+        "active_goals": list(active_goals or []),
+        "effective_coping": list(effective_coping or []),
+        "clinical_trajectory": clinical_trajectory or "",
+        "active_persona_id": persona_id or DEFAULT_PERSONA_ID,
+        "active_memory_text": active_memory_text or "",
+        "correlation_id": correlation_id,
+        "user_id": user_id or "",
+        "graph_patterns": _graph_patterns,
+        "nutrition_meals": nutrition_meals or None,
+        # Cold-start screening note pre-seeded as a minimal bundle; analyst_node will
+        # overwrite with a richer bundle when routed to analyst.
+        "analyst_bundle": AnalystBundle(
+            clinical_note=screening_note[:200],
+            emotional_theme="cold_start_screen",
+            suggested_focus=None,
+            risk_indicators=[],
+        ) if screening_note else None,
+        "distress_score": distress_score,
+        "crisis_route_finalized": False,
+        "use_fast_friend_model": False,  # distress_router sets this
+        "routing_history": [],
+    }
+    out = graph.invoke(graph_input)
+    _trace_analyst_route_decision({**graph_input, **out})
     result = {
         "session_fields": snap,
         "reply": out.get("reply", ""),
@@ -1379,7 +1509,9 @@ def stream_non_sos_turn_events(
     persona_id: str | None = None,
     user_id: str | None = None,
     session_id: str | None = None,
-    active_memory_card_text: str = "",
+    active_memory_text: str = "",
+    graph_patterns: dict | None = None,
+    nutrition_meals: list[dict[str, Any]] | None = None,
 ) -> Iterator[dict[str, Any]]:
     """Yield streaming events for non-SOS turn:
     - {"type":"token","text":"..."} while model is generating
@@ -1408,9 +1540,23 @@ def stream_non_sos_turn_events(
         voice_hint=settings.distress_voice_hint,
         critical=settings.distress_critical,
     )
+    _stream_tracer.guardrail(
+        "safety_gate",
+        input_data={"user_message_len": len(user_message), "sos_path": False, "stream": True},
+        output_data={
+            "sos_triggered": False,
+            "distress_score": float(distress_score),
+            "risk_level": int(snap.risk_level),
+            "safety_tier": str(snap.safety_tier),
+        },
+        metadata={"agent": "safety", "route": "non_sos_stream"},
+    )
+
+    _stream_graph_patterns: dict = graph_patterns or {}
 
     state: ChatGraphState = {
         "correlation_id": correlation_id,
+        "user_id": user_id or "",
         "user_message": user_message,
         "recent_messages": recent_messages,
         "mood_today": mood_today,
@@ -1422,7 +1568,9 @@ def stream_non_sos_turn_events(
         "effective_coping": list(effective_coping or []),
         "clinical_trajectory": clinical_trajectory or "",
         "active_persona_id": persona_id or DEFAULT_PERSONA_ID,
-        "active_memory_card_text": active_memory_card_text or "",
+        "active_memory_text": active_memory_text or "",
+        "graph_patterns": _stream_graph_patterns,
+        "nutrition_meals": nutrition_meals or None,
         "analyst_bundle": AnalystBundle(
             clinical_note=screening_note[:200],
             emotional_theme="cold_start_screen",
@@ -1435,6 +1583,7 @@ def stream_non_sos_turn_events(
         "routing_history": [],
     }
     state.update(distress_router(state))
+    _trace_analyst_route_decision(state)
     if route_after_distress_router(state) == "analyst":
         state.update(analyst_node(state))
 
@@ -1472,12 +1621,26 @@ def stream_non_sos_turn_events(
                 user_text, settings.openai_api_key or "", distress_score=distress_now
             )
             safe_mentalchat_block = _sanitize_prompt_block(mentalchat_block)
+            style_fewshot_block = _sanitize_prompt_block(
+                build_fewshot_style_block(
+                    user_message=user_text,
+                    risk_mode="elevated" if distress_now >= 0.55 else "normal",
+                    distress_score=distress_now,
+                    persona_id=persona_id_active,
+                )
+            )
             base_system_prompt = (
                 "Bạn là Serene, trợ lý đồng hành tinh thần bằng tiếng Việt tự nhiên. "
-                "Giữ giọng ngắn, ấm, không phán xét; phản chiếu trước rồi mới gợi ý. "
+                "Viết như người Việt trẻ nhắn tin tự nhiên: ngắn, đúng ngữ cảnh, không văn mẫu. "
+                "Có thể mở đầu câu bằng chữ thường trong chat cảm xúc; vẫn giữ đúng tên riêng, acronym, tên sản phẩm và thuật ngữ kỹ thuật. "
+                "Phản chiếu một chi tiết cụ thể từ tin nhắn của user trước rồi mới gợi ý. "
+                "Trả lời 1–3 câu, một đoạn gọn; không dùng markdown hoặc emoji trong chat cảm xúc. "
                 "Mỗi lượt tối đa một câu hỏi nếu người dùng chưa xin phân tích sâu. "
-                "Không dùng giọng trị liệu khuôn mẫu, không chẩn đoán, không hứa hẹn phi thực tế. "
+                "Tránh các câu mặc định như 'tôi rất tiếc khi nghe điều đó', 'cảm xúc của bạn là hoàn toàn hợp lệ', "
+                "'bạn không đơn độc', 'mọi chuyện rồi sẽ ổn', 'hãy suy nghĩ tích cực'. "
+                "Không dùng giọng trị liệu khuôn mẫu, không chẩn đoán, không hứa hẹn phi thực tế, không đùa/slang khi distress cao. "
                 "Không tự xưng là Friend hay thực thể con người ngoài đời."
+                + (f"\n{style_fewshot_block}" if style_fewshot_block else "")
                 + (f"\n{safe_mentalchat_block}" if safe_mentalchat_block else "")
             )
             persona_priority_prompt = (
@@ -1550,6 +1713,7 @@ def stream_non_sos_turn_events(
                 persona_id=persona_id_active,
                 user_id=user_id,
                 session_id=session_id,
+                graph_patterns=_stream_graph_patterns,
             )
             yield {"type": "final", "turn": fallback}
             return
@@ -1564,6 +1728,14 @@ def stream_non_sos_turn_events(
         correlation_id,
         persona_id=persona_id_active,
     )
+    response_plan = build_response_plan(
+        user_message=user_text,
+        candidate_text=safe_reply,
+        distress_score=distress_now,
+        persona_id=persona_id_active,
+        sos_triggered=False,
+    )
+    safe_reply = _enforce_persona_identity(response_plan.visible_text, persona_id_active)
     _trace_span(
         correlation_id,
         "stream_friend_generate",
@@ -1631,6 +1803,3 @@ def build_normal_envelope(
         "sos_triggered": False,
         "routing_history": routing_history or [],
     }
-
-
-

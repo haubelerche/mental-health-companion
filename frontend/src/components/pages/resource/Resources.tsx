@@ -11,6 +11,7 @@ import { YouTubeEmbed, isYouTubeUrl } from './YouTubeEmbed'
 import Loading from '../../ui/Loading'
 import { useThemeContext } from '../../../contexts/ThemeContext'
 import { ExerciseTab } from './ExerciseTab'
+import Mascot from '../../pixel/Mascot'
 // ── Vietnamese category labels ────────────────────────────────────────────────
 const VI_LABELS: Record<string, { label: string; icon: string }> = {
     all: { label: 'Tất cả', icon: '✦' },
@@ -127,7 +128,10 @@ export default function Resources() {
             {/* Header */}
             <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                    <h1 className={`mt-1 font-display text-4xl text-theme-text-secondary md:text-5xl`}> Thư viện tài nguyên</h1>
+                    <div className="flex items-center gap-3">
+                        <Mascot variant="rock" size="md" decorative />
+                        <h1 className={`mt-1 font-display text-4xl text-theme-text-secondary md:text-5xl`}> Thư viện tài nguyên</h1>
+                    </div>
                 </div>
                 <label className={`flex items-center gap-2 border border-white/10 bg-theme-surface rounded-full px-4 py-3 text-sm ${isDark ? 'text-white/60' : 'text-serene-muted'} shadow-inner`}>
                     <Search className="h-4 w-4 shrink-0" />

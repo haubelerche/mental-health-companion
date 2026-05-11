@@ -7,11 +7,10 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Depends, Cookie
 from sqlalchemy.orm import Session
 
-from app.services.db.session import get_db
+from app.services.db.session import get_db, get_session_factory
 from app.services.db.models import User
 from app.api.deps import get_current_user
 from app.services.security import decode_token
-from app.core.errors import AppError
 from app.services.ws_manager import connection_manager
 from app.services.utils import get_now
 
@@ -21,7 +20,6 @@ router = APIRouter(prefix="/ws", tags=["websocket"])
 
 async def get_current_user_ws_cookie(
     access_token: str | None = Cookie(default=None, alias="access_token"),
-    db: Session = Depends(get_db),
 ) -> User | None:
     """Authenticate user for WebSocket via HTTP-only cookie (preferred for security)"""
     if not access_token:
@@ -36,15 +34,18 @@ async def get_current_user_ws_cookie(
         return None
 
     from sqlalchemy import select
-    user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
-    return user
+    with get_session_factory()() as db:
+        user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
+        if not user:
+            return None
+        db.expunge(user)
+        return user
 
 
 @router.websocket("/notifications")
 async def websocket_notifications(
     websocket: WebSocket,
     user: User | None = Depends(get_current_user_ws_cookie),
-    db: Session = Depends(get_db),
     token: str = Query(default=None),
 ):
     """
@@ -61,7 +62,10 @@ async def websocket_notifications(
                 user_id = payload.get("sub")
                 if user_id:
                     from sqlalchemy import select
-                    user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
+                    with get_session_factory()() as db:
+                        user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
+                        if user:
+                            db.expunge(user)
             except Exception:
                 pass
         

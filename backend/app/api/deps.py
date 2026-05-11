@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.services.db.models import User
-from app.services.db.session import get_db
+from app.services.db.session import get_db, get_session_factory
 from app.services.security import decode_token
 
 
@@ -101,6 +101,35 @@ def get_current_user(
 def ensure_policy_acknowledged(user: User = Depends(get_current_user)) -> User:
     if user.policy_acknowledged_at is None:
         raise AppError("POLICY_NOT_ACKNOWLEDGED", "Bạn cần xác nhận phiên bản điều khoản hiện tại", 403)
+    return user
+
+
+def get_current_user_for_stream(
+    access_token: str | None = Cookie(default=None, alias="access_token"),
+    _: None = Depends(require_csrf),
+) -> User:
+    if not access_token:
+        raise AppError("AUTH_INVALID_TOKEN", "Invalid token", 401)
+    try:
+        payload = decode_token(access_token)
+    except Exception as exc:
+        raise AppError("AUTH_INVALID_TOKEN", "Invalid token", 401) from exc
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise AppError("AUTH_INVALID_TOKEN", "Invalid token", 401)
+
+    with get_session_factory()() as db:
+        user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
+        if not user:
+            raise AppError("AUTH_INVALID_TOKEN", "Invalid token", 401)
+        db.expunge(user)
+        return user
+
+
+def ensure_policy_acknowledged_for_stream(user: User = Depends(get_current_user_for_stream)) -> User:
+    if user.policy_acknowledged_at is None:
+        raise AppError("POLICY_NOT_ACKNOWLEDGED", "Policy not acknowledged", 403)
     return user
 
 
