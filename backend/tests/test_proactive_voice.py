@@ -1,6 +1,9 @@
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from app.services import proactive_voice
+from app.voice.dedup import compute_event_signature, find_dedup_job
+from app.voice.types import TTS_REUSABLE_STATUSES
 
 
 def test_build_voice_script_returns_fallback_without_openai(monkeypatch):
@@ -41,6 +44,184 @@ def test_get_voice_job_invalid_id_returns_none():
     db = DummyDb()
     assert proactive_voice.get_voice_job(db, "abc") is None
     assert proactive_voice.get_voice_audio_path(db, "tts_not_number") is None
+
+
+def test_seconds_since_handles_aware_utc_against_vietnam_now(monkeypatch):
+    utc_now = datetime(2026, 5, 9, 15, 0, 10, tzinfo=timezone.utc)
+    vietnam_now = utc_now.astimezone(timezone(timedelta(hours=7)))
+    monkeypatch.setattr("app.services.utils.get_now", lambda: vietnam_now)
+
+    created_at = datetime(2026, 5, 9, 15, 0, 0, tzinfo=timezone.utc)
+
+    assert proactive_voice._seconds_since(created_at) == 10
+
+
+def test_get_voice_job_processing_uses_processing_started_at(monkeypatch):
+    vietnam_now = datetime(2026, 5, 9, 22, 0, 10, tzinfo=timezone(timedelta(hours=7)))
+    monkeypatch.setattr("app.services.utils.get_now", lambda: vietnam_now)
+    monkeypatch.setattr(
+        proactive_voice,
+        "get_settings",
+        lambda: SimpleNamespace(voice_tts_auto_process_on_enqueue=False),
+    )
+
+    class Row:
+        outbox_id = 9
+        event_type = proactive_voice.VOICE_JOB_EVENT_TYPE
+        status = "processing"
+        retry_count = 0
+        created_at = datetime(2026, 5, 9, 15, 0, 0, tzinfo=timezone.utc)
+        processing_started_at = datetime(2026, 5, 9, 22, 0, 0)
+        payload = {
+            "user_id": "usr_1",
+            "voice": {"status": "processing"},
+        }
+
+    class Db:
+        def __init__(self):
+            self.row = Row()
+            self.committed = False
+
+        def get(self, *_args):
+            return self.row
+
+        def commit(self):
+            self.committed = True
+
+    db = Db()
+    job = proactive_voice.get_voice_job(db, "tts_9")
+
+    assert job is not None
+    assert job["status"] == "processing"
+    assert job["error_code"] is None
+    assert db.row.status == "processing"
+    assert db.committed is False
+
+
+def test_get_voice_job_done_ready_clears_stale_error():
+    class Row:
+        outbox_id = 10
+        event_type = proactive_voice.VOICE_JOB_EVENT_TYPE
+        status = "done"
+        retry_count = 0
+        created_at = datetime(2026, 5, 9, 15, 0, 0, tzinfo=timezone.utc)
+        processing_started_at = datetime(2026, 5, 9, 15, 0, 1, tzinfo=timezone.utc)
+        payload = {
+            "user_id": "usr_1",
+            "voice": {
+                "status": "ready",
+                "audio_url": "/v1/chat/voice-jobs/tts_10/audio",
+                "error_code": "stale_lock",
+                "error_message": "Voice job xử lý quá lâu; hệ thống đã đánh dấu thất bại.",
+            },
+        }
+
+    class Db:
+        def __init__(self):
+            self.row = Row()
+            self.committed = False
+
+        def get(self, *_args):
+            return self.row
+
+        def commit(self):
+            self.committed = True
+
+    db = Db()
+    job = proactive_voice.get_voice_job(db, "tts_10")
+
+    assert job is not None
+    assert job["status"] == "ready"
+    assert job["audio_url"] == "/v1/chat/voice-jobs/tts_10/audio"
+    assert job["error_code"] is None
+    assert job["error_message"] is None
+    assert "error_code" not in db.row.payload["voice"]
+    assert "error_message" not in db.row.payload["voice"]
+
+
+def test_dedup_reuses_queued_processing_and_ready_jobs():
+    assert "queued" in TTS_REUSABLE_STATUSES
+    assert "processing" in TTS_REUSABLE_STATUSES
+
+    signature = compute_event_signature(
+        user_id="usr_1",
+        session_id="sess_1",
+        voice_style_id="style_a",
+        voice_script="Mình ở đây với bạn.",
+        provider="elevenlabs",
+        voice_id="voice_a",
+    )
+
+    class Row:
+        def __init__(self, outbox_id: int, status: str):
+            self.outbox_id = outbox_id
+            self.created_at = datetime.now(timezone.utc)
+            self.payload = {
+                "voice": {
+                    "event_signature": signature,
+                    "status": status,
+                    "audio_url": f"/v1/chat/voice-jobs/tts_{outbox_id}/audio",
+                },
+            }
+
+    class ScalarResult:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def all(self):
+            return self._rows
+
+    class Db:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def scalars(self, *_args, **_kwargs):
+            return ScalarResult(self._rows)
+
+    processing = find_dedup_job(Db([Row(21, "processing")]), signature)
+    assert processing is not None
+    assert processing["tts_job_id"] == "tts_21"
+
+    queued = find_dedup_job(Db([Row(22, "queued")]), signature)
+    assert queued is not None
+    assert queued["tts_job_id"] == "tts_22"
+
+    ready = find_dedup_job(Db([Row(23, "ready")]), signature)
+    assert ready is not None
+    assert ready["tts_job_id"] == "tts_23"
+
+
+def test_dedup_signature_includes_risk_mode_intent_and_template_version():
+    base = dict(
+        user_id="usr_1",
+        session_id="sess_1",
+        voice_style_id="style_a",
+        voice_script="Minh o day voi ban.",
+        provider="elevenlabs",
+        voice_id="voice_a",
+    )
+
+    sos_grounding = compute_event_signature(
+        **base,
+        risk_mode="sos",
+        voice_intent="sos_grounding",
+        template_version="voice_policy_v1",
+    )
+    sos_next_step = compute_event_signature(
+        **base,
+        risk_mode="sos",
+        voice_intent="sos_next_safe_step",
+        template_version="voice_policy_v1",
+    )
+    elevated = compute_event_signature(
+        **base,
+        risk_mode="elevated",
+        voice_intent="elevated_encouragement",
+        template_version="voice_policy_v1",
+    )
+
+    assert sos_grounding != sos_next_step
+    assert sos_grounding != elevated
 
 
 def test_normalize_audio_bytes_from_iterable():
@@ -152,3 +333,9 @@ def test_render_tts_audio_routed_via_renderer(monkeypatch):
     assert out["success"] is True
     assert called["provider"] == "elevenlabs"
     assert called["script"] == "xin chao"
+
+
+def test_message_suggests_proactive_voice_detects_intensity_cues():
+    assert proactive_voice.message_suggests_proactive_voice("mấy thằng đó cực đoan quá") is True
+    assert proactive_voice.message_suggests_proactive_voice("tôi muốn trả thù") is True
+    assert proactive_voice.message_suggests_proactive_voice("hôm nay trời đẹp") is False

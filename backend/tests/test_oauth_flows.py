@@ -5,7 +5,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
 from app.main import app
-from app.services.db.session import Base, get_engine, get_session_factory
+from app.services.db.session import Base, get_db
 from app.services.db.models import User
 
 
@@ -15,23 +15,24 @@ from sqlalchemy.pool import StaticPool
 
 @pytest.fixture(scope="module")
 def test_db():
+    # Map Postgres schema "app" to default namespace so models with __table_args__ = {"schema": "app"} work on SQLite.
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
         future=True,
+        execution_options={"schema_translate_map": {"app": None}},
     )
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, class_=Session)
     Base.metadata.create_all(bind=engine)
-    
-    from app.api.v1.routers.auth import get_db
+
     def override_db():
         db = SessionLocal()
         try:
             yield db
         finally:
             db.close()
-    
+
     app.dependency_overrides[get_db] = override_db
     try:
         yield SessionLocal
