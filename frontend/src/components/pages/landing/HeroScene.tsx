@@ -109,7 +109,10 @@ export default function HeroScene() {
 
                 {/* Content */}
                 <div className="hero-content">
-                    <span className="section-label" style={{ marginBottom: '1rem' }}>
+                    <span className="section-label" style={{ 
+                        marginBottom: '1rem',
+                        textShadow: '2px 2px 0 #020812, -1px -1px 0 #020812, 1px -1px 0 #020812, -1px 1px 0 #020812, 1px 1px 0 #020812'
+                    }}>
                         SereneAI·Người bạn đồng hành sức khoẻ tâm thần
                     </span>
 
@@ -119,6 +122,8 @@ export default function HeroScene() {
                             fontSize: 'clamp(4.5rem, 2.5vw, 2.5rem)',
                             maxWidth: '820px',
                             marginBottom: '1.5rem',
+                            fontWeight: '700',
+                            textShadow: '3px 3px 0 #020812, -1px -1px 0 #020812, 1px -1px 0 #020812, -1px 1px 0 #020812, 1px 1px 0 #020812'
                         }}
                     >
                         Nơi an toàn để<br />
@@ -133,7 +138,8 @@ export default function HeroScene() {
                             marginBottom: '2.5rem',
                             transition: 'opacity 0.5s ease',
                             color: 'rgba(237,247,255,0.92)',
-                            letterSpacing: '0.05rem'
+                            letterSpacing: '0.05rem',
+                            textShadow: '2px 1px 2px rgba(0,0,0,0.8)'
                         }}
                     >
                         {subtitleMap[phase]}
@@ -148,6 +154,7 @@ export default function HeroScene() {
                             justifyContent: 'center',
                             opacity: phase === 'done' ? 0 : 1,
                             transition: 'opacity 0.4s ease',
+                            fontWeight: '600',
                         }}
                     >
                         <Link to="/serene" className="pixel-btn">
