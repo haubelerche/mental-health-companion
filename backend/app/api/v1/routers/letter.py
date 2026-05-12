@@ -1,7 +1,7 @@
 from datetime import date, datetime
 import random
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy import exists, func, select, or_
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm import Session
@@ -158,7 +158,7 @@ def _pick_receiver(
     return random.choice(candidates)
 
 
-def _notify_sender_reported(db: Session, sender_id: str, *, letter_id: str, message: str = "Lá thư của bạn đã bị báo cáo") -> None:
+def _notify_sender_reported(db: Session, sender_id: str, *, letter_id: str, message: str = "Lá thư của bạn đã bị báo cáo", background_tasks: BackgroundTasks | None = None) -> None:
     from app.services.notification_service import send_instant_notification
     send_instant_notification(
         db,
@@ -167,11 +167,12 @@ def _notify_sender_reported(db: Session, sender_id: str, *, letter_id: str, mess
         payload={
             "letter_id": letter_id,
             "message": message,
-        }
+        },
+        background_tasks=background_tasks
     )
 
 
-def _notify_sender_replied(db: Session, sender_id: str, *, letter_id: str, reply_id: str, replier_id: str) -> None:
+def _notify_sender_replied(db: Session, sender_id: str, *, letter_id: str, reply_id: str, replier_id: str, background_tasks: BackgroundTasks | None = None) -> None:
     from app.services.notification_service import send_instant_notification
     send_instant_notification(
         db,
@@ -182,11 +183,12 @@ def _notify_sender_replied(db: Session, sender_id: str, *, letter_id: str, reply
             "reply_id": reply_id,
             "replier_id": replier_id,
             "message": "Bạn có một phản hồi thư mới!",
-        }
+        },
+        background_tasks=background_tasks
     )
 
 
-def _notify_receiver_letter_received(db: Session, receiver_id: str, *, letter_id: str, sender_id: str) -> None:
+def _notify_receiver_letter_received(db: Session, receiver_id: str, *, letter_id: str, sender_id: str, background_tasks: BackgroundTasks | None = None) -> None:
     from app.services.notification_service import send_instant_notification
     send_instant_notification(
         db,
@@ -196,11 +198,12 @@ def _notify_receiver_letter_received(db: Session, receiver_id: str, *, letter_id
             "letter_id": letter_id,
             "sender_id": sender_id,
             "message": "Bạn vừa nhận được một lá thư ẩn danh mới",
-        }
+        },
+        background_tasks=background_tasks
     )
 
 
-def _notify_replier_reaction(db: Session, replier_id: str, *, reply_id: str, letter_id: str, reaction_type: str) -> None:
+def _notify_replier_reaction(db: Session, replier_id: str, *, reply_id: str, letter_id: str, reaction_type: str, background_tasks: BackgroundTasks | None = None) -> None:
     from app.services.notification_service import send_instant_notification
     send_instant_notification(
         db,
@@ -211,13 +214,15 @@ def _notify_replier_reaction(db: Session, replier_id: str, *, reply_id: str, let
             "letter_id": letter_id,
             "reaction_type": reaction_type,
             "message": "Ai đó vừa thả tim vào phản hồi của bạn!",
-        }
+        },
+        background_tasks=background_tasks
     )
 
 
 @router.post("/letters")
 def send_letter(
     payload: LetterSendRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(ensure_policy_acknowledged),
 ):
@@ -307,13 +312,16 @@ def send_letter(
             event_type=LETTER_REWARD_EVENT_TYPE,
             source_tab="letter",
             idempotency_key=f"letter:{current_user.user_id}:{letter.letter_id}",
+            background_tasks=background_tasks,
         )
+
         if reward_result.get("granted"):
             letter.reward_event_id = reward_result["event_id"]
 
     if letter_status == "active":
         _notify_receiver_letter_received(
-            db, receiver_id, letter_id=letter.letter_id, sender_id=current_user.user_id
+            db, receiver_id, letter_id=letter.letter_id, sender_id=current_user.user_id,
+            background_tasks=background_tasks
         )
 
     db.commit()
@@ -421,6 +429,7 @@ def get_sent_letters(
 @router.post("/letters/{letter_id}/forward")
 def forward_letter(
     letter_id: str,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(ensure_policy_acknowledged),
 ):
@@ -451,7 +460,7 @@ def forward_letter(
     letter.updated_at = _local_naive_now()
     
     db.add(letter)
-    _notify_receiver_letter_received(db, new_receiver, letter_id=letter.letter_id, sender_id=letter.user_id)
+    _notify_receiver_letter_received(db, new_receiver, letter_id=letter.letter_id, sender_id=letter.user_id, background_tasks=background_tasks)
     db.commit()
 
     return ok(
@@ -468,6 +477,7 @@ def forward_letter(
 def reply_letter(
     letter_id: str,
     payload: LetterReplyRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(ensure_policy_acknowledged),
 ):
@@ -506,7 +516,8 @@ def reply_letter(
     db.add(letter)
     
     _notify_sender_replied(db, letter.user_id, letter_id=letter.letter_id,
-                           reply_id=reply.letter_id, replier_id=current_user.user_id)
+                           reply_id=reply.letter_id, replier_id=current_user.user_id,
+                           background_tasks=background_tasks)
     db.commit()
 
     return ok(
@@ -524,6 +535,7 @@ def reply_letter(
 def react_reply(
     reply_id: str,
     payload: LetterReactRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(ensure_policy_acknowledged),
 ):
@@ -544,7 +556,7 @@ def react_reply(
     reply.updated_at = _local_naive_now()
     
     db.add(reply)
-    _notify_replier_reaction(db, reply.user_id, reply_id=reply_id, letter_id=original_letter.letter_id, reaction_type=payload.reaction_type)
+    _notify_replier_reaction(db, reply.user_id, reply_id=reply_id, letter_id=original_letter.letter_id, reaction_type=payload.reaction_type, background_tasks=background_tasks)
     db.commit()
 
     return ok(
@@ -560,6 +572,7 @@ def react_reply(
 @router.post("/reports")
 def report_letter(
     payload: LetterReportRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(ensure_policy_acknowledged),
 ):
@@ -593,7 +606,7 @@ def report_letter(
     letter.status = "reported"
     
     db.add(letter)
-    _notify_sender_reported(db, letter.user_id, letter_id=letter.letter_id)
+    _notify_sender_reported(db, letter.user_id, letter_id=letter.letter_id, background_tasks=background_tasks)
     db.commit()
 
     return ok(

@@ -47,6 +47,7 @@ def mark_persona_unlocked(
     persona_id: str,
     source: str = "purchase",
     extra: dict[str, Any] | None = None,
+    background_tasks: Any | None = None,
 ) -> PersonaUnlockState:
     state = get_persona_unlock_state(db, user_id=user_id, persona_id=persona_id)
     now = get_now().replace(tzinfo=None)
@@ -78,11 +79,13 @@ def mark_persona_unlocked(
                 "persona_id": persona_id,
                 "message": f"Chúc mừng! Bạn đã mở khóa thành công nhân vật mới: {persona_id.upper()}",
                 "source": source
-            }
+            },
+            background_tasks=background_tasks
         )
     except Exception:
         pass
     return state
+
 
 
 def accept_crush_boundary(db: Session, *, user_id: str) -> PersonaUnlockState:
