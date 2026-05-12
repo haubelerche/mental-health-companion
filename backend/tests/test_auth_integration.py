@@ -190,11 +190,11 @@ def test_signup_local_fallback_auto_verifies_when_smtp_missing(monkeypatch, auth
         db.close()
 
 
-def test_me_persona_crush_and_alias_locked_without_store_unlock(monkeypatch, auth_test_db):
+def test_me_persona_hau_and_alias_locked_without_store_unlock(monkeypatch, auth_test_db):
     # Real JWT access tokens so `get_current_user` + `/me/persona` work under TestClient cookies.
     monkeypatch.setattr(auth_router, "generate_refresh_token", lambda: "test-refresh-token")
     monkeypatch.setattr(auth_router, "send_verification_email", lambda **_kwargs: None)
-    email = _unique_email("persona_crush_lock")
+    email = _unique_email("persona_hau_lock")
     password = "StrongPass#2026"
     with TestClient(app) as client:
         signup_resp = client.post(
@@ -221,13 +221,13 @@ def test_me_persona_crush_and_alias_locked_without_store_unlock(monkeypatch, aut
 
         assert client.post("/v1/auth/login", json={"email": email, "password": password}).status_code == 200
         csrf = client.get("/v1/auth/csrf-token").json()["data"]["csrf_token"]
-        crush_resp = client.post(
+        hau_resp = client.post(
             "/v1/auth/me/persona",
-            json={"persona_id": "crush"},
+            json={"persona_id": "hau_luong"},
             headers={"X-CSRF-Token": csrf},
         )
-        assert crush_resp.status_code == 403
-        assert crush_resp.json()["error"]["code"] == "persona_locked"
+        assert hau_resp.status_code == 403
+        assert hau_resp.json()["error"]["code"] == "persona_locked"
 
         alias_resp = client.post(
             "/v1/auth/me/persona",
@@ -243,10 +243,10 @@ def test_me_persona_crush_and_alias_locked_without_store_unlock(monkeypatch, aut
             headers={"X-CSRF-Token": csrf},
         )
         assert ok_resp.status_code == 200
-        assert ok_resp.json()["data"]["persona_id"] == "ban_than"
+        assert ok_resp.json()["data"]["persona_id"] == "dung_luong"
         me_resp = client.get("/v1/auth/me")
         assert me_resp.status_code == 200
-        assert me_resp.json()["data"]["persona_id"] == "ban_than"
+        assert me_resp.json()["data"]["persona_id"] == "dung_luong"
 
 
 def test_me_persona_unknown_returns_400(monkeypatch, auth_test_db):

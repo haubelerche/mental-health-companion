@@ -8,6 +8,24 @@ from app.services import guest_service
 from app.services.safety_scoring import SafetySnapshot
 
 
+FORBIDDEN_NORMAL_CHAT_FIELDS = {
+    "agent_display_name",
+    "conversation_mode",
+    "voice_session_offered",
+    "suggest_voice",
+    "voice_hint",
+    "emergency_actions",
+    "assistant_tone",
+    "goi_y_nhanh",
+    "the_dinh_kem",
+    "routing_history",
+    "voice_policy",
+    "intervention",
+    "distress_score",
+    "safety_tier",
+}
+
+
 def _post_guest_message(client: TestClient, payload: dict):
     token_resp = client.get("/v1/auth/csrf-token")
     assert token_resp.status_code == 200
@@ -43,6 +61,14 @@ def test_guest_chat_message_starts_session(monkeypatch):
     assert body["success"] is True
     assert body["data"]["session_id"] == "gst_123"
     assert body["data"]["sos_triggered"] is False
+    assert body["data"]["assistant_text"] == body["data"]["reply"]
+    assert body["data"]["message_id"] is None
+    assert body["data"]["used_advisor_ids"] == []
+    assert body["data"]["resource_suggestions"] == []
+    assert body["data"]["nutrition_suggestion"] is None
+    assert body["data"]["tts_job"] is None
+    assert "latency_trace" in body["data"]
+    assert FORBIDDEN_NORMAL_CHAT_FIELDS.isdisjoint(body["data"])
 
 
 def test_guest_chat_message_blocks_expired_trial(monkeypatch):
@@ -182,3 +208,4 @@ def test_guest_chat_message_expires_after_backend_trial_duration(monkeypatch):
     body = expired_resp.json()
     assert body["success"] is False
     assert body["error"]["code"] == "GUEST_TRIAL_EXPIRED"
+

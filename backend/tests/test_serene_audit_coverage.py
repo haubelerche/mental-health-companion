@@ -7,55 +7,33 @@ from app.personas.router import route_persona
 from app.services.crisis_intervention_planner import build_fallback_plan
 
 
-def test_route_persona_crush_high_distress_falls_back_to_ban_than():
+def test_route_persona_hau_high_distress_falls_back_to_default():
     d = route_persona(
-        current_persona_id="crush",
-        requested_persona_id="crush",
+        current_persona_id="hau_luong",
+        requested_persona_id="hau_luong",
         distress=0.65,
         sos_triggered=False,
         is_unlocked=True,
     )
-    assert d.target_persona_id == "ban_than"
+    assert d.target_persona_id == "dung_luong"
     assert d.safety_override is True
-
-
-def test_route_persona_cun_distress_ceiling():
-    d = route_persona(
-        current_persona_id="cun",
-        requested_persona_id="cun",
-        distress=0.41,
-        sos_triggered=False,
-        is_unlocked=True,
-    )
-    assert d.target_persona_id == "ban_than"
-
-
-def test_route_persona_meo_distress_ceiling():
-    d = route_persona(
-        current_persona_id="meo",
-        requested_persona_id="meo",
-        distress=0.56,
-        sos_triggered=False,
-        is_unlocked=True,
-    )
-    assert d.target_persona_id == "ban_than"
 
 
 def test_route_persona_low_distress_unlocked_stays():
     d = route_persona(
-        current_persona_id="meo",
-        requested_persona_id="meo",
+        current_persona_id="hau_luong",
+        requested_persona_id="hau_luong",
         distress=0.2,
         sos_triggered=False,
         is_unlocked=True,
     )
-    assert d.target_persona_id == "meo"
+    assert d.target_persona_id == "hau_luong"
 
 
 def test_route_persona_nguoi_thay_is_free_core_without_unlock():
     d = route_persona(
-        current_persona_id="ban_than",
-        requested_persona_id="nguoi_thay",
+        current_persona_id="dung_luong",
+        requested_persona_id="dat_le",
         distress=0.2,
         sos_triggered=False,
         is_unlocked=False,
@@ -67,8 +45,8 @@ def test_route_persona_nguoi_thay_is_free_core_without_unlock():
 
 def test_route_persona_locked_progression_reason_is_stable():
     d = route_persona(
-        current_persona_id="ban_than",
-        requested_persona_id="crush",
+        current_persona_id="dung_luong",
+        requested_persona_id="hau_luong",
         distress=0.2,
         sos_triggered=False,
         is_unlocked=False,

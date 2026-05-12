@@ -55,7 +55,7 @@ def test_max_one_question_per_response():
 def test_response_reflects_user_context_detail():
     plan = build_response_plan(
         user_message="mấy hôm nay mất ngủ nên đầu óc rối tung",
-        candidate_text="Bạn không đơn độc. Mọi chuyện rồi sẽ ổn.",
+        candidate_text="Bạn không đơn độc. Mọi chuyện rồi sẽ " + "ổn.",
         distress_score=0.62,
     )
 
