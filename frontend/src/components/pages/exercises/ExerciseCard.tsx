@@ -46,13 +46,13 @@ export default function ExerciseCard({ exercise, onStart, index }: ExerciseCardP
       <div className={`absolute inset-0 bg-gradient-to-br ${exercise.gradient} opacity-60 rounded-[24px] pointer-events-none`} aria-hidden />
       <div className="relative flex h-full flex-col">
         <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.25em] flex-shrink-0 whitespace-nowrap shadow-sm ${isDark ? 'border-white/20 bg-white/10 text-[#E8DCC8]' : 'border-white/50 bg-white/40 text-[#2d4a3f]'}`}>
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.1em] shadow-sm whitespace-normal ${isDark ? 'border-white/20 bg-white/10 text-[#E8DCC8]' : 'border-white/50 bg-white/40 text-[#2d4a3f]'}`}>
             <Icon className="h-4 w-4 flex-shrink-0" />
-            {exercise.tone}
+            <span>{exercise.tone}</span>
           </span>
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold flex-shrink-0 whitespace-nowrap shadow-sm ${isDark ? 'border-white/20 bg-white/10 text-[#E8DCC8]' : 'border-white/50 bg-white/40 text-[#2d4a3f]'}`}>
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold shadow-sm whitespace-normal ${isDark ? 'border-white/20 bg-white/10 text-[#E8DCC8]' : 'border-white/50 bg-white/40 text-[#2d4a3f]'}`}>
             <Clock3 className="h-4 w-4 flex-shrink-0" />
-            {exercise.durationLabel}
+            <span>{exercise.durationLabel}</span>
           </span>
         </div>
 
