@@ -25,8 +25,9 @@ COMMIT_PLAYBOOK.md
 
 .claude/
 .codex/
-.github/
-!.github/workflows/
+.github/plans/
+.github/skills/
+
 
 # Loại bỏ tất cả các tệp tài liệu PDF
 *.pdf
