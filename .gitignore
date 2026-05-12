@@ -22,13 +22,11 @@ CLAUDE.md
 
 COMMIT_PLAYBOOK.md
 
-
+.codex/
+.github/
 .claude/
 .codex/
-.github/plans/
-.github/skills/
-
-
+.github/
 # Loại bỏ tất cả các tệp tài liệu PDF
 *.pdf
 # Local app config (env-backed; không đưa lên remote)
@@ -86,9 +84,8 @@ test-results/
 tests/
 !backend/tests/
 backend/tests/*
-!backend/tests/test_database_boundary_regression.py
-!backend/tests/test_pool_soak.py
-!backend/tests/test_vietnamese_chat_style.py
+!backend/tests/test_friend_naturalness_regression.py
+
 
 # Ignore all Markdown files at repository root only
 /*.md
@@ -98,5 +95,3 @@ backend/tests/*
 !DATABASE_REFACTOR_PHASE_PLAN.md
 .ts
 /*.yaml
-
-backend/docs/plan.md
