@@ -157,8 +157,8 @@ export function ExercisesPage() {
               subtitle="Mỗi bài được thiết kế để bắt đầu thật nhẹ. Bạn chỉ cần chọn một trạng thái gần nhất, rồi bấm bắt đầu."
             />
 
-            <section className="grid gap-6 lg:grid-cols-[0.7fr_1.3fr]">
-              <aside className={`relative rounded-[28px] border p-6 shadow-[0_18px_40px_rgba(16,35,31,0.10)] backdrop-blur-sm sm:p-8 ${isDark ? 'border-white/15 bg-[#10231F]/78' : 'border-white/35 bg-[#F8F1DC]'}`}>
+            <section className="grid gap-6 lg:grid-cols-[0.6fr_1.4fr]">
+              <aside className={`self-start relative rounded-[28px] border p-6 shadow-[0_18px_40px_rgba(16,35,31,0.10)] backdrop-blur-sm sm:p-8 ${isDark ? 'border-white/15 bg-[#10231F]/78' : 'border-white/35 bg-[#F8F1DC]'}`}>
                 <div className={`flex items-start gap-4`}>
                   <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${isDark ? 'bg-white/10 text-[#F4E8C8]' : 'bg-[#5F7F68]/15 text-[#5F7F68]'}`}>
                     <Volume2 className="h-6 w-6" />
@@ -221,7 +221,7 @@ export function ExercisesPage() {
 
               <div className="space-y-4">
                 <ExerciseFilterChips tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
-                <section aria-label="Danh sách bài tập" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <section aria-label="Danh sách bài tập" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                   <AnimatePresence mode="popLayout">
                     {filteredExercises.map((exercise, index) => (
                       <ExerciseCard key={exercise.id} exercise={exercise} onStart={startExercise} index={index} />
