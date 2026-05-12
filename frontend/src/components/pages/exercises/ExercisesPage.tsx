@@ -2,15 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Accessibility, Focus, LayoutGrid, Leaf, Sparkles, Waves, Wind, Volume2, VolumeX, Pause, Play, ArrowLeft } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ROUTE_PATHS } from '../../routes/paths'
-import { useThemeContext } from '../../contexts/ThemeContext'
-import dayBackground from '../../assets/motion/serene-landing-day-welcome.gif'
-import nightBackground from '../../assets/motion/serene-landing-night-welcome.gif'
-import BackgroundLayer from './exercises/BackgroundLayer'
-import ExerciseHero from './exercises/ExerciseHero'
-import ExerciseFilterChips, { type ExerciseTabId } from './exercises/ExerciseFilterChips'
-import ExerciseCard, { type ExerciseCardData } from './exercises/ExerciseCard'
-import { useAmbientSound } from './exercises/useAmbientSound'
+import { ROUTE_PATHS } from '../../../routes/paths'
+import { useThemeContext } from '../../../contexts/ThemeContext'
+import dayBackground from '../../../assets/motion/serene-landing-day-welcome.gif'
+import nightBackground from '../../../assets/motion/serene-landing-night-welcome.gif'
+import BackgroundLayer from './BackgroundLayer'
+import ExerciseHero from './ExerciseHero'
+import ExerciseFilterChips, { type ExerciseTabId } from './ExerciseFilterChips'
+import ExerciseCard, { type ExerciseCardData } from './ExerciseCard'
+import { useAmbientSound } from './useAmbientSound'
 
 const AMBIENT_AUDIO_SRC = '/audio/ambient-water-birds-leaves.mp3'
 
@@ -140,7 +140,7 @@ export function ExercisesPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden text-[#24352D] dark:text-[#F4E8C8]">
+    <div className={`relative min-h-screen overflow-hidden ${isDark ? 'text-[#F4E8C8]' : 'text-[#24352D]'}`}>
       <BackgroundLayer src={currentBackground} mode={isDark ? 'dark' : 'light'} />
 
       <div className="relative z-10 mx-auto max-w-[1040px] px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
@@ -157,20 +157,20 @@ export function ExercisesPage() {
               subtitle="Mỗi bài được thiết kế để bắt đầu thật nhẹ. Bạn chỉ cần chọn một trạng thái gần nhất, rồi bấm bắt đầu."
             />
 
-            <section className="grid gap-6 lg:grid-cols-[0.7fr_1.3fr]">
-              <aside className="rounded-[28px] border border-white/35 bg-[#F8F1DC]/88 p-6 shadow-[0_18px_40px_rgba(16,35,31,0.10)] backdrop-blur-sm dark:border-white/15 dark:bg-[#10231F]/78 sm:p-8">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#5F7F68]/15 text-[#5F7F68] dark:bg-white/10 dark:text-[#F4E8C8]">
+            <section className="grid gap-6 lg:grid-cols-[0.6fr_1.4fr]">
+              <aside className={`self-start relative rounded-[28px] border p-6 shadow-[0_18px_40px_rgba(16,35,31,0.10)] backdrop-blur-sm sm:p-8 ${isDark ? 'border-white/15 bg-[#10231F]/78' : 'border-white/35 bg-[#F8F1DC]'}`}>
+                <div className={`flex items-start gap-4`}>
+                  <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${isDark ? 'bg-white/10 text-[#F4E8C8]' : 'bg-[#5F7F68]/15 text-[#5F7F68]'}`}>
                     <Volume2 className="h-6 w-6" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[#5F7F68] dark:text-[#F4D28A]">
+                    <p className={`text-[11px] font-medium uppercase tracking-[0.22em] ${isDark ? 'text-[#F4D28A]' : 'text-[#5F7F68]'}`}>
                       Âm thanh nền
                     </p>
-                    <h2 className="mt-1 text-xl font-semibold text-[#24352D] dark:text-[#F4E8C8]">
+                    <h2 className={`mt-1 text-xl font-semibold ${isDark ? 'text-[#F4E8C8]' : 'text-[#24352D]'}`}>
                       Nước nhẹ, chim nhỏ, lá khẽ
                     </h2>
-                    <p className="mt-2 text-sm leading-6 text-[#24352D]/78 dark:text-[#F4E8C8]/78">
+                    <p className={`mt-2 text-sm leading-6 ${isDark ? 'text-[#F4E8C8]/78' : 'text-[#24352D]/78'}`}>
                       Trang sẽ cố phát âm thanh nền ngay khi vào. Nếu trình duyệt chặn, chỉ cần bấm mở âm thanh.
                     </p>
                   </div>
@@ -186,7 +186,7 @@ export function ExercisesPage() {
                     return (
                       <div
                         key={item.label}
-                        className="rounded-[18px] border border-white/30 bg-white/30 px-3 py-3 text-center text-sm text-[#24352D] dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]"
+                        className={`rounded-[18px] border px-3 py-3 text-center text-sm ${isDark ? 'border-white/10 bg-white/5 text-[#F4E8C8]' : 'border-white/30 bg-white/30 text-[#24352D]'}`}
                       >
                         <Icon className="mx-auto h-4 w-4 opacity-80" />
                         <p className="mt-2">{item.label}</p>
@@ -208,12 +208,12 @@ export function ExercisesPage() {
                   <button
                     type="button"
                     onClick={() => ambient.setMuted(!ambient.isMuted)}
-                    className="rounded-full border border-white/30 bg-white/25 px-4 py-2.5 text-sm font-medium text-[#24352D] transition-colors hover:bg-white/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]"
+                    className={`rounded-full border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-white/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2 ${isDark ? 'border-white/10 bg-white/5 text-[#F4E8C8]' : 'border-white/30 bg-white/25 text-[#24352D]'}`}
                     aria-label={ambient.isMuted ? 'Bỏ tắt tiếng' : 'Tắt tiếng'}
                   >
                     {ambient.isMuted ? 'Bỏ tắt tiếng' : 'Tắt tiếng'}
                   </button>
-                  <span className="text-xs text-[#24352D]/60 dark:text-[#F4E8C8]/65">
+                  <span className={`text-xs ${isDark ? 'text-[#F4E8C8]/65' : 'text-[#24352D]/60'}`}>
                     {ambient.hasLoaded ? 'Âm thanh đã sẵn sàng.' : ambient.autoplayBlocked ? 'Trình duyệt cần bạn chạm để phát.' : 'Đang nạp âm thanh...'}
                   </span>
                 </div>
@@ -221,7 +221,7 @@ export function ExercisesPage() {
 
               <div className="space-y-4">
                 <ExerciseFilterChips tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
-                <section aria-label="Danh sách bài tập" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <section aria-label="Danh sách bài tập" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                   <AnimatePresence mode="popLayout">
                     {filteredExercises.map((exercise, index) => (
                       <ExerciseCard key={exercise.id} exercise={exercise} onStart={startExercise} index={index} />
@@ -236,13 +236,13 @@ export function ExercisesPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="rounded-[28px] border border-white/35 bg-[#F8F1DC]/88 p-4 shadow-[0_18px_40px_rgba(16,35,31,0.10)] backdrop-blur-sm dark:border-white/15 dark:bg-[#10231F]/78 sm:p-6 lg:p-8"
+            className={`rounded-[28px] border p-4 shadow-[0_18px_40px_rgba(16,35,31,0.10)] backdrop-blur-sm sm:p-6 lg:p-8 ${isDark ? 'border-white/15 bg-[#10231F]/78' : 'border-white/35 bg-[#F8F1DC]'}`}
           >
             <header className="flex flex-wrap items-center justify-between gap-4">
               <button
                 type="button"
                 onClick={backToHub}
-                className="inline-flex h-11 items-center gap-2 rounded-full border border-white/35 bg-white/25 px-4 text-sm font-medium text-[#24352D] transition-colors hover:bg-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]"
+                className={`inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors hover:bg-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2 ${isDark ? 'border-white/10 bg-white/5 text-[#F4E8C8]' : 'border-white/35 bg-white/25 text-[#24352D]'}`}
                 aria-label="Quay lại"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -250,10 +250,10 @@ export function ExercisesPage() {
               </button>
 
               <div className="text-center">
-                <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[#5F7F68] dark:text-[#F4D28A]">
+                <p className={`text-[11px] font-medium uppercase tracking-[0.24em] ${isDark ? 'text-[#F4D28A]' : 'text-[#5F7F68]'}`}>
                   {activeExercise.tone}
                 </p>
-                <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#24352D] dark:text-[#F4E8C8] sm:text-3xl">
+                <h1 className={`mt-1 text-2xl font-semibold tracking-tight sm:text-3xl ${isDark ? 'text-[#F4E8C8]' : 'text-[#24352D]'}`}>
                   {activeExercise.title}
                 </h1>
               </div>
@@ -264,7 +264,7 @@ export function ExercisesPage() {
                   setElapsed(0)
                   setIsRunning(false)
                 }}
-                className="inline-flex h-11 items-center gap-2 rounded-full border border-white/35 bg-white/25 px-4 text-sm font-medium text-[#24352D] transition-colors hover:bg-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]"
+                className={`inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors hover:bg-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2 ${isDark ? 'border-white/10 bg-white/5 text-[#F4E8C8]' : 'border-white/35 bg-white/25 text-[#24352D]'}`}
                 aria-label="Làm lại bài tập"
               >
                 Làm lại
@@ -294,9 +294,9 @@ export function ExercisesPage() {
                   <motion.div
                     animate={reduceMotion ? { scale: 1 } : { scale: isRunning ? [1, 1.06, 1] : 1 }}
                     transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
-                    className="relative flex h-[180px] w-[180px] items-center justify-center rounded-full bg-white/25 shadow-[0_16px_38px_rgba(16,35,31,0.18)] backdrop-blur-md dark:bg-white/5 sm:h-[220px] sm:w-[220px]"
+                    className={`relative flex h-[180px] w-[180px] items-center justify-center rounded-full shadow-[0_16px_38px_rgba(16,35,31,0.18)] backdrop-blur-md sm:h-[220px] sm:w-[220px] ${isDark ? 'bg-white/5' : 'bg-white/25'}`}
                   >
-                    <div className="flex h-32 w-32 items-center justify-center rounded-full bg-white/40 text-[#5F7F68] dark:bg-white/10 dark:text-[#F4E8C8] sm:h-40 sm:w-40">
+                    <div className={`flex h-32 w-32 items-center justify-center rounded-full sm:h-40 sm:w-40 ${isDark ? 'bg-white/10 text-[#F4E8C8]' : 'bg-white/40 text-[#5F7F68]'}`}>
                       <Waves className="h-12 w-12" />
                     </div>
                   </motion.div>
@@ -307,20 +307,20 @@ export function ExercisesPage() {
                     key={isRunning ? 'running' : 'idle'}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-3xl font-semibold tracking-tight text-[#24352D] dark:text-[#F4E8C8] sm:text-4xl"
+                    className={`text-3xl font-semibold tracking-tight sm:text-4xl ${isDark ? 'text-[#F4E8C8]' : 'text-[#24352D]'}`}
                   >
                     {isRunning ? 'Đang thở cùng bạn' : 'Đợi bạn bấm bắt đầu'}
                   </motion.p>
-                  <p className="text-5xl font-light tabular-nums text-[#5F7F68] dark:text-[#F4D28A]">
+                  <p className={`text-5xl font-light tabular-nums ${isDark ? 'text-[#F4D28A]' : 'text-[#5F7F68]'}`}>
                     {isRunning ? '•' : '0'}
                   </p>
-                  <p className="max-w-lg text-sm leading-6 text-[#24352D]/78 dark:text-[#F4E8C8]/78">
+                  <p className={`max-w-lg text-sm leading-6 ${isDark ? 'text-[#F4E8C8]/78' : 'text-[#24352D]/78'}`}>
                     {activeExercise.description}
                   </p>
                 </div>
 
                 <div className="mt-8 w-full max-w-md space-y-3">
-                  <div className="h-2 overflow-hidden rounded-full bg-white/35 dark:bg-white/10">
+                  <div className={`h-2 overflow-hidden rounded-full ${isDark ? 'bg-white/10' : 'bg-white/35'}`}>
                     <motion.div
                       className="h-full rounded-full bg-[#5F7F68]"
                       initial={{ width: 0 }}
@@ -328,7 +328,7 @@ export function ExercisesPage() {
                       transition={{ duration: 0.35 }}
                     />
                   </div>
-                  <div className="flex justify-between text-xs font-medium uppercase tracking-[0.22em] text-[#24352D]/55 dark:text-[#F4E8C8]/55">
+                  <div className={`flex justify-between text-xs font-medium uppercase tracking-[0.22em] ${isDark ? 'text-[#F4E8C8]/55' : 'text-[#24352D]/55'}`}>
                     <span>Đã qua: {formatTime(elapsed)}</span>
                     <span>Còn lại: {formatTime(remaining)}</span>
                   </div>
@@ -345,38 +345,38 @@ export function ExercisesPage() {
                 </motion.button>
               </section>
 
-              <aside className="space-y-4 rounded-[24px] border border-white/35 bg-white/20 p-5 backdrop-blur-sm dark:border-white/10 dark:bg-white/5 sm:p-6">
+              <aside className={`space-y-4 rounded-[24px] border p-5 backdrop-blur-sm sm:p-6 ${isDark ? 'border-white/10 bg-white/5' : 'border-white/35 bg-white/20'}`}>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#5F7F68]/12 text-[#5F7F68] dark:bg-white/10 dark:text-[#F4E8C8]">
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${isDark ? 'bg-white/10 text-[#F4E8C8]' : 'bg-[#5F7F68]/12 text-[#5F7F68]'}`}>
                     <Waves className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#5F7F68] dark:text-[#F4D28A]">
+                    <p className={`text-[11px] uppercase tracking-[0.22em] ${isDark ? 'text-[#F4D28A]' : 'text-[#5F7F68]'}`}>
                       Cấu trúc bài
                     </p>
-                    <p className="mt-1 text-lg font-semibold text-[#24352D] dark:text-[#F4E8C8]">
+                    <p className={`mt-1 text-lg font-semibold ${isDark ? 'text-[#F4E8C8]' : 'text-[#24352D]'}`}>
                       {activeExercise.structure}
                     </p>
                   </div>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-[18px] border border-white/30 bg-white/20 p-4 text-[#24352D] dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]">
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#5F7F68] dark:text-[#F4D28A]">
+                  <div className={`rounded-[18px] border p-4 ${isDark ? 'border-white/10 bg-white/5 text-[#F4E8C8]' : 'border-white/30 bg-white/20 text-[#24352D]'}`}>
+                    <p className={`text-[11px] uppercase tracking-[0.22em] ${isDark ? 'text-[#F4D28A]' : 'text-[#5F7F68]'}`}>
                       Thời lượng
                     </p>
                     <p className="mt-2 text-xl font-semibold">{activeExercise.durationLabel}</p>
                   </div>
-                  <div className="rounded-[18px] border border-white/30 bg-white/20 p-4 text-[#24352D] dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]">
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#5F7F68] dark:text-[#F4D28A]">
+                  <div className={`rounded-[18px] border p-4 ${isDark ? 'border-white/10 bg-white/5 text-[#F4E8C8]' : 'border-white/30 bg-white/20 text-[#24352D]'}`}>
+                    <p className={`text-[11px] uppercase tracking-[0.22em] ${isDark ? 'text-[#F4D28A]' : 'text-[#5F7F68]'}`}>
                       Phù hợp khi
                     </p>
                     <p className="mt-2 text-sm leading-6">{activeExercise.recommendedFor}</p>
                   </div>
                 </div>
 
-                <div className="rounded-[20px] border border-white/30 bg-white/20 p-4 text-sm leading-6 text-[#24352D]/82 dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]/82">
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#5F7F68] dark:text-[#F4D28A]">
+                <div className={`rounded-[20px] border p-4 text-sm leading-6 ${isDark ? 'border-white/10 bg-white/5 text-[#F4E8C8]/82' : 'border-white/30 bg-white/20 text-[#24352D]/82'}`}>
+                  <p className={`text-[11px] uppercase tracking-[0.22em] ${isDark ? 'text-[#F4D28A]' : 'text-[#5F7F68]'}`}>
                     Gợi ý nhẹ
                   </p>
                   <p className="mt-2">
@@ -388,7 +388,7 @@ export function ExercisesPage() {
                   {[ambient.isPlaying ? 'Âm thanh đang mở' : 'Âm thanh tĩnh', activeExercise.id === 'body_scan' ? 'Dành cho buổi tối' : 'Dùng vào lúc cần nhẹ lại'].map((tag) => (
                     <span
                       key={tag}
-                      className="rounded-full border border-white/30 bg-white/20 px-3 py-1 text-xs font-medium text-[#24352D] dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]"
+                      className={`rounded-full border px-3 py-1 text-xs font-medium ${isDark ? 'border-white/10 bg-white/5 text-[#F4E8C8]' : 'border-white/30 bg-white/20 text-[#24352D]'}`}
                     >
                       {tag}
                     </span>
@@ -399,7 +399,7 @@ export function ExercisesPage() {
                   <button
                     type="button"
                     onClick={ambient.toggle}
-                    className="inline-flex items-center gap-2 rounded-full bg-[#5F7F68] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2"
+                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2 ${isDark ? 'bg-[#5F7F68] text-white hover:opacity-95' : 'bg-[#5F7F68] text-white hover:opacity-95'}`}
                   >
                     {ambient.isPlaying ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                     {ambient.isPlaying ? 'Tạm dừng âm thanh' : 'Bật âm thanh'}
@@ -407,7 +407,7 @@ export function ExercisesPage() {
                   <button
                     type="button"
                     onClick={backToHub}
-                    className="inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/20 px-4 py-2.5 text-sm font-medium text-[#24352D] transition-colors hover:bg-white/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2 dark:border-white/10 dark:bg-white/5 dark:text-[#F4E8C8]"
+                    className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-white/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2 ${isDark ? 'border-white/10 bg-white/5 text-[#F4E8C8]' : 'border-white/35 bg-white/20 text-[#24352D]'}`}
                   >
                     <ArrowLeft className="h-4 w-4" />
                     Về danh sách
