@@ -25,7 +25,10 @@ COMMIT_PLAYBOOK.md
 
 .claude/
 .codex/
-.github/
+.github/plans/
+.github/skills/
+
+
 # Loại bỏ tất cả các tệp tài liệu PDF
 *.pdf
 # Local app config (env-backed; không đưa lên remote)
