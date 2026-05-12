@@ -72,7 +72,7 @@ function AnalyzingLoader() {
       setStepIdx((i) => Math.min(i + 1, steps.length - 1))
     }, 900)
     return () => clearInterval(interval)
-  }, [])
+  }, [steps.length])
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-[var(--color-lua-bg)] px-6">

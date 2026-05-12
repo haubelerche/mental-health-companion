@@ -32,12 +32,19 @@ VietnameseStyleState = VietnameseChatStyleState
 
 def choose_vietnamese_style(
     *,
-    persona_id: str = "ban_than",
+    persona_id: str = "dung_luong",
     distress_score: float = 0.0,
     risk_mode: str = "normal",
 ) -> VietnameseChatStyleState:
+    if persona_id == "dat_le":
+        persona_pronoun_style: PronounStyle = "toi_ban"
+    elif persona_id == "dung_luong":
+        persona_pronoun_style = "to_cau"
+    else:
+        persona_pronoun_style = "minh_ban"
+
     normalized_risk = "sos" if risk_mode in {"sos", "safety"} else risk_mode
-    user_tone_allows = persona_id in {"cun", "meo", "crush"}
+    user_tone_allows = persona_id in {"dung_luong", "hau_luong"}
 
     if normalized_risk == "sos" or distress_score >= 0.88:
         return VietnameseChatStyleState(
@@ -45,7 +52,7 @@ def choose_vietnamese_style(
             lowercase_chat_allowed=True,
             preserve_proper_nouns=True,
             tone_level=0,
-            pronoun_style="minh_ban",
+            pronoun_style=persona_pronoun_style,
             slang_level=0,
             humor_level=0,
             warmth_level=2,
@@ -57,7 +64,7 @@ def choose_vietnamese_style(
     if distress_score >= 0.55:
         return VietnameseChatStyleState(
             tone_level=1,
-            pronoun_style="minh_ban",
+            pronoun_style=persona_pronoun_style,
             slang_level=0,
             humor_level=0,
             warmth_level=2,
@@ -69,7 +76,7 @@ def choose_vietnamese_style(
     allow_playful = user_tone_allows and distress_score < 0.4
     return VietnameseChatStyleState(
         tone_level=2,
-        pronoun_style="minh_ban",
+        pronoun_style=persona_pronoun_style,
         slang_level=1,
         humor_level=1 if allow_playful else 0,
         warmth_level=2,

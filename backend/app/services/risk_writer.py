@@ -1,10 +1,7 @@
 """Synchronous writers for safety audit tables.
 
-RiskInferenceLog and SessionRiskSnapshot must be written synchronously
-before the turn response is returned so the safety audit trail is never
-missing when an SOS or elevated-risk state is detected.
-
-These tables are backend-only. Frontend must never read them directly.
+CrisisLog and SessionRiskSnapshot must be written synchronously before the
+turn response is returned so safety audit trail is never missing.
 """
 
 from __future__ import annotations
@@ -14,7 +11,8 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.services.db.models import RiskInferenceLog, SessionRiskSnapshot
+from app.services.db.models import CrisisLog, SessionRiskSnapshot
+from app.services.utils import make_id, get_now
 
 _RISK_MODEL_VERSION = "rule-based-v1"
 
@@ -29,20 +27,31 @@ def record_risk_inference(
     inferred_signal: str,
     score: float | None = None,
     detail: dict[str, Any] | None = None,
-) -> int | None:
-    """Persist one risk inference event. Returns log_id or None on failure.
+) -> str | None:
+    """Persist one risk inference audit row into crisis_logs. Returns log_id or None on failure.
 
     Must be called inside an open transaction; caller is responsible for
     committing (or letting the caller's flush handle it).
     """
     try:
-        row = RiskInferenceLog(
+        score_value = float(score) if score is not None else 0.0
+        if score_value >= 0.85:
+            severity = "imminent"
+        elif score_value >= 0.65:
+            severity = "high"
+        elif score_value >= 0.35:
+            severity = "moderate"
+        else:
+            severity = "low"
+        details = detail or {}
+        row = CrisisLog(
+            log_id=make_id("cl"),
             user_id=user_id,
             session_id=session_id,
-            inferred_signal=inferred_signal,
-            model_version=_RISK_MODEL_VERSION,
-            score=score,
-            detail=detail or {},
+            severity_level=severity,
+            context_summary=f"[risk:{inferred_signal}] score={score_value:.3f} model={_RISK_MODEL_VERSION} detail={details}",
+            reviewed=False,
+            triggered_at=get_now().replace(tzinfo=None),
         )
         db.add(row)
         db.flush()

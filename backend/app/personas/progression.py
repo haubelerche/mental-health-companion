@@ -16,7 +16,7 @@ from app.rewards.catalog import CATALOG_BY_ID
 from app.services.db.models import MoodCheckin
 
 # Core personas are always available; this module historically only listed UNLOCKABLE_PERSONAS.
-CORE_PERSONA_IDS: tuple[str, ...] = ("ban_than", "nguoi_thay")
+CORE_PERSONA_IDS: tuple[str, ...] = ("dung_luong", "nguoi_thay")
 
 
 def _count_mood_checkins(db: Session, user_id: str) -> int:
@@ -49,7 +49,6 @@ def get_unlock_progress(
     requirements: dict[str, Any] = item_def.get("requirements", {})
     state = get_persona_unlock_state(db, user_id=user_id, persona_id=persona_id)
     unlocked = bool(state and state.unlocked)
-    boundary_accepted = bool(state and state.boundary_accepted)
 
     mood_count = _count_mood_checkins(db, user_id) if requirements.get("mood_checkins_min") else 0
 
@@ -60,13 +59,6 @@ def get_unlock_progress(
             "required": requirements["mood_checkins_min"],
             "met": mood_count >= requirements["mood_checkins_min"],
         }
-    if requirements.get("boundary_intro_accepted"):
-        progress["boundary_accepted"] = {
-            "current": boundary_accepted,
-            "required": True,
-            "met": boundary_accepted,
-        }
-
     return {
         "persona_id": persona_id,
         "unlocked": unlocked,

@@ -7,7 +7,7 @@ import { ROUTE_PATHS } from '../../routes/paths'
 import { onboardingService, type OnboardingProfile } from '../../services/onboardingService'
 import { EMOTIONAL_OPTIONS, PRIMARY_CONCERN_OPTIONS, SUPPORT_OPTIONS, PRACTICE_OPTIONS, STRESS_LABELS } from './onboarding/onboard.option'
 import Loading from '../ui/Loading'
-import avatar from '../../assets/avatar.png'
+import avatar from '../../assets/user/avatar.jpg'
 
 
 export default function Profile() {
@@ -31,8 +31,7 @@ export default function Profile() {
             }
         }
         fetchOnboardingData()
-        console.log(user)
-    }, [])
+    }, [user])
 
     if (!user) return null
 

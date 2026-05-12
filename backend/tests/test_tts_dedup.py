@@ -151,7 +151,7 @@ class TestStyleMapping:
     def test_all_personas_mapped(self):
         from app.voice.style_mapping import PERSONA_VOICE_STYLES
 
-        expected_ids = {"ban_than", "nguoi_thay", "cun", "meo", "crush"}
+        expected_ids = {"dung_luong", "dat_le", "hau_luong"}
         assert expected_ids == set(PERSONA_VOICE_STYLES.keys())
 
     def test_default_for_unknown_persona(self):
@@ -160,28 +160,28 @@ class TestStyleMapping:
         assert get_voice_style("unknown_xyz") == DEFAULT_VOICE_STYLE
         assert get_voice_style(None) == DEFAULT_VOICE_STYLE
 
-    def test_crush_style_is_restricted(self):
+    def test_hau_style_is_restricted(self):
         from app.voice.style_mapping import is_style_restricted, get_voice_style
 
-        assert is_style_restricted(get_voice_style("crush"))
+        assert is_style_restricted(get_voice_style("hau_luong"))
 
     def test_restricted_style_falls_back_without_ownership(self):
         from app.voice.style_mapping import DEFAULT_VOICE_STYLE, resolve_active_style
 
-        style = resolve_active_style("crush", user_owns_voice_style=False)
+        style = resolve_active_style("hau_luong", user_owns_voice_style=False)
         assert style == DEFAULT_VOICE_STYLE
 
     def test_restricted_style_used_with_ownership(self):
         from app.voice.style_mapping import resolve_active_style
 
-        style = resolve_active_style("crush", user_owns_voice_style=True)
-        assert style == "soft_affectionate"
+        style = resolve_active_style("hau_luong", user_owns_voice_style=True)
+        assert style == "soft_quiet"
 
     def test_free_style_unaffected_by_ownership_flag(self):
         from app.voice.style_mapping import resolve_active_style
 
-        style_with = resolve_active_style("ban_than", user_owns_voice_style=True)
-        style_without = resolve_active_style("ban_than", user_owns_voice_style=False)
+        style_with = resolve_active_style("dung_luong", user_owns_voice_style=True)
+        style_without = resolve_active_style("dung_luong", user_owns_voice_style=False)
         assert style_with == style_without == "warm_friend"
 
 

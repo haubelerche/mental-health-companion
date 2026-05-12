@@ -10,6 +10,7 @@ export type RewardStoreItem = {
     tier: number
     icon_key?: string | null
     requirements?: Record<string, unknown>
+    metadata?: Record<string, unknown>
 }
 
 export type RewardShelf = {
@@ -39,7 +40,7 @@ export type InventoryItem = {
 export type PersonaProgress = {
     persona_id: string
     unlocked: boolean
-    price_hearts: number
+    price_hearts: number | null
     is_core?: boolean
     progress?: number
     requirements?: Record<string, unknown>
@@ -53,10 +54,4 @@ export const rewardsService = {
     getInventory: () => httpClient.get<{ items: InventoryItem[] }>('/rewards/inventory'),
     getPersonasProgress: () =>
         httpClient.get<{ personas: PersonaProgress[] }>('/rewards/personas/progress'),
-    getCrushBoundaryIntro: () =>
-        httpClient.get<{ intro_text: string; key_points: string[]; acceptance_required: boolean }>(
-            '/rewards/personas/crush/boundary-intro',
-        ),
-    acceptCrushBoundary: () =>
-        httpClient.postWithCsrf<{ accepted: boolean }>('/rewards/personas/crush/boundary-accept', {}),
 }

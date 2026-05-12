@@ -409,3 +409,20 @@ def dashboard_safe_insights(
 def follow_up(current_user: User = Depends(ensure_policy_acknowledged), db: Session = Depends(get_db)):
     _ = db
     return ok({"items": [], "user_id": current_user.user_id})
+
+
+@router.get("/insights")
+def dashboard_insights_alias(
+    current_user: User = Depends(ensure_policy_acknowledged),
+    db: Session = Depends(get_db),
+):
+    return ok(build_safe_insights_payload(db, user_id=current_user.user_id))
+
+
+@router.get("/trends")
+def dashboard_trends_alias(
+    current_user: User = Depends(ensure_policy_acknowledged),
+    db: Session = Depends(get_db),
+):
+    summary = build_reflect_summary(db, user_id=current_user.user_id)
+    return ok({"summary": summary.model_dump(mode="json"), "user_id": current_user.user_id})

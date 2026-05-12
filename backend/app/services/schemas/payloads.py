@@ -31,6 +31,7 @@ class ResetPasswordRequest(BaseModel):
 class ChatMessageRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
     session_id: str | None = Field(default=None, max_length=50)
+    persona_id: str | None = Field(default=None, max_length=50)
 
 
 class GuestChatMessageRequest(BaseModel):
@@ -80,6 +81,8 @@ class GuestChoiceRequest(BaseModel):
 class ScreeningSubmitRequest(BaseModel):
     instrument_id: str = Field(min_length=1, max_length=50)
     answers: dict[str, int]
+    session_id: str | None = Field(default=None, max_length=50)
+    locale: str = Field(default="vi-VN", min_length=2, max_length=16)
 
 
 class CheckinQuickRequest(BaseModel):
@@ -181,9 +184,21 @@ class OnboardingCompleteRequest(BaseModel):
     practice_ids: list[str] = Field(default_factory=list, max_length=8)
 
 
+class OnboardingTourStartRequest(BaseModel):
+    variant: str = Field(default="first_run", max_length=50)
+
+
+class OnboardingTourProgressRequest(BaseModel):
+    step_id: str = Field(min_length=1, max_length=80)
+    skipped: bool = False
+    next_step_id: str | None = Field(default=None, max_length=80)
+
+
 class PersonaUpdateRequest(BaseModel):
     persona_id: str = Field(
-        pattern="^(ban_than|nguoi_yeu|nguoi_thay|nguoi_la|nguoi_than|cun|meo|crush)$"
+        min_length=2,
+        max_length=50,
+        pattern="^[a-z_]+$",
     )
 
 

@@ -19,12 +19,11 @@ type Props = {
 }
 
 export function CrisisVoiceStack({ voiceMessages, onPlay }: Props) {
-    const initial = useMemo(() => voiceMessages ?? [], [voiceMessages])
-    const [cards, setCards] = useState<CrisisVoiceMessage[]>(initial)
-
-    useEffect(() => {
-        setCards(voiceMessages ?? [])
-    }, [voiceMessages])
+    const [patches, setPatches] = useState<Record<string, Partial<CrisisVoiceMessage>>>({})
+    const cards = useMemo(
+        () => (voiceMessages ?? []).map((card) => ({ ...card, ...(patches[card.id] ?? {}) })),
+        [patches, voiceMessages],
+    )
 
     useEffect(() => {
         const timers: number[] = []
@@ -32,7 +31,7 @@ export function CrisisVoiceStack({ voiceMessages, onPlay }: Props) {
 
         const patchCard = (id: string, patch: Partial<CrisisVoiceMessage>) => {
             if (cancelled) return
-            setCards((prev) => prev.map((card) => (card.id === id ? { ...card, ...patch } : card)))
+            setPatches((prev) => ({ ...prev, [id]: { ...(prev[id] ?? {}), ...patch } }))
         }
 
         const poll = async (card: CrisisVoiceMessage, attempt = 0): Promise<void> => {

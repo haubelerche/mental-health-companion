@@ -8,15 +8,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-PersonaId = Literal["ban_than", "nguoi_thay", "cun", "meo", "crush"]
-PersonaRiskClass = Literal["default", "guidance", "playful_low_risk", "calm_low_risk", "restricted"]
+PersonaId = Literal["dung_luong", "nguoi_thay", "hau_luong"]
+PersonaRiskClass = Literal["default", "guidance", "calm_low_risk"]
 ActivationMode = Literal["default", "explicit_opt_in", "explicit_or_suggested", "unlockable"]
 QualityGuardProfile = Literal[
     "supportive_default",
     "mentor_reflective",
-    "light_playful",
     "quiet_minimal",
-    "restricted_supportive",
 ]
 
 
@@ -64,8 +62,8 @@ class PersonaConfig:
 
 @dataclass
 class PersonaState:
-    active_persona_id: str = "ban_than"
-    preferred_persona_id: str = "ban_than"
+    active_persona_id: str = "dung_luong"
+    preferred_persona_id: str = "dung_luong"
     persona_locked: bool = False
     selected_by_user: bool = False
     active_since_turn: int = 0
@@ -74,4 +72,3 @@ class PersonaState:
     last_safety_override_ts: float | None = None
     cooldown_until_turn: int | None = None
     current_turn: int = 0
-    crush_voice_gender: Literal["male", "female"] | None = None

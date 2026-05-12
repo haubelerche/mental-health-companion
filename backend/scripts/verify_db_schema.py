@@ -2,51 +2,36 @@
 
 import os
 import sys
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import sqlalchemy as sa
 
 from app.core.config import get_settings
+from app.services.db.schema_ownership import ACTIVE_TABLES, FORBIDDEN_SCHEMA_TABLES
 
-REQUIRED_TABLES = [
-    "users",
-    "user_identities",
-    "refresh_tokens",
-    "email_verification_tokens",
-    "password_reset_tokens",
-    "conversations",
-    "messages",
-    "mood_checkins",
-    "resources",
-    "bookmarks",
-    "play_events",
+REQUIRED_TABLES = list(ACTIVE_TABLES)
+# Literal inventory kept for schema-boundary regression tests and human review.
+ACTIVE_TABLE_INVENTORY_FOR_AUDIT = (
     "mem0_memories",
-    "session_summaries_archive",
-    "user_profiles",
-    "user_profile_snapshots",
-    "clinical_profiles",
-    "risk_inference_log",
-    "session_risk_snapshots",
-    "crisis_logs",
-    "analyst_signals",
-    "insight_hypotheses",
-    "sync_outbox",
-    "admin_audit_log",
-    "heart_wallets",
-    "heart_reward_events",
-    "heart_spend_events",
-    "streak_states",
-    "nutrition_meal_checkins",
-    "persona_unlock_states",
-    "reward_store_items",
-    "user_inventory_items",
-    "knowledge_packs",
-    "knowledge_cards",
-    "user_knowledge_progress",
-    "user_notifications",
-    "user_notification_preferences",
-]
+    "screening_answers",
+    "letter_review_events",
+    "counseling_knowledge",
+    "advisor_case_library",
+    "onboarding_tour_states",
+)
+FORBIDDEN_TABLES = set(FORBIDDEN_SCHEMA_TABLES)
+FORBIDDEN_TABLE_INVENTORY_FOR_AUDIT = (
+    "memory_cards",
+    "memory_card_audit_events",
+    "conversation_memories",
+    "mem0_memories_entities",
+    "mem0migrations",
+    "screening_results",
+    "analyst_bundles",
+    "async_outbox",
+)
 
 REQUIRED_COLUMNS = {
     "sync_outbox": {
@@ -66,18 +51,29 @@ REQUIRED_COLUMNS = {
         "user_id",
         "phq9_score",
         "gad7_score",
+        "phq9_coverage",
+        "gad7_coverage",
         "crisis_level",
         "score_source",
+        "model_version",
         "last_scored_at",
     },
-    "risk_inference_log": {
-        "log_id",
+    "screening_answers": {
+        "answer_id",
         "user_id",
+        "instrument_id",
+        "screening_type",
+        "question_id",
+        "question_key",
+        "answer_value",
+        "answer_label",
+        "question_text_version",
+        "answer_options_version",
         "session_id",
-        "inferred_signal",
-        "score",
-        "detail",
-        "created_at",
+        "locale",
+        "raw_score",
+        "answers",
+        "submitted_at",
     },
     "session_risk_snapshots": {
         "snapshot_id",
@@ -105,11 +101,71 @@ REQUIRED_COLUMNS = {
         "status",
     },
     "heart_wallets": {"user_id", "balance", "lifetime_earned", "lifetime_spent"},
+    "onboarding_tour_states": {
+        "user_id",
+        "status",
+        "variant",
+        "current_step_id",
+        "completed_step_ids",
+        "skipped_step_ids",
+        "metadata",
+    },
     "knowledge_cards": {"card_id", "pack_id", "title", "content_markdown", "order_index"},
+    "letter_review_events": {
+        "event_id",
+        "letter_id",
+        "user_id",
+        "validator_version",
+        "verdict",
+        "reason_codes",
+        "confidence",
+        "metadata",
+        "created_at",
+    },
+    "advisor_case_library": {
+        "case_id",
+        "raw_case_id",
+        "language",
+        "user_context",
+        "primary_problem",
+        "topic_tags",
+        "emotional_state_tags",
+        "interaction_need",
+        "cognitive_pattern_tags",
+        "counseling_goal",
+        "recommended_approach",
+        "intervention_steps",
+        "reflection_questions",
+        "do_say",
+        "do_not_say",
+        "risk_flags",
+        "source_response_summary",
+        "safety_review_status",
+        "quality_score",
+        "embedding",
+        "created_at",
+    },
 }
 
 
+def _assert_cleanup_migrations_no_drop_cascade() -> None:
+    versions_dir = Path(__file__).resolve().parents[1] / "alembic" / "versions"
+    cleanup_files = [
+        versions_dir / "0023_retire_memory_cards.py",
+        versions_dir / "0024_retire_legacy_schema_duplicates.py",
+        versions_dir / "0027_drop_ownerless_memory_card_tables.py",
+        versions_dir / "0028_retire_journal_resource_risk.py",
+    ]
+    for migration_path in cleanup_files:
+        src = migration_path.read_text(encoding="utf-8")
+        if "DROP TABLE" in src and "CASCADE" in src:
+            print(f"ERROR: cleanup migration uses DROP ... CASCADE: {migration_path.name}")
+            sys.exit(1)
+
+
 def main() -> None:
+    _assert_cleanup_migrations_no_drop_cascade()
+
     settings = get_settings()
     db_url = settings.normalized_database_url()
     if "sqlite" in db_url:
@@ -141,6 +197,17 @@ def main() -> None:
                 sa.text("SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name='public')")
             ).scalar()
             if public_schema_exists:
+                public_forbidden = conn.execute(
+                    sa.text(
+                        "SELECT table_name FROM information_schema.tables "
+                        "WHERE table_schema = 'public' AND table_name = ANY(:table_names) "
+                        "ORDER BY table_name"
+                    ),
+                    {"table_names": list(FORBIDDEN_TABLES)},
+                ).scalars().all()
+                if public_forbidden:
+                    print(f"\nERROR: forbidden legacy tables still exist in public schema: {public_forbidden}")
+                    sys.exit(1)
                 print("\nERROR: public schema still exists; canonical database must use only app plus extension/system schemas")
                 sys.exit(1)
 
@@ -151,6 +218,12 @@ def main() -> None:
                     print(f"  MISSING {table}")
                 sys.exit(1)
             print("\nOK: all required tables exist")
+
+            forbidden = sorted(existing & FORBIDDEN_TABLES)
+            if forbidden:
+                print(f"\nERROR: forbidden legacy tables still exist in app schema: {forbidden}")
+                sys.exit(1)
+            print("OK: no forbidden legacy tables exist in app schema")
 
             cols = conn.execute(
                 sa.text(

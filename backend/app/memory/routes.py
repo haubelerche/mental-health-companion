@@ -14,6 +14,7 @@ from app.core.responses import ok
 from app.services.db.models import User
 from app.services.db.session import get_db
 from app.services.mem0_repository import Mem0Memory, delete_user_memory, list_user_memories
+from app.services.observability import record_event, record_metric
 
 router = APIRouter(prefix="/chat/memories", tags=["memory"])
 
@@ -44,7 +45,15 @@ def list_memories(
     _policy: User = Depends(ensure_policy_acknowledged),
 ) -> Any:
     memories = list_user_memories(db, user_id=current_user.user_id, limit=limit)
-    return ok({"memories": [UserMemoryOut.from_memory(memory) for memory in memories]})
+    safe_memories: list[Mem0Memory] = []
+    for memory in memories:
+        owner = str(memory.metadata.get("user_id") or "").strip()
+        if owner and owner != current_user.user_id:
+            record_metric("memory_owner_mismatch_total", 1, labels={"operation": "list"})
+            record_event("memory.owner_mismatch", metadata={"operation": "list", "reason_code": "owner_mismatch"})
+            continue
+        safe_memories.append(memory)
+    return ok({"memories": [UserMemoryOut.from_memory(memory) for memory in safe_memories]})
 
 
 @router.delete("/{memory_id}", summary="Delete one canonical user memory")

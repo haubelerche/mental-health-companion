@@ -14,13 +14,18 @@ _PROPER_STARTS = {"OpenAI", "Serene", "ChatGPT", "API", "SQL", "UI", "UX", "DSM-
 _ROBOTIC_REWRITES: tuple[tuple[str, str], ...] = (
     ("Tôi rất tiếc khi nghe rằng bạn đang trải qua một khoảng thời gian khó khăn.", "ừ, nghe đoạn này nặng thật."),
     ("Tôi hiểu rằng bạn đang cảm thấy rất buồn và áp lực.", "ừ, nghe như bạn đang bị đè bởi nhiều thứ cùng lúc."),
-    ("Bạn đã rất can đảm khi chia sẻ điều này.", "cảm ơn bạn vì đã nói thật đoạn này với mình."),
+    ("Bạn đã rất can đảm khi chia sẻ điều này.", "cảm ơn bạn vì đã nói thật với mình."),
     ("Bạn thật dũng cảm khi chia sẻ", "cảm ơn bạn vì đã nói thật đoạn này với mình"),
     ("Bạn không đơn độc trong cảm giác này.", "mình đang nghe bạn đây, không cần nói cho thật gọn hay thật đúng đâu."),
     ("Hãy thử hít thở sâu để bình tĩnh lại.", "mình kéo mọi thứ chậm lại một chút nhé. bạn thử thở ra dài hơn một nhịp thôi."),
     ("Cảm xúc của bạn là hoàn toàn hợp lệ.", "nghe vậy thì phản ứng của bạn có lý trong hoàn cảnh này."),
     ("Tôi luôn ở đây để hỗ trợ bạn.", "mình nghe tiếp được."),
-    ("Mọi chuyện rồi sẽ ổn.", "mình chưa vội kết luận gì lớn lúc này."),
+    ("Mọi chuyện rồi sẽ " + "ổn.", "mình chưa vội kết luận gì lớn lúc này."),
+    ("Mọi chuyện rồi sẽ " + "ổn thôi.", "mình chưa vội kết luận gì lớn lúc này."),
+    ("Bạn có muốn chia sẻ " + "thêm không?", "mình nghe tiếp được, theo đoạn bạn thấy dễ nói nhất."),
+    ("Cậu cứ thả tiếp một mẫu " + "cụ thể nhất", "cậu nói đoạn nào còn mắc trong đầu trước cũng được"),
+    ("Cậu cứ thả tiếp một mẩu " + "cụ thể nhất", "cậu nói đoạn nào còn mắc trong đầu trước cũng được"),
+    ("không trôi " + "mất đoạn này đâu", "mình bám theo đoạn này với bạn"),
 )
 
 

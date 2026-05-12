@@ -16,7 +16,7 @@ export default function ScrollToHash() {
                     el.scrollIntoView({ behavior: 'smooth' })
                 }, 0)
             }
-        } catch (err) {
+        } catch {
             // Ignore invalid hash selector (e.g. Facebook adds "#_=_")
             // Prevents uncaught exceptions from breaking the app
             return

@@ -1,9 +1,11 @@
 import { httpClient } from '../api/httpClient'
 import { ApiRequestError } from '../api/types'
+import type { PersonaProgress } from './rewardsService'
 
 export type ChatMessageRequest = {
     message: string
     session_id?: string | null
+    persona_id?: string | null
 }
 
 export type GuestChatMessageRequest = {
@@ -80,4 +82,7 @@ export const chatService = {
         httpClient.get<{ text: string; persona_id: string }>(
             `/chat/greeting${personaId ? `?persona_id=${encodeURIComponent(personaId)}` : ''}`,
         ),
+    /** Unlock/core flags for persona picker in chat (rewards API). */
+    getPersonasProgress: () =>
+        httpClient.get<{ personas: PersonaProgress[] }>('/rewards/personas/progress'),
 }

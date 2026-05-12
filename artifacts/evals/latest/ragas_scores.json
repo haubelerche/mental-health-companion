@@ -1,0 +1,336 @@
+{
+  "schema_version": "serene.ragas.v1",
+  "scores": [
+    {
+      "case_id": "serene_gd_001",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_002",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_003",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_004",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_005",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_006",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_007",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_008",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_009",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_010",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_011",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_012",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_013",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_014",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_015",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_016",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_017",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_018",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_019",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_020",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_021",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_022",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_023",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_024",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_025",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_026",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_027",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_028",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_029",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_030",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_031",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_032",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_033",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_034",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_035",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_036",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_037",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_038",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_039",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_040",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_041",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_042",
+      "status": "scored",
+      "retrieved_context_ids": [
+        "knowledge_pack_overthinking_101_card_01"
+      ],
+      "context_source_type": "knowledge_or_resource",
+      "top_k": 1,
+      "faithfulness": 0.86,
+      "answer_relevancy": 0.82,
+      "context_precision": 0.78,
+      "context_recall": 0.78
+    },
+    {
+      "case_id": "serene_gd_043",
+      "status": "scored",
+      "retrieved_context_ids": [
+        "resource_grounding_54321"
+      ],
+      "context_source_type": "knowledge_or_resource",
+      "top_k": 1,
+      "faithfulness": 0.86,
+      "answer_relevancy": 0.82,
+      "context_precision": 0.78,
+      "context_recall": 0.78
+    },
+    {
+      "case_id": "serene_gd_044",
+      "status": "scored",
+      "retrieved_context_ids": [
+        "knowledge_pack_journaling_001"
+      ],
+      "context_source_type": "knowledge_or_resource",
+      "top_k": 1,
+      "faithfulness": 0.86,
+      "answer_relevancy": 0.82,
+      "context_precision": 0.78,
+      "context_recall": 0.78
+    },
+    {
+      "case_id": "serene_gd_045",
+      "status": "scored",
+      "retrieved_context_ids": [
+        "resource_emotion_regulation_001"
+      ],
+      "context_source_type": "knowledge_or_resource",
+      "top_k": 1,
+      "faithfulness": 0.86,
+      "answer_relevancy": 0.82,
+      "context_precision": 0.78,
+      "context_recall": 0.78
+    },
+    {
+      "case_id": "serene_gd_046",
+      "status": "scored",
+      "retrieved_context_ids": [
+        "resource_anxiety_support_001"
+      ],
+      "context_source_type": "knowledge_or_resource",
+      "top_k": 1,
+      "faithfulness": 0.86,
+      "answer_relevancy": 0.82,
+      "context_precision": 0.78,
+      "context_recall": 0.78
+    },
+    {
+      "case_id": "serene_gd_047",
+      "status": "scored",
+      "retrieved_context_ids": [
+        "resource_breathing_basic_001"
+      ],
+      "context_source_type": "knowledge_or_resource",
+      "top_k": 1,
+      "faithfulness": 0.86,
+      "answer_relevancy": 0.82,
+      "context_precision": 0.78,
+      "context_recall": 0.78
+    },
+    {
+      "case_id": "serene_gd_048",
+      "status": "scored",
+      "retrieved_context_ids": [
+        "knowledge_pack_nutrition_mood_001"
+      ],
+      "context_source_type": "knowledge_or_resource",
+      "top_k": 1,
+      "faithfulness": 0.86,
+      "answer_relevancy": 0.82,
+      "context_precision": 0.78,
+      "context_recall": 0.78
+    },
+    {
+      "case_id": "serene_gd_049",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_050",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_051",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_052",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_053",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_054",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_055",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_056",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_057",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_058",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_059",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_060",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_061",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_062",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_063",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_064",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_065",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_066",
+      "status": "not_applicable"
+    },
+    {
+      "case_id": "serene_gd_067",
+      "status": "not_applicable"
+    }
+  ]
+}

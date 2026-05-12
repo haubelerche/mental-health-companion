@@ -1,5 +1,5 @@
 import { Droplets, Waves, Wind } from 'lucide-react'
-import bg from '../../../assets/healing.jpg'
+import bg from '../../../assets/scenes/healing.jpg'
 import RevealSection from '../../../utils/RevealSection'
 
 export default function MindfulSoundSection() {

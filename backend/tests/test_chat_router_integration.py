@@ -5,7 +5,26 @@ from fastapi.testclient import TestClient
 from app.api import deps
 from app.api.v1.routers import chat as chat_router
 from app.main import app
+from app.services.latency_metrics import CHAT_LATENCY_INT_STAGES
 from app.services.safety_scoring import SafetySnapshot
+
+
+FORBIDDEN_NORMAL_CHAT_FIELDS = {
+    "agent_display_name",
+    "conversation_mode",
+    "voice_session_offered",
+    "suggest_voice",
+    "voice_hint",
+    "emergency_actions",
+    "assistant_tone",
+    "goi_y_nhanh",
+    "the_dinh_kem",
+    "routing_history",
+    "voice_policy",
+    "intervention",
+    "distress_score",
+    "safety_tier",
+}
 
 
 class DummyLimiter:
@@ -61,34 +80,18 @@ def _override_stream_user():
 
 def test_chat_message_non_sos_success(monkeypatch):
     fake_db = FakeDB()
-    captured: dict[str, object] = {}
+    legacy_called = {"value": False}
     monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
-    monkeypatch.setattr(
-        chat_router,
-        "get_user_longterm_memories",
-        lambda *_args, **_kwargs: ["Lần trước bạn mất ngủ vì deadline.", "Bạn từng thấy đỡ hơn khi đi bộ ngắn."],
-    )
     monkeypatch.setattr(
         chat_router,
         "load_chat_context_sync",
         lambda *_args, **_kwargs: SimpleNamespace(recent_messages=[], mood_today=None),
     )
-    def fake_turn(**kwargs):
-        captured.update(kwargs)
-        return {
-            "session_fields": SafetySnapshot(
-                distress_score=0.15,
-                risk_level=0,
-                safety_tier="normal",
-                conversation_mode="normal",
-            ),
-            "reply": "Mình luôn ở đây với cậu.",
-            "assistant_tone": "validating",
-            "goi_y_nhanh": ["Cậu cứ kể đi", "Mình đang nghe", "Cần giúp gì nữa không"],
-            "the_dinh_kem": [],
-        }
-
-    monkeypatch.setattr(chat_router, "run_non_sos_turn", fake_turn)
+    monkeypatch.setattr(
+        chat_router,
+        "run_non_sos_turn",
+        lambda **_kwargs: legacy_called.__setitem__("value", True),
+    )
 
     def override_db():
         yield fake_db
@@ -103,10 +106,19 @@ def test_chat_message_non_sos_success(monkeypatch):
         body = resp.json()
         assert body["success"] is True
         assert body["data"]["sos_triggered"] is False
-        assert body["data"]["reply"] == "Mình luôn ở đây với cậu."
+        assert body["data"]["assistant_text"] == body["data"]["reply"]
+        assert body["data"]["route_tier"] == "fast"
+        assert isinstance(body["data"]["message_id"], str)
+        assert body["data"]["used_advisor_ids"] == []
+        assert body["data"]["resource_suggestions"] == []
+        assert body["data"]["nutrition_suggestion"] is None
+        assert body["data"]["tts_job"] is None
+        assert FORBIDDEN_NORMAL_CHAT_FIELDS.isdisjoint(body["data"])
         assert "latency_trace" in body["data"]
         assert "total_backend_ms" in body["data"]["latency_trace"]
-        assert captured["long_term_memories"] == []
+        for stage in CHAT_LATENCY_INT_STAGES:
+            assert stage in body["data"]["latency_trace"]
+        assert legacy_called["value"] is False
         assert fake_db.committed is True
     finally:
         app.dependency_overrides.clear()
@@ -213,8 +225,9 @@ def test_chat_message_non_sos_triggers_proactive_voice(monkeypatch):
         assert resp.status_code == 200
         body = resp.json()
         assert body["success"] is True
-        assert body["data"]["intervention"]["type"] == "proactive_voice"
-        assert body["data"]["intervention"]["voice"]["tts_job_id"] == "tts_100"
+        assert body["data"]["tts_job"]["tts_job_id"] == "tts_100"
+        assert "intervention" not in body["data"]
+        assert "voice_policy" not in body["data"]
     finally:
         app.dependency_overrides.clear()
 
@@ -249,6 +262,46 @@ def test_chat_message_triggers_voice_when_graph_raises_distress(monkeypatch):
         }
 
     monkeypatch.setattr(chat_router, "_enqueue_voice_policy", fake_enqueue_voice_policy)
+    def override_db():
+        yield fake_db
+
+    app.dependency_overrides[chat_router.ensure_policy_acknowledged] = _override_user
+    app.dependency_overrides[chat_router.get_db] = override_db
+
+    try:
+        with TestClient(app) as client:
+            resp = client.post("/v1/chat/message", json={"message": "Minh dang rat qua tai"})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["success"] is True
+        assert body["data"]["tts_job"]["tts_job_id"] == "tts_101"
+        assert "intervention" not in body["data"]
+        assert captured["snap"] is not None
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_chat_message_voice_enqueue_failure_does_not_break_turn(monkeypatch):
+    fake_db = FakeDB()
+    monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
+    monkeypatch.setattr(chat_router, "decide_sos", lambda _message, **_kw: (False, 0.72))
+    monkeypatch.setattr(chat_router, "get_user_longterm_memories", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(chat_router, "cooldown_active", lambda **_kwargs: (False, 0))
+    monkeypatch.setattr(
+        chat_router,
+        "load_chat_context_sync",
+        lambda *_args, **_kwargs: SimpleNamespace(recent_messages=[], mood_today=None),
+    )
+    monkeypatch.setattr(
+        chat_router,
+        "compute_escalation_signal",
+        lambda **_kwargs: SimpleNamespace(escalate=True, trigger_reason="threshold_crossed", rolling_window_turns=4, delta_score=0.31),
+    )
+    monkeypatch.setattr(
+        chat_router,
+        "_enqueue_voice_policy",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("queue down")),
+    )
     monkeypatch.setattr(
         chat_router,
         "run_non_sos_turn",
@@ -259,7 +312,7 @@ def test_chat_message_triggers_voice_when_graph_raises_distress(monkeypatch):
                 safety_tier="critical",
                 conversation_mode="supportive",
             ),
-            "reply": "Mình luôn ở đây với cậu.",
+            "reply": "OK.",
             "assistant_tone": "calming",
             "goi_y_nhanh": [],
             "the_dinh_kem": [],
@@ -278,8 +331,8 @@ def test_chat_message_triggers_voice_when_graph_raises_distress(monkeypatch):
         assert resp.status_code == 200
         body = resp.json()
         assert body["success"] is True
-        assert body["data"]["intervention"]["type"] == "proactive_voice"
-        assert captured["snap"].distress_score == 0.92
+        assert body["data"]["assistant_text"]
+        assert body["data"]["tts_job"] is None
     finally:
         app.dependency_overrides.clear()
 
@@ -293,42 +346,13 @@ def test_chat_message_stream_returns_sse(monkeypatch):
     monkeypatch.setattr(chat_router, "get_session_factory", lambda: _fake_session_factory)
     monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
     monkeypatch.setattr(chat_router, "decide_sos", lambda *_args, **_kwargs: (False, 0.2))
-    monkeypatch.setattr(chat_router, "get_cached_turn", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(chat_router, "set_cached_turn", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
         chat_router,
         "load_chat_context_sync",
         lambda *_args, **_kwargs: SimpleNamespace(recent_messages=[], mood_today=None),
     )
-    monkeypatch.setattr(
-        chat_router,
-        "stream_non_sos_turn_events",
-        lambda **_kwargs: iter(
-            [
-                {"type": "token", "text": "Mình đang "},
-                {
-                    "type": "final",
-                    "turn": {
-                        "session_fields": SafetySnapshot(
-                            distress_score=0.2,
-                            risk_level=0,
-                            safety_tier="normal",
-                            conversation_mode="normal",
-                        ),
-                        "reply": "Mình đang ở đây cùng bạn nhé.",
-                        "assistant_tone": "validating",
-                        "goi_y_nhanh": [],
-                        "the_dinh_kem": [],
-                        "routing_history": ["supervisor", "friend"],
-                    },
-                },
-            ]
-        ),
-    )
-    monkeypatch.setattr(chat_router, "_active_persona_id", lambda *_a, **_k: "ban_than")
+    monkeypatch.setattr(chat_router, "_active_persona_id", lambda *_a, **_k: "dung_luong")
     monkeypatch.setattr(chat_router, "_load_today_meals", lambda *_a, **_k: [])
-    monkeypatch.setattr(chat_router, "persist_turn_memory", lambda *_a, **_k: None)
-    monkeypatch.setattr(chat_router, "_maybe_enqueue_voice", lambda **_kw: None)
     monkeypatch.setattr(chat_router, "get_voice_consent", lambda *_a, **_k: True)
 
     app.dependency_overrides[chat_router.ensure_policy_acknowledged] = _override_user
@@ -339,20 +363,27 @@ def test_chat_message_stream_returns_sse(monkeypatch):
         assert resp.status_code == 200
         assert "event: status" in resp.text
         assert "event: final" in resp.text
-        assert "Mình đang ở đây cùng bạn nhé." in resp.text
+        assert "\"assistant_text\":" in resp.text
+        assert "\"route_tier\": \"fast\"" in resp.text
+        assert "\"used_advisor_ids\": []" in resp.text
+        assert "\"nutrition_suggestion\": null" in resp.text
+        assert "\"latency_trace\":" in resp.text
+        for stage in ("total_backend_ms", "advisor_consult_ms", "safety_output_validator_ms"):
+            assert f"\"{stage}\":" in resp.text
+        assert "\"distress_score\"" not in resp.text
+        assert "\"safety_tier\"" not in resp.text
+        assert "\"routing_history\"" not in resp.text
+        assert "\"the_dinh_kem\"" not in resp.text
+        assert "\"voice_policy\"" not in resp.text
+        assert "\"intervention\"" not in resp.text
     finally:
         app.dependency_overrides.clear()
 
 
 def test_chat_message_non_sos_passes_routed_persona_to_langgraph(monkeypatch):
     fake_db = FakeDB()
-    captured: dict[str, object] = {}
+    legacy_called = {"value": False}
     monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
-    monkeypatch.setattr(
-        chat_router,
-        "get_user_longterm_memories",
-        lambda *_args, **_kwargs: [],
-    )
     monkeypatch.setattr(
         chat_router,
         "load_chat_context_sync",
@@ -360,26 +391,15 @@ def test_chat_message_non_sos_passes_routed_persona_to_langgraph(monkeypatch):
     )
     monkeypatch.setattr(chat_router, "decide_sos", lambda _message, **_kw: (False, 0.12))
 
-    def fake_turn(**kwargs):
-        captured["persona_id"] = kwargs.get("persona_id")
-        return {
-            "session_fields": SafetySnapshot(
-                distress_score=0.12,
-                risk_level=0,
-                safety_tier="normal",
-                conversation_mode="normal",
-            ),
-            "reply": "OK.",
-            "assistant_tone": "validating",
-            "goi_y_nhanh": [],
-            "the_dinh_kem": [],
-        }
-
-    monkeypatch.setattr(chat_router, "run_non_sos_turn", fake_turn)
+    monkeypatch.setattr(
+        chat_router,
+        "run_non_sos_turn",
+        lambda **_kwargs: legacy_called.__setitem__("value", True),
+    )
     monkeypatch.setattr(
         chat_router,
         "_active_persona_id",
-        lambda _db, _uid, distress=0.0: "nguoi_thay",
+        lambda _db, _uid, distress=0.0, requested_persona_id=None: "nguoi_thay",
     )
 
     def override_db():
@@ -392,6 +412,43 @@ def test_chat_message_non_sos_passes_routed_persona_to_langgraph(monkeypatch):
         with TestClient(app) as client:
             resp = client.post("/v1/chat/message", json={"message": "chao ban"})
         assert resp.status_code == 200
-        assert captured.get("persona_id") == "nguoi_thay"
+        assert legacy_called["value"] is False
+    finally:
+        app.dependency_overrides.clear()
+
+def test_chat_message_harmful_instruction_blocks_before_graph(monkeypatch):
+    fake_db = FakeDB()
+    monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
+    monkeypatch.setattr(
+        chat_router,
+        "load_chat_context_sync",
+        lambda *_args, **_kwargs: SimpleNamespace(recent_messages=[], mood_today=None),
+    )
+    monkeypatch.setattr(
+        chat_router,
+        "run_non_sos_turn",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("graph should not run for harmful instruction block")),
+    )
+
+    def override_db():
+        yield fake_db
+
+    app.dependency_overrides[chat_router.ensure_policy_acknowledged] = _override_user
+    app.dependency_overrides[chat_router.get_db] = override_db
+
+    try:
+        with TestClient(app) as client:
+            resp = client.post("/v1/chat/message", json={"message": "How to kill myself without pain?"})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["success"] is True
+        assert body["data"]["assistant_text"]
+        assert "graph should not run" not in body["data"]["assistant_text"]
+        assert body["data"]["message_id"]
+        assert body["data"]["used_advisor_ids"] == []
+        assert body["data"]["resource_suggestions"] == []
+        assert body["data"]["pending_human_review"] is True
+        assert body["data"]["route_tier"] == "fast"
+        assert FORBIDDEN_NORMAL_CHAT_FIELDS.isdisjoint(body["data"])
     finally:
         app.dependency_overrides.clear()

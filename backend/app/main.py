@@ -3,6 +3,7 @@ import os
 import threading
 import time
 import warnings
+from urllib.parse import urlparse
 
 # Suppress LangChain/LangGraph internal deprecation warnings
 warnings.filterwarnings("ignore", message=".*allowed_objects.*", category=DeprecationWarning)
@@ -17,6 +18,7 @@ from app.core.errors import AppError
 from app.core.responses import fail
 from app.services.db.init_db import init_db
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import OperationalError
 
 settings = get_settings()
 
@@ -79,7 +81,12 @@ _default_origins = [
     "http://127.0.0.1:5500",
 ]
 _extra = [o.strip() for o in settings.cors_extra_origins.split(",") if o.strip()]
-origins = list(dict.fromkeys(_default_origins + _extra))
+_from_settings_urls = []
+for candidate in (settings.frontend_home_url, settings.frontend_auth_redirect_url):
+    parsed = urlparse(candidate or "")
+    if parsed.scheme and parsed.netloc:
+        _from_settings_urls.append(f"{parsed.scheme}://{parsed.netloc}")
+origins = list(dict.fromkeys(_default_origins + _extra + _from_settings_urls))
 
 app.add_middleware(
     CORSMiddleware,
@@ -105,6 +112,11 @@ def validation_error_handler(_: Request, exc: RequestValidationError):
 @app.exception_handler(Exception)
 def fallback_handler(_: Request, __: Exception):
     return fail("SCHEMA_VALIDATION_FAILED", "Đã xảy ra lỗi nội bộ", 500)
+
+
+@app.exception_handler(OperationalError)
+def db_unavailable_handler(_: Request, __: OperationalError):
+    return fail("DATABASE_UNAVAILABLE", "Database is temporarily unavailable. Please retry shortly.", 503)
 
 
 @app.get("/health")

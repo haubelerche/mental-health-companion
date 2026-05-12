@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import { ROUTE_PATHS } from '../../routes/paths'
 
 export function GuestBanner() {
   const { guestSession } = useAuth()
@@ -9,19 +10,19 @@ export function GuestBanner() {
     guestSession ? Math.max(0, Math.floor((guestSession.expiresAt - Date.now()) / 1000)) : 0
   )
 
-  const REGISTER_PATH = '/register'
+  const registerPath = ROUTE_PATHS.register
 
   useEffect(() => {
     if (!guestSession) return
     const tick = () => {
       const diff = Math.max(0, Math.floor((guestSession.expiresAt - Date.now()) / 1000))
       setSecondsLeft(diff)
-      if (diff === 0) navigate(REGISTER_PATH)
+      if (diff === 0) navigate(registerPath)
     }
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [guestSession, navigate])
+  }, [guestSession, navigate, registerPath])
 
   if (!guestSession) return null
 
@@ -37,7 +38,7 @@ export function GuestBanner() {
         </span>
       </span>
       <button
-        onClick={() => navigate(REGISTER_PATH)}
+        onClick={() => navigate(registerPath)}
         className="rounded-full bg-white/20 hover:bg-white/30 px-3 py-0.5 text-xs transition-all"
       >
         Lưu hành trình

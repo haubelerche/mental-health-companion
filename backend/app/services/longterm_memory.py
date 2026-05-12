@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.services.db.models import UserProfile
 from app.services.mem0_service import MemoryManager
 from app.services.memory_enrichment import _fallback_extract, apply_to_profile
+from app.services.observability import record_event
 from app.services.pii_mask import mask_pii
 from app.services.redis_client import cache_get_json, cache_set_json, profile_cache_key
 from app.services.utils import get_now
@@ -159,6 +160,7 @@ def build_user_memory_context(
 
     mem0_facts = MemoryManager.instance().search(user_id=user_id, query=current_query, limit=5)
     if not mem0_facts:
+        record_event("mem0.recall_fallback", metadata={"reason_code": "empty_recall"})
         mem0_facts = recent_summaries[:2]
 
     context = UserMemoryContext(
@@ -190,7 +192,7 @@ def build_user_memory_context(
 
 def get_user_longterm_memories(db: Session, *, user_id: str, limit: int = 3) -> list[str]:
     """Backward-compatible wrapper used by existing callers."""
-    return build_user_memory_context(db, user_id=user_id).recent_summaries[:limit]
+    return build_user_memory_context(db, user_id=user_id).mem0_facts[:limit]
 
 
 def persist_turn_memory(

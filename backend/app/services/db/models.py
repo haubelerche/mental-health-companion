@@ -34,14 +34,20 @@ except ImportError:  # pragma: no cover
 
 try:
     from sqlalchemy.dialects.postgresql import INET as PG_INET
+    from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
     from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB
 except ImportError:  # pragma: no cover
     PG_INET = None
+    PG_ARRAY = None
     PG_JSONB = None
 
 JSONB_COMPAT = SAJSON()
 if PG_JSONB is not None:  # pragma: no branch
     JSONB_COMPAT = JSONB_COMPAT.with_variant(PG_JSONB(astext_type=Text()), "postgresql")
+
+TEXT_ARRAY_COMPAT = SAJSON()
+if PG_ARRAY is not None:  # pragma: no branch
+    TEXT_ARRAY_COMPAT = TEXT_ARRAY_COMPAT.with_variant(PG_ARRAY(Text()), "postgresql")
 
 INET_COMPAT = String(45)
 if PG_INET is not None:  # pragma: no branch
@@ -236,6 +242,15 @@ class ScreeningAnswer(Base):
         String, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
     )
     instrument_id: Mapped[str] = mapped_column(String(10), nullable=False)
+    screening_type: Mapped[str] = mapped_column(String(10), nullable=False)
+    question_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    question_key: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    answer_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    answer_label: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    question_text_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    answer_options_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    session_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    locale: Mapped[str] = mapped_column(String(16), nullable=False, default="vi-VN", server_default="vi-VN")
     raw_score: Mapped[int] = mapped_column(Integer, nullable=False)
     answers: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, nullable=False)
     submitted_at: Mapped[datetime] = mapped_column(
@@ -264,28 +279,6 @@ class CrisisLog(Base):
     reviewed_by: Mapped[str | None] = mapped_column(String(50))
 
 
-class JournalPrompt(Base):
-    __tablename__ = "journal_prompts"
-
-    prompt_id: Mapped[str] = mapped_column(String(50), primary_key=True)
-    text: Mapped[str] = mapped_column(Text, nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
-
-
-class JournalEntry(Base):
-    __tablename__ = "journal_entries"
-    __table_args__ = (CheckConstraint("length(content) <= 10000", name="chk_journal_length"),)
-
-    journal_id: Mapped[str] = mapped_column(String(50), primary_key=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
-    prompt_id: Mapped[str | None] = mapped_column(ForeignKey("journal_prompts.prompt_id"))
-    content: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime)
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime)
-
-
 class Resource(Base):
     __tablename__ = "resources"
 
@@ -300,33 +293,6 @@ class Resource(Base):
     tags: Mapped[list[Any]] = mapped_column(JSON, default=list, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
-
-
-class Bookmark(Base):
-    __tablename__ = "bookmarks"
-    __table_args__ = (UniqueConstraint("user_id", "resource_id", name="uq_bookmark"),)
-
-    bookmark_id: Mapped[str] = mapped_column(String(50), primary_key=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
-    resource_id: Mapped[str] = mapped_column(ForeignKey("resources.resource_id"), nullable=False)
-    bookmarked_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
-
-
-class PlayEvent(Base):
-    __tablename__ = "play_events"
-    __table_args__ = (
-        CheckConstraint("event IN ('started','paused','completed')", name="chk_event"),
-        CheckConstraint("duration_sec >= 0", name="chk_duration_non_negative"),
-        CheckConstraint("percent >= 0 AND percent <= 100", name="chk_percent_range"),
-    )
-
-    event_id: Mapped[str] = mapped_column(String(50), primary_key=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
-    resource_id: Mapped[str] = mapped_column(ForeignKey("resources.resource_id"), nullable=False)
-    event: Mapped[str] = mapped_column(String(20), nullable=False)
-    duration_sec: Mapped[int] = mapped_column(Integer, nullable=False)
-    percent: Mapped[int] = mapped_column(Integer, nullable=False)
-    tracked_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
 class SessionSummaryArchive(Base):
@@ -348,31 +314,6 @@ class SessionSummaryArchive(Base):
         Boolean, default=False, server_default="false", nullable=False
     )
     archived_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP_COMPAT, default=func.now(), server_default=func.now(), nullable=False
-    )
-
-
-class RiskInferenceLog(Base):
-    __tablename__ = "risk_inference_log"
-
-    log_id: Mapped[int] = mapped_column(BIGINT, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(
-        String, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
-    )
-    session_id: Mapped[Optional[str]] = mapped_column(
-        String, ForeignKey("conversations.session_id", ondelete="SET NULL"), nullable=True
-    )
-    inferred_signal: Mapped[str] = mapped_column(String, nullable=False)
-    model_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    score: Mapped[Optional[float]] = mapped_column(
-        Float,
-        CheckConstraint("score IS NULL OR (score >= 0 AND score <= 1)", name="ck_risk_log_score"),
-        nullable=True,
-    )
-    detail: Mapped[dict[str, Any]] = mapped_column(
-        JSONB_COMPAT, default=dict, server_default="{}", nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP_COMPAT, default=func.now(), server_default=func.now(), nullable=False
     )
 
@@ -590,6 +531,29 @@ class UserProfileSnapshot(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
+class OnboardingTourState(Base):
+    __tablename__ = "onboarding_tour_states"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('not_started','available','in_progress','paused_for_safety','completed','skipped','dismissed')",
+            name="ck_onboarding_tour_status",
+        ),
+    )
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+    status: Mapped[str] = mapped_column(String(30), default="not_started", nullable=False)
+    variant: Mapped[str] = mapped_column(String(50), default="first_run", nullable=False)
+    current_step_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    completed_step_ids: Mapped[list[Any]] = mapped_column(JSONB_COMPAT, default=list, nullable=False)
+    skipped_step_ids: Mapped[list[Any]] = mapped_column(JSONB_COMPAT, default=list, nullable=False)
+    dismissed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP_COMPAT, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP_COMPAT, nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(TIMESTAMP_COMPAT, nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB_COMPAT, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
+
+
 class CounselingKnowledge(Base):
     __tablename__ = "counseling_knowledge"
 
@@ -602,6 +566,36 @@ class CounselingKnowledge(Base):
     else:
         embedding: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class AdvisorCaseLibrary(Base):
+    __tablename__ = "advisor_case_library"
+
+    case_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    raw_case_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    language: Mapped[str] = mapped_column(Text, default="vi", nullable=False)
+    user_context: Mapped[str] = mapped_column(Text, nullable=False)
+    primary_problem: Mapped[str | None] = mapped_column(Text, nullable=True)
+    topic_tags: Mapped[list[Any]] = mapped_column(TEXT_ARRAY_COMPAT, default=list, nullable=False)
+    emotional_state_tags: Mapped[list[Any]] = mapped_column(TEXT_ARRAY_COMPAT, default=list, nullable=False)
+    interaction_need: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cognitive_pattern_tags: Mapped[list[Any]] = mapped_column(TEXT_ARRAY_COMPAT, default=list, nullable=False)
+    counseling_goal: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recommended_approach: Mapped[str | None] = mapped_column(Text, nullable=True)
+    intervention_steps: Mapped[list[Any]] = mapped_column(JSONB_COMPAT, default=list, nullable=False)
+    reflection_questions: Mapped[list[Any]] = mapped_column(JSONB_COMPAT, default=list, nullable=False)
+    do_say: Mapped[list[Any]] = mapped_column(JSONB_COMPAT, default=list, nullable=False)
+    do_not_say: Mapped[list[Any]] = mapped_column(JSONB_COMPAT, default=list, nullable=False)
+    risk_flags: Mapped[list[Any]] = mapped_column(TEXT_ARRAY_COMPAT, default=list, nullable=False)
+    source_response_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    safety_review_status: Mapped[str] = mapped_column(String(30), default="pending", nullable=False)
+    quality_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    if Vector is not None:
+        embedding: Mapped[Any] = mapped_column(Vector(1536), nullable=True)
+    else:
+        embedding: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
 
 
 class SyncOutbox(Base):

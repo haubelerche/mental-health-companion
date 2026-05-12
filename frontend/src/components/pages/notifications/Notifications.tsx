@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { notificationService } from '../../../services/notificationService'
 import type { UserNotification } from '../../../services/notificationService'
 import Loading from '../../ui/Loading'
-import bg from '../../../assets/assets_gif/cat-soul.gif'
+import bg from '../../../assets/motion/cat-soul.gif'
 import { parseTime } from '@/utils/parseTime'
 import PixelEmptyState from '../../pixel/PixelEmptyState'
 

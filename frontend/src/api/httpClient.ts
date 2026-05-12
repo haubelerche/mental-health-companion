@@ -2,12 +2,18 @@ import type { ApiEnvelope } from './types'
 import { ApiRequestError } from './types'
 
 /** Production / khi chạy FE tách host — trỏ thẳng FastAPI. */
-const DEFAULT_API_BASE_URL = 'http://localhost:8000/v1'
+function resolveDefaultApiBaseUrl(): string {
+    if (typeof window !== 'undefined') {
+        const host = window.location.hostname || '127.0.0.1'
+        return `http://${host}:8000/v1`
+    }
+    return 'http://127.0.0.1:8000/v1'
+}
 
 function resolveApiBaseUrl(): string {
     const fromEnv = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim()
     if (fromEnv) return fromEnv
-    return DEFAULT_API_BASE_URL
+    return resolveDefaultApiBaseUrl()
 }
 
 const API_BASE_URL = resolveApiBaseUrl()
@@ -218,7 +224,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
                     // Thử lại request hiện tại
                     return request<T>(path, init)
-                } catch (refreshErr) {
+                } catch {
                     isRefreshing = false
                     const callbacks = [...refreshQueue]
                     refreshQueue = []
@@ -303,6 +309,18 @@ async function postWithCsrf<T>(path: string, body?: unknown, init: RequestInit =
     })
 }
 
+async function patchWithCsrf<T>(path: string, body?: unknown, init: RequestInit = {}): Promise<T> {
+    const token = await ensureCsrfToken()
+    const headers = new Headers(init.headers || {})
+    headers.set('X-CSRF-Token', token)
+    return request<T>(path, {
+        method: 'PATCH',
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        ...init,
+        headers,
+    })
+}
+
 async function postStreamWithCsrf(path: string, body?: unknown, init: RequestInit = {}): Promise<Response> {
     const token = await ensureCsrfToken()
     const headers = new Headers(init.headers || {})
@@ -350,5 +368,6 @@ export const httpClient = {
         }),
     delete: <T>(path: string, init?: RequestInit) => request<T>(path, { method: 'DELETE', ...init }),
     postWithCsrf,
+    patchWithCsrf,
     postStreamWithCsrf,
 }

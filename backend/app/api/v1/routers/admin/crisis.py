@@ -68,7 +68,6 @@ def admin_review_crisis_log(
         raise AppError("NOT_FOUND", "Nhật ký không tồn tại", 404)
         
     row.reviewed = payload.reviewed
-    row.note = payload.note
     row.reviewed_at = func.now()
     row.reviewed_by = claims["sub"]
     
@@ -82,5 +81,5 @@ def admin_review_crisis_log(
         "reviewed": row.reviewed,
         "reviewed_at": row.reviewed_at.isoformat() if row.reviewed_at else None,
         "reviewed_by": row.reviewed_by,
-        "note": row.note
+        "note": payload.note
     })

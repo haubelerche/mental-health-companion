@@ -4,7 +4,7 @@ import { ArrowLeft, KeyRound, Mail } from 'lucide-react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { ApiRequestError } from '../../api/types'
-import bg2 from '../../assets/bg2.png'
+import bg2 from '../../assets/backgrounds/bg-morning.png'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { authService } from '../../services/authService'
 

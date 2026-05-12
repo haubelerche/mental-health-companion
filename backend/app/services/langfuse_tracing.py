@@ -21,6 +21,29 @@ _active_tracer: ContextVar["ChatTurnTracer | None"] = ContextVar(
 )
 
 _MAX_TEXT_CHARS = 4000
+_PROXY_ENV_KEYS = ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy")
+
+
+def _proxy_is_known_dead(value: str | None) -> bool:
+    token = str(value or "").strip().lower()
+    return token in {"http://127.0.0.1:9", "https://127.0.0.1:9", "http://localhost:9", "https://localhost:9"}
+
+
+def _clear_known_dead_proxy_env() -> list[str]:
+    """Remove local blackhole proxy settings that prevent Langfuse OTLP export.
+
+    Some sandboxed shells set proxy env vars to 127.0.0.1:9. The Langfuse SDK
+    honors those variables via requests/OTel, which makes tracing silently fail.
+    We only clear that known-dead value and leave real corporate proxies intact.
+    """
+    cleared: list[str] = []
+    for key in _PROXY_ENV_KEYS:
+        if _proxy_is_known_dead(os.getenv(key)):
+            os.environ.pop(key, None)
+            cleared.append(key)
+    if cleared:
+        logger.warning("Langfuse export ignored known-dead proxy env vars: %s", ",".join(cleared))
+    return cleared
 
 
 def _settings_ready() -> tuple[str, str, str] | None:
@@ -44,6 +67,7 @@ def _make_client() -> Any | None:
         return None
     public_key, secret_key, base_url = creds
     try:
+        _clear_known_dead_proxy_env()
         from langfuse import Langfuse  # type: ignore[import-untyped]
 
         return Langfuse(
@@ -231,6 +255,85 @@ class ChatTurnTracer:
             obs.end()
         except Exception as exc:
             logger.debug("Langfuse event(%s): %s", name, exc)
+
+    def update_metadata(self, metadata: dict[str, Any]) -> None:
+        if self._root is None:
+            return
+        try:
+            self._root.update(metadata=_safe_metadata(metadata))
+        except Exception as exc:
+            logger.debug("Langfuse metadata update: %s", exc)
+
+    def routing_decision(
+        self,
+        *,
+        route_tier: str,
+        reason_codes: list[str] | tuple[str, ...],
+        planned_advisor_ids: list[str] | tuple[str, ...],
+        selected_advisor_ids: list[str] | tuple[str, ...] | None = None,
+        interaction_need: str | None = None,
+        persona_id: str | None = None,
+    ) -> None:
+        self.event(
+            "dynamic_routing.decision",
+            input_data={
+                "message_length_bucket": "redacted",
+            },
+            output_data={
+                "route_tier": route_tier,
+                "reason_codes": list(reason_codes or [])[:8],
+                "planned_advisor_ids": list(planned_advisor_ids or [])[:4],
+                "selected_advisor_ids": list(selected_advisor_ids or [])[:4],
+                "interaction_need": interaction_need,
+                "persona_id": persona_id,
+            },
+            metadata={
+                "route_tier": route_tier,
+                "advisor_count": len(list(planned_advisor_ids or [])),
+                "interaction_need": interaction_need,
+                "persona_id": persona_id,
+            },
+        )
+
+    def advisor_result(
+        self,
+        *,
+        advisor_id: str,
+        status: str,
+        should_use: bool = False,
+        confidence: float = 0.0,
+        evidence_count: int = 0,
+        move_count: int = 0,
+    ) -> None:
+        self.event(
+            f"advisor.{advisor_id}.result",
+            output_data={
+                "advisor_id": advisor_id,
+                "status": status,
+                "should_use": bool(should_use),
+                "confidence": round(float(confidence or 0.0), 3),
+                "evidence_count": int(evidence_count or 0),
+                "move_count": int(move_count or 0),
+            },
+            metadata={
+                "worker_type": "advisor",
+                "status": status,
+                "advisor_id": advisor_id,
+            },
+        )
+
+    def worker_enqueue(self, outcomes: dict[str, str]) -> None:
+        self.event(
+            "workers.enqueue",
+            output_data={
+                "worker_outcomes": dict(outcomes or {}),
+                "worker_count": len(outcomes or {}),
+            },
+            metadata={
+                "worker_count": len(outcomes or {}),
+                "status": "ok" if all(v == "queued" for v in (outcomes or {}).values()) else "partial",
+            },
+        )
 
     def guardrail(
         self,

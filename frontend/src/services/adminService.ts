@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { httpClient } from '../api/httpClient'
 
 export type AdminDashboardAggregate = {

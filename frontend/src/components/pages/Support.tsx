@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CalendarDays, Cross, MapPin, Navigation, Phone, Search, UsersRound } from 'lucide-react'
-import healing from '../../assets/healing.jpg'
+import healing from '../../assets/scenes/healing.jpg'
 import { connectService, type ClinicItem, type HotlineItem } from '../../services/connectService'
 import { safetyService } from '../../services/safetyService'
 import type { ReferralOption } from '../../services/safetyService'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import Mascot from '../pixel/Mascot'
+import { onboardingTourService } from '../../services/onboardingTourService'
+import { ROUTE_PATHS } from '../../routes/paths'
 const DEFAULT_HOTLINES: HotlineItem[] = [
     { name: 'Hotline 24/7', number: '1800-599-920', description: 'Hỗ trợ khẩn cấp và lắng nghe ngay lập tức' },
     { name: 'Cấp cứu y tế', number: '115', description: 'Gọi cấp cứu trong tình huống nguy hiểm' },
@@ -26,6 +28,7 @@ const REFERRAL_META: Record<string, { label: string; sub: string; icon: typeof U
 }
 
 export default function Support() {
+    const navigate = useNavigate()
     const { effectiveTheme } = useThemeContext()
     const isDark = effectiveTheme === 'dark'
 
@@ -73,8 +76,13 @@ export default function Support() {
         setMapQuery(nextQuery)
     }
 
+    const replayTour = async () => {
+        await onboardingTourService.start('first_run')
+        navigate(`${ROUTE_PATHS.home}?tour=replay`)
+    }
+
     return (
-        <section className="mx-auto max-w-6xl text-theme-text-primary">
+        <section data-tour-id="help-entry" className="mx-auto max-w-6xl text-theme-text-primary">
             <div className={`rounded-[2.75rem] ${isDark ? 'bg-black/40 border border-white/10' : 'bg-theme-surface/35'} p-6 shadow-xl backdrop-blur-2xl md:p-10`}>
                 <div className={`rounded-full  px-6 py-3 text-center font-display tracking-wide text-xl font-semibold italic text-theme-text-secondary/70`}>
                     Serene là AI, không thay thế chuyên gia
@@ -94,6 +102,15 @@ export default function Support() {
                     </div>
                     <Mascot variant="quiet" size="lg" decorative className="hidden md:block" />
                 </header>
+                <div className="mt-5 flex justify-end">
+                    <button
+                        type="button"
+                        onClick={() => void replayTour()}
+                        className="rounded-full bg-theme-accent px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-105"
+                    >
+                        Hau dẫn mình đi lại một vòng
+                    </button>
+                </div>
 
                 <section className={`mt-9 grid gap-6 rounded-[2rem] p-6 shadow-inner lg:grid-cols-[1fr_220px] ${isDark ? 'bg-black/20 border border-white/5' : 'bg-theme-surface/40'}`}>
                     <div>

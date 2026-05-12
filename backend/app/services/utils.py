@@ -87,7 +87,7 @@ def make_anon_name() -> str:
         "Dịu Dàng", "Kiên Cường", "Ấm Áp", "Lặng Lẽ", "Sáng Suốt"
     ]
     nouns = [
-        "Mèo", "Gió", "Nắng", "Mây", "Cánh Diều",
+        "Sao", "Gió", "Nắng", "Mây", "Cánh Diều",
         "Hạt Mầm", "Ngôi Sao", "Dòng Sông", "Chiếc Lá", "Biển Cả"
     ]
     return f"{secrets.choice(nouns)} {secrets.choice(adjectives)}"

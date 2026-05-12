@@ -6,6 +6,8 @@ Product / Legal knobs (BACKEND_PLAN §15). Tune with Product before production.
 GUEST_TRIAL_MAX_DURATION_SEC = 120
 
 # Distress ladder (BACKEND_PLAN §7.9) - align distress_score 0.0-1.0
+DISTRESS_CONSTRAIN_RESPONSE_MIN = 0.4
+DISTRESS_SUPPORTIVE_CONTINUATION_MIN = 0.55
 DISTRESS_VOICE_HINT = 0.8
 DISTRESS_CRITICAL = 0.9
 
@@ -20,9 +22,7 @@ FEATURE_FLAGS = {
     "persona_unlock_progression_enabled": True,
     "heart_economy_enabled": True,
     "rewards_store_enabled": True,
-    "persona_cun_unlock_enabled": True,
-    "persona_meo_unlock_enabled": True,
-    "persona_crush_unlock_enabled": False,
+    "persona_hau_luong_unlock_enabled": True,
     "persona_voice_styles_enabled": False,
     "user_memories_enabled": True,
     "knowledge_unlocks_enabled": True,

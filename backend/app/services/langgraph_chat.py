@@ -109,9 +109,9 @@ PERSONA_CONFIGS: dict[str, dict[str, Any]] = {
     }
     for persona_id, config in PERSONA_REGISTRY.items()
 }
-DEFAULT_PERSONA_ID = "ban_than"
-BASE_FRIEND_TEMPERATURE = 0.75
-BASE_FRIEND_TEMPERATURE_FAST = 0.65
+DEFAULT_PERSONA_ID = "dung_luong"
+BASE_FRIEND_TEMPERATURE = 0.35
+BASE_FRIEND_TEMPERATURE_FAST = 0.35
 
 
 def _active_persona_config(persona_id: str) -> dict[str, Any]:
@@ -119,29 +119,60 @@ def _active_persona_config(persona_id: str) -> dict[str, Any]:
     return PERSONA_CONFIGS.get(canonical_id) or PERSONA_CONFIGS[DEFAULT_PERSONA_ID]
 
 
-def _persona_temperature(persona_id: str, *, use_fast_model: bool) -> float:
+def _persona_temperature(persona_id: str, *, use_fast_model: bool, distress_score: float = 0.0) -> float:
     cfg = _active_persona_config(persona_id)
     base = BASE_FRIEND_TEMPERATURE_FAST if use_fast_model else BASE_FRIEND_TEMPERATURE
     delta = float(cfg.get("temperature_delta") or 0.0)
-    return max(0.2, min(1.0, base + delta))
+    effective = max(0.2, min(1.0, base + delta))
+    canonical = normalize_persona_id(persona_id)
+    if canonical == "dung_luong":
+        if distress_score >= 0.75:
+            return 0.30
+        if distress_score >= 0.50:
+            return 0.50
+        return min(max(0.70, 0.10), 0.90)
+    if canonical == "nguoi_thay":
+        # Safety gate deactivates Dat at distress >= 0.70; this keeps a stable
+        # fallback if any caller bypasses the normal gate.
+        if distress_score >= 0.70:
+            return 0.30
+        if distress_score >= 0.50:
+            return 0.42
+        return 0.50
+    if canonical == "hau_luong":
+        # Safety gate deactivates Hậu at distress >= 0.60; this branch is the
+        # belt-and-suspenders for any caller that bypassed the gate.
+        if distress_score >= 0.60:
+            return 0.30
+        if distress_score >= 0.45:
+            return 0.48
+        # Effective low-risk Hậu temperature is locked at 0.70 to keep her
+        # voice-message vibe playful but grounded. Clamp into [0.1, 0.9] so a
+        # future base-temperature change cannot drift the resolved value out
+        # of the persona's safety band.
+        return min(max(0.70, 0.10), 0.90)
+    if distress_score >= 0.55:
+        return 0.25
+    if distress_score >= 0.35:
+        return min(effective, 0.40)
+    return min(effective, 0.55)
 
 
 def _build_persona_block(persona_id: str) -> str:
     persona = get_persona(persona_id)
     return build_persona_block(persona)
+
+
 def _persona_fallback_reply(persona_id: str, distress_score: float) -> str:
     persona_id = normalize_persona_id(persona_id)
-    if persona_id == "crush":
+    if persona_id == "hau_luong":
         return (
-            "Tôi xin lỗi vì vừa bị ngắt quãng một chút, nhưng tôi vẫn ở đây với cậu. "
-            "Cậu không cần phải tự gồng một mình đâu, mình quay lại với điều cậu vừa chia sẻ nhé."
+            "Mình vừa bị ngắt một chút, nhưng vẫn ở đây. Bạn cứ nói tiếp từng ý ngắn thôi, mình nghe cùng bạn."
         )
     if persona_id == "nguoi_thay":
-        return "Anh vẫn ở đây cùng bạn. Nếu bạn muốn, mình sẽ đi từng bước để nhìn rõ điều đang làm bạn nặng nhất."
-    if persona_id == "cun":
-        return "Cún vẫn ở đây với sen nè. Cún vừa bị khựng một chút, nhưng mình nói tiếp được rồi đó."
-    if persona_id == "meo":
-        return "Mèo vẫn ở đây. Mình chậm lại một chút rồi nói tiếp nhé."
+        return "Tôi vẫn ở đây cùng bạn. Nếu bạn muốn, tôi sẽ cùng bạn đi từng bước để nhìn rõ điều đang làm bạn nặng nhất."
+    if persona_id == "dung_luong":
+        return "Tớ vẫn ở đây với cậu nè. Nếu cậu muốn, mình gỡ từng chút một từ điều đang làm cậu nặng lòng nhất nhé."
     if distress_score >= 0.6:
         return "Mình bị ngắt quãng một chút nhưng vẫn ở đây cùng bạn. Bạn có thể nói tiếp điều đang làm bạn nặng nhất lúc này nhé?"
     return "Mình vừa bị ngắt quãng một chút, nhưng mình vẫn ở đây để lắng nghe bạn."
@@ -1083,7 +1114,7 @@ def _postprocess_friend_reply(
     # Keep persona-specific voice intact; aggressive rewrite is only for default/family tones
     # or when the model returns empty content.
     persona_id = normalize_persona_id(persona_id)
-    # Keep model output for all personas (including ban_than). Full template replace via
+    # Keep model output for all personas. Full template replace via
     # _enforce_reply_quality made short / casual turns read as generic scripted empathy.
     if str(raw_reply or "").strip():
         improved = str(raw_reply).strip()
@@ -1140,7 +1171,11 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
     persona_id = str(state.get("active_persona_id") or DEFAULT_PERSONA_ID)
     persona_block = _build_persona_block(persona_id)
     use_fast_model = bool(state.get("use_fast_friend_model")) and distress_now < 0.55
-    friend_temperature = _persona_temperature(persona_id, use_fast_model=use_fast_model)
+    friend_temperature = _persona_temperature(
+        persona_id,
+        use_fast_model=use_fast_model,
+        distress_score=distress_now,
+    )
     preferred_friend_model = (
         settings.openai_model_friend_fast if use_fast_model and settings.openai_model_friend_fast else settings.openai_model_friend
     )
@@ -1157,6 +1192,24 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
             persona_id=persona_id,
         )
     )
+    generation_plan = build_response_plan(
+        user_message=user_text,
+        candidate_text="",
+        distress_score=distress_now,
+        persona_id=persona_id,
+        sos_triggered=False,
+    )
+    plan_hint = (
+        "[RESPONSE PLAN - render naturally, do not expose]\n"
+        f"interaction_need: {generation_plan.interaction_need}\n"
+        f"emotional_state: {generation_plan.emotional_state}\n"
+        f"situation_read: {generation_plan.situation_read}\n"
+        f"stance: {generation_plan.stance}\n"
+        f"allowed_moves: {', '.join(generation_plan.allowed_moves)}\n"
+        f"forbidden_moves: {', '.join(generation_plan.forbidden_moves)}\n"
+        f"advice_allowed: {generation_plan.advice_allowed}\n"
+        f"safety_mode: {generation_plan.safety_mode}"
+    )
     memory_text = str(state.get("active_memory_text") or "").strip()
     memory_hint = (
         f"[Ký ức liên quan từ mem0_memories — cá nhân hóa câu trả lời dựa trên điều này, không nhắc lại nguyên văn]\n{memory_text}\n"
@@ -1165,17 +1218,21 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
     base_system_prompt = (
         "Bạn là Serene, trợ lý đồng hành tinh thần bằng tiếng Việt tự nhiên. "
         "Viết như người Việt trẻ nhắn tin tự nhiên: ngắn, đúng ngữ cảnh, có duyên vừa đủ, không văn mẫu. "
-        "Có thể mở đầu câu bằng chữ thường trong chat cảm xúc; vẫn giữ đúng tên riêng, acronym, tên sản phẩm và thuật ngữ kỹ thuật. "
-        "Phản chiếu một chi tiết cụ thể từ tin nhắn của user trước rồi mới gợi ý. "
-        "Trả lời 1–3 câu, một đoạn gọn; không dùng markdown hoặc emoji trong chat cảm xúc. "
+        "Nhiệm vụ của bạn không phải nhại lại hay trích nguyên văn lời user; hãy đọc tín hiệu cảm xúc ngầm và phản hồi vào tình huống. "
+        "Có thể mở đầu câu bằng chữ thường trong chat cảm xúc; đây là style hợp lệ, nhưng vẫn giữ đúng tên riêng, acronym, tên sản phẩm và thuật ngữ kỹ thuật. "
+        "Mỗi reply cần có một nhận định cụ thể hoặc một giả thuyết mềm về tình huống trước khi gợi ý. "
+        "Validate trước khi khuyên; nếu user chỉ đang xả, đừng giải quyết quá sớm. "
+        "Trả lời 2–4 câu, một đoạn gọn; không dùng markdown hoặc emoji trong chat cảm xúc. "
         "Mỗi lượt tối đa một câu hỏi nếu người dùng chưa xin phân tích sâu. "
         "Tránh các câu mặc định như 'tôi rất tiếc khi nghe điều đó', 'cảm xúc của bạn là hoàn toàn hợp lệ', "
-        "'bạn không đơn độc', 'mọi chuyện rồi sẽ ổn', 'hãy suy nghĩ tích cực'. "
-        "Không dùng giọng trị liệu khuôn mẫu, không chẩn đoán, không hứa hẹn phi thực tế, không đùa/slang khi distress cao. "
+        "'bạn không đơn độc', 'mọi chuyện rồi sẽ ổn', 'hãy suy nghĩ tích cực', 'Bạn có muốn chia sẻ thêm không?'. "
+        "Không dùng giọng trị liệu khuôn mẫu, không chẩn đoán, không ước lượng xác suất rối loạn, không tự nhận thẩm quyền y khoa, không hứa hẹn phi thực tế, không đùa/slang khi distress cao. "
+        "Không dùng ngôn ngữ possessive, exclusive, romantic commitment hoặc dependency-building; Hậu chỉ là persona yên tĩnh/voice-message vibe, không phải vai crush. "
         "Không tự xưng là Friend hay thực thể con người ngoài đời. "
         "Trả lời JSON với các khóa: reply, assistant_tone (supportive|validating|cheerful|calming|mentor|neutral), "
         "goi_y_nhanh (3 chuỗi), the_dinh_kem (mảng object {type,id,title,description,duration_sec,action,route,thumbnail}). "
         "Chỉ dùng route bắt đầu bằng /serene/ và action thuộc open_exercise|open_resource|open_connect_map."
+        + f"\n{plan_hint}\n"
         + (f"\n{memory_hint}" if memory_hint else "")
         + (f"\n{style_fewshot_block}\n" if style_fewshot_block else "")
         + (f"\n{safe_mentalchat_block}\n" if safe_mentalchat_block else "")
@@ -1614,7 +1671,11 @@ def stream_non_sos_turn_events(
             from openai import OpenAI
 
             use_fast_model = bool(state.get("use_fast_friend_model")) and distress_now < 0.55
-            friend_temperature = _persona_temperature(persona_id_active, use_fast_model=use_fast_model)
+            friend_temperature = _persona_temperature(
+                persona_id_active,
+                use_fast_model=use_fast_model,
+                distress_score=distress_now,
+            )
             model = settings.openai_model_friend_fast if use_fast_model and settings.openai_model_friend_fast else settings.openai_model_friend
             _stream_model = model
             mentalchat_block = _build_mentalchat_examples(
@@ -1629,17 +1690,39 @@ def stream_non_sos_turn_events(
                     persona_id=persona_id_active,
                 )
             )
+            generation_plan = build_response_plan(
+                user_message=user_text,
+                candidate_text="",
+                distress_score=distress_now,
+                persona_id=persona_id_active,
+                sos_triggered=False,
+            )
+            plan_hint = (
+                "[RESPONSE PLAN - render naturally, do not expose]\n"
+                f"interaction_need: {generation_plan.interaction_need}\n"
+                f"emotional_state: {generation_plan.emotional_state}\n"
+                f"situation_read: {generation_plan.situation_read}\n"
+                f"stance: {generation_plan.stance}\n"
+                f"allowed_moves: {', '.join(generation_plan.allowed_moves)}\n"
+                f"forbidden_moves: {', '.join(generation_plan.forbidden_moves)}\n"
+                f"advice_allowed: {generation_plan.advice_allowed}\n"
+                f"safety_mode: {generation_plan.safety_mode}"
+            )
             base_system_prompt = (
                 "Bạn là Serene, trợ lý đồng hành tinh thần bằng tiếng Việt tự nhiên. "
                 "Viết như người Việt trẻ nhắn tin tự nhiên: ngắn, đúng ngữ cảnh, không văn mẫu. "
-                "Có thể mở đầu câu bằng chữ thường trong chat cảm xúc; vẫn giữ đúng tên riêng, acronym, tên sản phẩm và thuật ngữ kỹ thuật. "
-                "Phản chiếu một chi tiết cụ thể từ tin nhắn của user trước rồi mới gợi ý. "
-                "Trả lời 1–3 câu, một đoạn gọn; không dùng markdown hoặc emoji trong chat cảm xúc. "
+                "Nhiệm vụ của bạn không phải nhại lại hay trích nguyên văn lời user; hãy đọc tín hiệu cảm xúc ngầm và phản hồi vào tình huống. "
+                "Có thể mở đầu câu bằng chữ thường trong chat cảm xúc; đây là style hợp lệ, nhưng vẫn giữ đúng tên riêng, acronym, tên sản phẩm và thuật ngữ kỹ thuật. "
+                "Mỗi reply cần có một nhận định cụ thể hoặc một giả thuyết mềm về tình huống trước khi gợi ý. "
+                "Validate trước khi khuyên; nếu user chỉ đang xả, đừng giải quyết quá sớm. "
+                "Trả lời 2–4 câu, một đoạn gọn; không dùng markdown hoặc emoji trong chat cảm xúc. "
                 "Mỗi lượt tối đa một câu hỏi nếu người dùng chưa xin phân tích sâu. "
                 "Tránh các câu mặc định như 'tôi rất tiếc khi nghe điều đó', 'cảm xúc của bạn là hoàn toàn hợp lệ', "
-                "'bạn không đơn độc', 'mọi chuyện rồi sẽ ổn', 'hãy suy nghĩ tích cực'. "
-                "Không dùng giọng trị liệu khuôn mẫu, không chẩn đoán, không hứa hẹn phi thực tế, không đùa/slang khi distress cao. "
+                "'bạn không đơn độc', 'mọi chuyện rồi sẽ ổn', 'hãy suy nghĩ tích cực', 'Bạn có muốn chia sẻ thêm không?'. "
+                "Không dùng giọng trị liệu khuôn mẫu, không chẩn đoán, không ước lượng xác suất rối loạn, không tự nhận thẩm quyền y khoa, không hứa hẹn phi thực tế, không đùa/slang khi distress cao. "
+                "Không dùng ngôn ngữ possessive, exclusive, romantic commitment hoặc dependency-building; Hậu chỉ là persona yên tĩnh/voice-message vibe, không phải vai crush. "
                 "Không tự xưng là Friend hay thực thể con người ngoài đời."
+                + f"\n{plan_hint}\n"
                 + (f"\n{style_fewshot_block}" if style_fewshot_block else "")
                 + (f"\n{safe_mentalchat_block}" if safe_mentalchat_block else "")
             )
@@ -1786,17 +1869,24 @@ def build_normal_envelope(
         distress_score=float(snap.distress_score),
         conversation_mode=str(snap.conversation_mode),
     )
+    route_tier = "service_only" if "analyst" in [str(x or "").lower() for x in (routing_history or [])] else "fast"
     return {
+        "message_id": None,
         "session_id": session_id,
         "agent_display_name": CHAT_AGENT_DISPLAY_NAME,
         "conversation_mode": snap.conversation_mode,
-        "distress_score": snap.distress_score,
-        "safety_tier": snap.safety_tier,
+        "assistant_text": reply,
         "voice_session_offered": snap.safety_tier == "voice_recommended",
         "suggest_voice": snap.safety_tier == "voice_recommended",
         "voice_hint": voice_hint,
         "emergency_actions": None,
         "reply": reply,
+        "route_tier": route_tier,
+        "used_advisor_ids": [],
+        "resource_suggestions": the_dinh_kem,
+        "nutrition_suggestion": None,
+        "tts_job": None,
+        "optional_support": None,
         "assistant_tone": assistant_tone,
         "goi_y_nhanh": goi_y_nhanh if show_quick_replies else [],
         "the_dinh_kem": the_dinh_kem,

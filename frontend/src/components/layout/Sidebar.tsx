@@ -1,9 +1,10 @@
-import { type MouseEvent, useState } from 'react'
+import { type MouseEvent, useEffect, useState } from 'react'
 import { Bell, HelpCircle, HomeIcon, Library, MessageSquare, Sailboat, Settings, Sparkles, Utensils, Gift, MoreHorizontal } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import NotificationModal from '../pages/notifications/NotificationModal'
+import { OPEN_NOTIFICATION_MODAL_EVENT } from '../pages/notifications/events'
 type SidebarProps = {
     isOpen: boolean
     onHide: () => void
@@ -21,11 +22,27 @@ const navItems = [
     { icon: Gift, label: 'Thưởng', route: ROUTE_PATHS.rewards },
 ]
 
+function getTourId(route: string): string | undefined {
+    if (route === ROUTE_PATHS.home) return 'sidebar-home'
+    if (route === ROUTE_PATHS.chat) return 'sidebar-chat'
+    if (route === ROUTE_PATHS.reflect) return 'sidebar-reflect'
+    if (route === ROUTE_PATHS.resources) return 'sidebar-resources'
+    if (route === ROUTE_PATHS.nutrition) return 'sidebar-nutrition'
+    if (route === ROUTE_PATHS.rewards) return 'sidebar-rewards'
+    return undefined
+}
+
 export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
     const { effectiveTheme } = useThemeContext()
     const isDark = effectiveTheme === 'dark'
     const [isMoreOpen, setIsMoreOpen] = useState(false)
     const [isNotificationOpen, setIsNotificationOpen] = useState(false)
+
+    useEffect(() => {
+        const openModal = () => setIsNotificationOpen(true)
+        window.addEventListener(OPEN_NOTIFICATION_MODAL_EVENT, openModal)
+        return () => window.removeEventListener(OPEN_NOTIFICATION_MODAL_EVENT, openModal)
+    }, [])
 
     const sidebarContainerClass = isDark
         ? 'border-white/20 bg-black/30 text-white'
@@ -71,6 +88,7 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                                 key={item.label}
                                 to={item.route}
                                 end
+                                data-tour-id={getTourId(item.route)}
                                 className={({ isActive }) =>
                                     [
                                         'group flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-left transition-all duration-200',
@@ -116,6 +134,7 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                     </NavLink>
                     <NavLink
                         to={ROUTE_PATHS.support}
+                        data-tour-id="sidebar-help"
                         className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition ${hoverTextClass}`}
                     >
                         <HelpCircle className="h-4 w-4" />
@@ -142,6 +161,7 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                             to={item.route}
                             end
                             onClick={() => setIsMoreOpen(false)}
+                            data-tour-id={getTourId(item.route)}
                             className={({ isActive }) =>
                                 [
                                     'flex flex-1 flex-col items-center gap-1 rounded-2xl px-1 py-2 text-[12px] font-medium transition',
@@ -183,6 +203,7 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                                         to={item.route}
                                         end
                                         onClick={() => setIsMoreOpen(false)}
+                                        data-tour-id={getTourId(item.route)}
                                         className={({ isActive }) =>
                                             [
                                                 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium transition',
@@ -219,6 +240,7 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                             <NavLink
                                 to={ROUTE_PATHS.support}
                                 onClick={() => setIsMoreOpen(false)}
+                                data-tour-id="sidebar-help"
                                 className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium transition ${isDark ? 'text-white/75 hover:bg-white/10 hover:text-white' : 'text-serene-muted hover:bg-black/5 hover:text-serene-ink'}`}
                             >
                                 <HelpCircle className="h-4 w-4" />

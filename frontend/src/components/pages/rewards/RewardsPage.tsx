@@ -6,7 +6,6 @@ import KnowledgeShelf from '../rewards/KnowledgeShelf'
 import HeartBalanceBadge from '../rewards/HeartBalanceBadge'
 import { ApiRequestError } from '../../../api/types'
 import Loading from '../../ui/Loading'
-import bg from '../../../assets/assets_gif/background.gif'
 import Mascot from '../../pixel/Mascot'
 import PixelEmptyState from '../../pixel/PixelEmptyState'
 export default function RewardsPage() {
@@ -55,12 +54,8 @@ export default function RewardsPage() {
     }
 
     return (
-        <div className="relative min-h-screen overflow-hidden text-theme-text-primary">
-            <div className="fixed inset-0 z-0">
-                <img src={bg} alt="Background" className="h-full w-full object-cover" />
-                <div className={`absolute inset-0`} />
-            </div>
-            <div className="relative z-10 mx-auto max-w-5xl px-4 py-6 md:py-8">
+        <div className="relative min-h-screen text-theme-text-primary">
+            <div className="mx-auto max-w-5xl px-4 py-6 md:py-8">
                 <div className="rounded-[2.5rem] bg-theme-surface/85 backdrop-blur-xs p-6 md:p-8">
                     <div className="mb-6 flex items-center justify-between gap-4">
                         <Mascot variant="main" size="lg" decorative />
@@ -71,13 +66,14 @@ export default function RewardsPage() {
             {shelves.map((shelf) => {
                 if (shelf.shelf === 'knowledge') {
                     return (
+                        <div key={shelf.shelf} data-tour-id="knowledge-card">
                         <KnowledgeShelf
-                            key={shelf.shelf}
                             shelf={shelf}
                             balance={balance}
                             ownedItemIds={ownedIds}
                             onPurchase={handlePurchase}
                         />
+                        </div>
                     )
                 }
                 return (

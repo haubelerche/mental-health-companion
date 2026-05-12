@@ -45,7 +45,7 @@ def _enqueue_mem0_add(user_id: str, messages: list[dict[str, str]]) -> None:
 
 
 def _summarize_session_key_points(transcript: str) -> str:
-    """Return a concise Vietnamese summary (<=500 chars), fallback to truncation."""
+    """Return a concise insight summary in Vietnamese (<=700 chars)."""
     cleaned = str(transcript or "").strip()
     if not cleaned:
         return "Phiên trò chuyện đã kết thúc."
@@ -63,9 +63,10 @@ def _summarize_session_key_points(transcript: str) -> str:
                     {
                         "role": "system",
                         "content": (
-                            "Bạn tóm tắt cuộc trò chuyện trị liệu bằng tiếng Việt, tối đa 500 ký tự. "
-                            "Chỉ nêu ý chính: cảm xúc nổi bật, tác nhân gây căng thẳng, và bước đối phó đã nói tới. "
-                            "Không nêu thông tin định danh."
+                            "Bạn tạo session summary chất lượng cao bằng tiếng Việt, ngắn gọn nhưng có insight. "
+                            "Bắt buộc đúng 4 dòng, mỗi dòng bắt đầu bằng nhãn sau: "
+                            "1) Tín hiệu cảm xúc:, 2) Tác nhân chính:, 3) Cơ chế đối phó hiện tại:, 4) Gợi ý hành động kế tiếp:. "
+                            "Mỗi dòng tối đa 180 ký tự, không nêu thông tin định danh cá nhân."
                         ),
                     },
                     {"role": "user", "content": cleaned[:3000]},
@@ -73,12 +74,20 @@ def _summarize_session_key_points(transcript: str) -> str:
             )
             summary = str(resp.choices[0].message.content or "").strip()
             if summary:
-                return summary[:500]
+                return summary[:700]
         except Exception as exc:
             logger.warning("session summary llm failed: %s", exc)
 
-    fallback = cleaned[:500]
-    return (fallback[:497] + "...") if len(fallback) > 500 else fallback
+    compact = cleaned.replace("\n", " ").strip()
+    if not compact:
+        return "Phiên trò chuyện đã kết thúc."
+    snippet = (compact[:220] + "...") if len(compact) > 223 else compact
+    return (
+        f"Tín hiệu cảm xúc: {snippet}\n"
+        "Tác nhân chính: Chưa tách được rõ từ dữ liệu hiện có.\n"
+        "Cơ chế đối phó hiện tại: Người dùng đang thử chia sẻ và tìm điểm tựa hội thoại.\n"
+        "Gợi ý hành động kế tiếp: Tiếp tục theo dõi mẫu căng thẳng và chốt 1 bước nhỏ có thể làm ngay."
+    )[:700]
 
 
 def close_session_summary(db: Session, *, session: Conversation, user_id: str) -> str:

@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy import delete, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_csrf
@@ -56,7 +57,7 @@ from app.services.persona_unlock_persistence import is_persona_unlocked
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
-DEFAULT_PERSONA_ID = "ban_than"
+DEFAULT_PERSONA_ID = "dung_luong"
 
 
 def _elapsed_ms(start: float) -> float:
@@ -87,8 +88,9 @@ def _read_profile(db: Session, user_id: str) -> tuple[UserProfile, dict, bool]:
         mutated = True
     profile_data = dict(row.profile or {})
     persona_data = dict(profile_data.get("persona") or {})
-    if not persona_data.get("selected"):
-        persona_data["selected"] = DEFAULT_PERSONA_ID
+    selected = resolve_alias(str(persona_data.get("selected") or DEFAULT_PERSONA_ID))
+    if persona_data.get("selected") != selected:
+        persona_data["selected"] = selected
         persona_data["updated_by"] = "system_default"
         profile_data["persona"] = persona_data
         row.profile = profile_data
@@ -559,7 +561,7 @@ def me(current_user: User = Depends(get_current_user), db: Session = Depends(get
             "policy_version_ack": current_user.policy_version_ack,
             "onboarding_completed": bool(onboarding.get("completed_at")),
             "onboarding_skipped": bool(onboarding.get("skipped", False)),
-            "persona_id": persona.get("selected") or DEFAULT_PERSONA_ID,
+            "persona_id": resolve_alias(str(persona.get("selected") or DEFAULT_PERSONA_ID)),
             "persona_selected_at": persona.get("selected_at"),
         }
     )
@@ -580,7 +582,7 @@ def update_persona(
     row, profile_data, _ = _read_profile(db, current_user.user_id)
     now = _utc_naive_now()
     persona_data = dict(profile_data.get("persona") or {})
-    previous = str(persona_data.get("selected") or DEFAULT_PERSONA_ID)
+    previous = resolve_alias(str(persona_data.get("selected") or DEFAULT_PERSONA_ID))
 
     persona_data["selected"] = canonical_persona_id
     persona_data["selected_at"] = now.isoformat() + "Z"
@@ -670,7 +672,10 @@ async def oauth_google_callback(code: str | None = None, state: str | None = Non
     provider_picture = profile.get("picture")
 
     # Try to find existing identity
-    row = db.scalar(select(UserIdentity).where(UserIdentity.provider == "google", UserIdentity.provider_user_id == provider_user_id))
+    try:
+        row = db.scalar(select(UserIdentity).where(UserIdentity.provider == "google", UserIdentity.provider_user_id == provider_user_id))
+    except OperationalError as exc:
+        raise AppError("DATABASE_UNAVAILABLE", "Database is temporarily unavailable. Please retry shortly.", 503) from exc
     return_to = payload.get("return_to") or settings.frontend_auth_redirect_url
     if row:
         user = db.get(User, row.user_id)
@@ -680,7 +685,10 @@ async def oauth_google_callback(code: str | None = None, state: str | None = Non
 
     # If provider email is verified, link to existing user or create new user
     if provider_email and provider_email_verified:
-        existing_user = db.scalar(select(User).where(User.email == provider_email))
+        try:
+            existing_user = db.scalar(select(User).where(User.email == provider_email))
+        except OperationalError as exc:
+            raise AppError("DATABASE_UNAVAILABLE", "Database is temporarily unavailable. Please retry shortly.", 503) from exc
         if existing_user:
             # create identity link
             ident = UserIdentity(
@@ -791,7 +799,10 @@ async def oauth_facebook_callback(code: str | None = None, state: str | None = N
     provider_picture = profile.get("picture")
 
     # Try to find existing identity
-    row = db.scalar(select(UserIdentity).where(UserIdentity.provider == "facebook", UserIdentity.provider_user_id == provider_user_id))
+    try:
+        row = db.scalar(select(UserIdentity).where(UserIdentity.provider == "facebook", UserIdentity.provider_user_id == provider_user_id))
+    except OperationalError as exc:
+        raise AppError("DATABASE_UNAVAILABLE", "Database is temporarily unavailable. Please retry shortly.", 503) from exc
     settings = get_settings()
     return_to = payload.get("return_to") or settings.frontend_auth_redirect_url
     if row:
@@ -801,7 +812,10 @@ async def oauth_facebook_callback(code: str | None = None, state: str | None = N
         return resp
 
     if provider_email and provider_email_verified:
-        existing_user = db.scalar(select(User).where(User.email == provider_email))
+        try:
+            existing_user = db.scalar(select(User).where(User.email == provider_email))
+        except OperationalError as exc:
+            raise AppError("DATABASE_UNAVAILABLE", "Database is temporarily unavailable. Please retry shortly.", 503) from exc
         if existing_user:
             ident = UserIdentity(
                 identity_id=make_id("ui"),
