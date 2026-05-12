@@ -4,12 +4,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { ArrowRight } from 'lucide-react'
 import { ApiRequestError } from '../../api/types'
-import bg from '../../assets/bg.png'
 import { useAuth } from '../../hooks/useAuth'
 import { authService } from '../../services/authService'
 import { ROUTE_PATHS } from '../../routes/paths'
-import LogoGoogle from '../../assets/icons8-google-logo-100.png'
-import LogoFacebook from '../../assets/icons8-facebook-96.png'
+import LogoGoogle from '../../assets/branding/icons8-google-logo-100.png'
+import LogoFacebook from '../../assets/branding/icons8-facebook-96.png'
+import bgLogin from '../../assets/motion/login-signup.gif'
 
 export default function Login() {
     type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
@@ -53,10 +53,15 @@ export default function Login() {
     return (
         <div className="auth-page">
             <div className="fixed inset-0">
-                <img
-                    alt="Serene dawn"
-                    src={bg}
-                    className="auth-bg-image"
+                <div
+                    className="serene-fullscreen-motion-bg serene-fullscreen-motion-bg--absolute h-full w-full"
+                    style={{
+                        backgroundImage: `url('${bgLogin.replace(/'/g, "%27")}')`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        backgroundRepeat: 'no-repeat',
+                    }}
+                    aria-hidden
                 />
                 <div className="absolute inset-0 bg-white/10" />
                 <div className="absolute inset-0 bg-linear-to-b from-white/5 via-transparent to-white/10" />

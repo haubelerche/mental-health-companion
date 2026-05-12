@@ -2,14 +2,14 @@ import { useState } from 'react'
 import type { ComponentProps } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import bg2 from '../../assets/bg2.png'
 import { ApiRequestError } from '../../api/types'
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { ArrowLeft } from 'lucide-react'
 import { authService } from '@/services/authService'
-import LogoGoogle from '../../assets/icons8-google-logo-100.png'
-import LogoFacebook from '../../assets/icons8-facebook-96.png'
+import LogoGoogle from '../../assets/branding/icons8-google-logo-100.png'
+import LogoFacebook from '../../assets/branding/icons8-facebook-96.png'
+import bgLogin from '../../assets/motion/login-signup.gif'
 
 export default function Register() {
     type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
@@ -75,10 +75,15 @@ export default function Register() {
     return (
         <div className="auth-page">
             <div className="fixed inset-0">
-                <img
-                    alt="Dawn sky over ocean"
-                    src={bg2}
-                    className="auth-bg-image"
+                <div
+                    className="serene-fullscreen-motion-bg serene-fullscreen-motion-bg--absolute h-full w-full"
+                    style={{
+                        backgroundImage: `url('${bgLogin.replace(/'/g, "%27")}')`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        backgroundRepeat: 'no-repeat',
+                    }}
+                    aria-hidden
                 />
                 <div className="absolute inset-0 bg-serene-primary/10 mix-blend-overlay" />
             </div>

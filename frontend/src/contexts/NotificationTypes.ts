@@ -7,7 +7,7 @@ export interface Notification {
   notification_type: string;
   title: string;
   body: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   created_at?: string;
   is_read?: boolean;
 }

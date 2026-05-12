@@ -17,13 +17,11 @@ export default function OAuthCallback() {
     const location = useLocation()
     const [state, setState] = useState<OAuthState>('idle')
     const query = useMemo(() => getQueryParams(location.search), [location.search])
+    const missingEmail = query.get('oauth_missing_email') === '1'
+    const provider = query.get('provider') || 'provider'
 
     useEffect(() => {
-        const missingEmail = query.get('oauth_missing_email') === '1'
-        const provider = query.get('provider') || 'provider'
-
         if (missingEmail) {
-            setState('error')
             toast.error(`${provider === 'facebook' ? 'Facebook' : 'Google'} chưa trả email xác thực. Vui lòng đăng nhập email hoặc liên kết thủ công.`)
             return
         }
@@ -50,7 +48,9 @@ export default function OAuthCallback() {
         return () => {
             cancelled = true
         }
-    }, [navigate, query, refreshUser])
+    }, [missingEmail, navigate, provider, refreshUser])
+
+    const isError = state === 'error' || missingEmail
 
     return (
         <div className="auth-page flex items-center justify-center px-6 py-12">
@@ -61,15 +61,15 @@ export default function OAuthCallback() {
                 </div>
 
                 <h1 className="mt-6 font-display text-3xl text-serene-ink">
-                    {state === 'error' ? 'Cần thêm một bước nữa' : 'Đang hoàn tất đăng nhập'}
+                    {isError ? 'Cần thêm một bước nữa' : 'Đang hoàn tất đăng nhập'}
                 </h1>
                 <p className="mt-3 text-sm leading-6 text-serene-muted">
-                    {state === 'error'
+                    {isError
                         ? 'Một số nhà cung cấp không trả đủ thông tin email. Bạn có thể quay lại trang đăng nhập và thử bằng email/password hoặc liên kết tài khoản sau.'
                         : 'Hệ thống đang xác thực tài khoản OAuth và đồng bộ phiên đăng nhập an toàn.'}
                 </p>
 
-                {state === 'error' && (
+                {isError && (
                     <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
                         <Link to={ROUTE_PATHS.login} className="auth-cta inline-flex justify-center sm:w-auto">
                             Quay lại đăng nhập

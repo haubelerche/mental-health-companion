@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * Auth Context
  * Tracks authentication state for WebSocket and other features

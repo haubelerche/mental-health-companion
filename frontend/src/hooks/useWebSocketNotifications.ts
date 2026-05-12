@@ -5,12 +5,14 @@
  */
 
 import { useEffect, useRef, useCallback } from "react";
+import { useState } from "react";
 import { useNotification } from "../contexts/NotificationContext";
 import { getWebSocketBaseUrl } from "../api/httpClient";
+import type { Notification } from "../contexts/NotificationTypes";
 
 export interface WebSocketMessage {
   type: "notification" | "connected" | "ping" | "error";
-  payload?: any;
+  payload?: Record<string, unknown>;
   message?: string;
   user_id?: string;
   timestamp?: string;
@@ -32,16 +34,23 @@ export const useWebSocketNotifications = (
 ) => {
   const { autoConnect = true, reconnectAttempts = 5, reconnectInterval = 3000 } = options;
   const wsRef = useRef<WebSocket | null>(null);
+  const connectRef = useRef<() => void>(() => {});
   const reconnectCountRef = useRef(0);
   const reconnectTimeoutRef = useRef<number | undefined>(undefined);
+  const manualCloseRef = useRef(false);
   const { addNotification } = useNotification();
+  const [isConnected, setIsConnected] = useState(false);
 
   const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      console.debug("[WS] Already connected");
+    if (
+      wsRef.current?.readyState === WebSocket.OPEN ||
+      wsRef.current?.readyState === WebSocket.CONNECTING
+    ) {
+      console.debug("[WS] Already connected or connecting");
       return;
     }
     try {
+      manualCloseRef.current = false;
       const wsBaseUrl = getWebSocketBaseUrl();
       if (!wsBaseUrl) {
         console.warn("[WS] WebSocket base URL is not configured");
@@ -54,6 +63,7 @@ export const useWebSocketNotifications = (
       ws.onopen = () => {
         console.log("[WS] Connected successfully");
         reconnectCountRef.current = 0;
+        setIsConnected(true);
       };
 
       ws.onmessage = (event) => {
@@ -69,7 +79,10 @@ export const useWebSocketNotifications = (
             case "notification":
               if (message.payload) {
                 console.log("[WS] New notification:", message.payload.notification_type);
-                addNotification(message.payload);
+                const payload = message.payload as Partial<Notification>;
+                if (payload.notification_id && payload.notification_type && payload.title && payload.body) {
+                  addNotification(payload as Notification);
+                }
               }
               break;
 
@@ -92,6 +105,13 @@ export const useWebSocketNotifications = (
       ws.onclose = (event) => {
         console.log(`[WS] Disconnected (code: ${event.code}, reason: ${event.reason})`);
         wsRef.current = null;
+        setIsConnected(false);
+
+        if (manualCloseRef.current) {
+          manualCloseRef.current = false;
+          reconnectCountRef.current = 0;
+          return;
+        }
 
         // Attempt reconnection (but not for auth errors)
         if (event.code !== 4001 && reconnectCountRef.current < reconnectAttempts) {
@@ -100,7 +120,9 @@ export const useWebSocketNotifications = (
           console.log(
             `[WS] Reconnecting in ${delay}ms (attempt ${reconnectCountRef.current}/${reconnectAttempts})`
           );
-          reconnectTimeoutRef.current = setTimeout(connect, delay);
+          reconnectTimeoutRef.current = window.setTimeout(() => {
+            connectRef.current();
+          }, delay);
         } else if (event.code === 4001) {
           console.warn("[WS] Authentication failed - not reconnecting");
         } else {
@@ -114,14 +136,21 @@ export const useWebSocketNotifications = (
     }
   }, [addNotification, reconnectAttempts, reconnectInterval]);
 
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
+
   const disconnect = useCallback(() => {
+    manualCloseRef.current = true;
     if (reconnectTimeoutRef.current !== undefined) {
       clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = undefined;
     }
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
+    setIsConnected(false);
     reconnectCountRef.current = 0;
   }, []);
 
@@ -141,7 +170,7 @@ export const useWebSocketNotifications = (
   }, [autoConnect, connect, disconnect]);
 
   return {
-    isConnected: wsRef.current?.readyState === WebSocket.OPEN,
+    isConnected,
     connect,
     disconnect,
   };

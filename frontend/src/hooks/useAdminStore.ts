@@ -1,13 +1,15 @@
 // Simple singleton for admin data caching
+type UnknownRecord = Record<string, unknown>
+
 const cache = {
     letters: {
-        normal: [] as any[],
-        reported: [] as any[],
+        normal: [] as UnknownRecord[],
+        reported: [] as UnknownRecord[],
         totalReported: 0,
         currentPage: 1
     },
     users: {
-        users: [] as any[],
+        users: [] as UnknownRecord[],
         total: 0,
         query: ''
     }
