@@ -1,60 +1,73 @@
-"""Reward store catalog — backend-driven item definitions.
-
-Each item has a stable item_id slug. The catalog is seeded into reward_store_items
-on first startup or via migration. PRD §11.
-"""
+"""Reward store catalog - backend-driven item definitions."""
 
 from __future__ import annotations
 
 from typing import Any
 
-# Catalog items: (item_id, item_type, title, subtitle, price_hearts, tier, icon_key, requirements)
 CATALOG: list[dict[str, Any]] = [
-    # ── Persona shelf ─────────────────────────────────────────────────────────
     {
-        "item_id": "persona_cun",
+        "item_id": "persona_dung_luong",
         "item_type": "persona",
-        "title": "Cún",
-        "subtitle": "Đồng hành vui vẻ, nâng mood mỗi ngày",
-        "description": "Cún là chế độ giao tiếp năng động, vui vẻ. Phù hợp khi bạn cần một chút nhẹ nhàng.",
+        "title": "Dung Luong (Đang túc trực)",
+        "subtitle": "Sinh viên năm tám",
+        "description": (
+            "Tên: Dung Luong\n"
+            "Nghề nghiệp: Sinh viên sắp ra trường\n"
+            "Tính cách: Vui vẻ, hay gửi meme đúng ngữ cảnh, sống tích cực, biết lắng nghe\n"
+            "Chuyện đời: Deadline lắm quá huhuhu... thôi kệ nó, đi mua trà sữa đã"
+        ),
+        "price_hearts": 100,
+        "tier": 1,
+        "icon_key": "persona_dung_luong",
+        "requirements": {},
+        "metadata": {"unlocks_persona_id": "dung_luong", "core_persona": True},
+    },
+    {
+        "item_id": "persona_dat_le",
+        "item_type": "persona",
+        "title": "Dat Le (Đang túc trực)",
+        "subtitle": "Intern Mắt Thâm",
+        "description": (
+            "Tên: Dat Le\n"
+            "Nghề nghiệp: Intern lương ba cọc, không đồng\n"
+            "Tính cách: Trầm ngâm, suy ngẫm triết lý cuộc đời, hay động viên, truyền cảm hứng\n"
+            "Chuyện đời: Lương 3 triệu thì trời mưa có nên lội tới công ty không ?"
+        ),
+        "price_hearts": 100,
+        "tier": 1,
+        "icon_key": "persona_dat_le",
+        "requirements": {},
+        "metadata": {"unlocks_persona_id": "dat_le", "core_persona": True},
+    },
+    {
+        "item_id": "persona_hau_luong",
+        "item_type": "persona",
+        "title": "Nhân viên Cú vọ",
+        "subtitle": "Hau Luong (Bị nhốt ở công ty)",
+        "description": (
+            "Tên: Hau Luong\n"
+            "Nghề nghiệp: Nhân viên văn phòng\n"
+            "Tính cách: Hướng nội hay gửi voice message vì lười nhắn, do vô tư nên chữa được lo âu và overthinking\n"
+            "Chuyện đời: Đau lưng, mỏi gối tê tay, Hau và máy tính sống bên nhau trọn đời về sau, hạnh phúc không? Không biết..."
+        ),
         "price_hearts": 500,
         "tier": 1,
-        "icon_key": "persona_cun",
-        "requirements": {"mood_checkins_min": 3},
-        "metadata": {"unlocks_persona_id": "cun"},
+        "icon_key": "persona_hau_luong",
+        "requirements": {},
+        "metadata": {"unlocks_persona_id": "hau_luong"},
     },
     {
-        "item_id": "persona_meo",
-        "item_type": "persona",
-        "title": "Mèo",
-        "subtitle": "Đồng hành yên lặng, lắng nghe sâu",
-        "description": "Mèo là chế độ giao tiếp nhẹ nhàng, ít lời, phù hợp khi bạn cần không gian yên tĩnh.",
-        "price_hearts": 1200,
-        "tier": 2,
-        "icon_key": "persona_meo",
-        "requirements": {"mood_checkins_min": 5, "reflections_completed_min": 2},
-        "metadata": {"unlocks_persona_id": "meo"},
+        "item_id": "persona_cun",
+        "item_type": "legacy_persona",
+        "title": "Cun",
+        "subtitle": "Legacy friendly persona alias",
+        "description": "Compatibility store item for legacy purchases; unlocks the default warm friend style.",
+        "price_hearts": 100,
+        "tier": 1,
+        "icon_key": "persona_dung_luong",
+        "requirements": {},
+        "metadata": {"unlocks_persona_id": "dung_luong", "legacy_alias": True},
     },
-    {
-        "item_id": "persona_crush",
-        "item_type": "persona",
-        "title": "Crush",
-        "subtitle": "Ấm áp hơn một chút, vẫn giữ ranh giới an toàn",
-        "description": (
-            "Crush là chế độ ấm áp hơn — không phải người yêu thật, không có cam kết, "
-            "không tình dục hoá. App có thể tạm đổi về Bạn Tốt khi cần thiết."
-        ),
-        "price_hearts": 5000,
-        "tier": 3,
-        "icon_key": "persona_crush",
-        "requirements": {
-            "mood_checkins_min": 14,
-            "boundary_intro_accepted": True,
-            "no_recent_dependency_signal": True,
-        },
-        "metadata": {"unlocks_persona_id": "crush", "safety_restricted": True},
-    },
-    # ── Knowledge shelf ────────────────────────────────────────────────────────
     {
         "item_id": "knowledge_overthinking_101",
         "item_type": "knowledge",
@@ -88,7 +101,6 @@ CATALOG: list[dict[str, Any]] = [
         "requirements": {},
         "metadata": {},
     },
-    # ── Mood Room shelf ────────────────────────────────────────────────────────
     {
         "item_id": "moodroom_sticker_cloud",
         "item_type": "mood_room",
@@ -122,7 +134,6 @@ CATALOG: list[dict[str, Any]] = [
         "requirements": {},
         "metadata": {},
     },
-    # ── Micro-style shelf ─────────────────────────────────────────────────────
     {
         "item_id": "style_shorter_replies",
         "item_type": "micro_style",
@@ -132,7 +143,7 @@ CATALOG: list[dict[str, Any]] = [
         "tier": 1,
         "icon_key": "style_short",
         "requirements": {},
-        "metadata": {"applies_to": ["ban_than", "nguoi_thay", "cun", "meo", "crush"]},
+        "metadata": {"applies_to": ["dung_luong", "dat_le", "hau_luong"]},
     },
     {
         "item_id": "style_warmer",
@@ -143,7 +154,7 @@ CATALOG: list[dict[str, Any]] = [
         "tier": 1,
         "icon_key": "style_warm",
         "requirements": {},
-        "metadata": {"applies_to": ["ban_than", "crush"]},
+        "metadata": {"applies_to": ["dung_luong", "hau_luong"]},
     },
 ]
 
@@ -155,7 +166,6 @@ def get_catalog_item(item_id: str) -> dict[str, Any] | None:
 
 
 def validate_catalog_item(item: dict[str, Any]) -> None:
-    """Raise ValueError if item violates catalog constraints."""
     price = item.get("price_hearts", 0)
     if not (100 <= price <= 10000):
         raise ValueError(f"item {item['item_id']}: price_hearts {price} outside [100, 10000]")
@@ -163,12 +173,6 @@ def validate_catalog_item(item: dict[str, Any]) -> None:
         raise ValueError("item missing item_id")
     if not item.get("title"):
         raise ValueError(f"item {item['item_id']}: missing title")
-    crush_items = ("persona_crush", "style_soft_but_boundaried")
-    forbidden_crush_copy = ("người yêu AI", "bạn trai", "bạn gái", "tình yêu thật")
-    if item.get("item_id") in crush_items:
-        for phrase in forbidden_crush_copy:
-            if phrase in (item.get("description") or "") or phrase in (item.get("subtitle") or ""):
-                raise ValueError(f"item {item['item_id']}: forbidden crush copy found: {phrase!r}")
 
 
 def validate_full_catalog() -> None:

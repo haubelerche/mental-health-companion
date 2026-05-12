@@ -18,7 +18,8 @@ from app.services.utils import get_now
 
 logger = logging.getLogger(__name__)
 
-UNLOCKABLE_PERSONAS = ("cun", "meo", "crush")
+UNLOCKABLE_PERSONAS = ("hau_luong",)
+LEGACY_UNLOCK_PERSONAS = ("cun", "meo", "crush")
 
 
 def get_persona_unlock_state(
@@ -37,7 +38,18 @@ def is_persona_unlocked(db: Session, *, user_id: str, persona_id: str) -> bool:
     if persona_id not in UNLOCKABLE_PERSONAS:
         return True
     state = get_persona_unlock_state(db, user_id=user_id, persona_id=persona_id)
-    return bool(state and state.unlocked)
+    if state and state.unlocked:
+        return True
+    if persona_id == "hau_luong":
+        legacy_state = db.scalar(
+            select(PersonaUnlockState).where(
+                PersonaUnlockState.user_id == user_id,
+                PersonaUnlockState.persona_id.in_(LEGACY_UNLOCK_PERSONAS),
+                PersonaUnlockState.unlocked.is_(True),
+            )
+        )
+        return legacy_state is not None
+    return False
 
 
 def mark_persona_unlocked(
@@ -89,13 +101,13 @@ def mark_persona_unlocked(
 
 
 def accept_crush_boundary(db: Session, *, user_id: str) -> PersonaUnlockState:
-    """Record boundary intro acceptance for Crush. Required before Crush can activate."""
-    state = get_persona_unlock_state(db, user_id=user_id, persona_id="crush")
+    """Deprecated compatibility hook for old clients; records acceptance on Hau."""
+    state = get_persona_unlock_state(db, user_id=user_id, persona_id="hau_luong")
     now = get_now().replace(tzinfo=None)
     if state is None:
         state = PersonaUnlockState(
             user_id=user_id,
-            persona_id="crush",
+            persona_id="hau_luong",
             unlocked=False,
             boundary_accepted=True,
             updated_at=now,
@@ -105,5 +117,5 @@ def accept_crush_boundary(db: Session, *, user_id: str) -> PersonaUnlockState:
         state.boundary_accepted = True
         state.updated_at = now
     db.flush()
-    logger.info("[Unlocks] Crush boundary accepted user=%s", user_id)
+    logger.info("[Unlocks] Deprecated boundary accepted user=%s persona=hau_luong", user_id)
     return state

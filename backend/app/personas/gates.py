@@ -17,7 +17,7 @@ class GateResult:
     progress: dict[str, object] = field(default_factory=dict)
 
 
-_CORE_PERSONAS = frozenset({"ban_than", "nguoi_thay"})
+_CORE_PERSONAS = frozenset({"dung_luong", "nguoi_thay"})
 
 
 def check_unlock_gate(persona_id: str, *, is_unlocked: bool) -> GateResult:
@@ -42,23 +42,17 @@ def check_safety_gate(
     """Deterministic safety gate — runs before any prompt rendering.
 
     SOS always bypasses persona style (safety overrides everything, PRD §11).
-    Each unlockable persona has a distress ceiling; crossing it forces fallback to ban_than.
+    Each unlockable persona has a distress ceiling; crossing it forces fallback to dung_luong.
     """
     if sos_triggered:
         return GateResult(allowed=False, blocked_reason="safety_crisis_bypass")
 
-    if persona_id == "cun" and distress >= 0.40:
-        return GateResult(allowed=False, blocked_reason="playful_mode_distress_override")
-
-    if persona_id == "meo" and distress >= 0.55:
-        return GateResult(allowed=False, blocked_reason="quiet_mode_distress_override")
-
     if persona_id == "nguoi_thay" and distress >= 0.70:
         return GateResult(allowed=False, blocked_reason="safety_distress_override")
 
-    if persona_id == "crush":
+    if persona_id == "hau_luong":
         if distress >= 0.60:
-            return GateResult(allowed=False, blocked_reason="crush_distress_override")
+            return GateResult(allowed=False, blocked_reason="hau_luong_distress_override")
         if dependency_signal:
             return GateResult(allowed=False, blocked_reason="dependency_boundary")
 
