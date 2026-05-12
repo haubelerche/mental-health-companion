@@ -10,11 +10,12 @@ from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from app.core.config import get_settings
+from app.services.observability import record_event, record_metric
 
 logger = logging.getLogger(__name__)
 
 MEM0_SCHEMA = "app"
-MEM0_COLLECTION_NAME = f"{MEM0_SCHEMA}.mem0_memories"
+MEM0_COLLECTION_NAME = "mem0_memories"
 
 
 CLINICAL_MEMORY_PROMPT = """Bạn đang phân tích hội thoại từ ứng dụng hỗ trợ tâm lý (tiếng Việt).
@@ -94,6 +95,7 @@ class MemoryManager:
     def __init__(self) -> None:
         self._client: Any | None = None
         self._enabled = False
+        self._strict_mode = bool(get_settings().mem0_strict_mode)
         cfg = get_mem0_config()
         if cfg is None:
             return
@@ -118,23 +120,51 @@ class MemoryManager:
         try:
             self._client.add(messages, user_id=user_id, metadata={"source": "session_summary"})
         except Exception as exc:
+            reason_code = "contract_error" if _is_mem0_contract_error(exc) else "runtime_error"
+            record_event("mem0.add_failed", metadata={"reason_code": reason_code})
             logger.warning("mem0 add_session failed for %s: %s", user_id, exc)
 
     def search(self, user_id: str, query: str, limit: int = 5) -> list[str]:
         if not self._enabled or not self._client or not user_id:
             return []
         try:
-            results = self._client.search(query or "", user_id=user_id, limit=limit)
+            results = self._client.search(
+                query or "",
+                filters={"user_id": user_id},
+                top_k=max(1, min(int(limit), 20)),
+            )
         except Exception as exc:
+            reason_code = "contract_error" if _is_mem0_contract_error(exc) else "runtime_error"
+            if reason_code == "contract_error":
+                record_metric("mem0_search_contract_error_total", 1, labels={"reason_code": reason_code})
+            record_event("mem0.search_failed", metadata={"reason_code": reason_code})
             logger.warning("mem0 search failed for %s: %s", user_id, exc)
+            if self._strict_mode:
+                raise RuntimeError(f"mem0 search failed ({reason_code})") from exc
             return []
 
-        items = list((results or {}).get("results") or [])
+        if isinstance(results, dict):
+            items = list((results or {}).get("results") or [])
+        elif isinstance(results, list):
+            items = list(results)
+        else:
+            items = []
         out: list[str] = []
         for item in items:
-            text = str((item or {}).get("memory") or "").strip()
+            if not isinstance(item, dict):
+                continue
+            text = str(
+                item.get("memory")
+                or item.get("data")
+                or item.get("text")
+                or item.get("content")
+                or ""
+            ).strip()
             if text:
                 out.append(text)
+        record_metric("mem0_search_success_total", 1, labels={"status": "ok"})
+        if not out:
+            record_metric("mem0_empty_recall_total", 1, labels={"reason_code": "no_results"})
         return out
 
     def delete_user(self, user_id: str) -> None:
@@ -147,3 +177,12 @@ class MemoryManager:
                 self._client.delete(user_id=user_id)
         except Exception as exc:
             logger.warning("mem0 delete_user failed for %s: %s", user_id, exc)
+
+
+def _is_mem0_contract_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return isinstance(exc, ValueError) and (
+        "filters" in msg
+        or "top-level entity parameters" in msg
+        or "not supported" in msg
+    )
