@@ -15,7 +15,7 @@ export default function BackgroundLayer({ src, mode }: BackgroundLayerProps) {
     <div className="pointer-events-none fixed inset-0 z-0">
       <img src={src} alt="" aria-hidden className="h-full w-full object-cover" />
       <div className={`absolute inset-0 ${overlayClass}`} />
-      <div className="absolute inset-0 bg-black/5 dark:bg-black/10" />
+      <div className={`absolute inset-0 ${mode === 'dark' ? 'bg-black/10' : 'bg-black/5'}`} />
 
       {!reduceMotion && (
         <>
