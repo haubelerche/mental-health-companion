@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 from fastapi import Cookie, Depends, Header, Request
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -92,7 +93,10 @@ def get_current_user(
     if not user_id:
         raise AppError("AUTH_INVALID_TOKEN", "Token không hợp lệ", 401)
 
-    user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
+    try:
+        user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
+    except OperationalError as exc:
+        raise AppError("DATABASE_UNAVAILABLE", "Database is temporarily unavailable. Please retry shortly.", 503) from exc
     if not user:
         raise AppError("AUTH_INVALID_TOKEN", "Token không hợp lệ", 401)
     return user
@@ -120,7 +124,10 @@ def get_current_user_for_stream(
         raise AppError("AUTH_INVALID_TOKEN", "Invalid token", 401)
 
     with get_session_factory()() as db:
-        user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
+        try:
+            user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
+        except OperationalError as exc:
+            raise AppError("DATABASE_UNAVAILABLE", "Database is temporarily unavailable. Please retry shortly.", 503) from exc
         if not user:
             raise AppError("AUTH_INVALID_TOKEN", "Invalid token", 401)
         db.expunge(user)
@@ -190,5 +197,7 @@ async def get_current_user_ws(
     if not user_id:
         return None
 
-    user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
-    return user
+    try:
+        return db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
+    except OperationalError:
+        return None

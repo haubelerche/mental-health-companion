@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     openai_model_friend_fast: str = "gpt-4o-mini"
     llm_timeout_seconds: float = 10.0
     chat_response_cache_ttl_seconds: int = 45
+    mem0_strict_mode: bool = Field(default=False, validation_alias=AliasChoices("MEM0_STRICT_MODE"))
     chat_expose_scoring_debug: bool = Field(
         default=False,
         validation_alias=AliasChoices("CHAT_EXPOSE_SCORING_DEBUG"),
