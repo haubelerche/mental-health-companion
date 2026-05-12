@@ -5,7 +5,7 @@ GET  /rewards/balance         → current heart balance
 POST /rewards/items/{item_id}/purchase  → atomic purchase
 GET  /rewards/inventory       → user's owned items
 GET  /rewards/personas/progress → unlock progress for locked personas
-POST /rewards/personas/crush/boundary-accept → accept Crush boundary intro
+Legacy compatibility routes under /rewards/personas/crush/* are no-op aliases.
 PRD §11.
 """
 
@@ -21,7 +21,6 @@ from app.api.deps import ensure_policy_acknowledged
 from app.core.errors import AppError
 from app.core.responses import ok
 from app.hearts.service import get_balance
-from app.personas.boundary_intro import build_boundary_intro_response
 from app.personas.progression import get_all_unlock_progress
 from app.personas.unlocks import accept_crush_boundary
 from app.rewards.catalog import CATALOG, get_catalog_item
@@ -42,6 +41,7 @@ def _build_store_shelves() -> list[dict]:
         shelf = item.get("item_type", "special")
         shelves.setdefault(shelf, []).append({
             "item_id": item["item_id"],
+            "item_type": item["item_type"],
             "title": item["title"],
             "subtitle": item.get("subtitle"),
             "description": item.get("description"),
@@ -49,6 +49,7 @@ def _build_store_shelves() -> list[dict]:
             "tier": item["tier"],
             "icon_key": item.get("icon_key"),
             "requirements": item.get("requirements", {}),
+            "metadata": item.get("metadata", {}),
         })
     return [
         {"shelf": shelf, "items": items}
@@ -119,7 +120,12 @@ def persona_unlock_progress(
 
 @router.get("/personas/crush/boundary-intro")
 def crush_boundary_intro(current_user: User = Depends(ensure_policy_acknowledged)):
-    return ok(build_boundary_intro_response())
+    del current_user
+    return ok({
+        "intro_text": "Hậu đã thay thế persona cũ. Không cần chấp nhận boundary riêng để xem giới thiệu.",
+        "key_points": ["Hậu là persona unlockable bằng 500 tim."],
+        "acceptance_required": False,
+    })
 
 
 @router.post("/personas/crush/boundary-accept")

@@ -5,6 +5,7 @@ Real-time notification delivery via WebSocket
 
 import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Depends, Cookie
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.services.db.session import get_db, get_session_factory
@@ -35,7 +36,11 @@ async def get_current_user_ws_cookie(
 
     from sqlalchemy import select
     with get_session_factory()() as db:
-        user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
+        try:
+            user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
+        except SQLAlchemyError as exc:
+            logger.warning("WebSocket cookie auth database unavailable: %s", exc)
+            return None
         if not user:
             return None
         db.expunge(user)
@@ -63,7 +68,11 @@ async def websocket_notifications(
                 if user_id:
                     from sqlalchemy import select
                     with get_session_factory()() as db:
-                        user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
+                        try:
+                            user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
+                        except SQLAlchemyError as exc:
+                            logger.warning("WebSocket token auth database unavailable: %s", exc)
+                            user = None
                         if user:
                             db.expunge(user)
             except Exception:

@@ -1,31 +1,17 @@
-"""Persona → TTS voice style mapping — Plan 08 §14.2.
-
-Rules:
-- Safety always overrides persona style (voice-tts.md hard rules).
-- Crush voice must be non-seductive ("soft_affectionate").
-- Default style is used when persona_id is unknown or None.
-- Voice style is NOT rendered for locked voice styles without ownership + consent.
-"""
+"""Persona to TTS voice style mapping."""
 
 from __future__ import annotations
 
-# Canonical persona_id → tts_style_id mapping (plan 08 §14.2 table).
 PERSONA_VOICE_STYLES: dict[str, str] = {
-    "ban_than": "warm_friend",
-    "nguoi_thay": "calm_mentor",
-    "cun": "bright_playful",
-    "meo": "quiet_calm",
-    "crush": "soft_affectionate",
+    "dung_luong": "warm_friend",
+    "dat_le": "calm_mentor",
+    "hau_luong": "soft_quiet",
 }
 
 DEFAULT_VOICE_STYLE = "warm_friend"
 
-# Styles that require explicit user ownership + consent before rendering.
-# Attempting to render these without ownership silently falls back to default.
 RESTRICTED_VOICE_STYLES: frozenset[str] = frozenset({
-    "soft_affectionate",  # Crush — highest safety risk
-    "bright_playful",     # Cún — requires unlock
-    "quiet_calm",         # Mèo — requires unlock
+    "soft_quiet",
 })
 
 
@@ -46,11 +32,7 @@ def resolve_active_style(
     *,
     user_owns_voice_style: bool = False,
 ) -> str:
-    """Resolve the effective voice style for a response.
-
-    Falls back to DEFAULT_VOICE_STYLE when the mapped style is restricted and
-    the user does not own it. This ensures text-path safety without crashing.
-    """
+    """Resolve the effective voice style for a response."""
     style = get_voice_style(persona_id)
     if is_style_restricted(style) and not user_owns_voice_style:
         return DEFAULT_VOICE_STYLE

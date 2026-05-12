@@ -10,9 +10,8 @@ from app.api.deps import ensure_policy_acknowledged
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.services.db.models import JournalEntry, JournalPrompt, MoodCheckin, User, UserProfile
+from app.services.db.models import MoodCheckin, User, UserProfile
 from app.services.db.session import get_db
-from app.services.schemas.payloads import JournalCreateRequest
 from app.services.utils import local_date_utc7, make_id, get_now
 
 router = APIRouter(prefix="/reflect", tags=["reflect"])
@@ -381,26 +380,9 @@ def refresh_insight(
 
 
 @router.post("/journal")
-def create_journal(payload: JournalCreateRequest, current_user: User = Depends(ensure_policy_acknowledged), db: Session = Depends(get_db)):
-    if payload.prompt_id:
-        prompt = db.scalar(
-            select(JournalPrompt).where(
-                JournalPrompt.prompt_id == payload.prompt_id,
-                JournalPrompt.is_active.is_(True),
-            )
-        )
-        if not prompt:
-            raise AppError("INVALID_PARAMETER", "prompt_id không hợp lệ", 400)
-
-    row = JournalEntry(
-        journal_id=make_id("j"),
-        user_id=current_user.user_id,
-        prompt_id=payload.prompt_id,
-        content=payload.content,
-    )
-    db.add(row)
-    db.commit()
-    return ok({"journal_id": row.journal_id, "created_at": row.created_at.isoformat() + "Z"}, status_code=201)
+def create_journal(current_user: User = Depends(ensure_policy_acknowledged), db: Session = Depends(get_db)):
+    _ = (current_user, db)
+    raise AppError("FEATURE_RETIRED", "Tinh nang journal da ngung hoat dong.", 410)
 
 
 @router.get("/journals")
@@ -410,53 +392,11 @@ def list_journals(
     current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
-    total = (
-        db.scalar(
-            select(func.count(JournalEntry.journal_id)).where(
-                JournalEntry.user_id == current_user.user_id,
-                JournalEntry.deleted_at.is_(None),
-            )
-        )
-        or 0
-    )
-
-    rows = db.scalars(
-        select(JournalEntry)
-        .where(JournalEntry.user_id == current_user.user_id, JournalEntry.deleted_at.is_(None))
-        .order_by(JournalEntry.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-    ).all()
-
-    journals = [
-        {
-            "journal_id": row.journal_id,
-            "content_preview": (row.content[:57] + "...") if len(row.content) > 60 else row.content,
-            "prompt_id": row.prompt_id,
-            "created_at": row.created_at.isoformat() + "Z",
-        }
-        for row in rows
-    ]
-
-    return ok({"journals": journals, "total": total, "has_more": offset + len(journals) < total})
+    _ = (limit, offset, current_user, db)
+    raise AppError("FEATURE_RETIRED", "Tinh nang journal da ngung hoat dong.", 410)
 
 
 @router.get("/journal-prompts")
 def journal_prompts(db: Session = Depends(get_db)):
-    prompts = db.scalars(
-        select(JournalPrompt)
-        .where(JournalPrompt.is_active.is_(True))
-        .order_by(JournalPrompt.created_at.asc())
-    ).all()
-
-    return ok(
-        {
-            "prompts": [{"id": row.prompt_id, "text": row.text} for row in prompts]
-            if prompts
-            else [
-                {"id": "prompt_01", "text": "Hôm nay điều gì khiến bạn cảm thấy tự hào về bản thân?"},
-                {"id": "prompt_02", "text": "Điều gì đang chiếm nhiều năng lượng nhất của bạn tuần này?"},
-                {"id": "prompt_03", "text": "Nếu nói chuyện với bản thân 1 năm trước, bạn sẽ nói gì?"},
-            ]
-        }
-    )
+    _ = db
+    raise AppError("FEATURE_RETIRED", "Tinh nang journal da ngung hoat dong.", 410)

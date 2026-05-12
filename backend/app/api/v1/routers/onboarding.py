@@ -8,9 +8,23 @@ from app.api.deps import get_current_user
 from app.core.errors import AppError
 from app.core.product_constants import CURRENT_POLICY_VERSION
 from app.core.responses import ok
+from app.onboarding_tour.service import (
+    complete_tour,
+    dismiss_tour,
+    get_or_create_tour_state,
+    make_tour_available_after_onboarding,
+    progress_tour,
+    serialize_tour_state,
+    skip_tour,
+    start_tour,
+)
 from app.services.db.models import User, UserProfile
 from app.services.db.session import get_db
-from app.services.schemas.payloads import OnboardingCompleteRequest
+from app.services.schemas.payloads import (
+    OnboardingCompleteRequest,
+    OnboardingTourProgressRequest,
+    OnboardingTourStartRequest,
+)
 from app.services.utils import get_now
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
@@ -74,6 +88,7 @@ def onboarding_complete(
     row.updated_at = now
     current_user.policy_acknowledged_at = now
     current_user.policy_version_ack = CURRENT_POLICY_VERSION
+    make_tour_available_after_onboarding(db, current_user.user_id)
     db.commit()
 
     return ok({"completed": True, "profile": onboarding_payload})
@@ -108,3 +123,60 @@ def onboarding_skip(
     db.commit()
 
     return ok({"completed": True, "skipped": True, "profile": onboarding_payload})
+
+
+@router.get("/tour")
+def onboarding_tour_state(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    state = get_or_create_tour_state(db, current_user.user_id)
+    state.last_seen_at = get_now().replace(tzinfo=None)
+    db.commit()
+    return ok(serialize_tour_state(db, current_user, state))
+
+
+@router.post("/tour/start")
+def onboarding_tour_start(
+    payload: OnboardingTourStartRequest | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    state = start_tour(db, current_user, variant=(payload.variant if payload else "first_run"))
+    db.commit()
+    return ok(serialize_tour_state(db, current_user, state))
+
+
+@router.patch("/tour/progress")
+def onboarding_tour_progress(
+    payload: OnboardingTourProgressRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    state = progress_tour(
+        db,
+        current_user,
+        step_id=payload.step_id,
+        skipped=payload.skipped,
+        next_step_id=payload.next_step_id,
+    )
+    db.commit()
+    return ok(serialize_tour_state(db, current_user, state))
+
+
+@router.post("/tour/complete")
+def onboarding_tour_complete(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    state = complete_tour(db, current_user)
+    db.commit()
+    return ok(serialize_tour_state(db, current_user, state))
+
+
+@router.post("/tour/skip")
+def onboarding_tour_skip(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    state = skip_tour(db, current_user)
+    db.commit()
+    return ok(serialize_tour_state(db, current_user, state))
+
+
+@router.post("/tour/dismiss")
+def onboarding_tour_dismiss(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    state = dismiss_tour(db, current_user)
+    db.commit()
+    return ok(serialize_tour_state(db, current_user, state))

@@ -4,10 +4,18 @@ from sqlalchemy.orm import Session
 from app.api.deps import ensure_policy_acknowledged
 from app.core.errors import AppError
 from app.core.responses import ok
+from app.services.clinical_profile import (
+    SCREENING_ANSWER_OPTIONS_VERSION,
+    SCREENING_ANSWER_LABELS,
+    SCREENING_QUESTION_TEXT_VERSION,
+    apply_screening_to_clinical_profile,
+    build_screening_answer_payload,
+    compute_screening_severity,
+    get_or_create_clinical_profile,
+)
 from app.services.db.models import ScreeningAnswer, User
 from app.services.db.session import get_db
 from app.services.schemas.payloads import ScreeningSubmitRequest
-from app.services.clinical_profile import get_or_create_clinical_profile
 from app.services.utils import get_now
 
 router = APIRouter(prefix="/screenings", tags=["screenings"])
@@ -41,31 +49,40 @@ def submit(
         raise AppError("INVALID_ANSWERS", f"Cần đúng {expected} câu trả lời cho {payload.instrument_id}", 400)
 
     total = sum(int(v) for v in payload.answers.values())
-    if total <= 10:
-        label = "mild"
-    elif total <= 20:
-        label = "moderate"
-    else:
-        label = "high-like"
+    label = compute_screening_severity(instrument_id=payload.instrument_id, raw_score=total)
 
     now = get_now().replace(tzinfo=None)
     clin = get_or_create_clinical_profile(db, current_user.user_id)
-    # Store only coverage metadata in clinical_profiles — raw answers go to screening_answers.
-    coverage = {"covered": True, "item_count": len(payload.answers)}
-    if payload.instrument_id == "phq9":
-        clin.phq9_score = min(27, total)
-        clin.phq9_coverage = coverage
-    else:
-        clin.gad7_score = min(21, total)
-        clin.gad7_coverage = coverage
-    clin.last_scored_at = now
-    clin.updated_at = now
+    answer_payload = build_screening_answer_payload(
+        user_id=current_user.user_id,
+        instrument_id=payload.instrument_id,
+        answers=payload.answers,
+        submitted_at=now,
+        session_id=payload.session_id,
+        locale=payload.locale,
+    )
+    apply_screening_to_clinical_profile(
+        profile=clin,
+        instrument_id=payload.instrument_id,
+        raw_score=total,
+        scored_at=now,
+    )
+
     db.add(
         ScreeningAnswer(
             user_id=current_user.user_id,
             instrument_id=payload.instrument_id,
+            screening_type=payload.instrument_id,
+            question_id="bulk",
+            question_key="bulk",
+            answer_value=total,
+            answer_label=f"severity:{label}",
+            question_text_version=SCREENING_QUESTION_TEXT_VERSION[payload.instrument_id],
+            answer_options_version=SCREENING_ANSWER_OPTIONS_VERSION,
+            session_id=payload.session_id,
+            locale=payload.locale or "vi-VN",
             raw_score=total,
-            answers=payload.answers,
+            answers=answer_payload,
         )
     )
     db.commit()

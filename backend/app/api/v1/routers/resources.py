@@ -1,15 +1,14 @@
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select, and_
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import ensure_policy_acknowledged
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.services.db.models import Bookmark, PlayEvent, Resource, User
+from app.services.db.models import Resource, User
 from app.services.db.session import get_db
-from app.services.schemas.payloads import PlayEventRequest
 from app.services.exercise_catalog import get_exercise, list_exercises
-from app.services.utils import make_id, get_now, get_youtube_id
+from app.services.utils import get_youtube_id
 
 router = APIRouter(prefix="/resources", tags=["resources"])
 
@@ -64,31 +63,17 @@ def list_resources(
 
     total = db.scalar(count_query) or 0
 
-    # 🔥 JOIN để tránh N+1
-    stmt = (
-        select(
-            Resource,
-            Bookmark.resource_id.isnot(None).label("bookmarked")
-        )
-        .outerjoin(
-            Bookmark,
-            and_(
-                Bookmark.resource_id == Resource.resource_id,
-                Bookmark.user_id == current_user.user_id
-            )
-        )
-        .where(Resource.is_active.is_(True))
-    )
+    stmt = select(Resource).where(Resource.is_active.is_(True))
 
     if category and category != "all":
         stmt = stmt.where(Resource.category == category)
 
     stmt = stmt.order_by(Resource.created_at.desc()).offset(offset).limit(limit)
 
-    results = db.execute(stmt).all()
+    rows = db.scalars(stmt).all()
 
     items = []
-    for row, bookmarked in results:
+    for row in rows:
         # URL
         url = row.storage_key
         if not url.startswith(("http://", "https://")):
@@ -112,7 +97,7 @@ def list_resources(
                 "format": row.format,
                 "url": url,
                 "thumbnail": thumbnail,
-                "bookmarked": bookmarked,
+                "bookmarked": False,
             }
         )
 
@@ -125,28 +110,9 @@ def resource_detail(
     current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
-    # 🔥 JOIN luôn cho consistent
-    stmt = (
-        select(
-            Resource,
-            Bookmark.resource_id.isnot(None).label("bookmarked")
-        )
-        .outerjoin(
-            Bookmark,
-            and_(
-                Bookmark.resource_id == Resource.resource_id,
-                Bookmark.user_id == current_user.user_id
-            )
-        )
-        .where(Resource.resource_id == resource_id, Resource.is_active.is_(True))
-    )
-
-    result = db.execute(stmt).first()
-
-    if not result:
+    row = db.scalar(select(Resource).where(Resource.resource_id == resource_id, Resource.is_active.is_(True)))
+    if not row:
         raise AppError("RESOURCE_NOT_FOUND", "Resource không tồn tại", 404)
-
-    row, bookmarked = result
 
     url = row.storage_key
     if not url.startswith(("http://", "https://")):
@@ -170,7 +136,7 @@ def resource_detail(
             "format": row.format,
             "url": url,
             "thumbnail": thumbnail,
-            "bookmarked": bookmarked,
+            "bookmarked": False,
             "tags": row.tags,
         }
     )
@@ -179,36 +145,11 @@ def resource_detail(
 @router.post("/{resource_id}/play-event")
 def track_play_event(
     resource_id: str,
-    payload: PlayEventRequest,
     current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
-    row = db.scalar(select(Resource).where(Resource.resource_id == resource_id, Resource.is_active.is_(True)))
-    if not row:
-        raise AppError("RESOURCE_NOT_FOUND", "Resource không tồn tại", 404)
-
-    if payload.event not in {"started", "paused", "completed"}:
-        raise AppError("INVALID_PARAMETER", "event không hợp lệ", 400)
-
-    if payload.duration_sec > row.duration_sec * 2:
-        raise AppError("INVALID_PARAMETER", "duration_sec quá lớn", 400)
-
-    final_duration = min(payload.duration_sec, row.duration_sec)
-
-    ev = PlayEvent(
-        event_id=make_id("pev"),
-        user_id=current_user.user_id,
-        resource_id=resource_id,
-        event=payload.event,
-        duration_sec=final_duration,
-        percent=payload.percent,
-        tracked_at=get_now(),
-    )
-
-    db.add(ev)
-    db.commit()
-
-    return ok({"tracked_at": ev.tracked_at.isoformat() + "Z"})
+    _ = (resource_id, current_user, db)
+    raise AppError("FEATURE_RETIRED", "Play event tracking da ngung hoat dong.", 410)
 
 
 @router.post("/{resource_id}/bookmark")
@@ -217,28 +158,8 @@ def create_bookmark(
     current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
-    resource = db.scalar(select(Resource).where(Resource.resource_id == resource_id, Resource.is_active.is_(True)))
-    if not resource:
-        raise AppError("RESOURCE_NOT_FOUND", "Resource không tồn tại", 404)
-
-    existing = db.scalar(
-        select(Bookmark).where(
-            Bookmark.user_id == current_user.user_id,
-            Bookmark.resource_id == resource_id
-        )
-    )
-
-    if not existing:
-        existing = Bookmark(
-            bookmark_id=make_id("bm"),
-            user_id=current_user.user_id,
-            resource_id=resource_id,
-            bookmarked_at=get_now(),
-        )
-        db.add(existing)
-        db.commit()
-
-    return ok({"bookmarked_at": existing.bookmarked_at.isoformat() + "Z"}, status_code=201)
+    _ = (resource_id, current_user, db)
+    raise AppError("FEATURE_RETIRED", "Bookmark da ngung hoat dong.", 410)
 
 
 @router.delete("/{resource_id}/bookmark")
@@ -247,15 +168,5 @@ def remove_bookmark(
     current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
-    row = db.scalar(
-        select(Bookmark).where(
-            Bookmark.user_id == current_user.user_id,
-            Bookmark.resource_id == resource_id
-        )
-    )
-
-    if row:
-        db.delete(row)
-        db.commit()
-
-    return ok({"removed_at": get_now().isoformat()})
+    _ = (resource_id, current_user, db)
+    raise AppError("FEATURE_RETIRED", "Bookmark da ngung hoat dong.", 410)
