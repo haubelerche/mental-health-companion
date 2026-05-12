@@ -30,11 +30,22 @@ def upgrade() -> None:
             DO $$
             BEGIN
               IF to_regclass('app.{table}') IS NOT NULL THEN
+                IF EXISTS (
+                    SELECT 1
+                    FROM pg_constraint con
+                    JOIN pg_class dep_rel ON dep_rel.oid = con.conrelid
+                    JOIN pg_namespace dep_ns ON dep_ns.oid = dep_rel.relnamespace
+                    WHERE con.contype = 'f'
+                      AND con.confrelid = to_regclass('app.{table}')
+                      AND NOT (dep_ns.nspname = 'app' AND dep_rel.relname = '{table}')
+                ) THEN
+                    RAISE EXCEPTION 'Cannot retire app.%: foreign-key dependencies still exist', '{table}';
+                END IF;
                 EXECUTE 'CREATE TABLE IF NOT EXISTS {BACKUP_SCHEMA}.app_{table} '
                         || '(LIKE app.{table} INCLUDING ALL)';
                 EXECUTE 'INSERT INTO {BACKUP_SCHEMA}.app_{table} '
                         || 'SELECT * FROM app.{table} ON CONFLICT DO NOTHING';
-                EXECUTE 'DROP TABLE app.{table} CASCADE';
+                EXECUTE 'DROP TABLE IF EXISTS app.{table} RESTRICT';
               END IF;
             END $$;
             """
