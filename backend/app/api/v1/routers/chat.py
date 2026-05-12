@@ -6,7 +6,7 @@ import threading
 import time
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, BackgroundTasks
 from fastapi.responses import FileResponse
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select

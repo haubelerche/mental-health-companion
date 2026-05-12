@@ -95,3 +95,5 @@ backend/tests/*
 !DATABASE_REFACTOR_PHASE_PLAN.md
 .ts
 /*.yaml
+
+backend/docs/plan.md
