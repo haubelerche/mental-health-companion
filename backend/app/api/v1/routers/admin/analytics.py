@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import enforce_admin_ip, get_admin_claims
 from app.core.responses import ok
 from app.services.db.session import get_db
-from app.services.db.models import MoodCheckin, ClinicalProfile, Resource, PlayEvent, Bookmark, HeartWallet, User, HeartRewardEvent
+from app.services.db.models import MoodCheckin, ClinicalProfile, Resource, HeartWallet, User, HeartRewardEvent
 from app.services.utils import local_date_utc7
 from .shared import router
 
@@ -80,23 +80,16 @@ def admin_analytics_resources(
     claims: dict = Depends(get_admin_claims),
 ):
     enforce_admin_ip(request)
-    top_played = db.execute(
-        select(Resource.title, func.count(PlayEvent.event_id))
-        .join(PlayEvent, PlayEvent.resource_id == Resource.resource_id)
-        .group_by(Resource.title)
-        .order_by(func.count(PlayEvent.event_id).desc())
-        .limit(10)
-    ).all()
-    top_bookmarked = db.execute(
-        select(Resource.title, func.count(Bookmark.bookmark_id))
-        .join(Bookmark, Bookmark.resource_id == Resource.resource_id)
-        .group_by(Resource.title)
-        .order_by(func.count(Bookmark.bookmark_id).desc())
+    top_resources = db.execute(
+        select(Resource.title, Resource.category)
+        .where(Resource.is_active.is_(True))
+        .order_by(Resource.created_at.desc())
         .limit(10)
     ).all()
     return ok({
-        "top_played": [{"title": row[0], "count": row[1]} for row in top_played],
-        "top_bookmarked": [{"title": row[0], "count": row[1]} for row in top_bookmarked]
+        "top_played": [],
+        "top_bookmarked": [],
+        "catalog_latest": [{"title": row[0], "category": row[1]} for row in top_resources],
     })
 
 @router.get("/analytics/hearts")
