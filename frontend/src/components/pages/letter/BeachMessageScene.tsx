@@ -1,7 +1,8 @@
-import paperBoatImage from '../../../assets/thuyen.png'
-import beachBackgroundImage from '../../../assets/beach-message-bg.avif'
+import paperBoatImage from '../../../assets/scenes/thuyen.png'
+import beachBackgroundImage from '../../../assets/scenes/beach-message-bg.png'
 
 export function CinematicBg({ dark: _dark }: { dark: boolean }) {
+    void _dark
     return (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div

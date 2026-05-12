@@ -123,7 +123,7 @@ export default function Resources() {
     }
 
     return (
-        <section className={`mx-auto max-w-6xl rounded-[2.5rem] border bg-theme-surface/60 border-white/10 backdrop-blur-2xl sm:p-8 lg:p-10 transition-colors duration-200`}>
+        <section data-tour-id="resources-main" className={`mx-auto max-w-6xl rounded-[2.5rem] border bg-theme-surface/60 border-white/10 backdrop-blur-2xl sm:p-8 lg:p-10 transition-colors duration-200`}>
             
             {/* Header */}
             <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { X } from 'lucide-react'
 import Modal from 'react-modal'
 Modal.setAppElement('#root')

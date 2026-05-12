@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
+import { ArrowRight, Check, ChevronLeft, HeartPulse, Info, Sparkles } from 'lucide-react'
+import { toast } from 'react-toastify'
 import { checkinService, type CheckinRewardResult, type CheckinStreakResult } from '../../services/checkinService'
 import { ROUTE_PATHS } from '../../routes/paths'
-import { toast } from 'react-toastify'
-import { ChevronLeft, Info } from 'lucide-react'
 import { StreakCelebration } from './StreakCelebration'
 import { MoodWordChips } from './MoodWordChips'
-import bg from '../../assets/assets_gif/page-serene-landing.gif'
+import bgCheckinDay from '../../assets/backgrounds/bg-checkin-day.gif'
+import bgCheckinNight from '../../assets/backgrounds/bg-checkin-night.gif'
 
 export type CheckinLocationState = {
   moodWords?: string[]
@@ -16,31 +17,30 @@ export type CheckinLocationState = {
 type Step = 'mood' | 'triggers' | 'summary'
 
 const MOOD_CATEGORIES = {
-  awesome: {
-    label: 'Rất tốt',
-    color: '#4A90E2',
-  },
-  good: {
-    label: 'Tốt',
-    color: '#4CAF50',
-  },
-  fine: {
-    label: 'Bình thường',
-    color: '#FFC107',
-  },
-  bad: {
-    label: 'Không tốt',
-    color: '#FF7043',
-  },
-  terrible: {
-    label: 'Tệ lắm',
-    color: '#E64A19',
-  },
+  awesome: { label: 'Rất tốt', color: '#4A90E2' },
+  good: { label: 'Tốt', color: '#4CAF50' },
+  fine: { label: 'Bình thường', color: '#D6A531' },
+  bad: { label: 'Không tốt', color: '#FF7043' },
+  terrible: { label: 'Tệ lắm', color: '#E64A19' },
 } as const
 
 type MoodKey = keyof typeof MOOD_CATEGORIES
 
-/** Map từ chip "Tâm trạng hôm nay" (tiếng Việt) → nhóm gửi API; đồng bộ với MoodWordChips mặc định. */
+const MOOD_WORDS = [
+  'Bình yên',
+  'Hứng khởi',
+  'Biết ơn',
+  'Tự tin',
+  'Mệt mỏi',
+  'Lo âu',
+  'Buồn rầu',
+  'Căng thẳng',
+  'Vui vẻ',
+  'Trống rỗng',
+  'Cô đơn',
+  'Bối rối',
+]
+
 const VI_MOOD_WORD_TO_KEY: Record<string, MoodKey> = {
   'Bình yên': 'fine',
   'Hứng khởi': 'awesome',
@@ -49,6 +49,7 @@ const VI_MOOD_WORD_TO_KEY: Record<string, MoodKey> = {
   'Mệt mỏi': 'bad',
   'Lo âu': 'bad',
   'Buồn': 'bad',
+  'Buồn rầu': 'bad',
   'Căng thẳng': 'bad',
   'Vui vẻ': 'good',
   'Trống rỗng': 'fine',
@@ -61,13 +62,14 @@ const SEVERITY_RANK: MoodKey[] = ['terrible', 'bad', 'fine', 'good', 'awesome']
 function deriveMoodFromWords(words: string[]): MoodKey {
   if (words.length === 0) return 'fine'
   const keys = words.map((w) => VI_MOOD_WORD_TO_KEY[w] ?? 'fine')
-  return keys.reduce((worst, m) =>
-    SEVERITY_RANK.indexOf(m) < SEVERITY_RANK.indexOf(worst) ? m : worst,
-  keys[0])
+  return keys.reduce(
+    (worst, m) => (SEVERITY_RANK.indexOf(m) < SEVERITY_RANK.indexOf(worst) ? m : worst),
+    keys[0],
+  )
 }
 
 const TRIGGER_TAGS = [
-  'Sức khoẻ',
+  'Sức khỏe',
   'Giấc ngủ',
   'Vận động',
   'Ăn uống',
@@ -88,6 +90,15 @@ const TRIGGER_TAGS = [
   'Thời tiết',
 ] as const
 
+function isDaytimeCheckin() {
+  const hour = new Date().getHours()
+  return hour >= 6 && hour < 18
+}
+
+function stepIndex(step: Step) {
+  return step === 'mood' ? 0 : step === 'triggers' ? 1 : 2
+}
+
 export function CheckinFlow() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -97,9 +108,15 @@ export function CheckinFlow() {
   const [selectedTriggers, setSelectedTriggers] = useState<string[]>([])
   const [note, setNote] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isDaytime, setIsDaytime] = useState(() => isDaytimeCheckin())
   const [showStreak, setShowStreak] = useState(false)
   const [checkinReward, setCheckinReward] = useState<CheckinRewardResult | null>(null)
   const [checkinStreak, setCheckinStreak] = useState<CheckinStreakResult | null>(null)
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setIsDaytime(isDaytimeCheckin()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     const st = location.state as CheckinLocationState | null
@@ -110,10 +127,16 @@ export function CheckinFlow() {
     setStep('triggers')
   }, [location.state])
 
+  const background = isDaytime ? bgCheckinDay : bgCheckinNight
+  const mood = selectedMood ?? deriveMoodFromWords(moodWords)
+  const currentStep = stepIndex(step)
+  const canGoNext = moodWords.length > 0
+
+  const selectedMoodLabel = useMemo(() => MOOD_CATEGORIES[mood].label, [mood])
+
   const goToTriggersFromMood = () => {
-    if (moodWords.length === 0) return
-    const derived = deriveMoodFromWords(moodWords)
-    setSelectedMood(derived)
+    if (!canGoNext) return
+    setSelectedMood(deriveMoodFromWords(moodWords))
     setStep('triggers')
   }
 
@@ -124,7 +147,6 @@ export function CheckinFlow() {
   }
 
   const submit = async () => {
-    const mood = selectedMood ?? deriveMoodFromWords(moodWords)
     if (moodWords.length === 0) return
     setLoading(true)
     try {
@@ -146,17 +168,16 @@ export function CheckinFlow() {
     }
   }
 
-  const moodKeyForWord = (word: string): MoodKey =>
-    VI_MOOD_WORD_TO_KEY[word] ?? selectedMood ?? 'fine'
+  const moodKeyForWord = (word: string): MoodKey => VI_MOOD_WORD_TO_KEY[word] ?? selectedMood ?? 'fine'
 
   return (
-    <div className="relative min-h-screen overflow-hidden text-theme-text-primary">
+    <div className="relative min-h-screen overflow-hidden text-[#2f332b]">
       <div className="fixed inset-0 z-0">
-          <img src={bg} alt="Background" className="h-full w-full object-cover" />
-          <div className={`absolute inset-0 `} />
+        <img src={background} alt="" className="h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-[#17251e]/35" />
       </div>
-      
-      <div className="relative z-10  px-4 pb-12 pt-7 sm:px-6">
+
+      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-6">
         <StreakCelebration
           open={showStreak}
           streakDays={checkinStreak?.current ?? 0}
@@ -167,174 +188,205 @@ export function CheckinFlow() {
             navigate(ROUTE_PATHS.home)
           }}
         />
-        <AnimatePresence mode="wait">
-        {step === 'mood' && (
-          <motion.div key="mood" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mx-auto w-full max-w-[460px] bg-theme-surface/80 backdrop-blur-xs rounded-4xl p-5">
-            <header className="mb-5 flex items-center justify-between">
-              <button type="button" onClick={() => navigate(ROUTE_PATHS.home)} className="rounded-full p-2 text-theme-text-primary transition hover:bg-white/60" aria-label="Quay lại trang chủ">
-                <ChevronLeft className="h-6 w-6" />
-              </button>
-              <h1 className="text-[2rem] font-semibold leading-none ">Check-in cảm xúc</h1>
-              <Info className="h-5 w-5" />
-            </header>
 
-            <section className="rounded-[30px] border border-theme-border bg-theme-surface/80 p-6 shadow-md backdrop-blur-xl">
-              <h2 className="mb-5 text-4xl font-semibold leading-tight">Tâm trạng hôm nay?</h2>
-              <MoodWordChips selected={moodWords} onChange={setMoodWords} />
-            </section>
-
-            <p className="mt-5 text-lg text-theme-text-secondary">Chọn một hoặc nhiều từ mô tả đúng nhất cảm giác của bạn lúc này.</p>
+        <section className="grid h-[min(660px,calc(100dvh-48px))] w-full max-w-[430px] grid-rows-[auto_auto_1fr_auto] overflow-hidden rounded-[28px] border border-[#f6eedf]/70 bg-[#efe5d2]/92 p-5 shadow-[0_28px_80px_rgba(16,28,22,0.34)] backdrop-blur-md sm:max-w-[460px] sm:p-6">
+          <header className="flex items-center justify-between gap-3">
             <button
               type="button"
-              onClick={goToTriggersFromMood}
-              disabled={moodWords.length === 0}
-              className="mt-8 w-full rounded-full bg-theme-accent py-4 text-2xl font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => (step === 'mood' ? navigate(ROUTE_PATHS.home) : setStep(step === 'summary' ? 'triggers' : 'mood'))}
+              className="grid h-10 w-10 place-items-center rounded-full border border-[#d8cbb5] bg-[#fbf5ea]/80 text-[#4c5f50] transition hover:bg-white"
+              aria-label="Quay lại"
             >
-              Tiếp theo
+              <ChevronLeft className="h-5 w-5" />
             </button>
-          </motion.div>
-        )}
+            <span className="inline-flex items-center gap-2 rounded-full bg-[#fbf5ea]/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5b6f5f]">
+              <Sparkles className="h-3.5 w-3.5" />
+              SereneAI
+            </span>
+            <Info className="h-5 w-5 text-[#6d756a]" />
+          </header>
 
-        {step === 'triggers' && selectedMood != null && moodWords.length > 0 && (
-          <motion.div key="triggers" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="mx-auto w-full max-w-[460px] bg-theme-surface/80 backdrop-blur-xs rounded-4xl p-5">
-            <header className="mb-5 flex items-center justify-between">
-              <button type="button" onClick={() => setStep('mood')} className="rounded-full p-2 text-serene-muted transition hover:bg-white/60" aria-label="Quay lại">
-                <ChevronLeft className="h-6 w-6" />
-              </button>
-              <h1 className="text-[2rem] font-semibold leading-none">Check-in cảm xúc</h1>
-              <Info className="h-5 w-5 text-serene-muted" />
-            </header>
-
-            <section className="rounded-[30px] border border-theme-border  bg-theme-surface/80 p-6 shadow-md backdrop-blur-xl">
-              <h2 className="mb-5 text-4xl font-semibold leading-tight">Điều gì ảnh hưởng đến bạn hôm nay?</h2>
-              <div className="flex flex-wrap gap-2.5">
-                {TRIGGER_TAGS.map((trigger) => {
-                  const isSelected = selectedTriggers.includes(trigger)
-                  return (
-                    <button
-                      key={trigger}
-                      type="button"
-                      onClick={() => toggleTrigger(trigger)}
-                      className="rounded-full px-4 py-2 text-xl transition-all"
-                      style={
-                        isSelected
-                          ? { backgroundColor: MOOD_CATEGORIES[selectedMood].color, color: '#fff' }
-                          : { backgroundColor: 'var(--color-theme-surface)', color: 'var(--color-theme-text-secondary)', border: '1px solid var(--color-theme-border) ' }
-                      }
-                    >
-                      {trigger}
-                    </button>
-                  )
-                })}
-              </div>
-
-              <h3 className="mt-8 text-4xl font-semibold leading-tight">Ghi chú thêm?</h3>
-              <textarea
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                rows={4}
-                maxLength={500}
-                placeholder="Ghi lại điều gì đó về khoảnh khắc này..."
-                className="mt-3 w-full resize-none rounded-3xl border border-theme-border bg- theme-surface px-4 py-4 text-xl text-theme-text-secondary placeholder:text-serene-muted/60 focus:border-serene-primary/30 focus:outline-none"
-              />
-            </section>
-
-            <div className="mt-6 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setStep('mood')}
-                disabled={loading}
-                className="w-1/3 rounded-full border border-theme-border bg-theme-surface py-3 text-lg font-medium text-theme-text-secondary transition hover:bg-theme-surface/80 disabled:opacity-50"
-              >
-                Quay lại
-              </button>
-              <button
-                type="button"
-                onClick={submit}
-                disabled={loading}
-                className="w-2/3 rounded-full bg-theme-accent py-3 text-xl font-semibold text-white cursor-pointer transition hover:brightness-105 disabled:opacity-60"
-              >
-                {loading ? 'Đang lưu...' : 'Lưu lại'}
-              </button>
-            </div>
-          </motion.div>
-        )}
-
-        {step === 'summary' && selectedMood != null && (
-          <motion.div
-            key="summary"
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="mx-auto mt-8 flex w-full max-w-[460px] flex-col rounded-[30px] border border-white/45 bg-white/65 p-6 text-serene-ink shadow-[0_20px_60px_rgba(72,87,121,0.14)] backdrop-blur-xl"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-lg uppercase tracking-[0.22em] text-serene-primary/65">Đã lưu</p>
-              {checkinReward?.granted && checkinReward.amount > 0 && (
-                <span className="rounded-full bg-rose-50 px-3 py-1 text-sm font-semibold text-rose-500">
-                  +{checkinReward.amount} tim
-                </span>
-              )}
-            </div>
-            <h2 className="mt-1 text-5xl font-semibold">Xong rồi</h2>
-            <p className="mt-4 text-xl text-serene-muted">
-              Tổng quan: <span className="font-semibold text-serene-ink">{MOOD_CATEGORIES[selectedMood].label}</span>
+          <div className="mt-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#6d756a]">
+              Check-in cảm xúc
             </p>
-
-            <div className="mt-6">
-              <p className="text-sm uppercase tracking-[0.22em] text-serene-primary/60">Chuỗi 7 ngày</p>
-              <div className="mt-3 flex gap-2">
-                {[...Array.from({ length: 7 }).keys()].map((idx) => (
-                  <span
-                    key={idx}
-                    className="h-3 w-8 rounded-full"
-                    style={{ backgroundColor: idx < 4 ? MOOD_CATEGORIES[selectedMood].color : 'rgba(255,255,255,0.7)' }}
-                  />
-                ))}
-              </div>
+            <h1 className="mt-2 font-display text-[2.35rem] leading-[1.05] text-[#2f332b] sm:text-[2.7rem]">
+              Một góc nhỏ để bạn được lắng nghe.
+            </h1>
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              {['Cảm xúc', 'Yếu tố', 'Tổng kết'].map((label, idx) => (
+                <div
+                  key={label}
+                  className={[
+                    'h-2 rounded-full transition',
+                    idx <= currentStep ? 'bg-[#526f5f]' : 'bg-[#d8cbb5]',
+                  ].join(' ')}
+                  aria-label={label}
+                />
+              ))}
             </div>
+          </div>
 
-            {moodWords.length > 0 && (
-              <div className="mt-6">
-                <p className="mb-2 text-sm uppercase tracking-[0.22em] text-serene-primary/60">Tâm trạng bạn chọn</p>
-                <div className="flex flex-wrap gap-2">
-                  {moodWords.map((word) => (
-                    <span
-                      key={word}
-                      className="rounded-full px-3 py-1.5 text-sm text-white"
-                      style={{ backgroundColor: MOOD_CATEGORIES[moodKeyForWord(word)].color }}
-                    >
-                      {word}
-                    </span>
-                  ))}
+          <div className="min-h-0 overflow-hidden pt-5">
+            <AnimatePresence mode="wait">
+              {step === 'mood' && (
+                <motion.div
+                  key="mood"
+                  initial={{ opacity: 0, x: 18 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -18 }}
+                  className="flex h-full flex-col"
+                >
+                  <div className="rounded-[22px] border border-[#dfd2ba] bg-[#fbf5ea]/82 p-4 shadow-sm">
+                    <h2 className="text-xl font-semibold text-[#33372f]">Tâm trạng hôm nay?</h2>
+                    <p className="mt-2 text-sm leading-relaxed text-[#62695f]">
+                      Chọn một hoặc nhiều từ gần nhất với cảm giác của bạn lúc này.
+                    </p>
+                    <MoodWordChips words={MOOD_WORDS} selected={moodWords} onChange={setMoodWords} className="mt-4" />
+                  </div>
+                </motion.div>
+              )}
+
+              {step === 'triggers' && (
+                <motion.div
+                  key="triggers"
+                  initial={{ opacity: 0, x: 18 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -18 }}
+                  className="flex h-full min-h-0 flex-col"
+                >
+                  <div className="min-h-0 flex-1 overflow-y-auto rounded-[22px] border border-[#dfd2ba] bg-[#fbf5ea]/82 p-4 shadow-sm">
+                    <h2 className="text-xl font-semibold text-[#33372f]">Điều gì ảnh hưởng đến bạn hôm nay?</h2>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {TRIGGER_TAGS.map((trigger) => {
+                        const isSelected = selectedTriggers.includes(trigger)
+                        return (
+                          <button
+                            key={trigger}
+                            type="button"
+                            onClick={() => toggleTrigger(trigger)}
+                            className="rounded-full border px-3.5 py-2 text-sm font-medium transition"
+                            style={
+                              isSelected
+                                ? { backgroundColor: MOOD_CATEGORIES[mood].color, borderColor: MOOD_CATEGORIES[mood].color, color: '#fff' }
+                                : { backgroundColor: '#fffaf0', borderColor: '#ded0b8', color: '#4e564a' }
+                            }
+                          >
+                            {trigger}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    <label className="mt-5 block text-sm font-semibold text-[#33372f]" htmlFor="checkin-note">
+                      Ghi chú thêm
+                    </label>
+                    <textarea
+                      id="checkin-note"
+                      value={note}
+                      onChange={(event) => setNote(event.target.value)}
+                      rows={4}
+                      maxLength={500}
+                      placeholder="Ghi lại điều gì đó về khoảnh khắc này..."
+                      className="mt-2 w-full resize-none rounded-[18px] border border-[#ded0b8] bg-[#fffaf0] px-4 py-3 text-sm leading-relaxed text-[#33372f] placeholder:text-[#8a8b80] focus:border-[#526f5f] focus:outline-none"
+                    />
+                  </div>
+                </motion.div>
+              )}
+
+              {step === 'summary' && (
+                <motion.div
+                  key="summary"
+                  initial={{ opacity: 0, x: 18 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -18 }}
+                  className="flex h-full flex-col"
+                >
+                  <div className="rounded-[22px] border border-[#dfd2ba] bg-[#fbf5ea]/82 p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6d756a]">Đã lưu</p>
+                        <h2 className="mt-1 text-3xl font-semibold text-[#33372f]">Xong rồi</h2>
+                      </div>
+                      <span className="grid h-12 w-12 place-items-center rounded-full bg-[#526f5f] text-white">
+                        <Check className="h-6 w-6" />
+                      </span>
+                    </div>
+
+                    <p className="mt-5 text-sm text-[#62695f]">
+                      Tổng quan: <span className="font-semibold text-[#33372f]">{selectedMoodLabel}</span>
+                    </p>
+                    {checkinReward?.granted && checkinReward.amount > 0 && (
+                      <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-500">
+                        <HeartPulse className="h-4 w-4" />
+                        +{checkinReward.amount} tim
+                      </p>
+                    )}
+
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      {moodWords.map((word) => (
+                        <span
+                          key={word}
+                          className="rounded-full px-3 py-1.5 text-xs font-medium text-white"
+                          style={{ backgroundColor: MOOD_CATEGORIES[moodKeyForWord(word)].color }}
+                        >
+                          {word}
+                        </span>
+                      ))}
+                    </div>
+
+                    {selectedTriggers.length > 0 && (
+                      <p className="mt-5 text-sm leading-relaxed text-[#62695f]">
+                        Yếu tố: <span className="text-[#33372f]">{selectedTriggers.join(', ')}</span>
+                      </p>
+                    )}
+                    {note.trim() && (
+                      <p className="mt-4 rounded-[18px] bg-[#fffaf0] p-3 text-sm leading-relaxed text-[#33372f]">
+                        {note.trim()}
+                      </p>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <footer className="mt-5 grid grid-cols-[1fr_auto] gap-3">
+            {step === 'summary' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => navigate(ROUTE_PATHS.chat)}
+                  className="rounded-full bg-[#526f5f] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-105"
+                >
+                  Chat với Serene
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate(ROUTE_PATHS.home)}
+                  className="rounded-full border border-[#d8cbb5] bg-[#fbf5ea]/80 px-5 py-3 text-sm font-semibold text-[#4c5f50] transition hover:bg-white"
+                >
+                  Trang chủ
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="rounded-[18px] bg-[#fbf5ea]/82 px-4 py-3 text-xs leading-relaxed text-[#62695f]">
+                  Serene chỉ lưu điều bạn chọn để giúp lần check-in sau dịu hơn.
                 </div>
-              </div>
+                <button
+                  type="button"
+                  onClick={step === 'mood' ? goToTriggersFromMood : submit}
+                  disabled={(step === 'mood' && !canGoNext) || loading}
+                  className="inline-flex min-w-[118px] items-center justify-center gap-2 rounded-full bg-[#526f5f] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? 'Đang lưu' : 'Next'}
+                  {!loading && <ArrowRight className="h-4 w-4" />}
+                </button>
+              </>
             )}
-
-            {selectedTriggers.length > 0 && (
-              <p className="mt-5 text-sm text-serene-muted">Yếu tố: {selectedTriggers.join(', ')}</p>
-            )}
-
-            {note.trim() && <p className="mt-3 rounded-2xl bg-white/70 p-3 text-sm text-serene-ink">{note.trim()}</p>}
-
-            <div className="mt-7 flex flex-col gap-3">
-              <button
-                type="button"
-                onClick={() => navigate(ROUTE_PATHS.chat)}
-                className="rounded-full bg-serene-primary py-3 text-xl font-semibold text-serene-on-primary"
-              >
-                Chat với Mây
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate(ROUTE_PATHS.home)}
-                className="rounded-full border border-white/50 bg-white/30 py-3 text-lg font-medium text-serene-muted"
-              >
-                Về trang chủ
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </footer>
+        </section>
       </div>
     </div>
   )

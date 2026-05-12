@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /** TTS job status display. Polling must stop on terminal statuses. */
 
 import { Mic } from 'lucide-react'

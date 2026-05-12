@@ -3,17 +3,19 @@ import {
   BellRing,
   ChevronRight,
   Gift,
+  HelpCircle,
   LogOut,
   Palette,
   Repeat,
   User,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import bg from '../../assets/bg.png'
-import bg2 from '../../assets/bg2.png'
-import bg3 from '../../assets/bg3.png'
-import bg4 from '../../assets/bg-reflect.png'
+import bg from '../../assets/backgrounds/bg-noon.png'
+import bg2 from '../../assets/backgrounds/bg-morning.png'
+import bg3 from '../../assets/backgrounds/bg-night.png'
+import bg4 from '../../assets/backgrounds/bg-reflection.png'
 
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
@@ -28,6 +30,7 @@ import {
 } from '../../utils/appSettings'
 import { Switch } from '../ui/switch'
 import { toast } from 'react-toastify'
+import { onboardingTourService } from '../../services/onboardingTourService'
 
 type ToggleRowProps = {
   title: string
@@ -59,6 +62,7 @@ function ToggleRow({ title, description, checked, onChange }: ToggleRowProps) {
 }
 
 function ThemeCard({ label, image, selected, isDark: _isDark, onSelect }: ThemeCardProps) {
+  void _isDark
   return (
     <button
       type="button"
@@ -86,7 +90,7 @@ function ThemeCard({ label, image, selected, isDark: _isDark, onSelect }: ThemeC
   )
 }
 
-function SettingMenuItem({ icon: Icon, title, description, onClick }: { icon: any, title: string, description: string, onClick: () => void }) {
+function SettingMenuItem({ icon: Icon, title, description, onClick }: { icon: LucideIcon, title: string, description: string, onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -174,6 +178,15 @@ export default function Setting() {
       toast.error('Không thể đăng xuất. Vui lòng thử lại.')
     } finally {
       setIsLoggingOut(false)
+    }
+  }
+
+  const handleReplayTour = async () => {
+    try {
+      await onboardingTourService.start('first_run')
+      navigate(`${ROUTE_PATHS.home}?tour=replay`)
+    } catch {
+      toast.error('Không thể mở lại hướng dẫn lúc này. Vui lòng thử lại.')
     }
   }
 
@@ -327,6 +340,12 @@ export default function Setting() {
                   title="Cá nhân hóa Onboarding"
                   description="Cập nhật mục tiêu và khung giờ sinh hoạt"
                   onClick={() => navigate(ROUTE_PATHS.onboarding)}
+                />
+                <SettingMenuItem
+                  icon={HelpCircle}
+                  title="Xem lại hướng dẫn"
+                  description="Hau dẫn bạn đi lại một vòng trong app"
+                  onClick={() => void handleReplayTour()}
                 />
               </div>
 

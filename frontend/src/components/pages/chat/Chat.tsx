@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentProps } from 'react'
 import {
+    Heart,
     History,
     Leaf,
     MapPin,
@@ -22,23 +23,21 @@ import { ApiRequestError } from '../../../api/types'
 import { useAuth } from '../../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../../routes/paths'
 import { chatService } from '../../../services/chatService'
-import { policyService } from '../../../services/policyService'
-import { Switch } from '../../ui/switch'
+import { personasService } from '../../../services/personasService'
 import { HotlineBar } from '../../crisis/HotlineBar'
 import { BreathingTimer } from '../../crisis/BreathingTimer'
 import { CrisisStepper } from '../../crisis/CrisisStepper'
-import { CrisisVoiceStack, type CrisisVoiceMessage } from '../../crisis/CrisisVoiceStack'
 import type { CrisisAction } from '../../crisis/CrisisActionCard'
 import { ChatHistoryModal } from './ChatHistoryModal'
-import { useThemeContext } from '../../../contexts/ThemeContext'
 import UserMemoriesTab from './UserMemoriesTab'
 import PersonaSelector from './PersonaSelector'
 import VoiceStatusBadge, { TTS_TERMINAL_STATUSES } from './VoiceStatusBadge'
 import type { TtsStatus } from './VoiceStatusBadge'
 import Loading from '../../ui/Loading'
-import chatSceneBg from '../../../assets/chat/page-serene-chat.gif'
+import chatSceneBg from '../../../assets/motion/page-serene-chat.gif'
+import { DEFAULT_PERSONA_ID, PERSONA_DISPLAY_NAME, isPersonaId } from '../../../constants/personas'
 
-// ─── API response types ────────────────────────────────────────────────────────
+//  API response types 
 
 type HotlineCard = { label: string; phone: string }
 type MicroAction = { type: string; label: string }
@@ -49,7 +48,7 @@ type AssistantStrategy = {
     encourage_external_help: boolean
     avoid_hard_stop: boolean
 }
-type TheDinhKem = {
+type ResourceSuggestion = {
     type: string
     id: string
     title: string
@@ -59,57 +58,33 @@ type TheDinhKem = {
     route?: string
     thumbnail?: string | null
 }
-type ProactiveVoiceIntervention = {
-    type: string
-    trigger_reason?: string
-    cooldown?: { active: boolean; seconds_remaining: number }
-    voice?: { status?: string; tts_job_id?: string | number | null; audio_url?: string | null }
-    voice_script?: string
-    voice_script_hash?: string
-    tts_job_id?: string | number | null
-    voice_status?: string
-    copy_ngan?: string
-    crisis_footer?: { show_once: boolean; text: string; hotline_cta: { label: string; action: string } }
-    next_actions?: Array<{ id: string; label: string; action?: string }>
-    voice_job_ids?: Array<string | number>
-    voice_jobs?: Array<{ tts_job_id?: string | number | null; status?: string }>
-}
+type TtsJob = { tts_job_id?: string | number | null; status?: string | null; audio_url?: string | null }
+type MemeSuggestion = { id: string; image_path: string; alt?: string; trigger_reason?: string }
 
 type ChatApiData = {
     session_id: string
-    conversation_mode?: 'normal' | 'supportive' | 'de_escalation'
-    distress_score?: number
-    safety_tier?: 'normal' | 'elevated' | 'voice_recommended' | 'critical'
-    voice_session_offered?: boolean
-    suggest_voice?: boolean
-    voice_hint?: string | null
-    emergency_actions?: Record<string, boolean> | null
+    message_id?: string | null
+    persona_id?: string | null
     reply?: string | null
     assistant_text?: string | null
-    tone_cam_xuc?: string | null
-    goi_y_nhanh?: QuickReply[]
-    the_dinh_kem?: TheDinhKem[]
     sos_triggered?: boolean
+    route_tier?: 'fast' | 'service_only' | 'advisor_assisted'
+    used_advisor_ids?: string[]
+    resource_suggestions?: ResourceSuggestion[]
+    nutrition_suggestion?: Record<string, unknown> | null
+    optional_support?: Record<string, unknown> | null
+    tts_job?: TtsJob | null
+    latency_trace?: Record<string, unknown>
     risk_level?: number
-    agent_display_name?: string
     assistant_strategy?: AssistantStrategy
     micro_actions?: MicroAction[]
     hotline_cards?: HotlineCard[]
     grounding_actions?: GroundingAction[]
     referral_options?: ReferralOption[]
+    meme_suggestion?: MemeSuggestion | null
     followup_priority?: boolean
-    routing_history?: string[]
-    intervention?: ProactiveVoiceIntervention | null
-    voice_policy?: {
-        should_attach_voice: boolean
-        risk_mode: 'normal' | 'elevated' | 'sos'
-        ordinary_cooldown_bypassed: boolean
-        reason_codes: string[]
-        voice_messages: CrisisVoiceMessage[]
-    } | null
     // Crisis plan fields (from serene_sos_voice_intervention_plan.md)
     crisis_plan?: CrisisPlan | null
-    scoring_debug?: ScoringDebug | null
 }
 
 type CrisisActionCard = {
@@ -141,22 +116,6 @@ type CrisisPlan = {
     source?: 'llm' | 'fallback_template'
 }
 
-type ScoringDebug = {
-    sos_triggered: boolean
-    distress_score: number
-    harm_risk_score?: number | null
-    current_turn_score: number
-    rolling_score: number
-    trend_boost: number
-    delta_score: number
-    rolling_window_turns: number
-    reason_codes: string[]
-    keyword_hits: string[]
-    safety_tier_hint?: string | null
-}
-
-type QuickReply = string | { label?: string; message?: string; reason?: string; type?: string }
-
 type UiMessage = {
     id: string
     role: 'user' | 'assistant'
@@ -172,85 +131,21 @@ type UiMessage = {
     }
 }
 
-// ─── Sub-components ────────────────────────────────────────────────────────────
+const EMOTION_MEME_URLS = import.meta.glob('../../../assets/emotions/*.{jpg,jpeg,png,gif}', {
+    eager: true,
+    query: '?url',
+    import: 'default',
+}) as Record<string, string>
 
-function SafetyBadge({ tier }: { tier?: string }) {
-    if (!tier || tier === 'normal') return null
-    const cfg: Record<string, { label: string; cls: string }> = {
-        elevated: { label: 'Dấu hiệu', cls: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
-        voice_recommended: { label: 'Gợi thoại', cls: 'bg-orange-100 text-orange-800 border-orange-300' },
-        critical: { label: 'Khủng hoảng', cls: 'bg-red-100 text-red-800 border-red-300' },
-    }
-    const c = cfg[tier]
-    if (!c) return null
-    return (
-        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${c.cls}`}>
-            {c.label}
-        </span>
-    )
+function resolveEmotionMemeUrl(imagePath?: string | null): string | null {
+    const token = String(imagePath || '').trim()
+    if (!token) return null
+    const key = Object.keys(EMOTION_MEME_URLS).find((candidate) => candidate.endsWith(`/${token}`))
+    if (!key) return null
+    return EMOTION_MEME_URLS[key]
 }
 
-function RoutingBadge({ history }: { history?: string[] }) {
-    if (!history?.length) return null
-    const nodeColors: Record<string, string> = {
-        supervisor: 'bg-violet-100 text-violet-700',
-        analyst: 'bg-blue-100 text-blue-700',
-        friend: 'bg-green-100 text-green-700',
-        sos_handler: 'bg-red-100 text-red-700',
-    }
-    return (
-        <div className="mt-1.5 flex flex-wrap items-center gap-1">
-            <span className="text-[10px] font-medium text-theme-text-secondary/60">Luồng:</span>
-            {history.map((node, i) => (
-                <span key={i} className="flex items-center gap-0.5">
-                    <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-medium capitalize ${nodeColors[node] ?? 'bg-theme-bg-secondary text-theme-text-secondary'}`}>
-                        {node}
-                    </span>
-                    {i < history.length - 1 && <span className="text-[10px] text-theme-text-secondary/30">/</span>}
-                </span>
-            ))}
-        </div>
-    )
-}
-
-function DistressBar({ score }: { score?: number }) {
-    if (score === undefined || score === null) return null
-    const pct = Math.round(score * 100)
-    const color = pct < 35 ? 'bg-emerald-400' : pct < 55 ? 'bg-yellow-400' : pct < 80 ? 'bg-orange-400' : 'bg-red-500'
-    return (
-        <div className="mt-1 flex items-center gap-2">
-            <span className="text-[10px] text-theme-text-secondary/60">Distress</span>
-            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-theme-border/30">
-                <div className={`h-full transition-all ${color}`} style={{ width: `${pct}%` }} />
-            </div>
-            <span className="font-mono text-[10px] text-theme-text-secondary/60">{score.toFixed(2)}</span>
-        </div>
-    )
-}
-
-function quickReplyText(reply: QuickReply): string {
-    if (typeof reply === 'string') return reply.trim()
-    return String(reply.message || reply.label || reply.reason || reply.type || '').trim()
-}
-
-function QuickReplies({ replies, onSelect }: { replies?: QuickReply[]; onSelect: (text: string) => void }) {
-    const normalizedReplies = (replies ?? []).map(quickReplyText).filter(Boolean)
-    if (!normalizedReplies.length) return null
-    return (
-        <div className="mt-2 flex flex-wrap gap-2">
-            {normalizedReplies.map((q, i) => (
-                <button
-                    key={i}
-                    type="button"
-                    onClick={() => onSelect(q)}
-                    className="border border-[#3a6040]/55 bg-[#0b1e14]/80 px-3 py-1.5 text-xs text-[#b8dfc8] transition hover:bg-[#152b1e]/90 active:scale-95"
-                >
-                    {q}
-                </button>
-            ))}
-        </div>
-    )
-}
+//  Sub-components 
 
 function VoiceMessageBubble({
     voice,
@@ -317,7 +212,7 @@ const ATTACHMENT_META: Record<string, { badge: string; action: string }> = {
     clinic_map: { badge: 'HỖ TRỢ GẦN BẠN', action: 'Xem' },
 }
 
-function AttachmentCard({ item, onOpen }: { item: TheDinhKem; onOpen: (item: TheDinhKem) => void }) {
+function AttachmentCard({ item, onOpen }: { item: ResourceSuggestion; onOpen: (item: ResourceSuggestion) => void }) {
     const IconCmp = ATTACHMENT_ICONS[item.type] ?? Paperclip
     const meta = ATTACHMENT_META[item.type] ?? ATTACHMENT_META.resource
     const duration = item.duration_sec ? `${Math.max(1, Math.round(item.duration_sec / 60))} phút` : item.type.replace(/_/g, ' ')
@@ -346,23 +241,50 @@ function AttachmentCard({ item, onOpen }: { item: TheDinhKem; onOpen: (item: The
     )
 }
 
-// ─── Main component ────────────────────────────────────────────────────────────
+function MemeCard({ item }: { item: MemeSuggestion }) {
+    const imageUrl = resolveEmotionMemeUrl(item.image_path)
+    if (!imageUrl) return null
+    return (
+        <article className="mt-2 inline-flex max-w-[260px] overflow-hidden border border-[#8a6a3f]/50 bg-[#17130e]/88 shadow-[4px_4px_0_rgba(0,0,0,0.24)] sm:max-w-[320px]">
+            <img
+                src={imageUrl}
+                alt={item.alt || 'Emotion meme'}
+                className="max-h-[220px] w-auto max-w-full object-contain"
+                loading="lazy"
+            />
+        </article>
+    )
+}
+
+const LEGACY_CHAT_SESSION_KEY = 'serene_chat_session_id'
+
+function chatSessionStorageKey(personaId: string) {
+    return `serene_chat_session_id:${isPersonaId(personaId) ? personaId : DEFAULT_PERSONA_ID}`
+}
+
+function readStoredChatSession(personaId: string) {
+    const key = chatSessionStorageKey(personaId)
+    const stored = localStorage.getItem(key)
+    if (stored) return stored
+    return personaId === DEFAULT_PERSONA_ID ? localStorage.getItem(LEGACY_CHAT_SESSION_KEY) : null
+}
+
 
 export default function Chat() {
     type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
     const FALLBACK_GUEST_CHAT_DURATION_SECONDS = 120
 
-    const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem('serene_chat_session_id'))
+    const [sessionId, setSessionId] = useState<string | null>(() => readStoredChatSession(DEFAULT_PERSONA_ID))
     const [messages, setMessages] = useState<UiMessage[]>([])
     const [input, setInput] = useState('')
     const [sending, setSending] = useState(false)
-    const [voiceConsent, setVoiceConsent] = useState(false)
     const [voiceStatus, setVoiceStatus] = useState('')
     const [pendingAudioUrl, setPendingAudioUrl] = useState<string | null>(null)
     const [lastFailedText, setLastFailedText] = useState<string | null>(null)
-    const [showDebug, setShowDebug] = useState(false)
     const [showOptions, setShowOptions] = useState(false)
     const [showHistory, setShowHistory] = useState(false)
+    const [activePersonaId, setActivePersonaId] = useState<string>(DEFAULT_PERSONA_ID)
+    const [heartedMessageIds, setHeartedMessageIds] = useState<Set<string>>(() => new Set())
     const [historyLoading, setHistoryLoading] = useState(false)
     const [sessions, setSessions] = useState<Array<{ session_id: string; preview: string | null; last_message_at: string }>>([])
     const [guestSecondsLeft, setGuestSecondsLeft] = useState<number>(FALLBACK_GUEST_CHAT_DURATION_SECONDS)
@@ -371,47 +293,70 @@ export default function Chat() {
     const pollRef = useRef<number | null>(null)
     const bottomRef = useRef<HTMLDivElement | null>(null)
     const optionsRef = useRef<HTMLDivElement | null>(null)
+    const activePersonaRef = useRef<string>(DEFAULT_PERSONA_ID)
     const guestDeadlineRef = useRef<number | null>(null)
     const guestExpiredNotifiedRef = useRef(false)
     const playedVoiceJobsRef = useRef<Set<string>>(new Set())
     const [hotlineSheetOpen, setHotlineSheetOpen] = useState(false)
     const [breathingOpen, setBreathingOpen] = useState(false)
-    const { effectiveTheme } = useThemeContext()
     const { user } = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
     const isGuestMode = !user
-    const isDark = effectiveTheme === 'dark'
+    const personaLabel = PERSONA_DISPLAY_NAME[activePersonaId] ?? PERSONA_DISPLAY_NAME[DEFAULT_PERSONA_ID]
 
     useEffect(() => {
+        activePersonaRef.current = activePersonaId
+    }, [activePersonaId])
+
+    useEffect(() => {
+        if (isGuestMode) return
         if (sessionId) {
-            localStorage.setItem('serene_chat_session_id', sessionId)
+            localStorage.setItem(chatSessionStorageKey(activePersonaRef.current), sessionId)
+            localStorage.removeItem(LEGACY_CHAT_SESSION_KEY)
         } else {
-            localStorage.removeItem('serene_chat_session_id')
+            localStorage.removeItem(chatSessionStorageKey(activePersonaRef.current))
         }
-    }, [sessionId])
+    }, [isGuestMode, sessionId])
 
     useEffect(() => {
-        if (!user) {
-            setVoiceConsent(false)
-            return
-        }
-        policyService
-            .getVoiceConsent()
-            .then((res) => setVoiceConsent(Boolean(res.voice_consent)))
-            .catch(() => undefined)
-    }, [user])
-
+        if (isGuestMode) return
+        setSessionId(readStoredChatSession(activePersonaId))
+        setMessages([])
+        setPendingAudioUrl(null)
+        setVoiceStatus('')
+        playedVoiceJobsRef.current.clear()
+    }, [activePersonaId, isGuestMode])
     useEffect(() => {
         const state = location.state as { crisisMode?: boolean } | null
         if (state?.crisisMode) setHotlineSheetOpen(false)
     }, [location.state])
 
+    useEffect(() => {
+        if (isGuestMode || !user) {
+            setActivePersonaId(DEFAULT_PERSONA_ID)
+            return
+        }
+
+        let cancelled = false
+        void personasService.getMe()
+            .then((me) => {
+                if (!cancelled) setActivePersonaId(isPersonaId(me.persona_id) ? me.persona_id : DEFAULT_PERSONA_ID)
+            })
+            .catch(() => {
+                if (!cancelled) setActivePersonaId(DEFAULT_PERSONA_ID)
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [isGuestMode, user])
+
     // Show Serene's greeting on fresh session (no messages loaded yet).
     useEffect(() => {
         if (!user || isGuestMode || sessionId) return
         let cancelled = false
-        chatService.getGreeting().then((res) => {
+        chatService.getGreeting(activePersonaId).then((res) => {
             if (cancelled) return
             setMessages((prev) => {
                 if (prev.length > 0) return prev
@@ -424,7 +369,7 @@ export default function Chat() {
             })
         }).catch(() => undefined)
         return () => { cancelled = true }
-    }, [user, isGuestMode, sessionId])
+    }, [user, isGuestMode, sessionId, activePersonaId])
 
     useEffect(() => {
         let cancelled = false
@@ -608,7 +553,7 @@ export default function Chat() {
                     }
                 }
                 // All other terminal statuses (cache_hit, skipped_duplicate, provider_disabled,
-                // cancelled, expired) are surfaced via VoiceStatusBadge — no extra text bubble.
+                // cancelled, expired) are surfaced via VoiceStatusBadge; no extra text bubble.
                 return
             }
         } catch {
@@ -626,83 +571,33 @@ export default function Chat() {
         return pollVoiceJob(ttsJobId, attempts + 1, voiceMessageId)
     }
 
-    const appendInterventionCopy = (copy: string) => {
-        const normalizedCopy = copy.trim().replace(/\s+/g, ' ')
-        if (!normalizedCopy) return
-        setMessages((prev) => {
-            const lastAssistant = [...prev].reverse().find((m) => m.role === 'assistant')
-            const lastText = (lastAssistant?.content || '').trim().replace(/\s+/g, ' ')
-            if (lastText === normalizedCopy) return prev
-            return [...prev, { id: `i_${Date.now()}`, role: 'assistant', content: copy }]
-        })
-    }
+    const applyTtsJob = (data: ChatApiData) => {
+        const ttsJob = data.tts_job
+        const jobId = ttsJob?.tts_job_id ? String(ttsJob.tts_job_id) : ''
+        if (!jobId || playedVoiceJobsRef.current.has(jobId)) return
+        playedVoiceJobsRef.current.add(jobId)
 
-    const applyIntervention = (data: ChatApiData) => {
-        if (data.voice_policy?.voice_messages?.length) {
-            data.voice_policy.voice_messages
-                .map((message) => message.tts_job_id)
-                .filter(Boolean)
-                .forEach((id) => playedVoiceJobsRef.current.add(String(id)))
-            return
+        const status = String(ttsJob?.status || 'queued')
+        const audioUrl = typeof ttsJob?.audio_url === 'string' ? ttsJob.audio_url : null
+        const voiceMessage: UiMessage = {
+            id: `voice_${jobId}_${Date.now()}`,
+            role: 'assistant',
+            content: '',
+            timestamp: Date.now(),
+            voice: {
+                ttsJobId: jobId,
+                status: audioUrl ? 'ready' : status,
+                audioUrl,
+                errorMessage: null,
+            },
         }
-        const intervention = data.intervention
-        if (intervention?.type !== 'proactive_voice') return
-        if (data.sos_triggered) {
-            const jobIds = (
-                intervention.voice_job_ids ??
-                (intervention.voice?.tts_job_id ? [intervention.voice.tts_job_id] : [])
-            ).map(String)
-            jobIds.forEach((id) => playedVoiceJobsRef.current.add(id))
-            return
+        setMessages((prev) => [...prev, voiceMessage])
+        setVoiceStatus('')
+        if (!audioUrl && !TTS_TERMINAL_STATUSES.has(status as TtsStatus)) {
+            void pollVoiceJob(jobId, 0, voiceMessage.id)
+        } else if (!audioUrl && status !== 'cooldown') {
+            setVoiceStatus(status)
         }
-        if (intervention.copy_ngan) {
-            appendInterventionCopy(intervention.copy_ngan)
-        }
-
-        // Sequential multi-voice playback for SOS turns
-        const voiceJobIds = (
-            intervention.voice_job_ids ??
-            (intervention.voice?.tts_job_id ? [intervention.voice.tts_job_id] : [])
-        ).map(String)
-
-        const freshJobIds = voiceJobIds.filter((id) => !playedVoiceJobsRef.current.has(id))
-        if (freshJobIds.length > 0) {
-            freshJobIds.forEach((id) => playedVoiceJobsRef.current.add(id))
-            const audioUrl = intervention.voice?.audio_url
-            const now = Date.now()
-            const voiceMessages = freshJobIds.map((jobId, index) => ({
-                id: `voice_${jobId}_${now}_${index}`,
-                role: 'assistant' as const,
-                content: '',
-                timestamp: now + index,
-                voice: {
-                    ttsJobId: jobId,
-                    status: audioUrl ? 'ready' : 'queued',
-                    audioUrl: audioUrl || null,
-                    errorMessage: null,
-                },
-            }))
-            setMessages((prev) => [...prev, ...voiceMessages])
-            setVoiceStatus('')
-            void (async () => {
-                for (const msg of voiceMessages) {
-                    if (!msg.voice.audioUrl) {
-                        await pollVoiceJob(msg.voice.ttsJobId, 0, msg.id)
-                    }
-                    if (voiceMessages.indexOf(msg) < voiceMessages.length - 1) {
-                        await new Promise<void>((r) => setTimeout(r, 800))
-                    }
-                }
-            })()
-        } else {
-            // No job IDs to poll: surface whatever status the backend reported
-            // (e.g. "provider_disabled") so the badge shows instead of silent nothing.
-            const backendStatus = intervention.voice?.status
-            if (backendStatus && backendStatus !== 'cooldown') {
-                setVoiceStatus(backendStatus)
-            }
-        }
-        // voice_script is TTS-only — never render it as a visible chat bubble
     }
 
     const consumeChatSse = async (response: Response, pendingId: string) => {
@@ -711,7 +606,7 @@ export default function Chat() {
         }
         const reader = response.body?.getReader()
         if (!reader) {
-            throw new Error('Không đọc được stream phản hồi')
+            throw new Error('Không có stream phản hồi')
         }
         const decoder = new TextDecoder('utf-8')
         let buffer = ''
@@ -744,7 +639,7 @@ export default function Chat() {
                     } else if (currentEvent === 'heartbeat') {
                         const stage = String(payload.stage ?? 'pre_llm')
                         const elapsedMs = Number(payload.elapsed_ms ?? 0)
-                        setVoiceStatus(`Đang xử lý (${stage}) · ${elapsedMs}ms`)
+                        setVoiceStatus(`Đang xử lý (${stage}) - ${elapsedMs}ms`)
                     } else if (currentEvent === 'status') {
                         if (payload.stage === 'ready' && typeof payload.latency_ms === 'number') {
                             setVoiceStatus(`Latency backend: ${payload.latency_ms}ms`)
@@ -760,7 +655,7 @@ export default function Chat() {
 
         if (!finalData) {
             throw new Error(
-                'Không nhận được dữ liệu cuối từ stream (kết nối có thể bị ngắt — thử gửi lại; nếu đang chạy backend --reload, tránh sửa file khi đang stream).',
+                'Không nhận được dữ liệu cuối từ stream. Kết nối có thể bị ngắt, thử gửi lại; nếu đang chạy backend --reload, tránh sửa file khi đang stream.',
             )
         }
         const sid = typeof finalData.session_id === 'string' ? finalData.session_id : null
@@ -778,7 +673,7 @@ export default function Chat() {
                     : m,
             ),
         )
-        applyIntervention(finalData)
+        applyTtsJob(finalData)
     }
 
     const handleNewChat = () => {
@@ -787,9 +682,10 @@ export default function Chat() {
         playedVoiceJobsRef.current.clear()
         setPendingAudioUrl(null)
         setVoiceStatus('')
-        localStorage.removeItem('serene_chat_session_id')
+        localStorage.removeItem(chatSessionStorageKey(activePersonaId))
+        localStorage.removeItem(LEGACY_CHAT_SESSION_KEY)
         if (user && !isGuestMode) {
-            chatService.getGreeting().then((res) => {
+            chatService.getGreeting(activePersonaId).then((res) => {
                 setMessages([{
                     id: 'greeting-0',
                     role: 'assistant' as const,
@@ -802,7 +698,7 @@ export default function Chat() {
 
     const doSend = async (text: string) => {
         if (isGuestMode && guestSecondsLeft <= 0) {
-            toast.info('Phiên chat thử đã hết. Mời bạn đăng ký tài khoản để tiếp tục.')
+            toast.info('Phin chat th  ht. Mi bn ng k ti khon  tip tc.')
             navigate(ROUTE_PATHS.register)
             return
         }
@@ -820,12 +716,12 @@ export default function Chat() {
         try {
             if (!isGuestMode) {
                 try {
-                    const streamResponse = await chatService.sendMessageStream({ message: text, session_id: sessionId })
+                    const streamResponse = await chatService.sendMessageStream({ message: text, session_id: sessionId, persona_id: activePersonaId })
                     await consumeChatSse(streamResponse, pendingId)
                 } catch (err) {
                     const status = err instanceof ApiRequestError ? (err.status ?? 0) : 0
                     if (!(err instanceof ApiRequestError) || (status !== 0 && status < 500)) throw err
-                    const rawData = await chatService.sendMessage({ message: text, session_id: sessionId })
+                    const rawData = await chatService.sendMessage({ message: text, session_id: sessionId, persona_id: activePersonaId })
                     const data = rawData as ChatApiData
                     const sid = typeof data.session_id === 'string' ? data.session_id : null
                     if (sid) setSessionId(sid)
@@ -842,7 +738,7 @@ export default function Chat() {
                                 : m,
                         ),
                     )
-                    applyIntervention(data)
+                    applyTtsJob(data)
                     toast.info('Đường truyền stream đang lỗi, mình đã chuyển sang chế độ chat thường.')
                 }
             } else {
@@ -866,7 +762,7 @@ export default function Chat() {
                             : m,
                     ),
                 )
-                applyIntervention(data)
+                applyTtsJob(data)
             }
         } catch (err) {
             if (err instanceof ApiRequestError && err.code === 'GUEST_TRIAL_EXPIRED') {
@@ -949,18 +845,16 @@ export default function Chat() {
         setLastFailedText(null)
     }
 
-    const handleToggleVoiceConsent = async () => {
-        const next = !voiceConsent
-        try {
-            const res = await policyService.setVoiceConsent(next)
-            setVoiceConsent(Boolean(res.voice_consent))
-            toast.success(next ? 'Đã bật hỗ trợ voice chủ động' : 'Đã tắt hỗ trợ voice chủ động')
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : 'Không cập nhật được cài đặt voice')
-        }
+    const toggleHeart = (messageId: string) => {
+        setHeartedMessageIds((prev) => {
+            const next = new Set(prev)
+            if (next.has(messageId)) next.delete(messageId)
+            else next.add(messageId)
+            return next
+        })
     }
 
-    const openAttachment = (item: TheDinhKem) => {
+    const openAttachment = (item: ResourceSuggestion) => {
         if (item.route) { navigate(item.route); return }
         if (item.action === 'open_connect_map' || item.type === 'clinic_map') { navigate(ROUTE_PATHS.support); return }
         if (item.action === 'open_resource' || item.type === 'resource') { navigate(ROUTE_PATHS.resources); return }
@@ -974,7 +868,7 @@ export default function Chat() {
     const handleCrisisAction = (card: CrisisAction, data?: ChatApiData) => {
         switch (card.action) {
             case 'play_voice_grounding': {
-                const audioUrl = data?.intervention?.voice?.audio_url
+                const audioUrl = data?.tts_job?.audio_url
                 if (audioUrl) {
                     playAudioUrl(audioUrl)
                 } else {
@@ -1003,22 +897,16 @@ export default function Chat() {
         }
     }
 
-    // Derived display values
-    const lastData = [...messages].reverse().find((m) => m.role === 'assistant' && m.apiData)?.apiData
-    const modeLabel =
-        lastData?.conversation_mode === 'de_escalation'
-            ? { text: 'Khủng hoảng', cls: 'text-red-700 border-red-300 bg-red-50' }
-            : lastData?.conversation_mode === 'supportive'
-                ? { text: 'Hỗ trợ', cls: 'text-amber-700 border-amber-300 bg-amber-50' }
-                : null
-
-    // ─── Render ────────────────────────────────────────────────────────────────
+    //  Render 
     return (
         <div className="w-full">
             <div className="relative flex h-[100dvh] min-h-[600px] flex-col overflow-hidden" style={{ background: '#070f0a' }}>
 
-                {/* ── Scene panel: pixel art background ─────────────────── */}
-                <div className="relative shrink-0 overflow-hidden" style={{ height: '42vh', minHeight: '220px' }}>
+                {/*  Scene panel: pixel art background  */}
+                <div
+                    className="relative shrink-0 overflow-hidden"
+                    style={{ height: 'clamp(132px, 22vh, 210px)' }}
+                >
                     <img
                         src={chatSceneBg}
                         alt=""
@@ -1039,11 +927,11 @@ export default function Chat() {
                         style={{ height: '20%', background: 'linear-gradient(to bottom, transparent 0%, rgba(7,15,10,0.35) 45%, rgba(7,15,10,0.82) 88%, #070f0a 100%)' }}
                     />
 
-                    {/* ── Header HUD ──────────────────────────────────── */}
-                    <div className="relative z-10 flex items-center justify-between px-5 py-3 sm:px-7">
-                        <div className="flex items-center gap-2.5">
+                    {/*  Header HUD  */}
+                    <div className="relative z-10 flex items-center justify-between px-4 py-2 sm:px-6">
+                        <div className="flex items-center gap-2">
                             <div
-                                className="flex h-9 w-9 shrink-0 items-center justify-center font-display text-sm font-bold text-[#f8c96b]"
+                                className="flex h-8 w-8 shrink-0 items-center justify-center font-display text-xs font-bold text-[#f8c96b]"
                                 style={{
                                     border: '2px solid rgba(248,201,107,0.55)',
                                     background: 'rgba(4,10,6,0.82)',
@@ -1054,17 +942,20 @@ export default function Chat() {
                                 S
                             </div>
                             <div>
+                                {!isGuestMode && (
+                                    <p
+                                        className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#f8c96b]/70"
+                                        style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}
+                                    >
+                                        {personaLabel}
+                                    </p>
+                                )}
+                              
                                 <p
-                                    className="font-display text-[21px] font-semibold leading-none text-[#fff4dc]"
-                                    style={{ textShadow: '0 2px 12px rgba(0,0,0,0.95)' }}
-                                >
-                                    Serene
-                                </p>
-                                <p
-                                    className="mt-0.5 hidden text-[9px] tracking-[0.22em] text-[#fff4dc]/50 sm:block"
+                                    className="hidden text-[9px] font-medium font-sans tracking-[0.05em] text-[#fff4dc]/55 sm:block"
                                     style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}
                                 >
-                                    LUÔN Ở ĐÂY CÙNG BẠN
+                                    Đang trò chuyện
                                 </p>
                             </div>
                         </div>
@@ -1099,46 +990,39 @@ export default function Chat() {
                                     {guestCountdownLabel}
                                 </span>
                             )}
-                            {modeLabel && (
-                                <span
-                                    className={`border px-2 py-0.5 text-[10px] font-medium ${isDark ? 'border-amber-500/30 text-amber-400' : 'border-amber-400/50 text-amber-400'}`}
-                                    style={{ background: 'rgba(4,10,6,0.78)', backdropFilter: 'blur(4px)' }}
-                                >
-                                    {modeLabel.text}
-                                </span>
-                            )}
                             <>
                                 <button
                                     type="button"
                                     onClick={() => handleNewChat()}
-                                    className="flex h-8 cursor-pointer items-center gap-1 px-2 text-[#fff4dc]/75 transition hover:text-[#fff4dc]"
+                                    className="flex h-7 cursor-pointer items-center gap-1 px-2 text-[#fff4dc]/75 transition hover:text-[#fff4dc]"
                                     style={{ background: 'rgba(4,10,6,0.65)', border: '1px solid rgba(255,244,220,0.14)', backdropFilter: 'blur(4px)' }}
                                     aria-label="Cuộc trò chuyện mới"
                                     title="Cuộc trò chuyện mới"
                                 >
-                                    <Plus className="h-4 w-4" />
-                                    <span className="hidden text-[10px] font-semibold uppercase tracking-wide sm:inline">New</span>
+                                    <Plus className="h-3.5 w-3.5" />
+                                    <span className="hidden text-[9px] font-semibold uppercase tracking-wide sm:inline">New</span>
                                 </button>
                             </>
                             <button
                                 type="button"
                                 onClick={() => void openHistory()}
-                                className="flex h-8 cursor-pointer items-center gap-1 px-2 text-[#fff4dc]/75 transition hover:text-[#fff4dc]"
+                                className="flex h-7 cursor-pointer items-center gap-1 px-2 text-[#fff4dc]/75 transition hover:text-[#fff4dc]"
                                 style={{ background: 'rgba(4,10,6,0.65)', border: '1px solid rgba(255,244,220,0.14)', backdropFilter: 'blur(4px)' }}
                                 aria-label="Lịch sử chat"
                             >
-                                <History className="h-4 w-4" />
-                                <span className="hidden text-[10px] font-semibold uppercase tracking-wide sm:inline">History</span>
+                                <History className="h-3.5 w-3.5" />
+                                <span className="hidden text-[9px] font-semibold uppercase tracking-wide sm:inline">History</span>
                             </button>
                             <div className="relative">
                                 <button
                                     type="button"
                                     onClick={() => setShowOptions((prev) => !prev)}
-                                    className="flex h-8 w-8 cursor-pointer items-center justify-center text-[#fff4dc]/65 transition hover:text-[#fff4dc]"
+                                    data-tour-id="chat-persona-options"
+                                    className="flex h-7 w-7 cursor-pointer items-center justify-center text-[#fff4dc]/65 transition hover:text-[#fff4dc]"
                                     style={{ background: 'rgba(4,10,6,0.65)', border: '1px solid rgba(255,244,220,0.14)', backdropFilter: 'blur(4px)' }}
                                     aria-label="Tùy chọn"
                                 >
-                                    <MoreVertical className="h-4 w-4" />
+                                    <MoreVertical className="h-3.5 w-3.5" />
                                 </button>
                                 {showOptions && (
                                     <div
@@ -1147,29 +1031,15 @@ export default function Chat() {
                                     >
                                         <p className="mb-3 text-[9px] uppercase tracking-[0.28em] text-[#fff4dc]/35">Tùy chọn</p>
                                         <div className="space-y-2">
-                                            <div className="flex items-center justify-between border border-[#3a6040]/30 bg-white/[0.04] px-3 py-2.5">
-                                                <div>
-                                                    <p className="text-sm font-semibold text-[#fff4dc]">Voice hỗ trợ</p>
-                                                    <p className="mt-0.5 text-[11px] text-[#fff4dc]/50">Gợi ý giọng nói chủ động khi cần</p>
-                                                </div>
-                                                <Switch
-                                                    checked={voiceConsent}
-                                                    onCheckedChange={() => void handleToggleVoiceConsent()}
-                                                    disabled={isGuestMode}
-                                                    aria-label="Voice hỗ trợ"
-                                                />
-                                            </div>
-                                            <div className="flex items-center justify-between border border-[#3a6040]/30 bg-white/[0.04] px-3 py-2.5">
-                                                <div>
-                                                    <p className="text-sm font-semibold text-[#fff4dc]">Debug info</p>
-                                                    <p className="mt-0.5 text-[11px] text-[#fff4dc]/50">Distress · routing · safety</p>
-                                                </div>
-                                                <Switch checked={showDebug} onCheckedChange={setShowDebug} aria-label="Debug" />
-                                            </div>
                                             {!isGuestMode && (
                                                 <div className="border border-[#3a6040]/30 bg-white/[0.04] px-3 py-2.5">
                                                     <p className="mb-2 text-sm font-semibold text-[#fff4dc]">Chọn nhân vật</p>
-                                                    <PersonaSelector onSelect={() => setShowOptions(false)} />
+                                                    <PersonaSelector
+                                                        onSelect={(personaId) => {
+                                                            setActivePersonaId(personaId)
+                                                            setShowOptions(false)
+                                                        }}
+                                                    />
                                                 </div>
                                             )}
                                         </div>
@@ -1188,7 +1058,7 @@ export default function Chat() {
                     onSelectSession={(sessionId) => void loadSessionMessages(sessionId)}
                 />
 
-                {/* ── Dialogue panel ────────────────────────────────────── */}
+                {/*  Dialogue panel  */}
                 <div
                     className="relative flex min-h-0 flex-1 flex-col"
                     style={{ background: '#070f0a' }}
@@ -1203,7 +1073,7 @@ export default function Chat() {
                     <div aria-hidden="true" className="pointer-events-none absolute left-5 top-0 h-3.5 w-3.5 border-l-2 border-t-2 border-[#f8c96b]/35" />
                     <div aria-hidden="true" className="pointer-events-none absolute right-5 top-0 h-3.5 w-3.5 border-r-2 border-t-2 border-[#f8c96b]/35" />
 
-                    {/* ── Tab bar ───────────────────────────────────────── */}
+                    {/*  Tab bar  */}
                     {!isGuestMode && (
                         <div
                             className="flex shrink-0 gap-0 px-5 pt-2 sm:px-7"
@@ -1214,6 +1084,7 @@ export default function Chat() {
                                     key={tab}
                                     type="button"
                                     onClick={() => setActiveTab(tab)}
+                                    data-tour-id={tab === 'memory' ? 'chat-memory-tab' : undefined}
                                     className={[
                                         'px-4 py-2 text-[10px] font-bold tracking-[0.22em] uppercase transition-colors',
                                         activeTab === tab
@@ -1227,7 +1098,7 @@ export default function Chat() {
                         </div>
                     )}
 
-                    {/* ── Tab content ──────────────────────────────────── */}
+                    {/*  Tab content  */}
                     {activeTab === 'memory' ? (
                         <div className="m-4 flex-1 overflow-y-auto border border-[#3a6040]/50 bg-[#fff4dc]/88 p-4 sm:m-5">
                             <UserMemoriesTab />
@@ -1243,7 +1114,9 @@ export default function Chat() {
                                             <div className="mb-3 flex h-9 w-9 items-center justify-center border border-[#f8c96b]/35 bg-[#040a06] text-[#f8c96b]">
                                                 <Leaf className="h-4 w-4" aria-hidden />
                                             </div>
-                                            <h2 className="font-display text-xl font-semibold text-[#fff4dc]">Serene đang lắng nghe</h2>
+                                            <h2 className="font-display text-xl font-semibold text-[#fff4dc]">
+                                                {isGuestMode ? 'Serene đang lắng nghe' : `${personaLabel} đang lắng nghe`}
+                                            </h2>
                                             <p className="mt-2 text-sm leading-relaxed text-[#fff4dc]/50">
                                                 Bạn có thể bắt đầu bằng một câu ngắn về cảm giác hiện tại.
                                             </p>
@@ -1270,7 +1143,7 @@ export default function Chat() {
                                                             isAI ? 'text-[#f8c96b]/70' : 'text-[#6fc7df]/70'
                                                         }`}
                                                     >
-                                                        {isAI ? '▸ SERENE' : 'BẠN ◂'}
+                                                        {isAI ? ` ${isGuestMode ? 'SERENE' : personaLabel}` : 'BẠN '}
                                                     </span>
                                                     {/* Message container */}
                                                     <div className="flex max-w-[78%] flex-col gap-2 sm:max-w-[68%]">
@@ -1292,6 +1165,21 @@ export default function Chat() {
                                                                 {m.content}
                                                             </article>
                                                         )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleHeart(m.id)}
+                                                            className={`inline-flex w-fit items-center justify-center rounded-md border p-1.5 transition ${
+                                                                heartedMessageIds.has(m.id)
+                                                                    ? 'border-[#f08a93]/60 bg-[#3a1e26]/70 text-[#ffc3c9]'
+                                                                    : 'border-[#fff4dc]/20 bg-[#070f0a]/55 text-[#fff4dc]/60 hover:text-[#fff4dc]'
+                                                            }`}
+                                                            aria-label={heartedMessageIds.has(m.id) ? 'Bỏ tim tin nhắn' : 'Thả tim tin nhắn'}
+                                                        >
+                                                            <Heart
+                                                                className="h-3.5 w-3.5"
+                                                                fill={heartedMessageIds.has(m.id) ? 'currentColor' : 'none'}
+                                                            />
+                                                        </button>
                                                         {m.apiData?.sos_triggered &&
                                                             m.apiData.crisis_plan && (
                                                                 <CrisisStepper
@@ -1299,12 +1187,6 @@ export default function Chat() {
                                                                     onAction={(card) => handleCrisisAction(card, m.apiData)}
                                                                 />
                                                             )}
-                                                        {m.apiData?.voice_policy?.voice_messages?.length ? (
-                                                            <CrisisVoiceStack
-                                                                voiceMessages={m.apiData.voice_policy.voice_messages}
-                                                                onPlay={playAudioUrl}
-                                                            />
-                                                        ) : null}
                                                         {m.apiData?.sos_triggered &&
                                                             (m.apiData.crisis_plan?.follow_up_texts ?? []).map((msg, i) => (
                                                                 <div
@@ -1314,26 +1196,10 @@ export default function Chat() {
                                                                     {msg}
                                                                 </div>
                                                             ))}
-                                                        {m.apiData?.the_dinh_kem?.map((item, i) => (
+                                                        {m.apiData?.resource_suggestions?.map((item, i) => (
                                                             <AttachmentCard key={`${item.type}-${item.id}-${i}`} item={item} onOpen={openAttachment} />
                                                         ))}
-                                                        {m.apiData &&
-                                                            !m.apiData.sos_triggered &&
-                                                            m.apiData.conversation_mode !== 'normal' && (
-                                                                <QuickReplies
-                                                                    replies={m.apiData.goi_y_nhanh}
-                                                                    onSelect={(text) => void doSend(text)}
-                                                                />
-                                                            )}
-                                                        {showDebug && m.apiData && (
-                                                            <div className="mt-1 space-y-0.5">
-                                                                <RoutingBadge history={m.apiData.routing_history} />
-                                                                <DistressBar score={m.apiData.distress_score} />
-                                                                {m.apiData.safety_tier && m.apiData.safety_tier !== 'normal' && (
-                                                                    <SafetyBadge tier={m.apiData.safety_tier} />
-                                                                )}
-                                                            </div>
-                                                        )}
+                                                        {m.apiData?.meme_suggestion ? <MemeCard item={m.apiData.meme_suggestion} /> : null}
                                                     </div>
                                                 </div>
                                             </div>
@@ -1345,7 +1211,7 @@ export default function Chat() {
                         </div>
                     )}
 
-                    {/* ── Retry notice ─────────────────────────────────── */}
+                    {/*  Retry notice  */}
                     {lastFailedText && (
                         <div
                             className="flex shrink-0 items-center gap-3 border-t border-red-900/40 px-5 py-2 text-sm text-red-400 sm:px-7"
@@ -1362,7 +1228,7 @@ export default function Chat() {
                         </div>
                     )}
 
-                    {/* ── Input bar ────────────────────────────────────── */}
+                    {/*  Input bar  */}
                     <form
                         onSubmit={handleSend}
                         className="shrink-0 px-5 py-3 sm:px-7"
@@ -1376,6 +1242,7 @@ export default function Chat() {
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 disabled={isGuestMode && guestSecondsLeft <= 0}
+                                data-tour-id="chat-input"
                                 placeholder="Chia sẻ điều bạn đang cảm thấy..."
                                 className="flex-1 border-0 bg-transparent px-2 py-1.5 text-sm text-[#b8dfc8] placeholder:text-[#fff4dc]/20 focus:outline-none"
                             />

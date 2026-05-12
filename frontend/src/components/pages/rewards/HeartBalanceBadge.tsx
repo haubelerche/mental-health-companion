@@ -9,11 +9,10 @@ type Props = {
 }
 
 export default function HeartBalanceBadge({ balance: externalBalance, className = '' }: Props) {
-    const [balance, setBalance] = useState<number | null>(externalBalance ?? null)
+    const [balance, setBalance] = useState<number | null>(null)
 
     useEffect(() => {
         if (externalBalance !== undefined) {
-            setBalance(externalBalance)
             return
         }
         let cancelled = false
@@ -23,12 +22,13 @@ export default function HeartBalanceBadge({ balance: externalBalance, className 
         return () => { cancelled = true }
     }, [externalBalance])
 
-    if (balance === null) return null
+    const resolvedBalance = externalBalance ?? balance
+    if (resolvedBalance === null) return null
 
     return (
-        <div className={`inline-flex items-center gap-1.5 rounded-full bg-theme-surface px-4 py-2 border border-theme-border shadow-sm ${className}`}>
+        <div data-tour-id="heart-balance" className={`inline-flex items-center gap-1.5 rounded-full bg-theme-surface px-4 py-2 border border-theme-border shadow-sm ${className}`}>
             <Heart className="h-4 w-4 text-rose-500" aria-hidden />
-            <span className="font-bold text-rose-500">{balance.toLocaleString('vi-VN')}</span>
+            <span className="font-bold text-rose-500">{resolvedBalance.toLocaleString('vi-VN')}</span>
         </div>
     )
 }

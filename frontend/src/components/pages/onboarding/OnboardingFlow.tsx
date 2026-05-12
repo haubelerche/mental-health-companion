@@ -45,7 +45,7 @@ function DailyPlanStepIcon({ id }: { id: DailyPlanIconId }) {
     return <Icon className="h-5 w-5 shrink-0 text-serene-primary" aria-hidden />
 }
 import { useAuth } from '../../../hooks/useAuth'
-import bgGradient from '../../../assets//bg-gradient.png'
+import bgGradient from '../../../assets/backgrounds/bg-resource.png'
 import { AGE_OPTIONS, EMOTIONAL_OPTIONS, PRACTICE_OPTIONS, PRIMARY_CONCERN_OPTIONS, STRESS_LABELS, SUPPORT_OPTIONS, type OnboardingDraft } from './onboard.option'
 
 
@@ -500,7 +500,7 @@ export function OnboardingFlow() {
         try {
             await onboardingService.complete(payload)
             markOnboardingCompleted(false)
-            navigate(ROUTE_PATHS.home, { replace: true })
+            navigate(`${ROUTE_PATHS.home}?tour=first_run`, { replace: true })
         } finally {
             setIsSubmitting(false)
         }

@@ -18,13 +18,13 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import quotesJson from '../../../famous-quotes.json'
-import beachMessageBg from '../../assets/assets_gif/rain.gif'
-import exerciseImg from '../../assets/assets_gif/fishing.gif'
-import morningRhythmImg from '../../assets/assets_gif/serene-landing-day-welcome.gif'
-import dayRhythmImg from '../../assets/assets_gif/afternoon-serene-bamboo-page.gif'
-import eveningRhythmImg from '../../assets/assets_gif/serene-landing-night-welcome.gif'
-import healingImg from '../../assets/assets_gif/calmness.gif'
-import nutritionImg from '../../assets/assets_gif/meo-buon-ba.gif'
+import beachMessageBg from '../../assets/motion/landing-rain.gif'
+import exerciseImg from '../../assets/motion/fishing.gif'
+import morningRhythmImg from '../../assets/motion/serene-landing-day-welcome.gif'
+import dayRhythmImg from '../../assets/motion/afternoon-serene-bamboo-page.gif'
+import eveningRhythmImg from '../../assets/motion/serene-landing-night-welcome.gif'
+import healingImg from '../../assets/motion/calmness.gif'
+import nutritionImg from '../../assets/motion/meo-buon-ba.gif'
 import { Link, useNavigate } from 'react-router-dom'
 import { homeService } from '../../services/homeService'
 import { rewardsService } from '../../services/rewardsService'
@@ -465,7 +465,7 @@ export default function Home() {
                             {getGreeting()}! {displayName}
                         </h1>
                     </div>
-                    <div className="flex items-center gap-3 rounded-full bg-theme-surface/80 px-4 py-2 backdrop-blur-sm border border-theme-border/50 shadow-sm">
+                    <div data-tour-id="heart-balance" className="flex items-center gap-3 rounded-full bg-theme-surface/80 px-4 py-2 backdrop-blur-sm border border-theme-border/50 shadow-sm">
                         <span className="flex items-center gap-1 text-sm font-bold text-rose-500 dark:text-rose-400">
                             <Heart className="h-4 w-4 fill-current" />
                             {hearts === null ? (
@@ -487,7 +487,7 @@ export default function Home() {
                 </header>
 
                 {/* ── Today's plan + streak ── */}
-                <section className="rounded-[2.5rem] bg-theme-surface/60 p-6 backdrop-blur-3xl border border-theme-border/50 shadow-sm">
+                <section data-tour-id="home-today-card" className="rounded-[2.5rem] bg-theme-surface/60 p-6 backdrop-blur-3xl border border-theme-border/50 shadow-sm">
                     <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
                         <div>
                             <div className="mb-5 flex items-center justify-between gap-4">
@@ -622,7 +622,7 @@ export default function Home() {
                     </div>
                 </section>
 
-                <section className="rounded-4xl bg-theme-surface/60 p-6 backdrop-blur-xl border border-theme-border/50 shadow-sm">
+                <section data-tour-id="mood-checkin-card" className="rounded-4xl bg-theme-surface/60 p-6 backdrop-blur-xl border border-theme-border/50 shadow-sm">
                     <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
                         <div>
                             <p className="font-semibold uppercase tracking-[0.2em] text-theme-text-primary">Bạn đang cảm thấy thế nào?</p>
@@ -748,7 +748,7 @@ export default function Home() {
                             <Mascot
                                 variant="eat"
                                 size="xl"
-                                alt="Mèo Serene đang ăn nhẹ"
+                                alt="Serene đang ăn nhẹ"
                                 className="absolute inset-0 m-auto h-32 w-32"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />

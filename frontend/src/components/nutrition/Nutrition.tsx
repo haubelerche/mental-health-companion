@@ -3,10 +3,10 @@ import { Search, X } from 'lucide-react'
 import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import nutritionContent from '../../../data/nutritionContent.json'
-import a1 from '../../assets/nutrition-a1.jpg'
-import a2 from '../../assets/nutrition-a2.jpg'
-import Mascot from '../pixel/Mascot'
+import a1 from '../../assets/nutrition/nutrition-a1.jpg'
+import a2 from '../../assets/nutrition/nutrition-a2.jpg'
 import PixelEmptyState from '../pixel/PixelEmptyState'
+import NutritionAssistantPopup from '../assistants/NutritionAssistantPopup'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -61,7 +61,11 @@ export default function Nutrition() {
     const [activeTag, setActiveTag] = useState<string | null>(null)
 
     const todayFact = useMemo(() => {
-        return CONTENT.dailyFacts[0] ?? 'Một bữa ăn đều đặn, đủ chất và ít chế biến là nền tảng tốt cho sức khỏe thể chất lẫn tinh thần.'
+        const facts = CONTENT.dailyFacts
+        if (!facts.length) {
+            return 'Một bữa ăn đều đặn, đủ chất và ít chế biến là nền tảng tốt cho sức khỏe thể chất lẫn tinh thần.'
+        }
+        return facts[new Date().getDate() % facts.length]
     }, [])
 
     const featuredRecipes = useMemo(() => {
@@ -90,16 +94,8 @@ export default function Nutrition() {
     const MOOD_STYLE = getMoodStyle(isDark)
 
     return (
-        <div className="space-y-6 pb-16 lg:space-y-8">
-
-            {/* ── Daily fact banner ───────────────────────────────────────── */}
-            <section className="flex items-start gap-3 rounded-[22px] bg-theme-surface/80 px-5 py-4 backdrop-blur-sm">
-                <Mascot variant="eat" size="sm" decorative />
-                <div>
-                    <p className="mb-1 text-[10px] uppercase tracking-[0.28em] text-theme-text-primary font-bold">Fact hôm nay</p>
-                    <p className="text-sm leading-relaxed text-theme-text-secondary">{todayFact}</p>
-                </div>
-            </section>
+        <div data-tour-id="nutrition-page" className="space-y-6 pb-16 lg:space-y-8">
+            <NutritionAssistantPopup fact={todayFact} />
 
             {/* ── Section 1: Content LEFT · Image RIGHT ──────────────────── */}
             <section className="grid gap-4 lg:grid-cols-2 lg:items-stretch">

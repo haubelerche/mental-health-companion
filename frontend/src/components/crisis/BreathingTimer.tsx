@@ -21,6 +21,7 @@ export function BreathingTimer({ open, onClose }: Props) {
 
     useEffect(() => {
         if (!open) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setTick(0)
             return
         }
@@ -33,13 +34,17 @@ export function BreathingTimer({ open, onClose }: Props) {
 
     const safeTick = Math.min(tick, Math.max(0, maxTicks - 1))
     const cycleTick = safeTick % total
-    let cursor = 0
-    const phase = PHASES.find((p) => {
-        const active = cycleTick >= cursor && cycleTick < cursor + p.seconds
-        cursor += p.seconds
-        return active
-    }) ?? PHASES[0]
-    const remaining = completed ? 0 : phase.seconds - (cycleTick - (cursor - phase.seconds))
+    let phaseStart = 0
+    let phase = PHASES[0]
+    for (const current of PHASES) {
+        const end = phaseStart + current.seconds
+        if (cycleTick >= phaseStart && cycleTick < end) {
+            phase = current
+            break
+        }
+        phaseStart = end
+    }
+    const remaining = completed ? 0 : phase.seconds - (cycleTick - phaseStart)
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">

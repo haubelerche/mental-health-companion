@@ -31,7 +31,7 @@ export default function RewardShelf({ shelf, balance, ownedItemIds, onPurchase }
     const shelfIcon = SHELF_ICONS[shelf.shelf]
 
     return (
-        <section className="mb-6 p-3 ">
+        <section className="mb-6 p-3">
             <div className="mb-3 flex items-center gap-2">
                 {shelfIcon && (
                     <img
@@ -41,11 +41,11 @@ export default function RewardShelf({ shelf, balance, ownedItemIds, onPurchase }
                         aria-hidden="true"
                     />
                 )}
-                <h2 className="text-2xl font-display font-semibold text-theme-text-secondary text-shadow-2xl">
+                <h2 className="font-display text-2xl font-semibold text-theme-text-secondary text-shadow-2xl">
                     {SHELF_LABELS[shelf.shelf] ?? shelf.shelf}
                 </h2>
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-3">
                 {shelf.items.map((item) => (
                     <RewardCard
                         key={item.item_id}
