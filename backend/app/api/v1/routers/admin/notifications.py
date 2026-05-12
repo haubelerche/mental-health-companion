@@ -14,7 +14,7 @@ class BroadcastPayload(BaseModel):
     category: str = "general" # morning, reminder, etc.
 
 @router.post("/notifications/broadcast")
-def admin_broadcast_notification(
+async def admin_broadcast_notification(
     request: Request,
     payload: BroadcastPayload,
     background_tasks: BackgroundTasks,

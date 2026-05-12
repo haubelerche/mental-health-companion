@@ -23,6 +23,40 @@ def enqueue_notification(db: Session, user_id: str, event_type: str, payload: Di
 
 from fastapi import BackgroundTasks
 
+_MAIN_LOOP = None
+
+def register_main_loop(loop: asyncio.AbstractEventLoop):
+    global _MAIN_LOOP
+    _MAIN_LOOP = loop
+    logger.debug("Main event loop registered in notification_service")
+
+async def _trigger_ws_push_async(user_id: str, payload: dict):
+    """Async version of WS push trigger, safe for BackgroundTasks"""
+    from app.services.ws_manager import connection_manager
+    try:
+        await connection_manager.send_notification(user_id, payload)
+    except Exception as e:
+        logger.warning(f"Could not trigger WS push async: {e}")
+
+def _trigger_ws_push(user_id: str, payload: dict):
+    """Internal helper to fire-and-forget the WS push from both sync/async contexts"""
+    from app.services.ws_manager import connection_manager
+    try:
+        loop = _MAIN_LOOP
+        if not loop:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                pass
+
+        if loop and loop.is_running():
+            asyncio.run_coroutine_threadsafe(connection_manager.send_notification(user_id, payload), loop)
+        else:
+            logger.warning(f"No active event loop found for WS push to {user_id}. Real-time delivery failed.")
+    except Exception as e:
+        logger.warning(f"Could not trigger WS push: {e}")
+
+# Update existing methods to use the async version for background tasks
 def send_instant_notification(
     db: Session, 
     user_id: str, 
@@ -69,7 +103,7 @@ def send_instant_notification(
         }
         
         if background_tasks:
-            background_tasks.add_task(_trigger_ws_push, user_id, notification_payload)
+            background_tasks.add_task(_trigger_ws_push_async, user_id, notification_payload)
         else:
             _trigger_ws_push(user_id, notification_payload)
             
@@ -77,61 +111,6 @@ def send_instant_notification(
         
     except Exception as e:
         logger.error(f"Failed to create instant notification: {e}")
-
-async def async_send_instant_notification(
-    db: Session, 
-    user_id: str, 
-    event_type: str, 
-    payload: Dict[str, Any],
-    background_tasks: BackgroundTasks | None = None
-) -> None:
-    """
-    Async version. If background_tasks is provided, push is deferred.
-    """
-    from app.services.notification_dispatcher import dispatcher
-    from app.services.ws_manager import connection_manager
-    
-    template = dispatcher.NOTIFICATION_TEMPLATES.get(event_type)
-    if not template:
-        logger.warning(f"No notification template for event type: {event_type}")
-        return
-
-    body = payload.get("message") or template["body"]
-    title = payload.get("title") or template["title"]
-
-    try:
-        notification_id = make_id("notif")
-        notification = UserNotification(
-            notification_id=notification_id,
-            user_id=user_id,
-            notification_type=template["notification_type"],
-            title=title,
-            body=body,
-            data_json=payload,
-            is_read=False,
-            created_at=get_now(),
-        )
-        db.add(notification)
-        db.flush()
-        
-        notification_payload = {
-            "notification_id": notification_id,
-            "notification_type": template["notification_type"],
-            "title": title,
-            "body": body,
-            "data": payload,
-            "created_at": notification.created_at.isoformat(),
-        }
-        
-        if background_tasks:
-            background_tasks.add_task(connection_manager.send_notification, user_id, notification_payload)
-        else:
-            await connection_manager.send_notification(user_id, notification_payload)
-            
-        logger.info(f"Async instant notification prepared: user={user_id} type={event_type}")
-        
-    except Exception as e:
-        logger.error(f"Failed to create async instant notification: {e}")
 
 def bulk_send_instant_notifications(
     db: Session, 
@@ -186,7 +165,7 @@ def bulk_send_instant_notifications(
         
         for user_id, notification_payload in push_data:
             if background_tasks:
-                background_tasks.add_task(_trigger_ws_push, user_id, notification_payload)
+                background_tasks.add_task(_trigger_ws_push_async, user_id, notification_payload)
             else:
                 _trigger_ws_push(user_id, notification_payload)
             
@@ -194,29 +173,4 @@ def bulk_send_instant_notifications(
     except Exception as e:
         logger.error(f"Failed to send bulk instant notifications: {e}")
 
-
-def _trigger_ws_push(user_id: str, payload: dict):
-
-    """Internal helper to fire-and-forget the WS push from both sync/async contexts"""
-    from app.services.ws_manager import connection_manager
-    try:
-        loop = None
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            # Not in an async context, try to get loop from thread
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                pass
-
-        if loop and loop.is_running():
-            # If we have a running loop, schedule the task
-            asyncio.run_coroutine_threadsafe(connection_manager.send_notification(user_id, payload), loop)
-        else:
-            # If no running loop is found, we might be in a purely synchronous worker thread.
-            logger.debug(f"No active event loop found for WS push to {user_id}. Real-time delivery might be delayed.")
-            
-    except Exception as e:
-        logger.warning(f"Could not trigger WS push: {e}")
 
