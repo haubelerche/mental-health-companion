@@ -15,7 +15,6 @@ import { CheckinFlow } from '../components/common/CheckinFlow.tsx'
 import { SafetyCheck } from '../components/pages/SafetyCheck'
 import { ScreeningFlow } from '../components/pages/ScreeningFlow'
 import { ResultsPage } from '../components/pages/ResultsPage'
-import { ExercisesPage } from '../components/pages/ExercisesPage'
 import { OnboardingFlow } from '../components/pages/onboarding/OnboardingFlow.tsx'
 import LetterPage from '../components/pages/BeachMessage.tsx'
 import { useAuth } from '../hooks/useAuth'
@@ -36,6 +35,7 @@ import AdminMain from '../components/admin/layout/AdminMain.tsx'
 import AdminAutomation from '../components/admin/AdminAutomation'
 import Home from '../components/pages/Home.tsx'
 import RewardsPage from '../components/pages/rewards/RewardsPage.tsx'
+import { ExercisesPage } from '@/components/pages/exercises/ExercisesPage.tsx'
 
 function RequireAuth({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()
