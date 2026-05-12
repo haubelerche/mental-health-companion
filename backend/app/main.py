@@ -46,6 +46,11 @@ def _voice_tts_loop() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    # Register the main event loop for notification_service to use in thread-safe pushes
+    import asyncio
+    from app.services.notification_service import register_main_loop
+    register_main_loop(asyncio.get_running_loop())
+
     if settings.auto_create_schema:
         init_db()
     if os.environ.get("SERENE_BACKEND_TESTING") != "1" and settings.background_workers_enabled:
@@ -56,6 +61,7 @@ async def lifespan(_: FastAPI):
         if settings.voice_tts_worker_enabled:
             threading.Thread(target=_voice_tts_loop, daemon=True).start()
     yield
+
 
 
 app = FastAPI(

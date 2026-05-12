@@ -1,24 +1,19 @@
 """
-Notification Dispatcher
-Monitors SyncOutbox events and broadcasts them to connected WebSocket clients
+Notification Dispatcher (Constants & Direct Delivery)
+Provides templates and direct WebSocket delivery logic for notifications.
+Outbox worker logic has been removed as notifications are now real-time.
 """
 
-import json
 import logging
-from datetime import datetime, timezone
-from sqlalchemy import select
 from sqlalchemy.orm import Session
-
-from app.services.db.models import SyncOutbox, UserNotification
-from app.services.db.session import get_session_factory
+from app.services.db.models import UserNotification
 from app.services.utils import make_id, get_now
 from app.services.ws_manager import connection_manager
 
 logger = logging.getLogger(__name__)
 
-
 class NotificationDispatcher:
-    """Processes outbox events and routes them to WebSocket clients"""
+    """Provides templates and direct WebSocket delivery logic for notifications."""
 
     # Event type -> (notification type, title template, body template)
     NOTIFICATION_TEMPLATES = {
@@ -69,35 +64,20 @@ class NotificationDispatcher:
         },
     }
 
-    async def dispatch(self, event: SyncOutbox, db: Session) -> bool:
-        """
-        Process a single outbox event and send notifications to user
-        Returns True if successfully handled, False if unknown event type
-        """
-        return await self.dispatch_direct(
-            user_id=event.user_id,
-            event_type=event.event_type,
-            payload=event.payload or {},
-            db=db
-        )
-
     async def dispatch_direct(self, user_id: str, event_type: str, payload: dict, db: Session) -> bool:
         """
         Create a notification and send it via WebSocket immediately.
-        Does NOT use SyncOutbox.
+        Used by notification_service for real-time delivery.
         """
-        # Get template for event type
         template = self.NOTIFICATION_TEMPLATES.get(event_type)
         if not template:
             logger.debug(f"No notification template for event type: {event_type}")
             return False
 
-        # Use message from payload if available, else use template body
         body = payload.get("message") or template["body"]
         title = payload.get("title") or template["title"]
 
         try:
-            # Create notification record in DB
             notification_id = make_id("notif")
             notification = UserNotification(
                 notification_id=notification_id,
@@ -110,13 +90,8 @@ class NotificationDispatcher:
                 created_at=get_now(),
             )
             db.add(notification)
-            # We don't commit here if this is called within another transaction, 
-            # but for notifications we usually want them persisted.
-            # However, dispatcher.dispatch (outbox) does commit.
-            # To be safe and consistent with previous behavior:
             db.flush() 
 
-            # Send via WebSocket if user is connected
             notification_payload = {
                 "notification_id": notification_id,
                 "notification_type": template["notification_type"],
@@ -134,35 +109,6 @@ class NotificationDispatcher:
             logger.error(f"Failed to dispatch instant notification: {e}")
             return False
 
-    async def dispatch_batch(self, events: list[SyncOutbox], db: Session) -> dict:
-        """
-        Process a batch of events
-        Returns: {"succeeded": count, "failed": count, "unknown": count}
-        """
-        results = {"succeeded": 0, "failed": 0, "unknown": 0}
-
-        for event in events:
-            try:
-                handled = await self.dispatch(event, db)
-                if handled:
-                    results["succeeded"] += 1
-                else:
-                    results["unknown"] += 1
-            except Exception as e:
-                logger.error(f"Error processing event {event.outbox_id}: {e}")
-                results["failed"] += 1
-
-        return results
-
-
 # Global dispatcher instance
 dispatcher = NotificationDispatcher()
 
-
-# Integration point: This should be called by outbox_worker.py _dispatch() function
-async def dispatch_notification_event(event: SyncOutbox, db: Session) -> bool:
-    """
-    Entry point for outbox worker to dispatch notification events
-    Called by outbox_worker._dispatch() when processing SyncOutbox events
-    """
-    return await dispatcher.dispatch(event, db)

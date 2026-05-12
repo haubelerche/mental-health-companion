@@ -107,6 +107,9 @@ export default function BeachMessage() {
     setRipple(true)
     setTimeout(() => {
       setRipple(false)
+      if (pendingLetter.letter_type === 'reply') {
+        void anonymousShareService.markAsRead(pendingLetter.id)
+      }
       setOpenLetter(pendingLetter)
       setPendingLetter(null)
     }, 700)
@@ -175,6 +178,10 @@ export default function BeachMessage() {
           }}
           onPass={async () => {
             await anonymousShareService.passItOn(openLetter.id)
+            refreshData()
+          }}
+          onReact={async () => {
+            await anonymousShareService.reactToReply(openLetter.id, 'heart')
             refreshData()
           }}
           onReportSuccess={refreshData}

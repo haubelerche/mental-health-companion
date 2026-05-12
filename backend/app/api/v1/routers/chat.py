@@ -6,7 +6,7 @@ import threading
 import time
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, BackgroundTasks
 from fastapi.responses import FileResponse
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
@@ -197,6 +197,7 @@ def _queue_human_review(
     distress_score: float,
     message: str,
     host: str | None,
+    background_tasks: BackgroundTasks | None = None,
 ) -> None:
     row = CrisisLog(
         log_id=make_id("cl"),
@@ -237,8 +238,8 @@ def _queue_human_review(
 
     # Push real-time notification for high distress
     try:
-        from app.services.notification_service import enqueue_notification
-        enqueue_notification(
+        from app.services.notification_service import send_instant_notification
+        send_instant_notification(
             db,
             user_id=user_id,
             event_type="crisis.detected",
@@ -246,10 +247,12 @@ def _queue_human_review(
                 "level": "high_distress",
                 "distress_score": distress_score,
                 "message": "Cậu đang cảm thấy bất ổn phải không? Mình luôn ở đây lắng nghe nhé."
-            }
+            },
+            background_tasks=background_tasks
         )
     except Exception:
         pass
+
 
 
 def _recent_distress_history(recent_messages: list[dict], *, max_turns: int) -> list[float]:
@@ -636,6 +639,7 @@ def get_greeting(
 def send_message(
     payload: ChatMessageRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
@@ -953,6 +957,7 @@ def send_message(
             distress_score=snap.distress_score,
             message=raw_text,
             host=host,
+            background_tasks=background_tasks,
         )
     db.commit()
     threading.Thread(

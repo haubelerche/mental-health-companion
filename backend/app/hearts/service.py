@@ -46,6 +46,7 @@ def grant_hearts(
     source_tab: str,
     idempotency_key: str,
     metadata: dict[str, Any] | None = None,
+    background_tasks: Any | None = None,
 ) -> dict[str, Any]:
     """Grant hearts to user wallet. Idempotent — duplicate key returns already-claimed result.
 
@@ -119,7 +120,8 @@ def grant_hearts(
                 "amount": amount,
                 "reward_type": event_type,
                 "message": f"Bạn vừa nhận được {amount} Tim!"
-            }
+            },
+            background_tasks=background_tasks
         )
     except Exception as e:
         logger.warning(f"Failed to send reward notification: {e}")
@@ -130,3 +132,4 @@ def grant_hearts(
         "new_balance": wallet.balance,
         "event_id": event.event_id,
     }
+
