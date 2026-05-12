@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react'
 import { adminService } from '../../../services/adminService'
 import { toast } from 'react-toastify'
