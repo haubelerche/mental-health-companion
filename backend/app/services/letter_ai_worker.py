@@ -194,6 +194,7 @@ async def run_ai_reply_worker(db: Session, hours_threshold: int = 6):
         reply = TherapyLetter(
             letter_id=make_id("lrep_ai"),
             user_id=AI_SERENE_USER_ID,
+            receiver_id=letter.user_id, # Set receiver so user sees it in inbox
             reply_to_id=letter.letter_id,
             anonymous_name=make_anon_name(),
             content=reply_content,
@@ -210,8 +211,8 @@ async def run_ai_reply_worker(db: Session, hours_threshold: int = 6):
         
         # Send notification to the user
         try:
-            from app.services.notification_service import async_send_instant_notification
-            await async_send_instant_notification(
+            from app.services.notification_service import send_instant_notification
+            send_instant_notification(
                 db, 
                 user_id=letter.user_id, 
                 event_type="letter.replied", 

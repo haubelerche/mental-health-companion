@@ -7,6 +7,8 @@ export type Letter = {
     body: string
     direction?: 'sent' | 'received'
     status?: string
+    letter_type?: string
+    can_reply?: boolean
 }
 
 export type TabId = 'beach' | 'community'
@@ -36,11 +38,13 @@ export function formatRelativeTime(iso: string): string {
 export function toLetter(message: LetterInboxItem): Letter {
     return {
         id: message.id,
-        from: 'Một người vô danh',
+        from: message.anonymous_name || 'Một người vô danh',
         time: formatRelativeTime(message.received_at),
         body: message.content,
         direction: 'received',
         status: message.status ?? (message.reply ? 'replied' : 'approved'),
+        letter_type: message.letter_type,
+        can_reply: message.can_reply,
     }
 }
 

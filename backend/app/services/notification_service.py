@@ -94,7 +94,7 @@ def send_instant_notification(
             created_at=now_naive,
         )
         db.add(notification)
-        db.flush()
+        # db.flush() # Removed to prevent premature flush in parent transaction
         
         notification_payload = {
             "notification_id": notification_id,
@@ -167,7 +167,7 @@ def bulk_send_instant_notifications(
 
     try:
         db.add_all(notifications)
-        db.flush()
+        # db.flush() # Removed to prevent premature flush in parent transaction
         
         for user_id, notification_payload in push_data:
             if background_tasks:

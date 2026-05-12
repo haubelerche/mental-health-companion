@@ -1,4 +1,4 @@
-from fastapi import Depends, Request
+from fastapi import Depends, Request, BackgroundTasks
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from app.api.deps import enforce_admin_ip, get_admin_claims
@@ -226,6 +226,7 @@ async def admin_letter_reply(
     letter_id: str,
     payload: AdminReplyPayload,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     claims: dict = Depends(get_admin_claims),
 ):
@@ -254,6 +255,7 @@ async def admin_letter_reply(
     reply = TherapyLetter(
         letter_id=make_id("lrep_adm"),
         user_id=AI_SERENE_USER_ID, # Use the system user ID that exists in 'users' table
+        receiver_id=letter.user_id, # Set receiver so user sees it in inbox
         reply_to_id=letter.letter_id,
         anonymous_name=payload.anonymous_name or "Một người lắng nghe",
         content=payload.content,
@@ -269,8 +271,8 @@ async def admin_letter_reply(
     db.add(letter)
     
     # Send notification to the user
-    from app.services.notification_service import async_send_instant_notification
-    await async_send_instant_notification(
+    from app.services.notification_service import send_instant_notification
+    send_instant_notification(
         db, 
         user_id=letter.user_id, 
         event_type="letter.replied", 
@@ -278,7 +280,8 @@ async def admin_letter_reply(
             "letter_id": letter.letter_id,
             "reply_id": reply.letter_id,
             "message": f"Ai đó vừa phản hồi lá thư tâm sự của bạn."
-        }
+        },
+        background_tasks=background_tasks
     )
     
     db.commit()

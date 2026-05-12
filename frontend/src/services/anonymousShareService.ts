@@ -9,6 +9,9 @@ export type LetterInboxItem = {
   has_reply: boolean
   is_reported: boolean
   status?: string
+  letter_type?: string
+  can_reply?: boolean
+  anonymous_name?: string | null
   reply?: InboxLetterReply | null
 }
 
@@ -89,6 +92,9 @@ function normalizeInboxLetter(letter: Record<string, unknown>): LetterInboxItem 
     has_reply: Boolean(letter.has_reply),
     is_reported: Boolean(letter.is_reported),
     status: typeof letter.status === 'string' ? letter.status : undefined,
+    letter_type: typeof letter.letter_type === 'string' ? letter.letter_type : undefined,
+    can_reply: typeof letter.can_reply === 'boolean' ? letter.can_reply : undefined,
+    anonymous_name: typeof letter.anonymous_name === 'string' ? letter.anonymous_name : null,
     reply:
       letter.reply && typeof letter.reply === 'object'
         ? normalizeInboxReply(letter.reply as Record<string, unknown>)
@@ -205,5 +211,9 @@ export const anonymousShareService = {
       reason,
       description,
     })
+  },
+
+  async markAsRead(letterId: string): Promise<void> {
+    await httpClient.postWithCsrf(`/letters/${encodeURIComponent(letterId)}/read`)
   },
 }

@@ -269,6 +269,7 @@ def send_letter(
             created_at=now,
         )
         db.add(letter)
+        db.flush()
         _write_review_event(db, letter=letter, verdict=verdict)
         db.commit()
 
@@ -301,6 +302,7 @@ def send_letter(
         created_at=now,
     )
     db.add(letter)
+    db.flush()
     _write_review_event(db, letter=letter, verdict=verdict)
 
     reward_result: dict | None = None
@@ -352,11 +354,8 @@ def get_inbox(
         db.query(TherapyLetter)
         .filter(
             TherapyLetter.receiver_id == current_user.user_id,
-            TherapyLetter.letter_type == "public",
+            TherapyLetter.letter_type.in_(["public", "reply"]),
             TherapyLetter.status == "active",
-            ~exists().where(
-                reply.reply_to_id == TherapyLetter.letter_id,
-            ),
         )
         .order_by(TherapyLetter.created_at.desc())
         .all()
@@ -374,6 +373,8 @@ def get_inbox(
                 "is_reported": False,
                 "received_at": letter.created_at.isoformat() + "Z",
                 "status": "received",
+                "letter_type": letter.letter_type, # Let FE distinguish
+                "can_reply": letter.letter_type == "public", # Only public letters can be replied to
             }
         )
 
@@ -501,6 +502,7 @@ def reply_letter(
     reply = TherapyLetter(
         letter_id=make_id("lrep"),
         user_id=current_user.user_id,
+        receiver_id=letter.user_id, # Set receiver to original sender
         reply_to_id=letter.letter_id,
         anonymous_name=make_anon_name(),
         content=payload.content,
@@ -618,3 +620,27 @@ def report_letter(
         },
         status_code=201,
     )
+
+
+@router.post("/letters/{letter_id}/read")
+def read_letter(
+    letter_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(ensure_policy_acknowledged),
+):
+    letter = db.get(TherapyLetter, letter_id)
+    if not letter:
+        raise AppError("LETTER_NOT_FOUND", "Không tìm thấy thư", 404)
+
+    if letter.receiver_id != current_user.user_id:
+        raise AppError("NOT_ALLOWED", "Bạn không có quyền thực hiện hành động này", 403)
+
+    # Only mark as archived if it's a reply. 
+    # Public letters stay active until replied or passed.
+    if letter.letter_type == "reply":
+        letter.status = "archived"
+        letter.updated_at = _local_naive_now()
+        db.add(letter)
+        db.commit()
+
+    return ok({"status": letter.status})

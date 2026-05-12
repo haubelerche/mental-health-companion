@@ -12,6 +12,7 @@ export function LetterOverlay({
     dark,
     onReply,
     onPass,
+    onReact,
     onReportSuccess,
 }: {
     letter: Letter
@@ -19,6 +20,7 @@ export function LetterOverlay({
     dark?: boolean
     onReply: (content: string) => Promise<void>
     onPass: () => Promise<void>
+    onReact: () => Promise<void>
     onReportSuccess: () => void
 }) {
     const isDark = Boolean(dark)
@@ -27,7 +29,7 @@ export function LetterOverlay({
     const [reply, setReply] = useState('')
     const [sent, setSent] = useState(false)
     const [busy, setBusy] = useState(false)
-    const [busyAction, setBusyAction] = useState<'pass' | 'reply' | null>(null)
+    const [busyAction, setBusyAction] = useState<'pass' | 'reply' | 'react' | null>(null)
     const [actionError, setActionError] = useState<string | null>(null)
     const [showReport, setShowReport] = useState(false)
     const areaRef = useRef<HTMLTextAreaElement | null>(null)
@@ -67,42 +69,75 @@ export function LetterOverlay({
                     {!sent ? (
                         !replyOpen ? (
                             <div className="flex flex-wrap gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setActionError(null)
-                                        setReplyOpen(true)
-                                    }}
-                                    disabled={busy}
-                                    className="flex-1 min-w-[140px] flex items-center justify-center gap-2 bg-theme-accent text-white rounded-2xl py-3.5 px-4 font-bold text-sm tracking-widest uppercase transition-all hover:brightness-105 active:scale-95 shadow-lg shadow-theme-accent/20"
-                                >
-                                    <CornerDownRight size={16} />
-                                    Hồi âm
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={async () => {
-                                        if (busy) return
-                                        setBusy(true)
-                                        setBusyAction('pass')
-                                        setActionError(null)
-                                        try {
-                                            await onPass()
-                                            onClose()
-                                        } catch (error) {
-                                            if (error instanceof ApiRequestError) setActionError(error.message)
-                                            else setActionError('Không thể đẩy thư lúc này. Vui lòng thử lại.')
-                                        } finally {
-                                            setBusy(false)
-                                            setBusyAction(null)
-                                        }
-                                    }}
-                                    disabled={busy}
-                                    className="flex-1 min-w-[140px] flex items-center justify-center gap-2 text-theme-text-secondary rounded-2xl py-3.5 px-4 font-bold text-sm tracking-widest uppercase transition-all hover:bg-theme-surface active:scale-95 bg-theme-surface/50"
-                                >
-                                    <RotateCcw size={16} className={busyAction === 'pass' ? 'animate-spin' : ''} />
-                                    {busy && busyAction === 'pass' ? 'Đang đẩy...' : 'Để thư trôi'}
-                                </button>
+                                {letter.can_reply !== false && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setActionError(null)
+                                                setReplyOpen(true)
+                                            }}
+                                            disabled={busy}
+                                            className="flex-1 min-w-[140px] flex items-center justify-center gap-2 bg-theme-accent text-white rounded-2xl py-3.5 px-4 font-bold text-sm tracking-widest uppercase transition-all hover:brightness-105 active:scale-95 shadow-lg shadow-theme-accent/20"
+                                        >
+                                            <CornerDownRight size={16} />
+                                            Hồi âm
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                if (busy) return
+                                                setBusy(true)
+                                                setBusyAction('pass')
+                                                setActionError(null)
+                                                try {
+                                                    await onPass()
+                                                    onClose()
+                                                } catch (error) {
+                                                    if (error instanceof ApiRequestError) setActionError(error.message)
+                                                    else setActionError('Không thể đẩy thư lúc này. Vui lòng thử lại.')
+                                                } finally {
+                                                    setBusy(false)
+                                                    setBusyAction(null)
+                                                }
+                                            }}
+                                            disabled={busy}
+                                            className="flex-1 min-w-[140px] flex items-center justify-center gap-2 text-theme-text-secondary rounded-2xl py-3.5 px-4 font-bold text-sm tracking-widest uppercase transition-all hover:bg-theme-surface active:scale-95 bg-theme-surface/50"
+                                        >
+                                            <RotateCcw size={16} className={busyAction === 'pass' ? 'animate-spin' : ''} />
+                                            {busy && busyAction === 'pass' ? 'Đang đẩy...' : 'Để thư trôi'}
+                                        </button>
+                                    </>
+                                )}
+
+                                {letter.letter_type === 'reply' && (
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            if (busy) return
+                                            setBusy(true)
+                                            setBusyAction('react')
+                                            setActionError(null)
+                                            try {
+                                                await onReact()
+                                                setSent(true) // Reuse sent state to show success message
+                                                setTimeout(onClose, 1200)
+                                            } catch (error) {
+                                                if (error instanceof ApiRequestError) setActionError(error.message)
+                                                else setActionError('Không thể gửi cảm ơn lúc này.')
+                                            } finally {
+                                                setBusy(false)
+                                                setBusyAction(null)
+                                            }
+                                        }}
+                                        disabled={busy}
+                                        className="flex-1 min-w-[140px] flex items-center justify-center gap-2 bg-rose-500 text-white rounded-2xl py-3.5 px-4 font-bold text-sm tracking-widest uppercase transition-all hover:brightness-105 active:scale-95 shadow-lg shadow-rose-500/20"
+                                    >
+                                        <Heart size={16} fill="white" />
+                                        {busy && busyAction === 'react' ? 'Đang gửi...' : 'Gửi lời cảm ơn'}
+                                    </button>
+                                )}
+
                                 {canReport && (
                                     <button
                                         type="button"
@@ -164,7 +199,11 @@ export function LetterOverlay({
                         )
                     ) : (
                         <div className="text-center py-6" style={{ animation: 'fadeUpCard 0.5s ease' }}>
-                            <p className={`${ui.textSubtle} font-display text-xl italic font-bold`}>Hồi âm đã hòa cùng tiếng sóng khơi xa...</p>
+                            <p className={`${ui.textSubtle} font-display text-xl italic font-bold`}>
+                                {letter.letter_type === 'reply' 
+                                    ? 'Lời cảm ơn đã được gửi đi...' 
+                                    : 'Hồi âm đã hòa cùng tiếng sóng khơi xa...'}
+                            </p>
                         </div>
                     )}
                 </div>
