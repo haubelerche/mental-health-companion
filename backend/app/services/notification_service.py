@@ -79,6 +79,9 @@ def send_instant_notification(
     title = payload.get("title") or template["title"]
 
     try:
+        now = get_now()
+        now_naive = now.replace(tzinfo=None)
+        
         notification_id = make_id("notif")
         notification = UserNotification(
             notification_id=notification_id,
@@ -88,7 +91,7 @@ def send_instant_notification(
             body=body,
             data_json=payload,
             is_read=False,
-            created_at=get_now(),
+            created_at=now_naive,
         )
         db.add(notification)
         db.flush()
@@ -99,7 +102,7 @@ def send_instant_notification(
             "title": title,
             "body": body,
             "data": payload,
-            "created_at": notification.created_at.isoformat(),
+            "created_at": now.isoformat(), # Keep TZ info for the real-time push
         }
         
         if background_tasks:
@@ -132,7 +135,9 @@ def bulk_send_instant_notifications(
 
     body = payload.get("message") or template["body"]
     title = payload.get("title") or template["title"]
+    
     now = get_now()
+    now_naive = now.replace(tzinfo=None)
 
     notifications = []
     push_data = []
@@ -147,7 +152,7 @@ def bulk_send_instant_notifications(
             body=body,
             data_json=payload,
             is_read=False,
-            created_at=now,
+            created_at=now_naive,
         )
         notifications.append(notif)
         push_data.append((user_id, {
@@ -158,6 +163,7 @@ def bulk_send_instant_notifications(
             "data": payload,
             "created_at": now.isoformat(),
         }))
+
 
     try:
         db.add_all(notifications)
