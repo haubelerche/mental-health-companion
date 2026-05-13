@@ -66,11 +66,11 @@ export default function NotificationModal({ open, onClose }: Props) {
     }
 
     const ui = {
-        bg: 'bg-theme-surface',
-        text: 'text-theme-primary',
-        subtext: 'text-theme-secondary',
-        card: 'bg-theme-surface border-theme-primary/50',
-        unread: 'bg-theme-surface/50 border-l-4 border-l-theme-accent',
+        bg: 'bg-[#f8e7b8]',
+        text: 'text-[#3d2b1b]',
+        subtext: 'text-[#5f5140]',
+        card: 'bg-[#fff6d5] border-2 border-[#6b4b2a]',
+        unread: 'bg-[#fff6d5] border-2 border-[#5c3b24] shadow-[2px_2px_0_rgba(55,38,20,0.25)]',
     }
 
     return (
@@ -80,12 +80,12 @@ export default function NotificationModal({ open, onClose }: Props) {
             shouldCloseOnEsc
             shouldCloseOnOverlayClick
             contentLabel="Thông báo"
-            className="relative z-[81] mb-5 flex max-h-[80dvh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border shadow-2xl border-theme-border bg-theme-surface outline-none"
+            className="relative z-[81] mb-5 flex max-h-[80dvh] w-full max-w-2xl flex-col overflow-hidden border-4 border-[#6b4b2a] bg-[#f8e7b8] shadow-[0_7px_0_rgba(55,38,20,0.35)] outline-none"
             overlayClassName="fixed inset-0 z-[80] flex items-end justify-center sm:items-center bg-black/50 backdrop-blur-xs"
         >
-            <div className={`flex items-center justify-between border-b px-5 py-4 border-theme-secondary/40`}>
+            <div className={`flex items-center justify-between border-b-4 border-[#5c3b24] bg-[#8a6040] px-5 py-4 text-[#fff6d5]`}>
                 <div>
-                    <p className={`text-sm font-semibold mb-1 uppercase tracking-[0.22em] text-theme-text-secondary`}>
+                    <p className={`text-sm font-black uppercase tracking-[0.22em] text-[#fff6d5]`}>
                         Thông báo
                     </p>
                 </div>
@@ -93,7 +93,7 @@ export default function NotificationModal({ open, onClose }: Props) {
                     {unreadCount > 0 && (
                         <button
                             onClick={handleMarkAllAsRead}
-                            className="text-sm cursor-pointer font-medium text-theme-accent hover:text-theme-primary transition-colors"
+                            className="border-2 border-[#7c5936] bg-[#fff6d5] px-3 py-1 text-xs font-black text-[#6b4b2a] hover:bg-[#f2d89e] transition-colors cursor-pointer"
                         >
                             Đọc tất cả
                         </button>
@@ -101,9 +101,9 @@ export default function NotificationModal({ open, onClose }: Props) {
                     <button
                         type="button"
                         onClick={onClose}
-                        className={`rounded-full cursor-pointer p-2 hover:text-red-400`}
+                        className="border-2 border-[#6b4b2a] bg-[#fff6d5] text-[#5c3b24] p-1.5 hover:bg-[#f2d89e] transition-colors cursor-pointer"
                     >
-                        <X className="h-5 w-5" />
+                        <X className="h-4 w-4" />
                     </button>
                 </div>
             </div>
@@ -124,23 +124,23 @@ export default function NotificationModal({ open, onClose }: Props) {
                                 <div
                                     key={n.notification_id || Math.random()}
                                     onClick={() => !n.is_read && handleMarkAsRead(n.notification_id)}
-                                    className={`p-4 rounded-2xl border transition-all cursor-pointer ${n.is_read ? ui.card : ui.unread} hover:bg-theme-accent/10`}
+                                    className={`p-4 border transition-all cursor-pointer ${n.is_read ? ui.card : ui.unread} hover:bg-[#f2d89e]`}
                                 >
                                     <div className="flex justify-between items-start mb-1">
-                                        <span className="text-xs font-bold uppercase tracking-wider">
+                                        <span className={`text-xs font-black uppercase tracking-wider ${ui.text}`}>
                                             {n.notification_type?.replace('.', ' • ') || 'Thông báo'}
                                         </span>
-                                        <span className={`text-[10px] ${ui.subtext}`}>
+                                        <span className={`text-[10px] font-bold ${ui.subtext}`}>
                                             {parseTime(n.created_at)}
                                         </span>
                                     </div>
-                                    <h3 className="font-semibold text-base mb-1">{n.title || 'Thông báo mới'}</h3>
-                                    <p className={`text-sm ${ui.subtext} leading-relaxed`}>{n.body || ''}</p>
+                                    <h3 className={`font-black text-sm mb-1 ${ui.text}`}>{n.title || 'Thông báo mới'}</h3>
+                                    <p className={`text-xs font-bold ${ui.subtext} leading-relaxed`}>{n.body || ''}</p>
 
                                     {!n.is_read && (
                                         <div className="mt-3 flex items-center gap-1.5">
-                                            <div className="w-3 h-3 rounded-full bg-theme-accent" />
-                                            <span className="text-sm font-medium text-theme-accent">Mới</span>
+                                            <div className="w-3 h-3 bg-[#8a6040] border border-[#5c3b24]" />
+                                            <span className="text-xs font-black text-[#8a6040]">Mới</span>
                                         </div>
                                     )}
                                 </div>
