@@ -10,6 +10,7 @@ import { authService } from '@/services/authService'
 import LogoGoogle from '../../assets/branding/icons8-google-logo-100.png'
 import LogoFacebook from '../../assets/branding/icons8-facebook-96.png'
 import bgLogin from '../../assets/motion/login-signup.gif'
+import '../pages/landing/landing.css'
 
 export default function Register() {
     type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
@@ -73,7 +74,7 @@ export default function Register() {
     }
 
     return (
-        <div className="auth-page">
+        <div className="auth-page serene-landing">
             <div className="fixed inset-0">
                 <div
                     className="serene-fullscreen-motion-bg serene-fullscreen-motion-bg--absolute h-full w-full"
@@ -89,7 +90,7 @@ export default function Register() {
             </div>
 
             <nav className="fixed top-0 z-20 w-full px-8 py-6">
-                <Link to={ROUTE_PATHS.landing} className="font-display text-3xl italic text-serene-ink">Serene</Link>
+                <Link to={ROUTE_PATHS.landing} className="pixel-headline" style={{ fontSize: '2.5rem', textDecoration: 'none' }}>Serene</Link>
             </nav>
 
             <main className="auth-main">
