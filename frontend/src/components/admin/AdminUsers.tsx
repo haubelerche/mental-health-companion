@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { adminService } from '../../services/adminService'
 import { ApiRequestError } from '../../api/types'
 import { toast } from 'react-toastify'
@@ -12,28 +12,29 @@ export default function AdminUsers() {
     const [users, setUsers] = useState<any[]>(cached.users)
     const [loading, setLoading] = useState(cached.users.length === 0)
     const [query, setQuery] = useState(cached.query)
+    const [submittedQuery, setSubmittedQuery] = useState(cached.query)
     const [total, setTotal] = useState(cached.total)
     const [page, setPage] = useState(0)
     const limit = 20
 
-    const load = async () => {
+    const load = useCallback(async (targetPage: number, targetQuery: string) => {
         setLoading(true)
         try {
-            const data = await adminService.listUsers({ query, limit, offset: page * limit })
+            const data = await adminService.listUsers({ query: targetQuery, limit, offset: targetPage * limit })
             setUsers(data.users)
             setTotal(data.total)
-            adminCache.setUsers({ users: data.users, total: data.total, query })
+            adminCache.setUsers({ users: data.users, total: data.total, query: targetQuery })
         } catch (err) {
             if (err instanceof ApiRequestError && err.handledByModal) return
             toast.error('Không thể tải danh sách người dùng')
         } finally {
             setLoading(false)
         }
-    }
+    }, [])
 
     useEffect(() => {
-        load()
-    }, [page])
+        void load(page, submittedQuery)
+    }, [load, page, submittedQuery])
 
     const toggleStatus = async (userId: string, current: boolean) => {
         try {
@@ -65,11 +66,16 @@ export default function AdminUsers() {
                             className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-white outline-none focus:border-emerald-500/50 transition-all"
                             value={query}
                             onChange={e => setQuery(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && (setPage(0), load())}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                    setSubmittedQuery(query)
+                                    setPage(0)
+                                }
+                            }}
                         />
                     </div>
                     <button 
-                        onClick={() => { setPage(0); load(); }}
+                        onClick={() => { setSubmittedQuery(query); setPage(0); }}
                         className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20 font-medium"
                     >
                         Tìm
