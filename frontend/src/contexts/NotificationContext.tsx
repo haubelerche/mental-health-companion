@@ -24,7 +24,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const addNotification = useCallback((notification: Notification) => {
-    console.log("[Notification] Added:", notification);
     setNotifications((prev) => [
       { ...notification, is_read: false },
       ...prev.slice(0, 99), // Keep last 100 notifications
