@@ -371,14 +371,11 @@ export function CheckinFlow() {
               </>
             ) : (
               <>
-                <div className="rounded-[18px] bg-[#fbf5ea]/82 px-4 py-3 text-xs leading-relaxed text-[#62695f]">
-                  Serene chỉ lưu điều bạn chọn để giúp lần check-in sau dịu hơn.
-                </div>
                 <button
                   type="button"
                   onClick={step === 'mood' ? goToTriggersFromMood : submit}
                   disabled={(step === 'mood' && !canGoNext) || loading}
-                  className="inline-flex min-w-[118px] items-center justify-center gap-2 rounded-full bg-[#526f5f] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-w-[118px] justify-self-end items-center justify-center gap-2 rounded-full bg-[#526f5f] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {loading ? 'Đang lưu' : 'Next'}
                   {!loading && <ArrowRight className="h-4 w-4" />}
