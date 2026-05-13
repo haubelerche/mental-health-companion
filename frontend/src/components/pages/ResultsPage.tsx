@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
@@ -179,6 +180,16 @@ export function ResultsPage() {
   const { state } = useLocation()
   const navigate = useNavigate()
   const result = state?.result as ScreeningResult | undefined
+
+  useEffect(() => {
+    if (result && result.instrument_id) {
+      localStorage.setItem(`serene_screening_${result.instrument_id}`, JSON.stringify({
+        raw_score: result.raw_score,
+        severity_label: result.severity_label,
+        timestamp: new Date().toISOString()
+      }))
+    }
+  }, [result])
   const rawSeverity = result?.severity_label
   const severity: ScreeningResult['severity_label'] =
     rawSeverity != null && rawSeverity in SEVERITY_MAP ? rawSeverity : 'minimal'
