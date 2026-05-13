@@ -434,7 +434,7 @@ class FriendAgent:
         context_pack: ContextPack,
     ) -> str:
         persona_id = resolve_alias(persona_id)
-        if persona_id == "nguoi_thay":
+        if persona_id == "dat_le":
             return _dat_response(user_message, moves, supportive_mode, context_pack)
         if persona_id == "hau_luong":
             return _hau_response(user_message, moves, supportive_mode, context_pack)
@@ -448,13 +448,13 @@ class FriendAgent:
             if _DIAGNOSIS_RE.search(lowered):
                 return (
                     "Tôi ở đây với bạn. Tôi muốn hiểu rõ hơn điều đang làm bạn nặng nhất lúc này."
-                    if persona_id == "nguoi_thay"
+                    if persona_id == "dat_le"
                     else "Mình ở đây với bạn. Bạn kể thêm một chút về phần đang nặng nhất lúc này nhé?"
                 )
         if any(token in lowered for token in _LEAKY_TERMS):
             return (
                 "Tôi ở đây với bạn. Bạn kể thêm một chút về điều đang vướng nhất nhé?"
-                if persona_id == "nguoi_thay"
+                if persona_id == "dat_le"
                 else "Mình ở đây với bạn. Bạn kể thêm một chút về điều đang vướng nhất nhé?"
             )
         return text
@@ -487,7 +487,7 @@ class FriendAgent:
 
         verdict = validate_final_response(final_text, surface="chat", policy_decision=context_pack.safety_policy)
         if verdict.verdict != "allow":
-            if persona_id == "nguoi_thay":
+            if persona_id == "dat_le":
                 final_text = "Tôi nghe bạn. Hãy nói phần đang làm bạn vướng nhất, rồi ta nhìn nó từng bước."
             elif persona_id == "hau_luong":
                 final_text = "mình nghe nè. bạn nói một ý ngắn trước thôi, mình lọc cùng bạn từ từ."
