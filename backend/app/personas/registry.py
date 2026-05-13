@@ -104,7 +104,7 @@ _DUNG_LUONG = PersonaConfig(
 )
 
 _DAT_LE = PersonaConfig(
-    persona_id="nguoi_thay",
+    persona_id="dat_le",
     display_name="Đạt",
     user_facing_name="Đạt",
     short_description="Trầm ngâm, rõ ràng, nhiều chiều sâu, giúp bạn nhìn vấn đề sáng hơn",
@@ -288,7 +288,7 @@ _HAU_LUONG = PersonaConfig(
 
 PERSONA_REGISTRY: dict[str, PersonaConfig] = {
     "dung_luong": _DUNG_LUONG,
-    "nguoi_thay": _DAT_LE,
+    "dat_le": _DAT_LE,
     "hau_luong": _HAU_LUONG,
 }
 
@@ -296,12 +296,12 @@ DEFAULT_PERSONA_ID = "dung_luong"
 
 
 def validate_persona_registry(registry: dict[str, PersonaConfig]) -> None:
-    expected = {"dung_luong", "nguoi_thay", "hau_luong"}
+    expected = {"dung_luong", "dat_le", "hau_luong"}
     assert set(registry.keys()) == expected, f"Registry mismatch: {set(registry.keys())} != {expected}"
 
     banned_aliases_by_persona = {
         "dung_luong": {"cun", "cún", "meo", "mèo", "crush", "persona_crush", "nguoi_yeu"},
-        "nguoi_thay": {
+        "dat_le": {
             "teacher",
             "coach",
             "doctor",

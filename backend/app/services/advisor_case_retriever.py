@@ -34,6 +34,10 @@ def _json_list(value: Any) -> list[str]:
     return []
 
 
+def _json_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
 def _case_from_row(row: Any, *, retrieval_score: float | None = None) -> AdvisorCase:
     return AdvisorCase(
         case_id=str(row.case_id),
@@ -55,6 +59,11 @@ def _case_from_row(row: Any, *, retrieval_score: float | None = None) -> Advisor
         source_response_summary=sanitize_case_text(str(row.source_response_summary or ""), limit=700) or None,
         safety_review_status=str(row.safety_review_status or "pending"),
         quality_score=float(row.quality_score) if row.quality_score is not None else None,
+        source=sanitize_case_text(str(getattr(row, "source", "") or ""), limit=120) or None,
+        advisor_domains=_json_list(getattr(row, "advisor_domains", [])),
+        safety_constraints=_json_dict(getattr(row, "safety_constraints", {})),
+        metadata=_json_dict(getattr(row, "metadata", {})),
+        reviewed_by=sanitize_case_text(str(getattr(row, "reviewed_by", "") or ""), limit=120) or None,
         retrieval_score=retrieval_score,
     )
 

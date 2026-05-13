@@ -1,4 +1,4 @@
-# Hệ thống Thông báo (Notification System)
+﻿# Hệ thống Thông báo (Notification System)
 
 Hệ thống thông báo kết hợp giữa truyền tải thời gian thực (WebSocket) và lưu trữ lịch sử (Database).
 

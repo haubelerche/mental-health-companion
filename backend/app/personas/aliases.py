@@ -19,20 +19,20 @@ LEGACY_ALIAS_MAP: dict[str, str] = {
     "friend": "dung_luong",
     "best_friend": "dung_luong",
     "default": "dung_luong",
-    "dat_le": "nguoi_thay",
-    "dat": "nguoi_thay",
-    "\u0111\u1ea1t": "nguoi_thay",
-    "dat le": "nguoi_thay",
-    "\u0111\u1ea1t l\u00ea": "nguoi_thay",
-    "nguoi_thay": "nguoi_thay",
-    "mentor": "nguoi_thay",
+    "dat_le": "dat_le",
+    "dat": "dat_le",
+    "\u0111\u1ea1t": "dat_le",
+    "dat le": "dat_le",
+    "\u0111\u1ea1t l\u00ea": "dat_le",
+    "nguoi_thay": "dat_le",
+    "mentor": "dat_le",
     "hau": "hau_luong",
     "h\u1eadu": "hau_luong",
     "hau luong": "hau_luong",
     "hau_luong": "hau_luong",
 }
 
-_CANONICAL_IDS = frozenset({"dung_luong", "nguoi_thay", "hau_luong"})
+_CANONICAL_IDS = frozenset({"dung_luong", "dat_le", "hau_luong"})
 
 ROMANTIC_FRAMING_ALIASES: frozenset[str] = frozenset(
     {"crush", "persona_crush", "nguoi_yeu", "lover"}

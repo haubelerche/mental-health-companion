@@ -164,6 +164,7 @@ export default function WorkerAutomationCard({
     }
 
     const runNow = async () => {
+        setUpdating(true)
         try {
             const targetId = workerKey || trigger?.trigger_id
             await adminService.runWorkerNow(targetId)
@@ -172,6 +173,8 @@ export default function WorkerAutomationCard({
             fetchStatus()
         } catch {
             toast.error("Không thể chạy ngay")
+        } finally {
+            setUpdating(false)
         }
     }
 
@@ -219,9 +222,9 @@ export default function WorkerAutomationCard({
                         <button 
                             onClick={handleToggle}
                             disabled={updating}
-                            className={`p-4 rounded-2xl border transition-all duration-500 active:scale-90 ${worker.active ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20' : 'bg-white/5 border-white/10 text-slate-500 hover:bg-white/10'}`}
+                            className={`p-4 rounded-2xl border transition-all duration-500 active:scale-90 ${worker.active ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20' : 'bg-white/5 border-white/10 text-slate-500 hover:bg-white/10'} disabled:opacity-50`}
                         >
-                            {worker.active ? <Pause size={22} fill="currentColor" /> : <Play size={22} className="opacity-50" />}
+                            {updating ? <Loader2 size={22} className="animate-spin" /> : (worker.active ? <Pause size={22} fill="currentColor" /> : <Play size={22} className="opacity-50" />)}
                         </button>
                     </div>
                 </div>
@@ -247,10 +250,10 @@ export default function WorkerAutomationCard({
                                 <button 
                                     onClick={handleSwitchMode}
                                     disabled={updating}
-                                    className="ml-2 p-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-indigo-400 transition-all active:scale-90"
+                                    className="ml-2 p-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-indigo-400 transition-all active:scale-90 disabled:opacity-50"
                                     title="Chuyển đổi chế độ (Daily / Interval)"
                                 >
-                                    {isDaily ? <Repeat size={14} /> : <Calendar size={14} />}
+                                    {updating ? <Loader2 size={14} className="animate-spin" /> : (isDaily ? <Repeat size={14} /> : <Calendar size={14} />)}
                                 </button>
                                 <div className="flex-1 flex items-center gap-3 px-4">
                                     {isDaily ? <Calendar size={16} className="text-indigo-400" /> : <Repeat size={16} className="text-amber-400" />}
@@ -283,11 +286,11 @@ export default function WorkerAutomationCard({
                                 </div>
                             <button 
                                 onClick={runNow}
-                                disabled={worker.running || !worker.active}
-                                className={`p-4 rounded-[1.5rem] transition-all ${worker.running ? 'bg-amber-500/20 text-amber-500' : 'bg-white/5 text-slate-400 hover:bg-indigo-500/20 hover:text-indigo-400 hover:scale-105 active:scale-95 disabled:opacity-30'}`}
-                                title="Chạy ngay lập tức"
+                                disabled={worker.running || !worker.active || updating}
+                                className={`p-4 rounded-[1.5rem] transition-all ${worker.running || updating ? 'bg-amber-500/20 text-amber-500' : 'bg-white/5 text-slate-400 hover:bg-indigo-500/20 hover:text-indigo-400 hover:scale-105 active:scale-95 disabled:opacity-30'}`}
+                                title="Chuyển đổi chế độ (Daily / Interval)"
                             >
-                                {worker.running ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />}
+                                {worker.running || updating ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />}
                             </button>
                         </div>
                     </div>

@@ -1,4 +1,4 @@
-# OAuth API Google & Facebook
+﻿# OAuth API Google & Facebook
 
 Tài liệu này mô tả các endpoint OAuth ở backend và cách frontend tích hợp để đăng nhập bằng Google / Facebook.
 

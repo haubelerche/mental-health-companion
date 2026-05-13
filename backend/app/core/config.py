@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     openai_model_friend_fast: str = "gpt-4o-mini"
     llm_timeout_seconds: float = 10.0
     chat_response_cache_ttl_seconds: int = 45
+    counseling_examples_prompt_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("COUNSELING_EXAMPLES_PROMPT_ENABLED"),
+    )
     mem0_strict_mode: bool = Field(default=False, validation_alias=AliasChoices("MEM0_STRICT_MODE"))
     chat_expose_scoring_debug: bool = Field(
         default=False,
@@ -105,6 +109,14 @@ class Settings(BaseSettings):
     elevenlabs_voice_id: str = Field(
         default="iSFxP4Z6YNcx9OXl62Ic",
         validation_alias=AliasChoices("ELEVENLABS_VOICE_ID"),
+    )
+    elevenlabs_voice_id_crush_male: str = Field(
+        default="",
+        validation_alias=AliasChoices("ELEVENLABS_VOICE_ID_CRUSH_MALE"),
+    )
+    elevenlabs_voice_id_mentor: str = Field(
+        default="",
+        validation_alias=AliasChoices("ELEVENLABS_VOICE_ID_MENTOR"),
     )
     elevenlabs_model_id: str = Field(
         default="eleven_multilingual_v2",

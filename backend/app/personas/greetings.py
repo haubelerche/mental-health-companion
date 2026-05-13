@@ -9,7 +9,7 @@ PERSONA_CHAT_GREETINGS: dict[str, str] = {
     "dung_luong": (
         "Ê, Dũng đây, tớ nghe nè. Hôm nay cậu đang chill, hơi đuối, hay kiểu deadline dí sát gáy rồi?"
     ),
-    "nguoi_thay": (
+    "dat_le": (
         "Chào bạn. Tôi ở đây cùng bạn nhìn rõ điều đang làm hôm nay nặng hơn một chút."
     ),
     "hau_luong": (

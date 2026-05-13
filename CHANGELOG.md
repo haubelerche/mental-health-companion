@@ -4,6 +4,20 @@
 
 ---
 
+## [Unreleased] — Reward store: coming-soon locks · 2026-05-13
+
+### Changed
+- `frontend/src/components/pages/rewards/KnowledgeCard.tsx`, `RewardCard.tsx` — các mục Tri thức, Không gian và Tính cách của Người đồng hành chưa sẵn sàng nay hiển thị thẻ trắng, biểu tượng khóa và nhãn "Đang được phát triển" thay vì trông như lỗi mua/mở khóa.
+
+---
+
+## [Unreleased] — Check-in copy cleanup · 2026-05-13
+
+### Removed
+- `frontend/src/components/common/CheckinFlow.tsx` — bỏ hộp mô tả "Serene chỉ lưu điều bạn chọn..." ở footer check-in để màn hình gọn hơn theo yêu cầu UI.
+
+---
+
 ## [Unreleased] — Chat router: stream tests and voice policy · 2026-05-10
 
 ### Fixed

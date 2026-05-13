@@ -590,12 +590,102 @@ class AdvisorCaseLibrary(Base):
     source_response_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     safety_review_status: Mapped[str] = mapped_column(String(30), default="pending", nullable=False)
     quality_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source: Mapped[str | None] = mapped_column(Text, nullable=True)
+    advisor_domains: Mapped[list[Any]] = mapped_column(TEXT_ARRAY_COMPAT, default=list, nullable=False)
+    safety_constraints: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, default=dict, nullable=False)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB_COMPAT, default=dict, nullable=False)
+    reviewed_by: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP_COMPAT, nullable=True)
     if Vector is not None:
         embedding: Mapped[Any] = mapped_column(Vector(1536), nullable=True)
     else:
         embedding: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
+
+
+class AdvisorDomain(Base):
+    __tablename__ = "advisor_domains"
+
+    domain_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    runtime_advisor_id: Mapped[str] = mapped_column(Text, nullable=False)
+    display_name: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    max_cases_per_turn: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    latency_budget_ms: Mapped[int] = mapped_column(Integer, default=120, nullable=False)
+    min_quality_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB_COMPAT, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
+
+
+class AdvisorCaseDomainMap(Base):
+    __tablename__ = "advisor_case_domain_map"
+
+    case_id: Mapped[str] = mapped_column(ForeignKey("advisor_case_library.case_id", ondelete="CASCADE"), primary_key=True)
+    domain_id: Mapped[str] = mapped_column(ForeignKey("advisor_domains.domain_id"), primary_key=True)
+    runtime_advisor_id: Mapped[str] = mapped_column(Text, nullable=False)
+    relevance_score: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
+
+
+class AdvisorDatasetImport(Base):
+    __tablename__ = "advisor_dataset_imports"
+
+    import_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    file_name: Mapped[str] = mapped_column(Text, nullable=False)
+    domain_id: Mapped[str] = mapped_column(Text, nullable=False)
+    runtime_advisor_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    row_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    imported_by: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="pending", nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB_COMPAT, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
+
+
+class AdvisorDatasetStaging(Base):
+    __tablename__ = "advisor_dataset_staging"
+
+    staging_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    import_id: Mapped[str | None] = mapped_column(ForeignKey("advisor_dataset_imports.import_id", ondelete="CASCADE"), nullable=True)
+    domain_id: Mapped[str] = mapped_column(Text, nullable=False)
+    runtime_advisor_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_payload: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, nullable=False)
+    normalized_question: Mapped[str | None] = mapped_column(Text, nullable=True)
+    normalized_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    validation_status: Mapped[str] = mapped_column(String(30), default="pending", nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
+
+
+class AdvisorConsultationEvent(Base):
+    __tablename__ = "advisor_consultation_events"
+
+    event_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    request_id: Mapped[str] = mapped_column(Text, nullable=False)
+    session_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    user_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    advisor_ids: Mapped[list[Any]] = mapped_column(TEXT_ARRAY_COMPAT, default=list, nullable=False)
+    advisor_domains: Mapped[list[Any]] = mapped_column(TEXT_ARRAY_COMPAT, default=list, nullable=False)
+    query_text_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    interaction_need: Mapped[str | None] = mapped_column(Text, nullable=True)
+    risk_level: Mapped[str | None] = mapped_column(Text, nullable=True)
+    route_reason_codes: Mapped[list[Any]] = mapped_column(TEXT_ARRAY_COMPAT, default=list, nullable=False)
+    retrieved_case_ids: Mapped[list[Any]] = mapped_column(TEXT_ARRAY_COMPAT, default=list, nullable=False)
+    advisor_output_redacted: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, default=dict, nullable=False)
+    used_by_friend: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    final_response_message_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    prompt_included_case_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    approved_case_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    blocked_case_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    raw_response_in_prompt: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    model_version: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retriever_version: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, server_default=func.now(), nullable=False)
 
 
 class SyncOutbox(Base):

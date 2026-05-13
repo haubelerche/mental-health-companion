@@ -1,4 +1,4 @@
-# Hệ thống Thư từ (Letter System V2) - Unified Model
+﻿# Hệ thống Thư từ (Letter System V2) - Unified Model
 
 Hệ thống đã được tái cấu trúc từ 5 bảng riêng lẻ thành một bảng duy nhất **`TherapyLetter`** (Super Letter Model) để tối ưu hiệu suất và đơn giản hóa việc quản lý.
 

@@ -76,7 +76,7 @@ def build_persona_block(config: PersonaConfig) -> str:
         extra_policy = f"\n{HAU_LUONG_RESPONSE_POLICY}\n"
     elif config.persona_id == "dung_luong":
         extra_policy = f"\n{DUNG_LUONG_RESPONSE_POLICY}\n"
-    elif config.persona_id == "nguoi_thay":
+    elif config.persona_id == "dat_le":
         extra_policy = f"\n{DAT_LE_RESPONSE_POLICY}\n"
     return (
         f"[ACTIVE_PERSONA]\n"

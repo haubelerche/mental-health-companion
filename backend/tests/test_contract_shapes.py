@@ -1,4 +1,4 @@
-"""Contract shape stability tests.
+﻿"""Contract shape stability tests.
 
 Verify that response shapes for persona registry, reward store, wallet,
 TTS job, memory APIs, and Phase 1 runtime contracts remain stable.
@@ -61,7 +61,7 @@ def _seed_user(db: Session, user_id: str = "usr_contract") -> None:
 
 def test_registry_has_exactly_three_personas():
     from app.personas.registry import PERSONA_REGISTRY
-    assert set(PERSONA_REGISTRY) == {"dung_luong", "nguoi_thay", "hau_luong"}
+    assert set(PERSONA_REGISTRY) == {"dung_luong", "dat_le", "hau_luong"}
 
 
 def test_registry_persona_shape():
@@ -89,10 +89,11 @@ def test_alias_mapping_keeps_backward_compatibility():
     assert resolve_alias("friend") == "dung_luong"
     assert resolve_alias("best_friend") == "dung_luong"
     assert resolve_alias("serene_default") == "dung_luong"
-    assert resolve_alias("dat_le") == "nguoi_thay"
-    assert resolve_alias("dat") == "nguoi_thay"
-    assert resolve_alias("Đạt") == "nguoi_thay"
-    assert resolve_alias("Dat Le") == "nguoi_thay"
+    assert resolve_alias("dat_le") == "dat_le"
+    assert resolve_alias("dat") == "dat_le"
+    assert resolve_alias("Đạt") == "dat_le"
+    assert resolve_alias("Dat Le") == "dat_le"
+    assert resolve_alias("nguoi_thay") == "dat_le"
     assert resolve_alias("cun") != "dung_luong"
     assert resolve_alias("cún") != "dung_luong"
     assert resolve_alias("meo") != "dung_luong"
@@ -108,11 +109,11 @@ def test_persona_chat_greetings_utf8_aligned_with_registry():
     from app.personas.registry import PERSONA_REGISTRY
 
     assert set(PERSONA_CHAT_GREETINGS) == set(PERSONA_REGISTRY)
-    nt = PERSONA_CHAT_GREETINGS["nguoi_thay"].lower()
-    assert "di?u" not in PERSONA_CHAT_GREETINGS["nguoi_thay"]
-    assert "thầy" not in PERSONA_CHAT_GREETINGS["nguoi_thay"].lower()
-    assert " em " not in PERSONA_CHAT_GREETINGS["nguoi_thay"]
-    cfg = PERSONA_REGISTRY["nguoi_thay"]
+    nt = PERSONA_CHAT_GREETINGS["dat_le"].lower()
+    assert "di?u" not in PERSONA_CHAT_GREETINGS["dat_le"]
+    assert "thầy" not in PERSONA_CHAT_GREETINGS["dat_le"].lower()
+    assert " em " not in PERSONA_CHAT_GREETINGS["dat_le"]
+    cfg = PERSONA_REGISTRY["dat_le"]
     assert cfg.pronoun_self.lower() in nt
     assert cfg.pronoun_user.lower() in nt
 
@@ -161,10 +162,10 @@ def test_dung_temperature_caps_by_distress():
     assert _persona_temperature("dung_luong", use_fast_model=False, distress_score=0.75) == 0.30
 
 
-def test_nguoi_thay_effective_temperature_low_risk_is_point_five():
+def test_dat_le_effective_temperature_low_risk_is_point_five():
     from app.services.langgraph_chat import _persona_temperature
 
-    assert _persona_temperature("nguoi_thay", use_fast_model=False, distress_score=0.10) == 0.50
+    assert _persona_temperature("dat_le", use_fast_model=False, distress_score=0.10) == 0.50
     assert _persona_temperature("dat_le", use_fast_model=False, distress_score=0.10) == 0.50
 
 
@@ -312,8 +313,8 @@ def test_safety_policy_decision_contract_shape():
 
 def test_context_pack_contract_shape():
     pack = ContextPack(
-        recent_messages=[{"role": "user", "content": "mình mệt"}],
-        active_memory={"memory_id": "mem_1", "content": "deadline gần đây"},
+        recent_messages=[{"role": "user", "content": "mÃ¬nh má»‡t"}],
+        active_memory={"memory_id": "mem_1", "content": "deadline gáº§n Ä‘Ã¢y"},
         onboarding_summary={"primary_concern": "stress"},
         mood_context={"today": "stressful"},
         nutrition_context={"meal_slots_logged": ["breakfast"]},
@@ -359,7 +360,7 @@ def test_counseling_guidance_contract_rejects_final_text_field():
 
 def test_friend_agent_output_contract_shape():
     payload = FriendAgentOutput(
-        final_text="mình nghe đoạn này đang đè lên cậu khá nặng.",
+        final_text="mÃ¬nh nghe Ä‘oáº¡n nÃ y Ä‘ang Ä‘Ã¨ lÃªn cáº­u khÃ¡ náº·ng.",
         response_intent="reflect",
         used_advisor_ids=["cbt_pattern"],
         used_resource_ids=["res_sleep_1"],
@@ -384,7 +385,7 @@ def test_analyst_bundle_contract_shape():
         evidence_refs=["sess_1", "sess_2"],
         confidence="medium",
         missing_info=["weekly_checkins"],
-        safe_dashboard_candidates=[{"title": "tín hiệu căng thẳng lặp lại"}],
+        safe_dashboard_candidates=[{"title": "tÃ­n hiá»‡u cÄƒng tháº³ng láº·p láº¡i"}],
     )
     assert payload.confidence == "medium"
     assert payload.time_window["from"] == "2026-05-01T00:00:00Z"
