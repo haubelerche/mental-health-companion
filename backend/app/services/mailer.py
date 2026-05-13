@@ -35,37 +35,6 @@ def _require_smtp_config() -> tuple[str, int, str, str, str, str, bool, bool]:
 
 
 def send_html_email(to_email: str, subject: str, html_body: str, text_body: str) -> None:
-    settings = get_settings()
-
-    # Try Resend API first if configured (best for Railway/Production)
-    if settings.resend_api_key.strip():
-        try:
-            import httpx
-            logger.debug(f"Sending email via Resend API to {to_email}")
-            with httpx.Client() as client:
-                resp = client.post(
-                    "https://api.resend.com/emails",
-                    headers={
-                        "Authorization": f"Bearer {settings.resend_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "from": f"{settings.smtp_from_name} <{settings.smtp_from_email}>",
-                        "to": [to_email],
-                        "subject": subject,
-                        "html": html_body,
-                        "text": text_body,
-                    },
-                    timeout=15.0
-                )
-                resp.raise_for_status()
-            logger.info(f"Email sent successfully via Resend API to {to_email}")
-            return
-        except Exception as e:
-            logger.error(f"Resend API error: {e}")
-            # Fallback to SMTP if API fails
-            logger.warning("Resend API failed, falling back to SMTP...")
-
     host, port, username, password, from_email, from_name, starttls, use_ssl = _require_smtp_config()
 
     message = EmailMessage()
