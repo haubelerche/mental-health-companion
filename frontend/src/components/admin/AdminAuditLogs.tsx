@@ -13,7 +13,6 @@ export default function AdminAuditLogs() {
         setLoading(true)
         try {
             const data = await adminService.listAuditLogs()
-            console.log("Audit Logs Data:", data)
             setLogs(data?.items || [])
         } catch (err) {
             if (err instanceof ApiRequestError && err.handledByModal) return
