@@ -1,10 +1,10 @@
-
+import loadingImg from '@/assets/motion/loading.gif'
 const Loading = ({ text = 'Bạn chờ xíu nha...' }) => {
     return (
         <div className="flex items-center justify-center h-[50dvh]">
             <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-theme-text-secondary mx-auto mb-4"></div>
-                <p className="text-theme-text-primary">{text}</p>
+                <img className="mx-auto" src={loadingImg} alt="loading" />
+                <p className="text-xl mt-3 text-serene-primary font-display font-semibold">{text}</p>
             </div>
         </div>
     )
