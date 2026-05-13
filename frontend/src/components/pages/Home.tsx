@@ -882,48 +882,6 @@ export default function Home() {
                     </div>
                 </motion.button>
 
-                {/* ── Quick action grid 2×2 ── */}
-                <section className="p-6 bg-theme-surface/60 backdrop-blur-3xl rounded-[2.5rem] border border-theme-border/50 shadow-sm">
-                    <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_220px] lg:items-center">
-                        <div>
-                            <h2 className="font-display text-3xl text-theme-text-primary">Lối vào nhanh</h2>
-                            <p className="mt-2 max-w-2xl text-theme-text-secondary">
-                                Các lối vào ngắn để bạn chuyển nhanh từ cảm nhận sang hành động.
-                            </p>
-                        </div>
-
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                        {QUICK_ACTIONS.map((action) => {
-                            const Icon = action.icon
-                            return (
-                                <Link
-                                    key={action.label}
-                                    to={action.route}
-                                    className="group relative flex flex-col gap-4 rounded-[22px] overflow-hidden p-6 text-left border border-theme-border/30 shadow-sm hover:scale-105 duration-500 transition-all"
-                                >
-                                    <img
-                                        src={action.gif}
-                                        alt={action.label}
-                                        className="absolute inset-0 h-full w-full object-cover"
-                                    />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" /> {/* Overlay */}
-                                    <div className="relative z-10 flex flex-col gap-4">
-                                        <div
-                                            className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white text-serene-primary border-2 border-serene-primary`}
-                                        >
-                                            <Icon className="h-6 w-6" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-white leading-tight">{action.label}</p>
-                                            <p className="mt-1 text-sm text-white/90">{action.desc}</p>
-                                        </div>
-                                    </div>
-                                </Link>
-                            )
-                        })}
-                    </div>
-                </section>
              
                 {detailReminder && (
                     <motion.div
