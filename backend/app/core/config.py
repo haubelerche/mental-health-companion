@@ -210,6 +210,7 @@ class Settings(BaseSettings):
     smtp_use_ssl: bool = False
     smtp_from_email: str = ""
     smtp_from_name: str = "Serene"
+    resend_api_key: str = Field(default="", validation_alias=AliasChoices("RESEND_API_KEY"))
 
     def normalized_database_url(self) -> str:
         raw = self.database_url.strip()
