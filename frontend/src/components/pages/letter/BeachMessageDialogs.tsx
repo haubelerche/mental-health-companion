@@ -220,7 +220,7 @@ export function LetterOverlay({
     )
 }
 
-export function WriteOverlay({ onClose, dark }: { onClose: () => void; dark?: boolean }) {
+export function WriteOverlay({ onClose, onSuccess, dark }: { onClose: () => void; onSuccess?: () => void; dark?: boolean }) {
     const isDark = Boolean(dark)
     const ui = getUi(isDark)
     const [text, setText] = useState('')
@@ -272,7 +272,7 @@ export function WriteOverlay({ onClose, dark }: { onClose: () => void; dark?: bo
                                             setSent(true)
                                             setTimeout(() => {
                                                 onClose()
-                                                window.location.reload()
+                                                onSuccess?.()
                                             }, 1800)
                                         } catch (error) {
                                             if (error instanceof ApiRequestError) setSubmitError(error.message)
