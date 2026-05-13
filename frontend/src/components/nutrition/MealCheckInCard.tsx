@@ -46,9 +46,9 @@ export default function MealCheckInCard() {
             })
 
             if (res.reward.granted) {
-                toast.success(`Đã ghi nhận! Bạn nhận được ${res.reward.amount} Tim 🧡`)
+                console.log(`Đã ghi nhận! Bạn nhận được ${res.reward.amount} Tim 🧡`)
             } else {
-                toast.success('Đã ghi nhận bữa ăn của bạn!')
+                console.log('Đã ghi nhận bữa ăn của bạn!')
             }
 
             setItemsText('')
