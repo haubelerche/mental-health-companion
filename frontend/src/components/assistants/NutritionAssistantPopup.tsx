@@ -7,7 +7,7 @@ type NutritionAssistantPopupProps = {
     fact?: string | null
 }
 
-const FALLBACK_FACT = 'Một bữa ăn đều đặn, đủ chất và ít chế biến là nền tảng tốt cho sức khỏe thể chất lẫn tinh thần.'
+const FALLBACK_FACT = 'Một bữa ăn đều đặn, đủ chất và ít chế biến là nền tảng tốt cho sức khỏe thể chất và tinh thần.'
 
 export default function NutritionAssistantPopup({ defaultOpen = true, fact }: NutritionAssistantPopupProps) {
     const [open, setOpen] = useState(() => defaultOpen)
