@@ -14,6 +14,8 @@ import {
     X,
     CalendarCheck,
     Moon,
+    Activity,
+    HeartPulse,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -146,6 +148,32 @@ const QUICK_ACTIONS: QuickAction[] = [
         gif: nutritionImg,
     },
 ]
+
+const SEVERITY_LABELS: Record<string, string> = {
+  minimal: 'Rất nhẹ',
+  mild: 'Nhẹ',
+  moderate: 'Trung bình',
+  moderately_severe: 'Khá cao',
+  severe: 'Cao',
+}
+
+const SEVERITY_COLORS: Record<string, string> = {
+  minimal: '#4caf50',
+  mild: '#8bc34a',
+  moderate: '#ff9800',
+  moderately_severe: '#e57373',
+  severe: '#c62828',
+}
+
+const getCombinedInsight = (phq9?: string, gad7?: string) => {
+  if (phq9 === 'minimal' && gad7 === 'minimal') {
+    return 'Tâm trạng và mức độ lo âu của bạn đang ở trạng thái rất tốt. Hãy tiếp tục duy trì lối sống lành mạnh!'
+  }
+  if ((phq9 === 'moderate' || phq9 === 'severe') && (gad7 === 'moderate' || gad7 === 'severe')) {
+    return 'Bạn đang có dấu hiệu căng thẳng và mệt mỏi khá cao. Hãy cân nhắc trò chuyện với Serene hoặc tìm kiếm sự hỗ trợ từ chuyên gia.'
+  }
+  return 'Có một vài biến động nhỏ trong tâm trạng hoặc lo âu. Hãy chú ý lắng nghe cơ thể và dành thời gian thư giãn nhiều hơn.'
+}
 
 function getGreeting(): string {
     const hour = new Date().getHours()
@@ -323,6 +351,16 @@ export default function Home() {
     const [nutritionTip, setNutritionTip] = useState<NutritionDailyTip | null>(null)
     const [homeMoodWords, setHomeMoodWords] = useState<string[]>([])
     const [quoteIndex, setQuoteIndex] = useState(0)
+    
+    const [phq9Result, setPhq9Result] = useState<{ raw_score: number, severity_label: string } | null>(null)
+    const [gad7Result, setGad7Result] = useState<{ raw_score: number, severity_label: string } | null>(null)
+
+    useEffect(() => {
+        const phq9 = localStorage.getItem('serene_screening_phq9')
+        const gad7 = localStorage.getItem('serene_screening_gad7')
+        if (phq9) setPhq9Result(JSON.parse(phq9))
+        if (gad7) setGad7Result(JSON.parse(gad7))
+    }, [])
     const [currentHour, setCurrentHour] = useState(() => new Date().getHours())
     const recoCards = useMemo(() => getRecoCards(currentHour, isDark), [currentHour, isDark])
     const currentSlot = useMemo<TimeSlot>(() => getCurrentTimeSlot(currentHour), [currentHour])
@@ -553,6 +591,88 @@ export default function Home() {
                             </div>
                         </div>
                     </div>
+                </section>
+
+                {/* ── Monitor Bài Test ── */}
+                <section className="bg-theme-surface/60 p-6 rounded-4xl backdrop-blur-xl border border-theme-border/50 shadow-sm">
+                    <div className="flex items-center justify-between gap-4 mb-5">
+                        <div>
+                            <h2 className="font-display text-3xl text-theme-text-primary">Giám sát sức khỏe</h2>
+                            <p className="mt-1 text-sm text-theme-text-secondary">
+                                Kết quả đánh giá gần nhất của bạn.
+                            </p>
+                        </div>
+                        <Activity className="h-6 w-6 text-theme-accent" />
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        {/* PHQ-9 */}
+                        <div className="bg-theme-surface/40 p-5 rounded-2xl border border-theme-border/30 flex flex-col justify-between min-h-[140px]">
+                            <div>
+                                <h3 className="font-semibold text-theme-text-primary flex items-center gap-2">
+                                    <HeartPulse className="h-5 w-5 text-rose-400" />
+                                    Tâm trạng (PHQ-9)
+                                </h3>
+                                {phq9Result ? (
+                                    <div className="mt-3">
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-3xl font-bold text-theme-accent">{phq9Result.raw_score}</span>
+                                            <span className="text-sm text-theme-text-secondary">/27</span>
+                                        </div>
+                                        <p className="text-sm font-medium mt-1" style={{ color: SEVERITY_COLORS[phq9Result.severity_label] }}>
+                                            Mức độ: {SEVERITY_LABELS[phq9Result.severity_label] || phq9Result.severity_label}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="mt-3 text-sm text-theme-text-secondary">
+                                        Bạn chưa làm bài test này.
+                                    </div>
+                                )}
+                            </div>
+                            {!phq9Result && (
+                                <Link to={ROUTE_PATHS.screening} className="text-sm text-theme-accent underline mt-2 inline-block hover:text-theme-accent/80">
+                                    Làm test ngay
+                                </Link>
+                            )}
+                        </div>
+
+                        {/* GAD-7 */}
+                        <div className="bg-theme-surface/40 p-5 rounded-2xl border border-theme-border/30 flex flex-col justify-between min-h-[140px]">
+                            <div>
+                                <h3 className="font-semibold text-theme-text-primary flex items-center gap-2">
+                                    <Leaf className="h-5 w-5 text-emerald-400" />
+                                    Lo âu (GAD-7)
+                                </h3>
+                                {gad7Result ? (
+                                    <div className="mt-3">
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-3xl font-bold text-theme-accent">{gad7Result.raw_score}</span>
+                                            <span className="text-sm text-theme-text-secondary">/21</span>
+                                        </div>
+                                        <p className="text-sm font-medium mt-1" style={{ color: SEVERITY_COLORS[gad7Result.severity_label] }}>
+                                            Mức độ: {SEVERITY_LABELS[gad7Result.severity_label] || gad7Result.severity_label}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="mt-3 text-sm text-theme-text-secondary">
+                                        Bạn chưa làm bài test này.
+                                    </div>
+                                )}
+                            </div>
+                            {!gad7Result && (
+                                <Link to={ROUTE_PATHS.screening} className="text-sm text-theme-accent underline mt-2 inline-block hover:text-theme-accent/80">
+                                    Làm test ngay
+                                </Link>
+                            )}
+                        </div>
+                    </div>
+
+                    {(phq9Result || gad7Result) && (
+                        <div className="mt-4 p-4 bg-theme-surface/30 rounded-xl border border-theme-border/20 text-sm text-theme-text-secondary">
+                            <span className="font-semibold text-theme-text-primary">Insight:</span>{' '}
+                            {getCombinedInsight(phq9Result?.severity_label, gad7Result?.severity_label)}
+                        </div>
+                    )}
                 </section>
 
                 {/* ── Dành cho bạn ── */}
