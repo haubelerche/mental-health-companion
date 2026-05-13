@@ -28,7 +28,7 @@ export default function MealCheckInCard() {
             const data = await nutritionService.getTodayCheckins()
             setStatus(data)
         } catch (error) {
-            console.error('Failed to load nutrition status', error)
+            toast.error('Không tải được thông tin dinh dưỡng', error)
         } finally {
             setLoading(false)
         }
@@ -76,7 +76,7 @@ export default function MealCheckInCard() {
             <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch">
                 <div className="flex-1">
                     <div className="flex items-center gap-3 mb-6">
-                        <Mascot variant="eat" size="sm" decorative />
+                        <Mascot variant="eat" size="md" decorative />
                         <div>
                             <p className="text-[10px] uppercase tracking-[0.3em] text-theme-text-secondary/60">Nhật ký ăn uống</p>
                             <h3 className="font-display text-2xl italic text-theme-text-primary">Hôm nay bạn ăn gì?</h3>
