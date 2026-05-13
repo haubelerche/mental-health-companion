@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { adminService } from '../../services/adminService'
 import { toast } from 'react-toastify'
-import { Zap, Plus, Activity, Bell, Brain, Database, Globe, Mail } from 'lucide-react'
+import { Zap, Plus, Activity, Bell, Brain, Database, Globe, Mail, Info } from 'lucide-react'
 import WorkerAutomationCard from './automation/WorkerAutomationCard'
 
 type Trigger = {
@@ -337,6 +337,27 @@ export default function AdminAutomation() {
                                     </div>
                                 </div>
                             )}
+
+                            <div className="space-y-4 bg-slate-800/50 p-6 rounded-3xl border border-white/5">
+                                <h3 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                                    <Info size={14} /> Hướng dẫn cấu hình JSON
+                                </h3>
+                                <div className="space-y-3 text-[11px] text-slate-400">
+                                    <div className="p-3 bg-black/30 rounded-xl border border-white/5">
+                                        <p className="font-bold text-slate-300 mb-1 flex items-center gap-2"><Bell size={12} /> Thông báo (batch_notification):</p>
+                                        <code className="text-indigo-300 block bg-black/20 p-2 rounded mt-1">{"{ \"title\": \"Chào buổi sáng\", \"body\": \"Nội dung...\" }"}</code>
+                                    </div>
+                                    <div className="p-3 bg-black/30 rounded-xl border border-white/5">
+                                        <p className="font-bold text-slate-300 mb-1 flex items-center gap-2"><Brain size={12} /> AI Phản hồi thư (ai_moderation):</p>
+                                        <code className="text-indigo-300 block bg-black/20 p-2 rounded mt-1">{"{ \"hours_threshold\": 1 }"}</code>
+                                        <p className="mt-1 text-[10px] italic opacity-70">(hours_threshold: Số giờ tối thiểu thư chờ trước khi AI rep)</p>
+                                    </div>
+                                    <div className="p-3 bg-black/30 rounded-xl border border-white/5">
+                                        <p className="font-bold text-slate-300 mb-1 flex items-center gap-2"><Database size={12} /> Crawler (resource_crawler):</p>
+                                        <code className="text-indigo-300 block bg-black/20 p-2 rounded mt-1">{"{ \"category\": \"meditation\", \"limit\": 3 }"}</code>
+                                    </div>
+                                </div>
+                            </div>
 
                             <div className="space-y-2">
                                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Cấu hình JSON (Tùy chọn)</label>
