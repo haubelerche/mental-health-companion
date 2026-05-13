@@ -113,21 +113,19 @@ export default function HeroScene() {
                         marginBottom: '1rem',
                         textShadow: '2px 2px 0 #020812, -1px -1px 0 #020812, 1px -1px 0 #020812, -1px 1px 0 #020812, 1px 1px 0 #020812'
                     }}>
-                        SereneAI·Người bạn đồng hành sức khoẻ tâm thần
+                        SereneAI·Sàng lọc và hỗ trợ sức khỏe tinh thần
                     </span>
 
                     <h1
                         className="pixel-headline"
                         style={{
-                            fontSize: 'clamp(4.5rem, 2.5vw, 2.5rem)',
                             maxWidth: '820px',
                             marginBottom: '1.5rem',
                             fontWeight: '700',
                             textShadow: '3px 3px 0 #020812, -1px -1px 0 #020812, 1px -1px 0 #020812, -1px 1px 0 #020812, 1px 1px 0 #020812'
                         }}
                     >
-                        Nơi an toàn để<br />
-                        bạn nói thật.
+                       Góc nhỏ yên bình để bạn được lắng nghe, thấu hiểu
                     </h1>
 
                     <p
@@ -167,22 +165,11 @@ export default function HeroScene() {
                 {/* Scroll hint — only on sunny */}
                 {phase === 'sunny' && (
                     <div className="hero-scroll-hint text-white font-bold" aria-hidden="true">
-                        <span
-                            style={{
-                                fontFamily: 'var(--font-pixel)',
-                                fontSize: '1.5rem',
-                               
-                                letterSpacing: '0.2em',
-                            }}
-                        >
-                            cuộn xuống
-                        </span>
                         <svg
-                            width="16"
-                            height="16"
+                            width="26"
+                            height="26"
                             viewBox="0 0 16 16"
                             fill="none"
-                          
                         >
                             <path
                                 d="M8 2L8 14M8 14L3 9M8 14L13 9"
