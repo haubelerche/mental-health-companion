@@ -46,7 +46,6 @@ export const useWebSocketNotifications = (
       wsRef.current?.readyState === WebSocket.OPEN ||
       wsRef.current?.readyState === WebSocket.CONNECTING
     ) {
-      console.debug("[WS] Already connected or connecting");
       return;
     }
     try {
@@ -57,11 +56,9 @@ export const useWebSocketNotifications = (
         return;
       }
       const wsUrl = `${wsBaseUrl}/v1/ws/notifications`;
-      console.log("[WS] Connecting to:", wsUrl);
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        console.log("[WS] Connected successfully");
         reconnectCountRef.current = 0;
         setIsConnected(true);
       };
@@ -69,16 +66,13 @@ export const useWebSocketNotifications = (
       ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
-          console.debug("[WS] Message:", message);
 
           switch (message.type) {
             case "connected":
-              console.log(`[WS] ${message.message} - User: ${message.user_id}`);
               break;
 
             case "notification":
               if (message.payload) {
-                console.log("[WS] New notification:", message.payload.notification_type);
                 const payload = message.payload as Partial<Notification>;
                 if (payload.notification_id && payload.notification_type && payload.title && payload.body) {
                   addNotification(payload as Notification);
@@ -103,7 +97,6 @@ export const useWebSocketNotifications = (
       };
 
       ws.onclose = (event) => {
-        console.log(`[WS] Disconnected (code: ${event.code}, reason: ${event.reason})`);
         wsRef.current = null;
         setIsConnected(false);
 
@@ -117,9 +110,6 @@ export const useWebSocketNotifications = (
         if (event.code !== 4001 && reconnectCountRef.current < reconnectAttempts) {
           reconnectCountRef.current += 1;
           const delay = reconnectInterval * Math.pow(2, reconnectCountRef.current - 1);
-          console.log(
-            `[WS] Reconnecting in ${delay}ms (attempt ${reconnectCountRef.current}/${reconnectAttempts})`
-          );
           reconnectTimeoutRef.current = window.setTimeout(() => {
             connectRef.current();
           }, delay);
