@@ -28,7 +28,7 @@ export default function MealCheckInCard() {
             const data = await nutritionService.getTodayCheckins()
             setStatus(data)
         } catch (error) {
-            toast.error('Không tải được thông tin dinh dưỡng', error)
+            toast.error('Không tải được dữ liệu checkin meal hôm nay!')
         } finally {
             setLoading(false)
         }
