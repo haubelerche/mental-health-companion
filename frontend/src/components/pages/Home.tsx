@@ -99,55 +99,6 @@ const getRecoCards = (hour: number, isDark: boolean): RecoCard[] => {
 
 }
 
-type QuickAction = {
-    icon: typeof Wind
-    label: string
-    desc: string
-    route: string
-    bgClass: string
-    iconClass: string
-    gif: string
-}
-
-const QUICK_ACTIONS: QuickAction[] = [
-    {
-        icon: MessageSquareText,
-        label: 'Chat với Serene',
-        desc: 'Luôn sẵn sàng',
-        route: ROUTE_PATHS.chat,
-        bgClass: 'bg-theme-accent/10',
-        iconClass: 'text-theme-accent',
-        gif: healingImg,
-    },
-    {
-        icon: Wind,
-        label: 'Bài thở',
-        desc: '1–5 phút',
-        route: ROUTE_PATHS.exercises,
-        bgClass: 'bg-theme-accent/10',
-        iconClass: 'text-theme-accent',
-        gif: beachMessageBg,
-    },
-    {
-        icon: BookOpen,
-        label: 'Check-in',
-        desc: 'Ghi nhận cảm xúc',
-        route: ROUTE_PATHS.checkin,
-        bgClass: 'bg-theme-accent/10',
-        iconClass: 'text-theme-accent',
-        gif: dayRhythmImg,
-    },
-    {
-        icon: BarChart2,
-        label: 'Dinh dưỡng',
-        desc: 'Ăn uống nâng mood',
-        route: ROUTE_PATHS.nutrition,
-        bgClass: 'bg-theme-accent/10',
-        iconClass: 'text-theme-accent',
-        gif: nutritionImg,
-    },
-]
-
 const SEVERITY_LABELS: Record<string, string> = {
   minimal: 'Rất nhẹ',
   mild: 'Nhẹ',
