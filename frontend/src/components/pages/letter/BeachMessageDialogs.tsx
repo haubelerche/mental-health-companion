@@ -255,7 +255,7 @@ export function WriteOverlay({ onClose, dark }: { onClose: () => void; dark?: bo
                             <textarea
                                 value={text}
                                 onChange={(e) => setText(e.target.value)}
-                                placeholder="Hãy trút bỏ nỗi lòng hoặc sẻ chia niềm hạnh phúc của bạn hôm nay..."
+                                placeholder="Hãy tâm sự trên 200 từ để nhận 15 tym nhé!"
                                 rows={6}
                                 autoFocus
                                 className="w-full rounded-[24px] p-6 font-display text-xl italic font-medium leading-relaxed resize-none outline-none transition-all bg-theme-border/5 text-theme-text-primary focus:ring-1 focus:ring-theme-accent/30"
@@ -270,7 +270,10 @@ export function WriteOverlay({ onClose, dark }: { onClose: () => void; dark?: bo
                                         try {
                                             await anonymousShareService.send({ content: text.trim() })
                                             setSent(true)
-                                            setTimeout(onClose, 1800)
+                                            setTimeout(() => {
+                                                onClose()
+                                                window.location.reload()
+                                            }, 1800)
                                         } catch (error) {
                                             if (error instanceof ApiRequestError) setSubmitError(error.message)
                                             else setSubmitError('Không thể gửi thư lúc này. Vui lòng thử lại.')
