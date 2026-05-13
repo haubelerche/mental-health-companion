@@ -1,11 +1,8 @@
 import {
     ArrowRight,
-    BarChart2,
-    BookOpen,
     ChevronLeft,
     Flame,
     Heart,
-    MessageSquareText,
     Wind,
     Leaf,
     Info,
@@ -14,7 +11,7 @@ import {
     CalendarCheck,
     Moon,
     Activity,
-    HeartPulse,
+    Gift,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -25,7 +22,6 @@ import morningRhythmImg from '../../assets/motion/serene-landing-day-welcome.gif
 import dayRhythmImg from '../../assets/motion/afternoon-serene-bamboo-page.gif'
 import eveningRhythmImg from '../../assets/motion/serene-landing-night-welcome.gif'
 import healingImg from '../../assets/motion/calmness.gif'
-import nutritionImg from '../../assets/motion/meo-buon-ba.gif'
 import { Link, useNavigate } from 'react-router-dom'
 import { homeService } from '../../services/homeService'
 import { rewardsService } from '../../services/rewardsService'
@@ -33,7 +29,6 @@ import { ROUTE_PATHS } from '../../routes/paths'
 import { CheckinHistoryModal } from '../dashboard/CheckinHistoryModal'
 import { MoodWordChips } from '../common/MoodWordChips'
 import { StreakBar } from '../common/StreakBar'
-import { WellnessRadar, type WellnessScores } from './wellness/WellnessRadar'
 import { useAuth } from '../../hooks/useAuth'
 import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
 import { useThemeContext } from '../../contexts/ThemeContext'
@@ -94,6 +89,18 @@ const getRecoCards = (hour: number, isDark: boolean): RecoCard[] => {
         cardClass: isDark
             ? 'bg-amber-950/18 border border-amber-800/20'
             : 'bg-amber-50/90 border border-amber-500/60',
+    },
+      {
+        icon: Gift,
+        label: "Cửa hàng vật phẩm",
+        desc: 'Đổi quà bằng điểm nỗ lực',
+        route: `${ROUTE_PATHS.rewards}`,
+        accentClass: isDark
+            ? 'bg-pink-500/12 text-pink-100 border border-pink-200'
+            : 'bg-pink-100 text-pink-900 border border-pink-500',
+        cardClass: isDark
+            ? 'bg-pink-950/18 border border-pink-800/20'
+            : 'bg-pink-50/90 border border-pink-500/60',
     },
 ]
 
@@ -535,9 +542,9 @@ export default function Home() {
                 <section className="bg-theme-surface/60 p-6 rounded-4xl backdrop-blur-xl border border-theme-border/50 shadow-sm">
                     <div className="flex items-center justify-between gap-4 mb-5">
                         <div>
-                            <h2 className="font-display text-3xl text-theme-text-primary">Giám sát sức khỏe</h2>
-                            <p className="mt-1 text-sm text-theme-text-secondary">
-                                Kết quả đánh giá gần nhất của bạn.
+                            <h2 className="font-display text-3xl text-theme-primary">Giám sát sức khỏe</h2>
+                            <p className="mt-1 text-theme-secondary">
+                                Kết quả đánh giá gần nhất của bạn
                             </p>
                         </div>
                         <Activity className="h-6 w-6 text-theme-accent" />
@@ -545,61 +552,101 @@ export default function Home() {
 
                     <div className="grid gap-4 sm:grid-cols-2">
                         {/* PHQ-9 */}
-                        <div className="bg-theme-surface/40 p-5 rounded-2xl border border-theme-border/30 flex flex-col justify-between min-h-[140px]">
+                        <div className="bg-theme-surface/40 p-5 rounded-xl border-2  border-theme-secondary  flex flex-col justify-between min-h-[160px] relative">
                             <div>
-                                <h3 className="font-semibold text-theme-text-primary flex items-center gap-2">
-                                    <HeartPulse className="h-5 w-5 text-rose-400" />
-                                    Tâm trạng (PHQ-9)
-                                </h3>
+                                <div className="flex justify-between items-center mb-2">
+                                    <h3 className="text-sm uppercase tracking-wider text-theme-text-primary flex items-center gap-2 font-bold">
+                                        MÔ-ĐUN: PHQ-9
+                                    </h3>
+                                    <span className="text-xs text-theme-text-secondary">TÂM TRẠNG</span>
+                                </div>
                                 {phq9Result ? (
-                                    <div className="mt-3">
+                                    <div className="mt-2">
                                         <div className="flex items-baseline gap-1">
-                                            <span className="text-3xl font-bold text-theme-accent">{phq9Result.raw_score}</span>
-                                            <span className="text-sm text-theme-text-secondary">/27</span>
+                                            <span className="text-4xl font-bold text-theme-accent">
+                                                {phq9Result.raw_score.toString().padStart(2, '0')}
+                                            </span>
+                                            <span className="text-lg text-theme-text-secondary">/27</span>
                                         </div>
-                                        <p className="text-sm font-medium mt-1" style={{ color: SEVERITY_COLORS[phq9Result.severity_label] }}>
-                                            Mức độ: {SEVERITY_LABELS[phq9Result.severity_label] || phq9Result.severity_label}
+                                        <p className="text-xs uppercase mt-2 font-semibold" style={{ color: SEVERITY_COLORS[phq9Result.severity_label] }}>
+                                            TRẠNG THÁI: {SEVERITY_LABELS[phq9Result.severity_label]?.toUpperCase() || phq9Result.severity_label.toUpperCase()}
                                         </p>
+                                        <div className="w-full bg-theme-border/20 h-1.5 mt-2 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full" 
+                                                style={{ 
+                                                    width: `${(phq9Result.raw_score / 27) * 100}%`,
+                                                    backgroundColor: SEVERITY_COLORS[phq9Result.severity_label]
+                                                }}
+                                            />
+                                        </div>
                                     </div>
                                 ) : (
-                                    <div className="mt-3 text-sm text-theme-text-secondary">
-                                        Bạn chưa làm bài test này.
+                                    <div className="mt-4 text-sm text-theme-text-secondary">
+                                        &gt; KHÔNG CÓ DỮ LIỆU
+                                        <br />
+                                        &gt; HỆ THỐNG YÊU CẦU KIỂM TRA
                                     </div>
                                 )}
                             </div>
                             {!phq9Result && (
-                                <Link to={ROUTE_PATHS.screening} className="text-sm text-theme-accent underline mt-2 inline-block hover:text-theme-accent/80">
-                                    Làm test ngay
+                                <Link to={ROUTE_PATHS.screening} className="text-xs text-theme-accent hover:underline mt-2 inline-block">
+                                    &gt; BẮT ĐẦU ĐÁNH GIÁ
+                                </Link>
+                            )}
+                            {phq9Result && (
+                                <Link to={ROUTE_PATHS.screening} className="text-sm text-theme-accent hover:underline mt-2 inline-block absolute bottom-2 right-2">
+                                    Thử làm lại
                                 </Link>
                             )}
                         </div>
 
                         {/* GAD-7 */}
-                        <div className="bg-theme-surface/40 p-5 rounded-2xl border border-theme-border/30 flex flex-col justify-between min-h-[140px]">
+                        <div className="bg-theme-surface/40 p-5 rounded-xl border-2  border-theme-secondary  flex flex-col justify-between min-h-[160px] relative">
                             <div>
-                                <h3 className="font-semibold text-theme-text-primary flex items-center gap-2">
-                                    <Leaf className="h-5 w-5 text-emerald-400" />
-                                    Lo âu (GAD-7)
-                                </h3>
+                                <div className="flex justify-between items-center mb-2">
+                                    <h3 className="text-sm uppercase tracking-wider text-theme-text-primary flex items-center gap-2 font-bold">
+                                        MÔ-ĐUN: GAD-7
+                                    </h3>
+                                    <span className="text-xs text-theme-text-secondary">LO ÂU</span>
+                                </div>
                                 {gad7Result ? (
-                                    <div className="mt-3">
+                                    <div className="mt-2">
                                         <div className="flex items-baseline gap-1">
-                                            <span className="text-3xl font-bold text-theme-accent">{gad7Result.raw_score}</span>
-                                            <span className="text-sm text-theme-text-secondary">/21</span>
+                                            <span className="text-4xl font-bold text-theme-accent">
+                                                {gad7Result.raw_score.toString().padStart(2, '0')}
+                                            </span>
+                                            <span className="text-lg text-theme-text-secondary">/21</span>
                                         </div>
-                                        <p className="text-sm font-medium mt-1" style={{ color: SEVERITY_COLORS[gad7Result.severity_label] }}>
-                                            Mức độ: {SEVERITY_LABELS[gad7Result.severity_label] || gad7Result.severity_label}
+                                        <p className="text-xs uppercase mt-2 font-semibold" style={{ color: SEVERITY_COLORS[gad7Result.severity_label] }}>
+                                            TRẠNG THÁI: {SEVERITY_LABELS[gad7Result.severity_label]?.toUpperCase() || gad7Result.severity_label.toUpperCase()}
                                         </p>
+                                        <div className="w-full bg-theme-border/20 h-1.5 mt-2 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full" 
+                                                style={{ 
+                                                    width: `${(gad7Result.raw_score / 21) * 100}%`,
+                                                    backgroundColor: SEVERITY_COLORS[gad7Result.severity_label]
+                                                }}
+                                            />
+                                        </div>
                                     </div>
                                 ) : (
-                                    <div className="mt-3 text-sm text-theme-text-secondary">
-                                        Bạn chưa làm bài test này.
+                                    <div className="mt-4 text-sm text-theme-text-secondary">
+                                        &gt; KHÔNG CÓ DỮ LIỆU
+                                        <br />
+                                        &gt; HỆ THỐNG YÊU CẦU KIỂM TRA
                                     </div>
                                 )}
                             </div>
                             {!gad7Result && (
-                                <Link to={ROUTE_PATHS.screening} className="text-sm text-theme-accent underline mt-2 inline-block hover:text-theme-accent/80">
+                                <Link to={ROUTE_PATHS.screening} className="text-sm text-theme-accent hover:underline mt-2 inline-block">
                                     Làm test ngay
+                                </Link>
+                            )}
+                            {gad7Result && (
+                                <Link to={ROUTE_PATHS.screening} className="text-sm text-theme-accent hover:underline mt-2 inline-block absolute bottom-2 right-2">
+                                    Thử làm lại
                                 </Link>
                             )}
                         </div>
@@ -607,13 +654,13 @@ export default function Home() {
 
                     {(phq9Result || gad7Result) && (
                         <div className="mt-4 p-4 bg-theme-surface/30 rounded-xl border border-theme-border/20 text-sm text-theme-text-secondary">
-                            <span className="font-semibold text-theme-text-primary">Insight:</span>{' '}
+                            <span className="font-bold text-theme-accent">Insight:</span>{' '}
                             {getCombinedInsight(phq9Result?.severity_label, gad7Result?.severity_label)}
                         </div>
                     )}
                 </section>
 
-                {/* ── Dành cho bạn ── */}
+                {/* ── Gợi ý nhẹ nhàng ── */}
                 <section className="bg-theme-surface/60 p-6 rounded-4xl backdrop-blur-xl border border-theme-border/50 shadow-sm">
 
                     <div className="flex items-center justify-between gap-4">
@@ -623,13 +670,6 @@ export default function Home() {
                                 Chọn một lối vào ngắn, nhẹ và đúng nhu cầu hiện tại để bạn bắt đầu nhanh hơn.
                             </p>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => navigate(ROUTE_PATHS.exercises)}
-                            className="font-medium text-theme-accent underline underline-offset-4 cursor-pointer transition hover:text-theme-accent/70"
-                        >
-                            Xem tất cả
-                        </button>
                     </div>
 
                     <Link
@@ -648,7 +688,7 @@ export default function Home() {
                         </div>
                     </Link>
 
-                    <div className="flex gap-4 justify-center mt-5 flex-wrap">
+                    <div className="flex gap-4 mt-5 flex-wrap">
                         {recoCards.map((card) => {
                             const RecoIcon = card.icon
                             return (
