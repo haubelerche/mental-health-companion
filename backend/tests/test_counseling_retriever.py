@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unicodedata
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 
@@ -108,16 +109,25 @@ class TestBuildMentalchatExamples:
 
     def test_sos_path_not_called_directly(self):
         # _build_mentalchat_examples is never called on SOS path (SOS is handled before LangGraph).
-        # Verify: distress < 0.42 returns empty (quick path guard).
+        # Verify: disabled legacy prompt path returns empty.
         result = self._call(distress_score=0.30)
         assert result == ""
 
-    def test_low_distress_returns_empty(self):
-        result = self._call(distress_score=0.41)
+    def test_legacy_raw_counseling_prompt_injection_disabled_by_default(self):
+        with patch(
+            "app.services.counseling_retriever.get_similar_counseling_examples",
+            return_value=[{"instruction": "Q", "response": "RAW_SHOULD_NOT_LEAK"}],
+        ) as mock_fn:
+            result = self._call(distress_score=0.90)
+
+        mock_fn.assert_not_called()
         assert result == ""
 
-    def test_distress_at_threshold_tries_retriever(self):
+    def test_enabled_legacy_path_tries_retriever(self):
         with patch(
+            "app.services.langgraph_chat.get_settings",
+            return_value=SimpleNamespace(counseling_examples_prompt_enabled=True),
+        ), patch(
             "app.services.counseling_retriever.get_similar_counseling_examples",
             return_value=[],
         ) as mock_fn:
@@ -125,7 +135,7 @@ class TestBuildMentalchatExamples:
             mock_retriever.is_ready = False
             with patch("app.services.mental_chat_retriever.MentalChatRetriever") as mock_cls:
                 mock_cls.instance.return_value = mock_retriever
-                result = self._call(distress_score=0.42)
+                result = self._call(distress_score=0.55)
         mock_fn.assert_called_once()
         assert result == ""
 
@@ -136,6 +146,9 @@ class TestBuildMentalchatExamples:
             return [example] * top_k
 
         with patch(
+            "app.services.langgraph_chat.get_settings",
+            return_value=SimpleNamespace(counseling_examples_prompt_enabled=True),
+        ), patch(
             "app.services.counseling_retriever.get_similar_counseling_examples",
             side_effect=_fake_retriever,
         ) as mock_fn:
@@ -153,6 +166,9 @@ class TestBuildMentalchatExamples:
             return [example] * top_k
 
         with patch(
+            "app.services.langgraph_chat.get_settings",
+            return_value=SimpleNamespace(counseling_examples_prompt_enabled=True),
+        ), patch(
             "app.services.counseling_retriever.get_similar_counseling_examples",
             side_effect=_fake_retriever,
         ) as mock_fn:
@@ -169,12 +185,16 @@ class TestBuildMentalchatExamples:
 
         with (
             patch(
+                "app.services.langgraph_chat.get_settings",
+                return_value=SimpleNamespace(counseling_examples_prompt_enabled=True),
+            ),
+            patch(
                 "app.services.counseling_retriever.get_similar_counseling_examples",
                 return_value=[],
             ),
             patch("app.services.mental_chat_retriever.MentalChatRetriever") as mock_cls,
         ):
             mock_cls.instance.return_value = mock_retriever
-            result = self._call(distress_score=0.50)
+            result = self._call(distress_score=0.55)
 
         assert "fallback Q" in result

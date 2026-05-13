@@ -6,6 +6,14 @@ from pydantic import Field, model_validator
 
 from .contracts import AdvisorAdvice, StrictSchema
 
+_FORBIDDEN_USER_FACING_ADVISOR_KEYS = {
+    "final_text",
+    "assistant_response",
+    "reply",
+    "message_to_user",
+    "user_message_text",
+}
+
 
 class AdvisorAdviceEnvelope(StrictSchema):
     advice: AdvisorAdvice
@@ -15,8 +23,10 @@ class AdvisorAdviceEnvelope(StrictSchema):
     def _reject_final_text(cls, data):
         if isinstance(data, dict):
             payload = data.get("advice") if isinstance(data.get("advice"), dict) else data
-            if isinstance(payload, dict) and "final_text" in payload:
-                raise ValueError("advisor output must not include final_text")
+            if isinstance(payload, dict):
+                forbidden = sorted(_FORBIDDEN_USER_FACING_ADVISOR_KEYS & set(payload))
+                if forbidden:
+                    raise ValueError(f"advisor output must not include user-facing fields: {', '.join(forbidden)}")
         return data
 
 
@@ -46,6 +56,11 @@ class AdvisorCase(StrictSchema):
     source_response_summary: str | None = Field(default=None, max_length=700)
     safety_review_status: str = Field(default="pending", max_length=30)
     quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    source: str | None = Field(default=None, max_length=120)
+    advisor_domains: list[str] = Field(default_factory=list, max_length=8)
+    safety_constraints: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    reviewed_by: str | None = Field(default=None, max_length=120)
     retrieval_score: float | None = Field(default=None)
 
 

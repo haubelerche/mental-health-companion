@@ -5,12 +5,17 @@ This service is intentionally fail-safe: Mem0 errors never break chat flows.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+from uuid import uuid4
 
 from app.core.config import get_settings
+from app.services.db.session import get_session_factory
 from app.services.observability import record_event, record_metric
+from app.services.utils import get_now
+from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
@@ -114,8 +119,22 @@ class MemoryManager:
             cls._instance = cls()
         return cls._instance
 
-    def add_session(self, user_id: str, messages: list[dict[str, str]]) -> None:
-        if not self._enabled or not self._client or not user_id or not messages:
+    def add_session(
+        self,
+        user_id: str,
+        messages: list[dict[str, str]],
+        *,
+        user_name: str | None = None,
+    ) -> None:
+        if not user_id or not messages:
+            return
+        if not self._enabled or not self._client:
+            self._persist_payload_fallback(
+                user_id=user_id,
+                messages=messages,
+                reason_code="mem0_disabled",
+                user_name=user_name,
+            )
             return
         try:
             self._client.add(messages, user_id=user_id, metadata={"source": "session_summary"})
@@ -123,6 +142,14 @@ class MemoryManager:
             reason_code = "contract_error" if _is_mem0_contract_error(exc) else "runtime_error"
             record_event("mem0.add_failed", metadata={"reason_code": reason_code})
             logger.warning("mem0 add_session failed for %s: %s", user_id, exc)
+            # Fail-open fallback: preserve durable ownership-scoped memory visibility
+            # even when upstream embed/search providers are temporarily unavailable.
+            self._persist_payload_fallback(
+                user_id=user_id,
+                messages=messages,
+                reason_code=reason_code,
+                user_name=user_name,
+            )
 
     def search(self, user_id: str, query: str, limit: int = 5) -> list[str]:
         if not self._enabled or not self._client or not user_id:
@@ -178,6 +205,48 @@ class MemoryManager:
         except Exception as exc:
             logger.warning("mem0 delete_user failed for %s: %s", user_id, exc)
 
+    def _persist_payload_fallback(
+        self,
+        *,
+        user_id: str,
+        messages: list[dict[str, str]],
+        reason_code: str,
+        user_name: str | None,
+    ) -> None:
+        summary = _messages_to_memory_text(messages, user_name=user_name)
+        if not summary:
+            return
+        payload = {
+            "user_id": user_id,
+            "data": summary,
+            "source": "session_summary_fallback",
+            "created_at": get_now().isoformat(),
+            "fallback_reason": reason_code,
+            "user_name": str(user_name or "bạn"),
+        }
+        db = get_session_factory()()
+        try:
+            db.execute(
+                text(
+                    """
+                    INSERT INTO app.mem0_memories (id, payload)
+                    VALUES (CAST(:id AS uuid), CAST(:payload AS jsonb))
+                    """
+                ),
+                {
+                    "id": str(uuid4()),
+                    "payload": json.dumps(payload, ensure_ascii=False),
+                },
+            )
+            db.commit()
+            record_event("mem0.add_fallback_persisted", metadata={"reason_code": reason_code})
+        except Exception as fallback_exc:
+            db.rollback()
+            record_event("mem0.add_fallback_failed", metadata={"reason_code": "db_insert_failed"})
+            logger.warning("mem0 fallback insert failed for %s: %s", user_id, fallback_exc)
+        finally:
+            db.close()
+
 
 def _is_mem0_contract_error(exc: Exception) -> bool:
     msg = str(exc).lower()
@@ -186,3 +255,21 @@ def _is_mem0_contract_error(exc: Exception) -> bool:
         or "top-level entity parameters" in msg
         or "not supported" in msg
     )
+
+
+def _messages_to_memory_text(messages: list[dict[str, str]], *, user_name: str | None) -> str:
+    user_lines: list[str] = []
+    for item in messages:
+        role = str(item.get("role") or "").strip().lower()
+        content = str(item.get("content") or "").strip()
+        if role == "user" and content:
+            user_lines.append(content)
+    seed = " ".join(user_lines[-3:]).strip()
+    if not seed:
+        seed = " ".join(str(item.get("content") or "").strip() for item in messages[-3:] if str(item.get("content") or "").strip())
+    seed = " ".join(seed.split())
+    if not seed:
+        return ""
+    safe_user = str(user_name or "bạn").strip() or "bạn"
+    statement = f"{safe_user} đã {seed}"
+    return statement[:500]

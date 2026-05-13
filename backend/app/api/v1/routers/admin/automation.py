@@ -16,6 +16,7 @@ async def get_automation_status(
     claims: dict = Depends(get_admin_claims),
 ):
     enforce_admin_ip(request)
+    await worker_manager.ensure_initialized()
     return ok(worker_manager.get_status())
 
 @router.post("/automation/toggle")
@@ -26,6 +27,7 @@ async def toggle_worker(
     claims: dict = Depends(get_admin_claims),
 ):
     enforce_admin_ip(request)
+    await worker_manager.ensure_initialized()
     success = worker_manager.toggle(worker_name, active)
     return ok({"success": success, "status": worker_manager.get_status()})
 
@@ -121,6 +123,7 @@ async def update_worker_config(
     claims: dict = Depends(get_admin_claims),
 ):
     enforce_admin_ip(request)
+    await worker_manager.ensure_initialized()
     success = worker_manager.update_config(worker_name, interval_min, daily_time)
     return ok({"success": success, "status": worker_manager.get_status()})
 
@@ -131,6 +134,7 @@ async def run_worker_now(
     claims: dict = Depends(get_admin_claims),
 ):
     enforce_admin_ip(request)
+    await worker_manager.ensure_initialized()
     if worker_name in worker_manager.workers:
         worker = worker_manager.workers[worker_name]
         if worker.running:

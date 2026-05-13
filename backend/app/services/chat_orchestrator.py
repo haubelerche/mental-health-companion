@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 import time
 from typing import Any
 
@@ -417,6 +419,102 @@ class ChatOrchestrator:
         )
 
     @staticmethod
+    def log_advisor_consultation_event(
+        *,
+        db,
+        request_id: str,
+        user_message: str,
+        interaction_need: str,
+        route_reason_codes: list[str] | None,
+        advisor_advice: list[AdvisorAdvice],
+        used_advisor_ids: list[str],
+        session_id: str | None = None,
+        user_id: str | None = None,
+        final_response_message_id: str | None = None,
+        risk_level: str | None = None,
+        latency_ms: int | None = None,
+        model_version: str | None = None,
+        retriever_version: str | None = "advisor_case_library.v1",
+        counseling_guidance: Any | None = None,
+    ) -> None:
+        """Persist a privacy-safe advisor consultation trace.
+
+        The event deliberately stores a query hash and bounded structured advice
+        metadata, not raw user text.
+        """
+        if db is None:
+            return
+        try:
+            from sqlalchemy import text
+
+            advisor_ids = [str(item.advisor_id) for item in advisor_advice if str(item.advisor_id or "").strip()]
+            case_refs: list[str] = []
+            prompt_included_case_count = 0
+            approved_case_count = 0
+            if counseling_guidance is not None:
+                case_refs = [str(item) for item in list(getattr(counseling_guidance, "case_refs", []) or []) if str(item).strip()]
+                prompt_included_case_count = len(case_refs)
+                approved_case_count = len(case_refs)
+            output_redacted = {
+                "advisor_ids": advisor_ids[:8],
+                "used_advisor_ids": [str(item) for item in used_advisor_ids[:8]],
+                "confidence": {
+                    str(item.advisor_id): float(item.confidence or 0.0)
+                    for item in advisor_advice[:8]
+                },
+                "move_counts": {
+                    str(item.advisor_id): len(item.suggested_response_moves or [])
+                    for item in advisor_advice[:8]
+                },
+            }
+            db.execute(
+                text(
+                    """
+                    INSERT INTO app.advisor_consultation_events (
+                        request_id, session_id, user_id, advisor_ids, advisor_domains,
+                        query_text_hash, interaction_need, risk_level, route_reason_codes,
+                        retrieved_case_ids, advisor_output_redacted, used_by_friend,
+                        final_response_message_id, prompt_included_case_count,
+                        approved_case_count, blocked_case_count, raw_response_in_prompt,
+                        latency_ms, model_version, retriever_version
+                    )
+                    VALUES (
+                        :request_id, :session_id, :user_id, :advisor_ids, :advisor_domains,
+                        :query_text_hash, :interaction_need, :risk_level, :route_reason_codes,
+                        :retrieved_case_ids, CAST(:advisor_output_redacted AS jsonb), :used_by_friend,
+                        :final_response_message_id, :prompt_included_case_count,
+                        :approved_case_count, :blocked_case_count, false,
+                        :latency_ms, :model_version, :retriever_version
+                    )
+                    """
+                ),
+                {
+                    "request_id": str(request_id or "unknown"),
+                    "session_id": session_id,
+                    "user_id": user_id,
+                    "advisor_ids": advisor_ids,
+                    "advisor_domains": [],
+                    "query_text_hash": hashlib.sha256(str(user_message or "").encode("utf-8")).hexdigest(),
+                    "interaction_need": interaction_need,
+                    "risk_level": risk_level,
+                    "route_reason_codes": list(route_reason_codes or []),
+                    "retrieved_case_ids": case_refs,
+                    "advisor_output_redacted": json.dumps(output_redacted, ensure_ascii=False),
+                    "used_by_friend": bool(used_advisor_ids),
+                    "final_response_message_id": final_response_message_id,
+                    "prompt_included_case_count": prompt_included_case_count,
+                    "approved_case_count": approved_case_count,
+                    "blocked_case_count": 0,
+                    "raw_response_in_prompt": False,
+                    "latency_ms": latency_ms,
+                    "model_version": model_version,
+                    "retriever_version": retriever_version,
+                },
+            )
+        except Exception as _exc:
+            record_event("advisor.consultation_log_failed", metadata={"reason_code": type(_exc).__name__})
+
+    @staticmethod
     def _routing_history_for(route_tier: str) -> list[str]:
         if route_tier == "advisor_assisted":
             return ["advisor_pool", "friend"]
@@ -467,7 +565,13 @@ class ChatOrchestrator:
         apply_output_policy_or_fallback,
         policy_decision,
         route_reason_codes: list[str] | None = None,
+        consultation_db=None,
+        request_id: str | None = None,
+        session_id: str | None = None,
+        user_id: str | None = None,
+        final_response_message_id: str | None = None,
     ) -> "GeneratedNormalTurn":
+        advisor_started = time.perf_counter()
         selected_advisor_ids = planned_advisor_ids if route_tier == "advisor_assisted" else []
         interaction_need = classify_interaction_need(
             user_message,
@@ -558,6 +662,22 @@ class ChatOrchestrator:
                     "final_text_chars": len(friend_result.final_text or ""),
                 },
                 metadata={"route_tier": route_tier, "advisor_count": len(friend_result.used_advisor_ids or [])},
+            )
+        if route_tier == "advisor_assisted":
+            ChatOrchestrator.log_advisor_consultation_event(
+                db=consultation_db,
+                request_id=request_id or "advisor_assisted_turn",
+                session_id=session_id,
+                user_id=user_id,
+                final_response_message_id=final_response_message_id,
+                user_message=user_message,
+                interaction_need=interaction_need,
+                route_reason_codes=route_reason_codes,
+                advisor_advice=advisor_advice,
+                used_advisor_ids=list(friend_result.used_advisor_ids or []),
+                risk_level=str(getattr(policy_decision, "risk_level", "")) or None,
+                latency_ms=int((time.perf_counter() - advisor_started) * 1000),
+                counseling_guidance=counseling_guidance,
             )
         with start_span("output_validator.run"):
             assistant_text = apply_output_policy_or_fallback(
