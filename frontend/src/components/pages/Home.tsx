@@ -924,70 +924,7 @@ export default function Home() {
                         })}
                     </div>
                 </section>
-
-                {/* ── Wellness radar mini preview ── */}
-                <button
-                    type="button"
-                    onClick={() => navigate(ROUTE_PATHS.reflect)}
-                    className="group relative w-full overflow-hidden rounded-3xl bg-theme-surface/50 p-7 text-left backdrop-blur-xl shadow-lg hover:brightness-105 transition-all"
-                >
-
-                    <div className="flex items-center justify-between gap-5">
-                        <div className="flex-1">
-                            <motion.p
-                                initial={{ opacity: 0.8 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ duration: 1.5, repeat: Infinity }}
-                                className="text-xs uppercase tracking-[0.22em] font-semibold text-theme-text-primary/90"
-                            >
-                                ✨ Hành trình của bạn tuần này
-                            </motion.p>
-                            <h3 className="mt-2 font-display text-2xl text-theme-text-primary">
-                                Bức tranh sức khoẻ
-                            </h3>
-
-                            <motion.div
-                                animate={{ x: [0, 4, 0] }}
-                                transition={{ duration: 1.2, repeat: Infinity }}
-                                className="mt-3"
-                            >
-                                <ArrowRight className="h-5 w-5 text-theme-text-primary/70 transition group-hover:translate-x-1" />
-                            </motion.div>
-                        </div>
-                        <div className="relative shrink-0">
-                            {wellnessScores ? (
-                                <motion.div
-                                    initial={{ scale: 0.8, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    transition={{ duration: 1.5, ease: 'easeOut' }}
-                                >
-                                    <WellnessRadar scores={wellnessScores} mini />
-                                </motion.div>
-                            ) : (
-                                <motion.div
-                                    initial={{ scale: 0.9, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    transition={{ duration: 0.4, ease: 'easeOut' }}
-                                    className="flex h-39 w-32 items-center justify-center rounded-3xl bg-theme-surface/20 backdrop-blur-sm border border-theme-border/20"
-                                >
-                                    <div className="text-center px-3">
-                                        <motion.div
-                                            animate={{ y: [-2, 2, -2] }}
-                                            transition={{ duration: 2, repeat: Infinity }}
-                                            className="mb-2 flex justify-center text-theme-accent"
-                                        >
-                                            <Mascot variant="sunflower" size="lg" decorative />
-                                        </motion.div>
-                                        <p className="text-center text-[11px] text-theme-text-secondary leading-relaxed font-medium">
-                                            Hãy check-in cảm xúc để khám phá sức khỏe của bạn
-                                        </p>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </div>
-                    </div>
-                </button>
-
+             
                 {detailReminder && (
                     <motion.div
                         initial={{ opacity: 0 }}
