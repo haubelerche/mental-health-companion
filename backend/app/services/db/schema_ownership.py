@@ -171,6 +171,36 @@ SCHEMA_OWNERSHIP: dict[str, TableOwnership] = {
         "counseling_case_library",
         "Processed internal counseling guidance cases used by CounselingAdvisorService.",
     ),
+    "advisor_domains": TableOwnership(
+        "advisor_domains",
+        "active_canonical",
+        "counseling_case_library",
+        "Runtime advisor domain catalog mapping short domains to advisor IDs.",
+    ),
+    "advisor_case_domain_map": TableOwnership(
+        "advisor_case_domain_map",
+        "active_canonical",
+        "counseling_case_library",
+        "Many-to-many case to advisor-domain mapping for runtime retrieval.",
+    ),
+    "advisor_dataset_imports": TableOwnership(
+        "advisor_dataset_imports",
+        "active_canonical",
+        "counseling_case_library",
+        "Import batch audit table for advisor JSONL staging.",
+    ),
+    "advisor_dataset_staging": TableOwnership(
+        "advisor_dataset_staging",
+        "active_canonical",
+        "counseling_case_library",
+        "Validated staging rows before promotion into advisor_case_library.",
+    ),
+    "advisor_consultation_events": TableOwnership(
+        "advisor_consultation_events",
+        "active_canonical",
+        "counseling_case_library",
+        "Privacy-safe runtime trace for advisor-assisted turns.",
+    ),
     "user_notifications": TableOwnership(
         "user_notifications", "active_canonical", "notifications", "Notification history."
     ),
