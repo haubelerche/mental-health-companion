@@ -904,8 +904,8 @@ export default function Chat() {
 
                 {/*  Scene panel: pixel art background  */}
                 <div
-                    className="relative shrink-0"
-                    style={{ height: 'clamp(132px, 22vh, 210px)' }}
+                    className="relative shrink-0 overflow-hidden resize-y"
+                    style={{ height: '22vh', minHeight: '132px', maxHeight: '400px' }}
                 >
                     <img
                         src={chatSceneBg}
@@ -1238,22 +1238,14 @@ export default function Chat() {
                             <span className="hidden font-mono text-sm text-[#3a6040]/65 sm:inline" aria-hidden="true">
                                 &gt;&gt;
                             </span>
-                            <textarea
+                            <input
+                                type="text"
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 disabled={isGuestMode && guestSecondsLeft <= 0}
                                 data-tour-id="chat-input"
                                 placeholder="Chia sẻ điều bạn đang cảm thấy..."
-                                className="flex-1 border-0 bg-transparent px-2 py-1.5 text-sm text-[#b8dfc8] placeholder:text-[#fff4dc]/20 focus:outline-none resize-y min-h-[36px]"
-                                rows={1}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                        e.preventDefault()
-                                        if (canSend) {
-                                            void doSend(input.trim())
-                                        }
-                                    }
-                                }}
+                                className="flex-1 border-0 bg-transparent px-2 py-1.5 text-sm text-[#b8dfc8] placeholder:text-[#fff4dc]/20 focus:outline-none"
                             />
                             <button
                                 type="submit"
