@@ -17,7 +17,7 @@ class GateResult:
     progress: dict[str, object] = field(default_factory=dict)
 
 
-_CORE_PERSONAS = frozenset({"dung_luong", "nguoi_thay"})
+_CORE_PERSONAS = frozenset({"dung_luong", "dat_le"})
 
 
 def check_unlock_gate(persona_id: str, *, is_unlocked: bool) -> GateResult:
@@ -47,7 +47,7 @@ def check_safety_gate(
     if sos_triggered:
         return GateResult(allowed=False, blocked_reason="safety_crisis_bypass")
 
-    if persona_id == "nguoi_thay" and distress >= 0.70:
+    if persona_id == "dat_le" and distress >= 0.70:
         return GateResult(allowed=False, blocked_reason="safety_distress_override")
 
     if persona_id == "hau_luong":
