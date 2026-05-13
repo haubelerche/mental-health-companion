@@ -461,7 +461,7 @@ export default function Home() {
                             decorative
                             className="hidden sm:block"
                         />
-                        <h1 className={`mt-1 font-display text-2xl italic ${isDark ? 'text-theme-text-primary' : 'text-white'} sm:text-3xl`}>
+                        <h1 className={`mt-1 font-display text-2xl italic ${isDark ? 'text-theme-text-primary' : 'text-white'} sm:text-4xl`}>
                             {getGreeting()}! {displayName}
                         </h1>
                     </div>
