@@ -1,4 +1,4 @@
-from types import SimpleNamespace
+﻿from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
@@ -153,7 +153,7 @@ def test_chat_message_sos_skips_graph(monkeypatch):
 
     try:
         with TestClient(app) as client:
-            resp = client.post("/v1/chat/message", json={"message": "Tôi muốn tự tử"})
+            resp = client.post("/v1/chat/message", json={"message": "TÃ´i muá»‘n tá»± tá»­"})
         assert resp.status_code == 200
         body = resp.json()
         assert body["success"] is True
@@ -206,7 +206,7 @@ def test_chat_message_non_sos_triggers_proactive_voice(monkeypatch):
                 safety_tier="critical",
                 conversation_mode="supportive",
             ),
-            "reply": "Mình luôn ở đây với cậu.",
+            "reply": "MÃ¬nh luÃ´n á»Ÿ Ä‘Ã¢y vá»›i cáº­u.",
             "assistant_tone": "calming",
             "goi_y_nhanh": [],
             "the_dinh_kem": [],
@@ -399,7 +399,7 @@ def test_chat_message_non_sos_passes_routed_persona_to_langgraph(monkeypatch):
     monkeypatch.setattr(
         chat_router,
         "_active_persona_id",
-        lambda _db, _uid, distress=0.0, requested_persona_id=None: "nguoi_thay",
+        lambda _db, _uid, distress=0.0, requested_persona_id=None: "dat_le",
     )
 
     def override_db():
