@@ -461,7 +461,7 @@ export default function Home() {
                             decorative
                             className="hidden sm:block"
                         />
-                        <h1 className={`mt-1 font-display text-2xl italic ${isDark ? 'text-theme-text-primary' : 'text-white'} sm:text-3xl`}>
+                        <h1 className={`mt-1 font-display text-2xl italic ${isDark ? 'text-theme-text-primary' : 'text-white'} sm:text-4xl`}>
                             {getGreeting()}! {displayName}
                         </h1>
                     </div>
@@ -672,13 +672,13 @@ export default function Home() {
                                 </div>
                             </div>
 
-                            <div className="relative min-h-[212px] overflow-hidden rounded-3xl bg-theme-surface/80 p-5 sm:p-6 shadow-sm border border-theme-border/30">
+                            <div className="relative min-h-[212px] overflow-hidden rounded-3xl  p-5 sm:p-6 shadow-sm border border-theme-border/30">
                                 <img
                                     src={beachMessageBg}
                                     alt="Nền sóng biển dịu để làm nổi bật câu nhắc"
-                                    className="absolute inset-0 h-full w-full object-cover opacity-20"
+                                    className="absolute inset-0 h-full w-full object-cover "
                                 />
-                                <div className="absolute inset-0 bg-theme-bg-primary/20" />
+                                <div className="absolute inset-0 bg-gradient-to-b from-theme-surface/80 via-theme-surface/80 to-transparent" />
 
                                 <AnimatePresence mode="wait">
                                     <motion.div
@@ -751,7 +751,7 @@ export default function Home() {
                                 alt="Serene đang ăn nhẹ"
                                 className="absolute inset-0 m-auto h-32 w-32"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent" />
                             <div className="absolute inset-x-0 bottom-0 p-4 text-white">
                                 <p className="text-xs uppercase tracking-[0.19em] text-theme-text-secondary">Nuôi dưỡng cơ thể</p>
                                 <p className="mt-1 text-xs font-semibold">Ăn đủ để mood cũng được nâng lên</p>

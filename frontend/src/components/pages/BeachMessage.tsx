@@ -187,7 +187,7 @@ export default function BeachMessage() {
           onReportSuccess={refreshData}
         />
       )}
-      {showWrite && <BeachWriteOverlay dark={isDark} onClose={() => setShowWrite(false)} />}
+      {showWrite && <BeachWriteOverlay dark={isDark} onClose={() => setShowWrite(false)} onSuccess={refreshData} />}
     </div>
   )
 }

@@ -904,8 +904,8 @@ export default function Chat() {
 
                 {/*  Scene panel: pixel art background  */}
                 <div
-                    className="relative shrink-0 overflow-hidden"
-                    style={{ height: 'clamp(132px, 22vh, 210px)' }}
+                    className="relative shrink-0 overflow-hidden resize-y"
+                    style={{ height: '22vh', minHeight: '132px', maxHeight: '400px' }}
                 >
                     <img
                         src={chatSceneBg}
@@ -1239,6 +1239,7 @@ export default function Chat() {
                                 &gt;&gt;
                             </span>
                             <input
+                                type="text"
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 disabled={isGuestMode && guestSecondsLeft <= 0}
