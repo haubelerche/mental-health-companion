@@ -4,7 +4,6 @@ import AppRoutes from './routes/AppRoutes'
 import { ToastContainer } from 'react-toastify'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { NotificationProvider } from './contexts/NotificationContext'
-import NotificationContainer from './components/pages/notifications/NotificationToast'
 import NotificationSetup from './components/pages/notifications/NotificationSetup'
 import RealtimeNotificationAssistantBridge from './components/assistants/RealtimeNotificationAssistantBridge'
 
@@ -18,7 +17,6 @@ export default function App() {
           <ScrollToHash />
           <AppRoutes />
           <RealtimeNotificationAssistantBridge />
-          <NotificationContainer />
           <ToastContainer
             position="top-right"
             autoClose={2000}
