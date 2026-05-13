@@ -38,6 +38,32 @@ class MealCheckinRequest(BaseModel):
     mood_after: str | None = None
 
 
+@router.get("/meal-checkins")
+def get_meal_history(
+    limit: int = 50,
+    current_user: User = Depends(ensure_policy_acknowledged),
+    db: Session = Depends(get_db),
+):
+    checkins = db.scalars(
+        select(NutritionMealCheckin)
+        .where(NutritionMealCheckin.user_id == current_user.user_id)
+        .order_by(NutritionMealCheckin.meal_date.desc(), NutritionMealCheckin.created_at.desc())
+        .limit(limit)
+    ).all()
+
+    return ok({
+        "checkins": [
+            {
+                "meal_slot": c.meal_slot,
+                "meal_date": c.meal_date.isoformat(),
+                "items_text": c.items_text,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+            }
+            for c in checkins
+        ]
+    })
+
+
 @router.get("/meal-checkins/today")
 def get_today_checkins(
     current_user: User = Depends(ensure_policy_acknowledged),
