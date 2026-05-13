@@ -1,4 +1,4 @@
-"""Persona router integration tests — Batch 2.
+﻿"""Persona router integration tests â€” Batch 2.
 
 Covers:
 - route_persona() safety and unlock gates
@@ -80,7 +80,7 @@ def test_route_persona_switch_dat_le_at_safe_distress():
         user_explicit=True,
     )
     assert decision.action == "switch"
-    assert decision.target_persona_id == "nguoi_thay"
+    assert decision.target_persona_id == "dat_le"
     assert decision.should_persist_preference is True
 
 
@@ -110,25 +110,36 @@ def test_active_persona_id_returns_default_on_no_profile():
 
 
 def test_active_persona_id_returns_validated_persona():
-    """Profile with legacy nguoi_thay + safe distress should yield nguoi_thay."""
+    """Profile with dat_le + safe distress should yield dat_le."""
+    from app.api.v1.routers.chat import _active_persona_id
+
+    mock_profile = SimpleNamespace(profile={"persona": {"selected": "dat_le"}})
+    mock_db = MagicMock()
+    mock_db.scalar.return_value = mock_profile
+    result = _active_persona_id(mock_db, "usr_test", distress=0.2)
+    assert result == "dat_le"
+
+
+def test_active_persona_id_safety_gate_overrides_at_high_distress():
+    """Profile with dat_le + distress >= 0.70 must return default."""
+    from app.api.v1.routers.chat import _active_persona_id
+
+    mock_profile = SimpleNamespace(profile={"persona": {"selected": "dat_le"}})
+    mock_db = MagicMock()
+    mock_db.scalar.return_value = mock_profile
+    result = _active_persona_id(mock_db, "usr_test", distress=0.80)
+    assert result == DEFAULT_PERSONA_ID
+
+
+def test_active_persona_id_accepts_legacy_nguoi_thay_alias():
+    """Persisted legacy nguoi_thay should normalize to canonical dat_le."""
     from app.api.v1.routers.chat import _active_persona_id
 
     mock_profile = SimpleNamespace(profile={"persona": {"selected": "nguoi_thay"}})
     mock_db = MagicMock()
     mock_db.scalar.return_value = mock_profile
     result = _active_persona_id(mock_db, "usr_test", distress=0.2)
-    assert result == "nguoi_thay"
-
-
-def test_active_persona_id_safety_gate_overrides_at_high_distress():
-    """Profile with legacy nguoi_thay + distress >= 0.70 must return default."""
-    from app.api.v1.routers.chat import _active_persona_id
-
-    mock_profile = SimpleNamespace(profile={"persona": {"selected": "nguoi_thay"}})
-    mock_db = MagicMock()
-    mock_db.scalar.return_value = mock_profile
-    result = _active_persona_id(mock_db, "usr_test", distress=0.80)
-    assert result == DEFAULT_PERSONA_ID
+    assert result == "dat_le"
 
 
 def test_active_persona_id_db_error_returns_default():
