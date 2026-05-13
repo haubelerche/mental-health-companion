@@ -19,6 +19,8 @@ const SHELF_ICONS: Record<string, string> = {
     micro_style: purpleHeartIcon,
 }
 
+const COMING_SOON_SHELVES = new Set(['mood_room', 'micro_style'])
+
 type Props = {
     shelf: RewardShelfType
     balance: number
@@ -29,6 +31,7 @@ type Props = {
 export default function RewardShelf({ shelf, balance, ownedItemIds, onPurchase }: Props) {
     if (shelf.items.length === 0) return null
     const shelfIcon = SHELF_ICONS[shelf.shelf]
+    const comingSoon = COMING_SOON_SHELVES.has(shelf.shelf)
 
     return (
         <section className="mb-6 p-3">
@@ -53,6 +56,7 @@ export default function RewardShelf({ shelf, balance, ownedItemIds, onPurchase }
                         balance={balance}
                         owned={ownedItemIds.has(item.item_id)}
                         onPurchase={onPurchase}
+                        comingSoon={comingSoon}
                     />
                 ))}
             </div>
