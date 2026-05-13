@@ -8,14 +8,12 @@ import PersonaSection from './PersonaSection'
 import JourneySection from './JourneySection'
 import FinalCTASection from './FinalCTASection'
 import LandingFooter from './LandingFooter'
-import FloatingCat from './FloatingCat'
 
 export default function Landing() {
     return (
         <div className="serene-landing">
             {/* Fixed elements */}
             <LandingHeader />
-            <FloatingCat />
             {/* Main content */}
             <main>
                 <HeroScene />

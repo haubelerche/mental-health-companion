@@ -299,11 +299,10 @@
 
 .serene-landing .section-label {
   font-family: var(--font-pixel);
-  font-size: 2.5rem;
+  font-size: 2rem;
   color: var(--mint);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  margin-bottom: 1.5rem;
   display: block;
 }
 
@@ -433,6 +432,10 @@
    13. Responsive
    ──────────────────────────────────────────── */
 @media (max-width: 768px) {
+  .serene-landing .hero-content {
+    padding-top: 80px;
+  }
+
   .serene-landing .pixel-headline {
     font-size: clamp(1.8rem, 4vw, 2.5rem);
   }
