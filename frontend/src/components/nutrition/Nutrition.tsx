@@ -7,6 +7,7 @@ import a1 from '../../assets/nutrition/nutrition-a1.jpg'
 import a2 from '../../assets/nutrition/nutrition-a2.jpg'
 import PixelEmptyState from '../pixel/PixelEmptyState'
 import NutritionAssistantPopup from '../assistants/NutritionAssistantPopup'
+import MealCheckInCard from './MealCheckInCard'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -169,6 +170,8 @@ export default function Nutrition() {
                     </ul>
                 </div>
             </section>
+
+            <MealCheckInCard />
 
             {/* ── Recipe search ───────────────────────────────────────────── */}
             <section className={`rounded-[28px] bg-theme-surface/80 p-6 backdrop-blur-2xl lg:p-8`}>
