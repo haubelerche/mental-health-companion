@@ -119,7 +119,7 @@ export default function PersonaSelector({ onSelect }: Props) {
                 id="persona-select"
                 value={value || DEFAULT_PERSONA_ID}
                 onChange={(e) => void handleSelect(e.target.value)}
-                className="w-full rounded-lg border border-theme-border/40 bg-theme-surface/60 px-3 py-2 text-sm text-theme-text-primary"
+                className="w-full rounded-lg border border-theme-border bg-theme-surface px-3 py-2 text-sm text-theme-primary"
             >
                 {selectablePersonas.map((p) => (
                     <option key={p.persona_id} value={p.persona_id}>
@@ -127,9 +127,9 @@ export default function PersonaSelector({ onSelect }: Props) {
                     </option>
                 ))}
             </select>
-            <p className="text-[11px] leading-snug text-theme-text-secondary">{selectedDescription}</p>
+            <p className="text-[11px] leading-snug text-white/70">{selectedDescription}</p>
             {selectedIsLocked ? (
-                <p className="text-[11px] leading-snug text-theme-text-secondary">
+                <p className="text-[11px] leading-snug text-theme-secondary">
                     Hậu đang bị khóa, cần 500 tim trong{' '}
                     <Link to={ROUTE_PATHS.rewards} className="font-medium text-theme-accent underline underline-offset-2">
                         Cửa hàng Thưởng

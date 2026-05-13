@@ -8,6 +8,44 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+_OWNER_EXPR = """
+COALESCE(
+    NULLIF(m.payload->>'user_id', ''),
+    NULLIF(m.payload#>>'{metadata,user_id}', ''),
+    NULLIF(m.payload#>>'{filters,user_id}', ''),
+    NULLIF(m.payload#>>'{metadata,filters,user_id}', '')
+)
+"""
+
+_CONTENT_EXPR = """
+COALESCE(
+    NULLIF(m.payload->>'data', ''),
+    NULLIF(m.payload->>'memory', ''),
+    NULLIF(m.payload->>'text', ''),
+    NULLIF(m.payload->>'content', ''),
+    NULLIF(m.payload#>>'{metadata,data}', ''),
+    NULLIF(m.payload#>>'{metadata,memory}', ''),
+    NULLIF(m.payload#>>'{metadata,text}', ''),
+    NULLIF(m.payload#>>'{metadata,content}', '')
+)
+"""
+
+_SOURCE_EXPR = """
+COALESCE(
+    NULLIF(m.payload->>'source', ''),
+    NULLIF(m.payload#>>'{metadata,source}', '')
+)
+"""
+
+_CREATED_AT_EXPR = """
+COALESCE(
+    NULLIF(m.payload->>'created_at', ''),
+    NULLIF(m.payload#>>'{metadata,created_at}', ''),
+    NULLIF(m.payload->>'created', ''),
+    NULLIF(m.payload#>>'{metadata,created}', '')
+)
+"""
+
 
 @dataclass(frozen=True)
 class Mem0Memory:
@@ -20,7 +58,18 @@ class Mem0Memory:
 
 def _memory_from_row(row: Any) -> Mem0Memory:
     payload = dict(row.metadata or {})
+    owner = str(getattr(row, "user_id", "") or payload.get("user_id") or "").strip()
+    if owner:
+        payload["user_id"] = owner
+
     content = str(row.content or "").strip()
+    user_name = str(payload.get("user_name") or "").strip()
+    if user_name and content:
+        content_lower = content.casefold()
+        user_lower = user_name.casefold()
+        if not content_lower.startswith(f"{user_lower} \u0111\u00e3 ") and not content_lower.startswith(f"{user_lower} da "):
+            content = f"{user_name} \u0111\u00e3 {content}"
+
     return Mem0Memory(
         id=str(row.id),
         content=content,
@@ -30,35 +79,37 @@ def _memory_from_row(row: Any) -> Mem0Memory:
     )
 
 
+def _is_sqlite(db: Session) -> bool:
+    try:
+        bind = db.get_bind()
+    except Exception:
+        bind = getattr(db, "bind", None)
+    return str(getattr(getattr(bind, "dialect", None), "name", "")).lower() == "sqlite"
+
+
 def list_user_memories(db: Session, *, user_id: str, limit: int = 100) -> list[Mem0Memory]:
     """List canonical vector memories owned by a user.
 
     Mem0 owns the table shape, so application code must only rely on the stable
     id and payload contract we write through MemoryManager.
     """
+    if _is_sqlite(db):
+        return []
+
     rows = db.execute(
         text(
-            """
+            f"""
             SELECT
                 m.id::text AS id,
-                COALESCE(
-                    NULLIF(m.payload->>'data', ''),
-                    NULLIF(m.payload->>'memory', ''),
-                    NULLIF(m.payload->>'text', ''),
-                    NULLIF(m.payload->>'content', '')
-                ) AS content,
-                NULLIF(m.payload->>'source', '') AS source,
-                NULLIF(m.payload->>'created_at', '') AS created_at,
-                COALESCE(m.payload, '{}'::jsonb) AS metadata
+                {_OWNER_EXPR} AS user_id,
+                {_CONTENT_EXPR} AS content,
+                {_SOURCE_EXPR} AS source,
+                {_CREATED_AT_EXPR} AS created_at,
+                COALESCE(m.payload, '{{}}'::jsonb) AS metadata
             FROM app.mem0_memories AS m
-            WHERE m.payload->>'user_id' = :user_id
-              AND COALESCE(
-                    NULLIF(m.payload->>'data', ''),
-                    NULLIF(m.payload->>'memory', ''),
-                    NULLIF(m.payload->>'text', ''),
-                    NULLIF(m.payload->>'content', '')
-                ) IS NOT NULL
-            ORDER BY NULLIF(m.payload->>'created_at', '') DESC, m.id::text DESC
+            WHERE {_OWNER_EXPR} = :user_id
+              AND {_CONTENT_EXPR} IS NOT NULL
+            ORDER BY {_CREATED_AT_EXPR} DESC NULLS LAST, m.id::text DESC
             LIMIT :limit
             """
         ),
@@ -69,12 +120,15 @@ def list_user_memories(db: Session, *, user_id: str, limit: int = 100) -> list[M
 
 def delete_user_memory(db: Session, *, user_id: str, memory_id: str) -> bool:
     """Delete one memory only when it belongs to the authenticated user."""
+    if _is_sqlite(db):
+        return False
+
     deleted_id = db.execute(
         text(
-            """
+            f"""
             DELETE FROM app.mem0_memories AS m
             WHERE m.id::text = :memory_id
-              AND m.payload->>'user_id' = :user_id
+              AND {_OWNER_EXPR} = :user_id
             RETURNING id
             """
         ),
@@ -85,6 +139,9 @@ def delete_user_memory(db: Session, *, user_id: str, memory_id: str) -> bool:
 
 def list_all_user_memories(db: Session, *, user_id: str, batch_size: int = 200, max_rows: int = 2000) -> list[Mem0Memory]:
     """Load all user memories in stable batches for analyst-grade aggregation."""
+    if _is_sqlite(db):
+        return []
+
     out: list[Mem0Memory] = []
     fetched = 0
     step = max(1, min(int(batch_size), 500))
@@ -92,27 +149,18 @@ def list_all_user_memories(db: Session, *, user_id: str, batch_size: int = 200, 
     while fetched < hard_cap:
         rows = db.execute(
             text(
-                """
+                f"""
                 SELECT
                     m.id::text AS id,
-                    COALESCE(
-                        NULLIF(m.payload->>'data', ''),
-                        NULLIF(m.payload->>'memory', ''),
-                        NULLIF(m.payload->>'text', ''),
-                        NULLIF(m.payload->>'content', '')
-                    ) AS content,
-                    NULLIF(m.payload->>'source', '') AS source,
-                    NULLIF(m.payload->>'created_at', '') AS created_at,
-                    COALESCE(m.payload, '{}'::jsonb) AS metadata
+                    {_OWNER_EXPR} AS user_id,
+                    {_CONTENT_EXPR} AS content,
+                    {_SOURCE_EXPR} AS source,
+                    {_CREATED_AT_EXPR} AS created_at,
+                    COALESCE(m.payload, '{{}}'::jsonb) AS metadata
                 FROM app.mem0_memories AS m
-                WHERE m.payload->>'user_id' = :user_id
-                  AND COALESCE(
-                        NULLIF(m.payload->>'data', ''),
-                        NULLIF(m.payload->>'memory', ''),
-                        NULLIF(m.payload->>'text', ''),
-                        NULLIF(m.payload->>'content', '')
-                    ) IS NOT NULL
-                ORDER BY NULLIF(m.payload->>'created_at', '') DESC, m.id::text DESC
+                WHERE {_OWNER_EXPR} = :user_id
+                  AND {_CONTENT_EXPR} IS NOT NULL
+                ORDER BY {_CREATED_AT_EXPR} DESC NULLS LAST, m.id::text DESC
                 LIMIT :limit OFFSET :offset
                 """
             ),

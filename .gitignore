@@ -40,6 +40,16 @@ scripts/supabase/
 .ai-log/*.jsonl
 .ai-log/*.md
 backend/.ai-log/
+*.md
+!docs/
+!docs/*.md
+!docs/**/*.md
+*.csv
+*.jsonl
+*.json
+*.txt
+*.sql
+*.pkl
 
 # Pytest temp workspace (local only)
 .pytest_tmp/
@@ -54,6 +64,8 @@ docker-compose.yml
 .cursor/plans/
 .cursor/settings.json
 .cursor/hooks.json
+.sh/*
+
 
 # Generated local test output
 DONE_CRITERIA.md

@@ -37,15 +37,12 @@ import Home from '../components/pages/Home.tsx'
 import RewardsPage from '../components/pages/rewards/RewardsPage.tsx'
 import { ExercisesPage } from '@/components/pages/exercises/ExercisesPage.tsx'
 import NotificationsRouteBridge from '../components/pages/notifications/NotificationsRouteBridge.tsx'
+import Loading from '@/components/ui/Loading.tsx'
 
 function RequireAuth({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()
     if (isLoading) {
-        return (
-            <div className="flex h-screen items-center justify-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-theme-accent border-t-transparent" />
-            </div>
-        )
+        return <Loading />
     }
     if (!user) {
         return <Navigate to={ROUTE_PATHS.login} replace />
@@ -56,11 +53,7 @@ function RequireAuth({ children }: { children: ReactElement }) {
 function RequireOnboarding({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()
     if (isLoading) {
-        return (
-            <div className="flex h-screen items-center justify-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-theme-accent border-t-transparent" />
-            </div>
-        )
+        return <Loading />
     }
     if (user && !user.onboardingCompleted) {
         return <Navigate to={ROUTE_PATHS.onboarding} replace />

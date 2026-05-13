@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { ApiRequestError } from '../../../api/types'
 import { anonymousShareService, type ReplyArchiveItem, type SentLetterItem } from '../../../services/anonymousShareService'
-import { formatRelativeTime, getUi, type Letter } from './shared'
+import { getUi, type Letter } from './shared'
 import { ReportLetterModal } from './ReportLetterModal.tsx'
 import { AlertTriangle, CornerDownRight, Heart, RotateCcw, Send, Shell, Sparkles, X } from 'lucide-react'
+import { parseTime } from '@/utils/parseTime.ts'
 
 export function LetterOverlay({
     letter,
@@ -42,33 +43,39 @@ export function LetterOverlay({
     return (
         <div
             onClick={(e: ReactMouseEvent<HTMLDivElement>) => e.target === e.currentTarget && onClose()}
-            className={`fixed inset-0 z-50 flex items-center justify-center p-6 ${ui.overlay} backdrop-blur-md`}
+            className={`absolute inset-0 z-50 flex items-center justify-center p-6 ${ui.overlay} backdrop-blur-md`}
             style={{ animation: 'fadeIn 0.45s ease' }}
         >
-            <div className={`${ui.glassLight} w-full max-w-xl rounded-[32px] overflow-hidden shadow-2xl`} style={{ animation: 'letterOpen 0.65s cubic-bezier(0.22,1,0.36,1) both' }}>
-                <div className={`border-b ${ui.glassBorder} px-8 py-8 flex justify-between items-start bg-theme-surface/30`}>
+            <div className="w-full max-w-xl max-h-[85vh] rounded-[32px] overflow-hidden shadow-2xl bg-white/95 dark:bg-theme-surface/95 backdrop-blur-lg border border-white/20 dark:border-white/10 flex flex-col" style={{ animation: 'letterOpen 0.65s cubic-bezier(0.22,1,0.36,1) both' }}>
+                {/* Header */}
+                <div className="px-8 pt-8 pb-6 flex justify-between items-start border-b border-theme-border/10">
                     <div>
-                        <p className={`${ui.textSubtler} font-bold text-[10px] uppercase tracking-[0.3em] mb-2`}>Lá thư từ biển khơi</p>
+                        <div className="flex items-center gap-2 mb-1">
+                            <Shell size={14} className="text-theme-accent" />
+                            <p className={`${ui.textSubtler} font-bold text-[10px] uppercase tracking-[0.2em]`}>Lá thư từ biển khơi</p>
+                        </div>
                         <p className={`${ui.textPrimary} font-display text-2xl font-bold italic`}>{letter.from}</p>
                     </div>
-                    <div className="flex items-center gap-5">
+                    <div className="flex items-center gap-4">
                         <span className={`${ui.textSubtler} italic text-xs font-medium`}>{letter.time}</span>
-                        <button type="button" onClick={onClose} className="text-theme-text-secondary hover:text-theme-text-primary transition-colors">
-                            <X size={24} />
+                        <button type="button" onClick={onClose} className="text-theme-text-secondary hover:text-theme-text-primary transition-colors p-1.5 hover:bg-theme-surface/50 rounded-full">
+                            <X size={20} />
                         </button>
                     </div>
                 </div>
 
-                <div className="px-10 py-12 bg-theme-surface/5">
+                <div className="px-10 py-12 bg-theme-surface/5 max-h-[45vh] overflow-y-auto custom-scrollbar">
                     <p className={`${ui.textPrimary} font-display text-2xl italic font-medium leading-relaxed tracking-[.5px] whitespace-pre-wrap`}>
                         "{letter.body}"
                     </p>
+                    <div className="absolute bottom-4 right-6 text-theme-accent/10 font-display text-8xl leading-none transform rotate-180">“</div>
                 </div>
 
-                <div className={`px-8 py-8 border-t ${ui.glassBorder} bg-theme-surface/30`}>
+                {/* Footer */}
+                <div className="px-8 py-6 bg-theme-surface/30 border-t border-theme-border/10">
                     {!sent ? (
                         !replyOpen ? (
-                            <div className="flex flex-wrap gap-3">
+                            <div className="flex flex-wrap gap-3 items-center">
                                 {letter.can_reply !== false && (
                                     <>
                                         <button
@@ -78,7 +85,7 @@ export function LetterOverlay({
                                                 setReplyOpen(true)
                                             }}
                                             disabled={busy}
-                                            className="flex-1 min-w-[140px] flex items-center justify-center gap-2 bg-theme-accent text-white rounded-2xl py-3.5 px-4 font-bold text-sm tracking-widest uppercase transition-all hover:brightness-105 active:scale-95 shadow-lg shadow-theme-accent/20"
+                                            className="flex-1 min-w-[140px] flex items-center justify-center gap-2 bg-theme-accent text-white rounded-xl py-3 px-4 font-bold text-sm tracking-widest uppercase transition-all hover:brightness-105 active:scale-95 shadow-lg shadow-theme-accent/20"
                                         >
                                             <CornerDownRight size={16} />
                                             Hồi âm
@@ -102,7 +109,7 @@ export function LetterOverlay({
                                                 }
                                             }}
                                             disabled={busy}
-                                            className="flex-1 min-w-[140px] flex items-center justify-center gap-2 text-theme-text-secondary rounded-2xl py-3.5 px-4 font-bold text-sm tracking-widest uppercase transition-all hover:bg-theme-surface active:scale-95 bg-theme-surface/50"
+                                            className="flex-1 min-w-[140px] flex items-center justify-center gap-2 text-theme-text-secondary rounded-xl py-3 px-4 font-bold text-sm tracking-widest uppercase transition-all hover:bg-theme-surface/50 active:scale-95 bg-theme-surface/20"
                                         >
                                             <RotateCcw size={16} className={busyAction === 'pass' ? 'animate-spin' : ''} />
                                             {busy && busyAction === 'pass' ? 'Đang đẩy...' : 'Để thư trôi'}
@@ -120,7 +127,7 @@ export function LetterOverlay({
                                             setActionError(null)
                                             try {
                                                 await onReact()
-                                                setSent(true) // Reuse sent state to show success message
+                                                setSent(true)
                                                 setTimeout(onClose, 1200)
                                             } catch (error) {
                                                 if (error instanceof ApiRequestError) setActionError(error.message)
@@ -131,7 +138,7 @@ export function LetterOverlay({
                                             }
                                         }}
                                         disabled={busy}
-                                        className="flex-1 min-w-[140px] flex items-center justify-center gap-2 bg-rose-500 text-white rounded-2xl py-3.5 px-4 font-bold text-sm tracking-widest uppercase transition-all hover:brightness-105 active:scale-95 shadow-lg shadow-rose-500/20"
+                                        className="flex-1 min-w-[140px] flex items-center justify-center gap-2 bg-rose-500 text-white rounded-xl py-3 px-4 font-bold text-sm tracking-widest uppercase transition-all hover:brightness-105 active:scale-95 shadow-lg shadow-rose-500/20"
                                     >
                                         <Heart size={16} fill="white" />
                                         {busy && busyAction === 'react' ? 'Đang gửi...' : 'Gửi lời cảm ơn'}
@@ -143,7 +150,8 @@ export function LetterOverlay({
                                         type="button"
                                         onClick={() => setShowReport(true)}
                                         disabled={busy}
-                                        className="flex items-center justify-center gap-2 text-red-500/80 rounded-2xl py-3.5 px-6 font-bold text-sm tracking-widest uppercase transition-all hover:bg-red-500/5 active:scale-95 bg-red-500/10"
+                                        className="flex items-center justify-center gap-2 text-red-500/80 rounded-xl py-3 px-4 font-bold text-sm tracking-widest uppercase transition-all hover:bg-red-500/5 active:scale-95 bg-red-500/10 hover:text-red-500"
+                                        title="Báo cáo"
                                     >
                                         <AlertTriangle size={16} />
                                     </button>
@@ -157,7 +165,7 @@ export function LetterOverlay({
                                     onChange={(e) => setReply(e.target.value)}
                                     placeholder="Viết hồi âm chân thành của bạn..."
                                     rows={4}
-                                    className="w-full rounded-2xl p-5 font-display text-xl italic font-medium leading-relaxed resize-none outline-none transition-all bg-theme-surface/50 text-theme-text-primary focus:ring-1 focus:ring-theme-accent/30"
+                                    className="w-full rounded-xl p-5 font-display text-xl italic font-medium leading-relaxed resize-none outline-none transition-all bg-theme-surface/50 text-theme-text-primary focus:ring-1 focus:ring-theme-accent/30 border border-theme-border/10"
                                 />
                                 <div className="flex justify-between items-center px-2">
                                     <button
@@ -188,7 +196,7 @@ export function LetterOverlay({
                                             }
                                         }}
                                         disabled={!reply.trim() || busy}
-                                        className={`flex items-center gap-2 px-8 py-3 rounded-2xl font-bold text-sm uppercase tracking-widest transition-all shadow-lg ${reply.trim() ? 'bg-theme-accent text-white shadow-theme-accent/25 hover:brightness-105' : 'bg-theme-border/20 text-theme-text-secondary/30 cursor-not-allowed'}`}
+                                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm uppercase tracking-widest transition-all shadow-lg ${reply.trim() ? 'bg-theme-accent text-white shadow-theme-accent/25 hover:brightness-105 active:scale-95' : 'bg-theme-border/20 text-theme-text-secondary/30 cursor-not-allowed'}`}
                                     >
                                         <Send size={16} />
                                         {busy && busyAction === 'reply' ? 'Đang thả...' : 'Thả về biển'}
@@ -260,7 +268,10 @@ export function WriteOverlay({ onClose, onSuccess, dark }: { onClose: () => void
                                 autoFocus
                                 className="w-full rounded-[24px] p-6 font-display text-xl italic font-medium leading-relaxed resize-none outline-none transition-all bg-theme-border/5 text-theme-text-primary focus:ring-1 focus:ring-theme-accent/30"
                             />
-                            <div className="flex justify-end">
+                            <div className="flex justify-between items-center">
+                                <span className={`text-sm font-medium ${text.trim().split(/\s+/).filter(Boolean).length >= 200 ? 'text-emerald-500' : 'text-theme-text-secondary/60'}`}>
+                                    {text.trim().split(/\s+/).filter(Boolean).length} từ
+                                </span>
                                 <button
                                     type="button"
                                     onClick={async () => {
@@ -360,8 +371,10 @@ export function SentLetterDialog({
                     <div className="space-y-3">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-theme-accent/70 px-2">Nội dung bạn gửi</p>
                         <div className={`rounded-3xl p-6 ${isDark ? 'bg-white/10' : 'bg-black/10'}`}>
-                            <p className="text-theme-text-primary font-display text-xl italic leading-relaxed whitespace-pre-wrap">"{item.content}"</p>
-                            <p className="text-theme-text-secondary/40 text-[10px] font-bold mt-4 uppercase tracking-tighter">{formatRelativeTime(item.sent_at)}</p>
+                            <div className="max-h-[150px] overflow-y-auto custom-scrollbar pr-2">
+                                <p className="text-theme-text-primary font-display text-xl italic leading-relaxed whitespace-pre-wrap">"{item.content}"</p>
+                            </div>
+                            <p className="text-theme-text-secondary/40 text-[10px] font-bold mt-4 uppercase tracking-tighter">{parseTime(item.sent_at)}</p>
                         </div>
                     </div>
 
@@ -373,11 +386,13 @@ export function SentLetterDialog({
                                     <div className="flex items-center gap-2 mb-4 border-b border-theme-border/5 pb-3">
                                         <Shell className="h-5 w-5 shrink-0 text-emerald-600/80" aria-hidden />
                                         <p className="text-theme-text-primary text-[11px] font-bold uppercase tracking-widest">
-                                            {item.reply.anonymous_name ? item.reply.anonymous_name : 'Người lạ ẩn danh'}
+                                            {item.reply.anonymous_name || 'Người lạ ẩn danh'}
                                         </p>
                                     </div>
-                                    <p className="text-theme-text-primary font-display text-xl italic leading-relaxed whitespace-pre-wrap">"{item.reply.content}"</p>
-                                    <p className="text-theme-text-secondary/40 text-[10px] font-bold mt-4 uppercase tracking-tighter">{formatRelativeTime(item.reply.received_at)}</p>
+                                    <div className="max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
+                                        <p className="text-theme-text-primary font-display text-xl italic leading-relaxed whitespace-pre-wrap">"{item.reply.content}"</p>
+                                    </div>
+                                    <p className="text-theme-text-secondary/40 text-[10px] font-bold mt-4 uppercase tracking-tighter">{parseTime(item.reply.received_at)}</p>
                                     <div className="mt-6 flex justify-end">
                                         <button
                                             type="button"
@@ -447,9 +462,12 @@ export function ReceivedLetterDialog({
                                     Dưới danh nghĩa: {item.anonymous_name ? item.anonymous_name : 'Ẩn danh'}
                                 </p>
                             </div>
-                            <p className="text-theme-text-primary font-display text-xl italic leading-relaxed whitespace-pre-wrap">"{item.content}"</p>
+                            <div className="max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
+                                <p className="text-theme-text-primary font-display text-xl italic leading-relaxed whitespace-pre-wrap">"{item.content}"</p>
+                            </div>
+
                             <div className="mt-4 flex items-center justify-between">
-                                <p className="text-theme-text-secondary/40 text-[10px] font-bold uppercase tracking-tighter">{formatRelativeTime(item.sent_at)}</p>
+                                <p className="text-theme-text-secondary/40 text-[10px] font-bold uppercase tracking-tighter">{parseTime(item.sent_at)}</p>
                                 {item.has_reaction && (
                                     <div className="flex items-center gap-1.5 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20">
                                         <Heart size={10} fill="#f43f5e" className="text-rose-500" />
@@ -463,11 +481,13 @@ export function ReceivedLetterDialog({
                     <div className="space-y-3">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary/50 px-2">Thư gốc từ người lạ</p>
                         <div className="rounded-3xl p-6 bg-theme-surface/20">
-                            {item.original_content ? (
-                                <p className="text-theme-text-secondary/70 font-display text-lg italic leading-relaxed whitespace-pre-wrap">"{item.original_content}"</p>
-                            ) : (
-                                <p className="text-theme-text-secondary/30 text-sm italic">Nội dung thư gốc đã bị con sóng cuốn trôi...</p>
-                            )}
+                            <div className="max-h-[150px] overflow-y-auto custom-scrollbar pr-2">
+                                {item.original_content ? (
+                                    <p className="text-theme-text-secondary/70 font-display text-lg italic leading-relaxed whitespace-pre-wrap">"{item.original_content}"</p>
+                                ) : (
+                                    <p className="text-theme-text-secondary/30 text-sm italic">Nội dung thư gốc đã bị con sóng cuốn trôi...</p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

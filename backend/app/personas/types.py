@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-PersonaId = Literal["dung_luong", "nguoi_thay", "hau_luong"]
+PersonaId = Literal["dung_luong", "dat_le", "hau_luong"]
 PersonaRiskClass = Literal["default", "guidance", "calm_low_risk"]
 ActivationMode = Literal["default", "explicit_opt_in", "explicit_or_suggested", "unlockable"]
 QualityGuardProfile = Literal[

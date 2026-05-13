@@ -25,7 +25,6 @@ export function BeachMessageTabs({
                             border: 'none',
                             borderBottom: `2px solid ${tab === item.id ? (dark ? 'rgb(255,255,255)' : 'rgb(15,23,42)') : dark ? 'rgba(242,235,224,0.45)' : 'rgba(20,26,33,0.45)'}`,
                             color: tab === item.id ? (dark ? 'rgb(255,255,255)' : 'rgb(15,23,42)') : dark ? 'rgba(242,235,224,0.45)' : 'rgba(20,26,33,0.45)',
-                            marginBottom: '-1px',
                         }}
                         className="py-1.5 px-4 text-lg font-display font-semibold tracking-wide cursor-pointer transition-all"
                     >

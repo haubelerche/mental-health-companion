@@ -131,7 +131,7 @@ def _persona_temperature(persona_id: str, *, use_fast_model: bool, distress_scor
         if distress_score >= 0.50:
             return 0.50
         return min(max(0.70, 0.10), 0.90)
-    if canonical == "nguoi_thay":
+    if canonical == "dat_le":
         # Safety gate deactivates Dat at distress >= 0.70; this keeps a stable
         # fallback if any caller bypasses the normal gate.
         if distress_score >= 0.70:
@@ -169,7 +169,7 @@ def _persona_fallback_reply(persona_id: str, distress_score: float) -> str:
         return (
             "Mình vừa bị ngắt một chút, nhưng vẫn ở đây. Bạn cứ nói tiếp từng ý ngắn thôi, mình nghe cùng bạn."
         )
-    if persona_id == "nguoi_thay":
+    if persona_id == "dat_le":
         return "Tôi vẫn ở đây cùng bạn. Nếu bạn muốn, tôi sẽ cùng bạn đi từng bước để nhìn rõ điều đang làm bạn nặng nhất."
     if persona_id == "dung_luong":
         return "Tớ vẫn ở đây với cậu nè. Nếu cậu muốn, mình gỡ từng chút một từ điều đang làm cậu nặng lòng nhất nhé."
@@ -191,7 +191,7 @@ def _trace_span(correlation_id: str, span: str, *, duration_ms: float, token_cou
 # Routing thresholds — single source of truth for distress_router decisions.
 _ANALYST_DISTRESS_THRESHOLD: float = 0.72   # distress >= this → route to analyst
 _FAST_MODEL_DISTRESS_THRESHOLD: float = 0.55 # distress < this (+ short msg) → fast model
-_FAST_MODEL_MSG_LEN_MAX: int = 120           # max message length for fast-model eligibility
+_FAST_MODEL_MSG_LEN_MAX: int = 220           # max message length for fast-model eligibility
 
 _GREETING_RE = re.compile(r"\b(chao|hi|hello|helo|xin chao|yo|hey)\b", re.IGNORECASE)
 _ANALYST_TRIGGER_RE = re.compile(
@@ -452,15 +452,19 @@ def _normalize_user_quick_replies(
 def _build_mentalchat_examples(
     user_message: str, api_key: str, *, distress_score: float = 0.0
 ) -> str:
-    """Retrieve semantically-similar counseling examples and format them for the prompt.
+    """Legacy raw counseling examples prompt block.
 
-    Primary source: counseling_knowledge (Supabase pgvector).
-    Fallback: MentalChatRetriever (local JSONL + numpy).
-    Only injected when distress_score >= 0.42 (below this threshold the quick path handles the turn).
+    Disabled by default because raw counseling responses are source material, not
+    user-facing generation context. Advisor-assisted chat must use approved
+    app.advisor_case_library rows instead.
     """
+    settings = get_settings()
+    if not settings.counseling_examples_prompt_enabled:
+        logger.debug("mentalchat examples prompt injection disabled")
+        return ""
     if not user_message or not api_key:
         return ""
-    if distress_score < 0.42:
+    if distress_score < 0.55:
         return ""
 
     top_k = 3 if distress_score >= 0.72 else 2
@@ -1215,6 +1219,12 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         f"[Ký ức liên quan từ mem0_memories — cá nhân hóa câu trả lời dựa trên điều này, không nhắc lại nguyên văn]\n{memory_text}\n"
         if memory_text else ""
     )
+    emoji_policy_line = (
+        "Với Dũng ở low-risk (distress < 0.5), được phép dùng tối đa 1 emoji nếu hợp ngữ cảnh; "
+        "ngoài điều kiện đó thì không dùng emoji."
+        if persona_id == "dung_luong"
+        else "Không dùng emoji trong chat cảm xúc."
+    )
     base_system_prompt = (
         "Bạn là Serene, trợ lý đồng hành tinh thần bằng tiếng Việt tự nhiên. "
         "Viết như người Việt trẻ nhắn tin tự nhiên: ngắn, đúng ngữ cảnh, có duyên vừa đủ, không văn mẫu. "
@@ -1222,7 +1232,8 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         "Có thể mở đầu câu bằng chữ thường trong chat cảm xúc; đây là style hợp lệ, nhưng vẫn giữ đúng tên riêng, acronym, tên sản phẩm và thuật ngữ kỹ thuật. "
         "Mỗi reply cần có một nhận định cụ thể hoặc một giả thuyết mềm về tình huống trước khi gợi ý. "
         "Validate trước khi khuyên; nếu user chỉ đang xả, đừng giải quyết quá sớm. "
-        "Trả lời 2–4 câu, một đoạn gọn; không dùng markdown hoặc emoji trong chat cảm xúc. "
+        "Trả lời 2–4 câu, một đoạn gọn; không dùng markdown. "
+        + emoji_policy_line + " "
         "Mỗi lượt tối đa một câu hỏi nếu người dùng chưa xin phân tích sâu. "
         "Tránh các câu mặc định như 'tôi rất tiếc khi nghe điều đó', 'cảm xúc của bạn là hoàn toàn hợp lệ', "
         "'bạn không đơn độc', 'mọi chuyện rồi sẽ ổn', 'hãy suy nghĩ tích cực', 'Bạn có muốn chia sẻ thêm không?'. "
@@ -1708,6 +1719,12 @@ def stream_non_sos_turn_events(
                 f"advice_allowed: {generation_plan.advice_allowed}\n"
                 f"safety_mode: {generation_plan.safety_mode}"
             )
+            emoji_policy_line = (
+                "Với Dũng ở low-risk (distress < 0.5), được phép dùng tối đa 1 emoji nếu hợp ngữ cảnh; "
+                "ngoài điều kiện đó thì không dùng emoji."
+                if persona_id_active == "dung_luong"
+                else "Không dùng emoji trong chat cảm xúc."
+            )
             base_system_prompt = (
                 "Bạn là Serene, trợ lý đồng hành tinh thần bằng tiếng Việt tự nhiên. "
                 "Viết như người Việt trẻ nhắn tin tự nhiên: ngắn, đúng ngữ cảnh, không văn mẫu. "
@@ -1715,7 +1732,8 @@ def stream_non_sos_turn_events(
                 "Có thể mở đầu câu bằng chữ thường trong chat cảm xúc; đây là style hợp lệ, nhưng vẫn giữ đúng tên riêng, acronym, tên sản phẩm và thuật ngữ kỹ thuật. "
                 "Mỗi reply cần có một nhận định cụ thể hoặc một giả thuyết mềm về tình huống trước khi gợi ý. "
                 "Validate trước khi khuyên; nếu user chỉ đang xả, đừng giải quyết quá sớm. "
-                "Trả lời 2–4 câu, một đoạn gọn; không dùng markdown hoặc emoji trong chat cảm xúc. "
+                "Trả lời 2–4 câu, một đoạn gọn; không dùng markdown. "
+                + emoji_policy_line + " "
                 "Mỗi lượt tối đa một câu hỏi nếu người dùng chưa xin phân tích sâu. "
                 "Tránh các câu mặc định như 'tôi rất tiếc khi nghe điều đó', 'cảm xúc của bạn là hoàn toàn hợp lệ', "
                 "'bạn không đơn độc', 'mọi chuyện rồi sẽ ổn', 'hãy suy nghĩ tích cực', 'Bạn có muốn chia sẻ thêm không?'. "
@@ -1764,7 +1782,7 @@ def stream_non_sos_turn_events(
                 stream_messages.append({"role": "system", "content": _stream_analyst_ctx})
             stream_messages.append({"role": "user", "content": user_payload})
             _log_token_budget("stream_friend_in", base_system_prompt, persona_priority_prompt, _stream_analyst_ctx, user_payload)
-            client = OpenAI(api_key=settings.openai_api_key, timeout=min(settings.llm_timeout_seconds, 15.0))
+            client = OpenAI(api_key=settings.openai_api_key, timeout=min(settings.llm_timeout_seconds, 5.0))
             stream = client.chat.completions.create(
                 model=model,
                 temperature=friend_temperature,

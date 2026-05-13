@@ -1,19 +1,17 @@
 import {
     ArrowRight,
-    BarChart2,
-    BookOpen,
     ChevronLeft,
     Flame,
     Heart,
-    MessageSquareText,
     Wind,
     Leaf,
-    ClipboardList,
     Info,
     ChevronRight,
     X,
     CalendarCheck,
     Moon,
+    Activity,
+    Gift,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -24,7 +22,6 @@ import morningRhythmImg from '../../assets/motion/serene-landing-day-welcome.gif
 import dayRhythmImg from '../../assets/motion/afternoon-serene-bamboo-page.gif'
 import eveningRhythmImg from '../../assets/motion/serene-landing-night-welcome.gif'
 import healingImg from '../../assets/motion/calmness.gif'
-import nutritionImg from '../../assets/motion/meo-buon-ba.gif'
 import { Link, useNavigate } from 'react-router-dom'
 import { homeService } from '../../services/homeService'
 import { rewardsService } from '../../services/rewardsService'
@@ -32,7 +29,6 @@ import { ROUTE_PATHS } from '../../routes/paths'
 import { CheckinHistoryModal } from '../dashboard/CheckinHistoryModal'
 import { MoodWordChips } from '../common/MoodWordChips'
 import { StreakBar } from '../common/StreakBar'
-import { WellnessRadar, type WellnessScores } from './wellness/WellnessRadar'
 import { useAuth } from '../../hooks/useAuth'
 import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
 import { useThemeContext } from '../../contexts/ThemeContext'
@@ -94,70 +90,47 @@ const getRecoCards = (hour: number, isDark: boolean): RecoCard[] => {
             ? 'bg-amber-950/18 border border-amber-800/20'
             : 'bg-amber-50/90 border border-amber-500/60',
     },
-    {
-        icon: ClipboardList,
-        label: 'Làm bài Test',
-        desc: 'Sàng lọc sức khỏe tinh thần',
-        route: `${ROUTE_PATHS.screening}`,
+      {
+        icon: Gift,
+        label: "Cửa hàng vật phẩm",
+        desc: 'Đổi quà bằng điểm nỗ lực',
+        route: `${ROUTE_PATHS.rewards}`,
         accentClass: isDark
-            ? 'bg-blue-500/12 text-blue-100 border border-blue-200'
-            : 'bg-blue-100 text-blue-900 border border-blue-500',
+            ? 'bg-pink-500/12 text-pink-100 border border-pink-200'
+            : 'bg-pink-100 text-pink-900 border border-pink-500',
         cardClass: isDark
-            ? 'bg-blue-900/50 border border-blue-800/20'
-            : 'bg-blue-50/90 border border-blue-500/60',
+            ? 'bg-pink-950/18 border border-pink-800/20'
+            : 'bg-pink-50/90 border border-pink-500/60',
     },
 ]
 
 }
 
-type QuickAction = {
-    icon: typeof Wind
-    label: string
-    desc: string
-    route: string
-    bgClass: string
-    iconClass: string
-    gif: string
+const SEVERITY_LABELS: Record<string, string> = {
+  minimal: 'Rất nhẹ',
+  mild: 'Nhẹ',
+  moderate: 'Trung bình',
+  moderately_severe: 'Khá cao',
+  severe: 'Cao',
 }
 
-const QUICK_ACTIONS: QuickAction[] = [
-    {
-        icon: MessageSquareText,
-        label: 'Chat với Serene',
-        desc: 'Luôn sẵn sàng',
-        route: ROUTE_PATHS.chat,
-        bgClass: 'bg-theme-accent/10',
-        iconClass: 'text-theme-accent',
-        gif: healingImg,
-    },
-    {
-        icon: Wind,
-        label: 'Bài thở',
-        desc: '1–5 phút',
-        route: ROUTE_PATHS.exercises,
-        bgClass: 'bg-theme-accent/10',
-        iconClass: 'text-theme-accent',
-        gif: beachMessageBg,
-    },
-    {
-        icon: BookOpen,
-        label: 'Check-in',
-        desc: 'Ghi nhận cảm xúc',
-        route: ROUTE_PATHS.checkin,
-        bgClass: 'bg-theme-accent/10',
-        iconClass: 'text-theme-accent',
-        gif: dayRhythmImg,
-    },
-    {
-        icon: BarChart2,
-        label: 'Dinh dưỡng',
-        desc: 'Ăn uống nâng mood',
-        route: ROUTE_PATHS.nutrition,
-        bgClass: 'bg-theme-accent/10',
-        iconClass: 'text-theme-accent',
-        gif: nutritionImg,
-    },
-]
+const SEVERITY_COLORS: Record<string, string> = {
+  minimal: '#4caf50',
+  mild: '#8bc34a',
+  moderate: '#ff9800',
+  moderately_severe: '#e57373',
+  severe: '#c62828',
+}
+
+const getCombinedInsight = (phq9?: string, gad7?: string) => {
+  if (phq9 === 'minimal' && gad7 === 'minimal') {
+    return 'Tâm trạng và mức độ lo âu của bạn đang ở trạng thái rất tốt. Hãy tiếp tục duy trì lối sống lành mạnh!'
+  }
+  if ((phq9 === 'moderate' || phq9 === 'severe') && (gad7 === 'moderate' || gad7 === 'severe')) {
+    return 'Bạn đang có dấu hiệu căng thẳng và mệt mỏi khá cao. Hãy cân nhắc trò chuyện với Serene hoặc tìm kiếm sự hỗ trợ từ chuyên gia.'
+  }
+  return 'Có một vài biến động nhỏ trong tâm trạng hoặc lo âu. Hãy chú ý lắng nghe cơ thể và dành thời gian thư giãn nhiều hơn.'
+}
 
 function getGreeting(): string {
     const hour = new Date().getHours()
@@ -331,10 +304,19 @@ export default function Home() {
     const [completedDays, setCompletedDays] = useState<number[]>([])
     const [checkinHistoryOpen, setCheckinHistoryOpen] = useState(false)
     const streak = backendStreakDays ?? 0
-    const [wellnessScores, setWellnessScores] = useState<WellnessScores | null>(null)
     const [nutritionTip, setNutritionTip] = useState<NutritionDailyTip | null>(null)
     const [homeMoodWords, setHomeMoodWords] = useState<string[]>([])
     const [quoteIndex, setQuoteIndex] = useState(0)
+    
+    const [phq9Result, setPhq9Result] = useState<{ raw_score: number, severity_label: string } | null>(null)
+    const [gad7Result, setGad7Result] = useState<{ raw_score: number, severity_label: string } | null>(null)
+
+    useEffect(() => {
+        const phq9 = localStorage.getItem('serene_screening_phq9')
+        const gad7 = localStorage.getItem('serene_screening_gad7')
+        if (phq9) setPhq9Result(JSON.parse(phq9))
+        if (gad7) setGad7Result(JSON.parse(gad7))
+    }, [])
     const [currentHour, setCurrentHour] = useState(() => new Date().getHours())
     const recoCards = useMemo(() => getRecoCards(currentHour, isDark), [currentHour, isDark])
     const currentSlot = useMemo<TimeSlot>(() => getCurrentTimeSlot(currentHour), [currentHour])
@@ -399,18 +381,7 @@ export default function Home() {
                 setBackendStreakDays(data.progress.streak_days ?? 0)
                 setIsTodayCompleted(data.progress.is_today_completed ?? false)
                 setCompletedDays(data.progress.completed_days ?? [])
-                const scoreOf = (dim: string, fb: number) => {
-                    const row = data.wellness_dimensions.find((x) => x.dimension === dim)
-                    return row?.score != null ? Math.round(row.score) : fb
-                }
-                setWellnessScores({
-                    emotional: scoreOf('emotion', 55),
-                    sleep: scoreOf('sleep', 55),
-                    mindfulness: scoreOf('mindfulness', 55),
-                    social: scoreOf('connection', 55),
-                    physical: scoreOf('body', 55),
-                    growth: scoreOf('growth', 55),
-                })
+
             })
             .catch(() => undefined)
 
@@ -567,7 +538,129 @@ export default function Home() {
                     </div>
                 </section>
 
-                {/* ── Dành cho bạn ── */}
+                {/* ── Monitor Bài Test ── */}
+                <section className="bg-theme-surface/60 p-6 rounded-4xl backdrop-blur-xl border border-theme-border/50 shadow-sm">
+                    <div className="flex items-center justify-between gap-4 mb-5">
+                        <div>
+                            <h2 className="font-display text-3xl text-theme-primary">Giám sát sức khỏe</h2>
+                            <p className="mt-1 text-theme-secondary">
+                                Kết quả đánh giá gần nhất của bạn
+                            </p>
+                        </div>
+                        <Activity className="h-6 w-6 text-theme-accent" />
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        {/* PHQ-9 */}
+                        <div className="bg-theme-surface/40 p-5 rounded-xl border-2  border-theme-secondary  flex flex-col justify-between min-h-[160px] relative">
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <h3 className="text-sm uppercase tracking-wider text-theme-text-primary flex items-center gap-2 font-bold">
+                                        MÔ-ĐUN: PHQ-9
+                                    </h3>
+                                    <span className="text-xs text-theme-text-secondary">TÂM TRẠNG</span>
+                                </div>
+                                {phq9Result ? (
+                                    <div className="mt-2">
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-4xl font-bold text-theme-accent">
+                                                {phq9Result.raw_score.toString().padStart(2, '0')}
+                                            </span>
+                                            <span className="text-lg text-theme-text-secondary">/27</span>
+                                        </div>
+                                        <p className="text-xs uppercase mt-2 font-semibold" style={{ color: SEVERITY_COLORS[phq9Result.severity_label] }}>
+                                            TRẠNG THÁI: {SEVERITY_LABELS[phq9Result.severity_label]?.toUpperCase() || phq9Result.severity_label.toUpperCase()}
+                                        </p>
+                                        <div className="w-full bg-theme-border/20 h-1.5 mt-2 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full" 
+                                                style={{ 
+                                                    width: `${(phq9Result.raw_score / 27) * 100}%`,
+                                                    backgroundColor: SEVERITY_COLORS[phq9Result.severity_label]
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="mt-4 text-sm text-theme-text-secondary">
+                                        &gt; KHÔNG CÓ DỮ LIỆU
+                                        <br />
+                                        &gt; HỆ THỐNG YÊU CẦU KIỂM TRA
+                                    </div>
+                                )}
+                            </div>
+                            {!phq9Result && (
+                                <Link to={ROUTE_PATHS.screening} className="text-xs text-theme-accent hover:underline mt-2 inline-block">
+                                    &gt; BẮT ĐẦU ĐÁNH GIÁ
+                                </Link>
+                            )}
+                            {phq9Result && (
+                                <Link to={ROUTE_PATHS.screening} className="text-sm text-theme-accent hover:underline mt-2 inline-block absolute bottom-2 right-2">
+                                    Thử làm lại
+                                </Link>
+                            )}
+                        </div>
+
+                        {/* GAD-7 */}
+                        <div className="bg-theme-surface/40 p-5 rounded-xl border-2  border-theme-secondary  flex flex-col justify-between min-h-[160px] relative">
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <h3 className="text-sm uppercase tracking-wider text-theme-text-primary flex items-center gap-2 font-bold">
+                                        MÔ-ĐUN: GAD-7
+                                    </h3>
+                                    <span className="text-xs text-theme-text-secondary">LO ÂU</span>
+                                </div>
+                                {gad7Result ? (
+                                    <div className="mt-2">
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-4xl font-bold text-theme-accent">
+                                                {gad7Result.raw_score.toString().padStart(2, '0')}
+                                            </span>
+                                            <span className="text-lg text-theme-text-secondary">/21</span>
+                                        </div>
+                                        <p className="text-xs uppercase mt-2 font-semibold" style={{ color: SEVERITY_COLORS[gad7Result.severity_label] }}>
+                                            TRẠNG THÁI: {SEVERITY_LABELS[gad7Result.severity_label]?.toUpperCase() || gad7Result.severity_label.toUpperCase()}
+                                        </p>
+                                        <div className="w-full bg-theme-border/20 h-1.5 mt-2 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full" 
+                                                style={{ 
+                                                    width: `${(gad7Result.raw_score / 21) * 100}%`,
+                                                    backgroundColor: SEVERITY_COLORS[gad7Result.severity_label]
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="mt-4 text-sm text-theme-text-secondary">
+                                        &gt; KHÔNG CÓ DỮ LIỆU
+                                        <br />
+                                        &gt; HỆ THỐNG YÊU CẦU KIỂM TRA
+                                    </div>
+                                )}
+                            </div>
+                            {!gad7Result && (
+                                <Link to={ROUTE_PATHS.screening} className="text-sm text-theme-accent hover:underline mt-2 inline-block">
+                                    Làm test ngay
+                                </Link>
+                            )}
+                            {gad7Result && (
+                                <Link to={ROUTE_PATHS.screening} className="text-sm text-theme-accent hover:underline mt-2 inline-block absolute bottom-2 right-2">
+                                    Thử làm lại
+                                </Link>
+                            )}
+                        </div>
+                    </div>
+
+                    {(phq9Result || gad7Result) && (
+                        <div className="mt-4 p-4 bg-theme-surface/30 rounded-xl border border-theme-border/20 text-sm text-theme-text-secondary">
+                            <span className="font-bold text-theme-accent">Insight:</span>{' '}
+                            {getCombinedInsight(phq9Result?.severity_label, gad7Result?.severity_label)}
+                        </div>
+                    )}
+                </section>
+
+                {/* ── Gợi ý nhẹ nhàng ── */}
                 <section className="bg-theme-surface/60 p-6 rounded-4xl backdrop-blur-xl border border-theme-border/50 shadow-sm">
 
                     <div className="flex items-center justify-between gap-4">
@@ -577,16 +670,12 @@ export default function Home() {
                                 Chọn một lối vào ngắn, nhẹ và đúng nhu cầu hiện tại để bạn bắt đầu nhanh hơn.
                             </p>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => navigate(ROUTE_PATHS.exercises)}
-                            className="font-medium text-theme-accent underline underline-offset-4 cursor-pointer transition hover:text-theme-accent/70"
-                        >
-                            Xem tất cả
-                        </button>
                     </div>
 
-                    <div className="relative overflow-hidden rounded-[24px] min-h-[300px] shadow-lg mt-5">
+                    <Link
+                        to={ROUTE_PATHS.screening}
+                        className="relative block overflow-hidden rounded-[24px] min-h-[300px] shadow-lg mt-5 transition-transform hover:scale-[1.01]"
+                    >
                         <img
                             src={exerciseImg}
                             alt="Một hình minh họa cho các gợi ý bắt đầu nhanh"
@@ -594,12 +683,12 @@ export default function Home() {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/30 to-transparent" />
                         <div className="absolute inset-x-0 bottom-0 p-5 text-white">
-                            <p className="text-sm font-bold uppercase tracking-[0.2em] text-theme-text-secondary">Bắt đầu từ một hơi thở</p>
+                            <p className="text-sm font-bold uppercase tracking-[0.2em] text-theme-text-secondary">Làm bài test sức khỏe tinh thần</p>
                             <p className="mt-1 text-sm ">Một chạm là có thể bắt đầu ngay</p>
                         </div>
-                    </div>
+                    </Link>
 
-                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide mt-5">
+                    <div className="flex gap-4 mt-5 flex-wrap">
                         {recoCards.map((card) => {
                             const RecoIcon = card.icon
                             return (
@@ -771,112 +860,7 @@ export default function Home() {
                     </div>
                 </motion.button>
 
-                {/* ── Quick action grid 2×2 ── */}
-                <section className="p-6 bg-theme-surface/60 backdrop-blur-3xl rounded-[2.5rem] border border-theme-border/50 shadow-sm">
-                    <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_220px] lg:items-center">
-                        <div>
-                            <h2 className="font-display text-3xl text-theme-text-primary">Lối vào nhanh</h2>
-                            <p className="mt-2 max-w-2xl text-theme-text-secondary">
-                                Các lối vào ngắn để bạn chuyển nhanh từ cảm nhận sang hành động.
-                            </p>
-                        </div>
-
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                        {QUICK_ACTIONS.map((action) => {
-                            const Icon = action.icon
-                            return (
-                                <Link
-                                    key={action.label}
-                                    to={action.route}
-                                    className="group relative flex flex-col gap-4 rounded-[22px] overflow-hidden p-6 text-left border border-theme-border/30 shadow-sm hover:scale-105 duration-500 transition-all"
-                                >
-                                    <img
-                                        src={action.gif}
-                                        alt={action.label}
-                                        className="absolute inset-0 h-full w-full object-cover"
-                                    />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" /> {/* Overlay */}
-                                    <div className="relative z-10 flex flex-col gap-4">
-                                        <div
-                                            className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white text-serene-primary border-2 border-serene-primary`}
-                                        >
-                                            <Icon className="h-6 w-6" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-white leading-tight">{action.label}</p>
-                                            <p className="mt-1 text-sm text-white/90">{action.desc}</p>
-                                        </div>
-                                    </div>
-                                </Link>
-                            )
-                        })}
-                    </div>
-                </section>
-
-                {/* ── Wellness radar mini preview ── */}
-                <button
-                    type="button"
-                    onClick={() => navigate(ROUTE_PATHS.reflect)}
-                    className="group relative w-full overflow-hidden rounded-3xl bg-theme-surface/50 p-7 text-left backdrop-blur-xl shadow-lg hover:brightness-105 transition-all"
-                >
-
-                    <div className="flex items-center justify-between gap-5">
-                        <div className="flex-1">
-                            <motion.p
-                                initial={{ opacity: 0.8 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ duration: 1.5, repeat: Infinity }}
-                                className="text-xs uppercase tracking-[0.22em] font-semibold text-theme-text-primary/90"
-                            >
-                                ✨ Hành trình của bạn tuần này
-                            </motion.p>
-                            <h3 className="mt-2 font-display text-2xl text-theme-text-primary">
-                                Bức tranh sức khoẻ
-                            </h3>
-
-                            <motion.div
-                                animate={{ x: [0, 4, 0] }}
-                                transition={{ duration: 1.2, repeat: Infinity }}
-                                className="mt-3"
-                            >
-                                <ArrowRight className="h-5 w-5 text-theme-text-primary/70 transition group-hover:translate-x-1" />
-                            </motion.div>
-                        </div>
-                        <div className="relative shrink-0">
-                            {wellnessScores ? (
-                                <motion.div
-                                    initial={{ scale: 0.8, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    transition={{ duration: 1.5, ease: 'easeOut' }}
-                                >
-                                    <WellnessRadar scores={wellnessScores} mini />
-                                </motion.div>
-                            ) : (
-                                <motion.div
-                                    initial={{ scale: 0.9, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    transition={{ duration: 0.4, ease: 'easeOut' }}
-                                    className="flex h-39 w-32 items-center justify-center rounded-3xl bg-theme-surface/20 backdrop-blur-sm border border-theme-border/20"
-                                >
-                                    <div className="text-center px-3">
-                                        <motion.div
-                                            animate={{ y: [-2, 2, -2] }}
-                                            transition={{ duration: 2, repeat: Infinity }}
-                                            className="mb-2 flex justify-center text-theme-accent"
-                                        >
-                                            <Mascot variant="sunflower" size="lg" decorative />
-                                        </motion.div>
-                                        <p className="text-center text-[11px] text-theme-text-secondary leading-relaxed font-medium">
-                                            Hãy check-in cảm xúc để khám phá sức khỏe của bạn
-                                        </p>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </div>
-                    </div>
-                </button>
-
+             
                 {detailReminder && (
                     <motion.div
                         initial={{ opacity: 0 }}

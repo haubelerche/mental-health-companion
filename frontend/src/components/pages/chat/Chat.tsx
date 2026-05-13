@@ -930,7 +930,7 @@ export default function Chat() {
                     <div className="relative z-10 flex items-center justify-between px-4 py-2 sm:px-6">
                         <div className="flex items-center gap-2">
                             <div
-                                className="flex h-8 w-8 shrink-0 items-center justify-center font-display text-xs font-bold text-[#f8c96b]"
+                                className="flex h-10 w-10 shrink-0 items-center justify-center font-display text-xl font-bold text-[#f8c96b]"
                                 style={{
                                     border: '2px solid rgba(248,201,107,0.55)',
                                     background: 'rgba(4,10,6,0.82)',
@@ -943,7 +943,7 @@ export default function Chat() {
                             <div>
                                 {!isGuestMode && (
                                     <p
-                                        className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#f8c96b]/70"
+                                        className="mb-0.5 text-sm font-semibold uppercase tracking-[0.2em] text-[#f8c96b]/70"
                                         style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}
                                     >
                                         {personaLabel}
@@ -951,7 +951,7 @@ export default function Chat() {
                                 )}
                               
                                 <p
-                                    className="hidden text-[9px] font-medium font-sans tracking-[0.05em] text-[#fff4dc]/55 sm:block"
+                                    className="hidden text-sm font-medium font-sans tracking-[0.05em] text-[#fff4dc]/55 sm:block"
                                     style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}
                                 >
                                     Đang trò chuyện
@@ -993,31 +993,31 @@ export default function Chat() {
                                 <button
                                     type="button"
                                     onClick={() => handleNewChat()}
-                                    className="flex h-7 cursor-pointer items-center gap-1 px-2 text-[#fff4dc]/75 transition hover:text-[#fff4dc]"
+                                    className="flex h-8 cursor-pointer items-center gap-1 px-2 text-[#fff4dc] transition"
                                     style={{ background: 'rgba(4,10,6,0.65)', border: '1px solid rgba(255,244,220,0.14)', backdropFilter: 'blur(4px)' }}
                                     aria-label="Cuộc trò chuyện mới"
                                     title="Cuộc trò chuyện mới"
                                 >
                                     <Plus className="h-3.5 w-3.5" />
-                                    <span className="hidden text-[9px] font-semibold uppercase tracking-wide sm:inline">New</span>
+                                    <span className="hidden text-xs font-semibold uppercase tracking-wide sm:inline">New</span>
                                 </button>
                             </>
                             <button
                                 type="button"
                                 onClick={() => void openHistory()}
-                                className="flex h-7 cursor-pointer items-center gap-1 px-2 text-[#fff4dc]/75 transition hover:text-[#fff4dc]"
+                                className="flex h-8 cursor-pointer items-center gap-1 px-2 text-[#fff4dc] transition"
                                 style={{ background: 'rgba(4,10,6,0.65)', border: '1px solid rgba(255,244,220,0.14)', backdropFilter: 'blur(4px)' }}
                                 aria-label="Lịch sử chat"
                             >
                                 <History className="h-3.5 w-3.5" />
-                                <span className="hidden text-[9px] font-semibold uppercase tracking-wide sm:inline">History</span>
+                                <span className="hidden text-xs font-semibold uppercase tracking-wide sm:inline">History</span>
                             </button>
                             <div className="relative">
                                 <button
                                     type="button"
                                     onClick={() => setShowOptions((prev) => !prev)}
                                     data-tour-id="chat-persona-options"
-                                    className="flex h-7 w-7 cursor-pointer items-center justify-center text-[#fff4dc]/65 transition hover:text-[#fff4dc]"
+                                    className="flex h-8 w-8 cursor-pointer items-center justify-center text-[#fff4dc] transition"
                                     style={{ background: 'rgba(4,10,6,0.65)', border: '1px solid rgba(255,244,220,0.14)', backdropFilter: 'blur(4px)' }}
                                     aria-label="Tùy chọn"
                                 >
@@ -1028,7 +1028,7 @@ export default function Chat() {
                                         className="absolute right-0 top-10 z-50 w-80 border border-[#3a6040]/55 p-3 shadow-2xl"
                                         style={{ background: 'rgba(6,14,9,0.97)', backdropFilter: 'blur(12px)' }}
                                     >
-                                        <p className="mb-3 text-[9px] uppercase tracking-[0.28em] text-[#fff4dc]/35">Tùy chọn</p>
+                                        <p className="mb-3 text-xs uppercase tracking-[0.28em] text-[#fff4dc]/75">Tùy chọn</p>
                                         <div className="space-y-2">
                                             {!isGuestMode && (
                                                 <div className="border border-[#3a6040]/30 bg-white/[0.04] px-3 py-2.5">
@@ -1088,7 +1088,7 @@ export default function Chat() {
                                         'px-4 py-2 text-[10px] font-bold tracking-[0.22em] uppercase transition-colors',
                                         activeTab === tab
                                             ? 'border-b-2 border-[#f8c96b] text-[#f8c96b]'
-                                            : 'text-[#fff4dc]/30 hover:text-[#fff4dc]/60',
+                                            : 'text-[#fff4dc]/30/60',
                                     ].join(' ')}
                                 >
                                     {tab === 'chat' ? 'Chat' : 'Ký ức'}
@@ -1170,7 +1170,7 @@ export default function Chat() {
                                                             className={`inline-flex w-fit items-center justify-center rounded-md border p-1.5 transition ${
                                                                 heartedMessageIds.has(m.id)
                                                                     ? 'border-[#f08a93]/60 bg-[#3a1e26]/70 text-[#ffc3c9]'
-                                                                    : 'border-[#fff4dc]/20 bg-[#070f0a]/55 text-[#fff4dc]/60 hover:text-[#fff4dc]'
+                                                                    : 'border-[#fff4dc]/20 bg-[#070f0a]/55 text-[#fff4dc]/60'
                                                             }`}
                                                             aria-label={heartedMessageIds.has(m.id) ? 'Bỏ tim tin nhắn' : 'Thả tim tin nhắn'}
                                                         >

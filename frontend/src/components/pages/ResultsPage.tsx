@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
@@ -71,7 +72,7 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
       { icon: Wind, label: 'Thở 4-7-8', desc: '3 phút · Thư giãn' },
     ],
     actions: [
-      { label: 'Trò chuyện với Mây', path: ROUTE_PATHS.chat, primary: true, icon: MessageSquareText },
+      { label: 'Quay về trang chủ', path: ROUTE_PATHS.home },
       { label: 'Mở Nhìn Lại', path: ROUTE_PATHS.reflect },
     ],
   },
@@ -158,8 +159,8 @@ function ScoreBar({
   return (
     <div>
       <div className="mb-1.5 flex justify-between text-sm">
-        <span className="text-serene-muted">{label}</span>
-        <span className="font-semibold text-serene-ink">{percent}%</span>
+        <span className="text-theme-secondary">{label}</span>
+        <span className="font-semibold text-theme-primary">{percent}%</span>
       </div>
       <div className="h-3 overflow-hidden rounded-full bg-serene-border/60">
         <motion.div
@@ -179,6 +180,16 @@ export function ResultsPage() {
   const { state } = useLocation()
   const navigate = useNavigate()
   const result = state?.result as ScreeningResult | undefined
+
+  useEffect(() => {
+    if (result && result.instrument_id) {
+      localStorage.setItem(`serene_screening_${result.instrument_id}`, JSON.stringify({
+        raw_score: result.raw_score,
+        severity_label: result.severity_label,
+        timestamp: new Date().toISOString()
+      }))
+    }
+  }, [result])
   const rawSeverity = result?.severity_label
   const severity: ScreeningResult['severity_label'] =
     rawSeverity != null && rawSeverity in SEVERITY_MAP ? rawSeverity : 'minimal'
@@ -214,10 +225,10 @@ export function ResultsPage() {
     <motion.div
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
-      className="min-h-screen pb-28 pt-10"
+      className="min-h-screen pb-28 pt-10 rounded-4xl"
       style={{ backgroundColor: meta.bgColor }}
     >
-      <div className="mx-auto max-w-lg px-5">
+      <div className="mx-auto max-w-2xl px-5">
 
         {/* Header */}
         <div className="mb-8 text-center">
@@ -230,21 +241,21 @@ export function ResultsPage() {
           >
             <meta.headlineIcon className="h-16 w-16" style={{ color: meta.color }} />
           </motion.div>
-          <p className="mb-1 text-[10px] uppercase tracking-widest text-serene-muted">Kết quả</p>
+          <p className="mb-1  uppercase tracking-widest text-serene-primary">Kết quả</p>
           <h1 className="font-display text-4xl text-serene-ink">
             Mức{' '}
             <span style={{ color: meta.color }}>{meta.label}</span>
           </h1>
           {result && (
-            <p className="mt-1 text-xs text-serene-muted">
+            <p className="mt-1 text-serene-ink">
               Điểm: {result.raw_score} · {result.instrument_id?.toUpperCase()}
             </p>
           )}
         </div>
 
         {/* Score visualization — dual bars */}
-        <div className="mb-4 rounded-3xl bg-white p-5 shadow-sm">
-          <h3 className="mb-4 font-semibold text-serene-ink text-sm">Điểm số của bạn</h3>
+        <div className="mb-4 rounded-3xl bg-theme-surface p-5 shadow-sm">
+          <h3 className="mb-4 font-semibold text-theme-primary text-sm">Điểm số của bạn</h3>
           <div className="space-y-4">
             <ScoreBar
               label="Điểm thực tế"
@@ -259,17 +270,17 @@ export function ResultsPage() {
               delay={0.25}
             />
           </div>
-          <div className="mt-4 rounded-2xl border border-serene-border/50 bg-serene-surface-2 p-3">
-            <p className="text-sm leading-relaxed text-serene-muted">{meta.interpretation}</p>
+          <div className="mt-4 rounded-2xl border border-theme-border bg-theme-surface p-3">
+            <p className="text-sm leading-relaxed text-theme-secondary">{meta.interpretation}</p>
           </div>
         </div>
 
         {/* Insights */}
-        <div className="mb-4 rounded-3xl bg-white p-5 shadow-sm">
-          <h3 className="mb-3 font-semibold text-serene-ink text-sm">Serene thấy gì</h3>
+        <div className="mb-4 rounded-3xl bg-theme-surface p-5 shadow-sm">
+          <h3 className="mb-3 font-semibold text-theme-primary text-sm">Serene thấy gì</h3>
           <ul className="space-y-2.5">
             {meta.insights.map((item) => (
-              <li key={item} className="flex items-start gap-2.5 text-sm text-serene-muted">
+              <li key={item} className="flex items-start gap-2.5 text-sm text-theme-secondary">
                 <span className="mt-0.5 flex-shrink-0" style={{ color: meta.color }} aria-hidden="true">
                   ●
                 </span>
@@ -280,8 +291,8 @@ export function ResultsPage() {
         </div>
 
         {/* Recommended exercises */}
-        <div className="mb-4 rounded-3xl bg-white p-5 shadow-sm">
-          <h3 className="mb-3 font-semibold text-serene-ink text-sm">Gợi ý cho bạn</h3>
+        <div className="mb-4 rounded-3xl bg-theme-surface p-5 shadow-sm">
+          <h3 className="mb-3 font-semibold text-theme-primary text-sm">Gợi ý cho bạn</h3>
           <div className="grid grid-cols-2 gap-3">
             {meta.exercises.map((ex) => {
               const ExIcon = ex.icon
@@ -290,18 +301,18 @@ export function ResultsPage() {
                 key={ex.label}
                 type="button"
                 onClick={() => navigate(ROUTE_PATHS.exercises)}
-                className="flex flex-col items-start rounded-2xl border border-serene-border bg-serene-surface-2 p-3.5 text-left transition hover:bg-white"
+                className="flex flex-col items-start rounded-2xl border border-theme-border bg-theme-surface p-3.5 text-left transition hover:bg-theme-accent/10"
               >
-                <ExIcon className="mb-2 h-6 w-6 text-serene-primary" aria-hidden />
-                <p className="text-sm font-semibold text-serene-ink leading-tight">{ex.label}</p>
-                <p className="mt-0.5 text-xs text-serene-muted">{ex.desc}</p>
+                <ExIcon className="mb-2 h-6 w-6 text-theme-accent" aria-hidden />
+                <p className="text-sm font-semibold text-theme-primary leading-tight">{ex.label}</p>
+                <p className="mt-0.5 text-xs text-serene-secondary">{ex.desc}</p>
               </button>
             )})}
           </div>
         </div>
 
         {/* Disclaimer */}
-        <p className="mb-6 px-2 text-center text-[10px] leading-relaxed text-serene-muted">
+        <p className="mb-6 px-2 text-center text-xs leading-relaxed text-serene-muted">
           Đây không phải chẩn đoán lâm sàng. Nếu lo ngại, hãy gặp chuyên gia sức khoẻ tâm thần.
         </p>
 
@@ -314,12 +325,7 @@ export function ResultsPage() {
                 key={a.label}
                 type="button"
                 onClick={() => handleAction(a.path)}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 font-semibold text-sm transition-all active:scale-[0.97]"
-                style={
-                  a.primary
-                    ? { backgroundColor: meta.color, color: 'white' }
-                    : { backgroundColor: 'white', color: 'var(--color-serene-ink)', border: '1px solid var(--color-serene-border)' }
-                }
+                className="flex border border-theme-border bg-theme-surface hover:text-theme-accent cursor-pointer w-full items-center justify-center gap-2 rounded-2xl py-3.5 font-semibold text-sm transition-all active:scale-[0.97]"
               >
                 {Icon && <Icon className="h-4 w-4" />}
                 {a.label}
@@ -331,7 +337,7 @@ export function ResultsPage() {
           <button
             type="button"
             onClick={handleShare}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-serene-border bg-white py-3 text-sm font-medium text-serene-muted transition hover:text-serene-ink active:scale-[0.97]"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-theme-border bg-theme-surface py-3.5 text-sm font-medium text-theme-primary transition cursor-pointer hover:text-theme-accent active:scale-[0.97]"
           >
             <Share2 className="h-4 w-4" />
             Chia sẻ kết quả
@@ -341,31 +347,9 @@ export function ResultsPage() {
           <button
             type="button"
             onClick={() => navigate(ROUTE_PATHS.screening)}
-            className="w-full py-2.5 text-center text-xs text-serene-muted transition hover:text-serene-ink"
+            className="w-full py-2.5 text-center text-serene-ink transition hover:underline cursor-pointer"
           >
             Làm lại bài test khác
-          </button>
-        </div>
-
-        {/* Chat CTA */}
-        <div className="mt-6 rounded-3xl border border-serene-border bg-white p-5">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-serene-primary/10">
-              <MessageSquareText className="h-5 w-5 text-serene-primary" />
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-serene-ink text-sm">Nói chuyện về kết quả này</p>
-              <p className="mt-0.5 text-xs text-serene-muted">
-                Chat với Serene để hiểu hơn và tìm hướng tiếp theo.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate(ROUTE_PATHS.chat)}
-            className="mt-3 w-full rounded-xl bg-serene-primary/10 py-2.5 text-sm font-semibold text-serene-primary transition hover:bg-serene-primary/20"
-          >
-            Mở Chat
           </button>
         </div>
 

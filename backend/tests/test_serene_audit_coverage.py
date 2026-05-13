@@ -1,4 +1,4 @@
-"""Focused regression tests for Serene audit items (persona routing, Mem0 PII, crisis plan)."""
+﻿"""Focused regression tests for Serene audit items (persona routing, Mem0 PII, crisis plan)."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ def test_route_persona_low_distress_unlocked_stays():
     assert d.target_persona_id == "hau_luong"
 
 
-def test_route_persona_nguoi_thay_is_free_core_without_unlock():
+def test_route_persona_dat_le_is_free_core_without_unlock():
     d = route_persona(
         current_persona_id="dung_luong",
         requested_persona_id="dat_le",
@@ -40,7 +40,7 @@ def test_route_persona_nguoi_thay_is_free_core_without_unlock():
         user_explicit=True,
     )
     assert d.action == "switch"
-    assert d.target_persona_id == "nguoi_thay"
+    assert d.target_persona_id == "dat_le"
 
 
 def test_route_persona_locked_progression_reason_is_stable():
@@ -65,11 +65,11 @@ def test_enqueue_turn_mem0_masks_vn_phone(monkeypatch):
         def instance(cls):
             return cls()
 
-        def add_session(self, user_id: str, messages: list[dict]) -> None:
+        def add_session(self, user_id: str, messages: list[dict], **_kwargs) -> None:
             captured["messages"] = messages
 
     monkeypatch.setattr(chat_mod, "MemoryManager", _MM)
-    chat_mod._enqueue_turn_mem0("user_x", "Gọi mình theo số 0912345678 nhé", "OK, mình ghi 0912345678")
+    chat_mod._enqueue_turn_mem0("user_x", "Gá»i mÃ¬nh theo sá»‘ 0912345678 nhÃ©", "OK, mÃ¬nh ghi 0912345678")
     msgs = captured.get("messages")
     assert isinstance(msgs, list)
     blob = str(msgs)

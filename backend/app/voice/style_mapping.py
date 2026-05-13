@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.personas.aliases import resolve_alias
+
 PERSONA_VOICE_STYLES: dict[str, str] = {
     "dung_luong": "warm_friend",
     "dat_le": "calm_mentor",
@@ -19,7 +21,8 @@ def get_voice_style(persona_id: str | None) -> str:
     """Return tts_style_id for a persona_id. Falls back to DEFAULT_VOICE_STYLE."""
     if not persona_id:
         return DEFAULT_VOICE_STYLE
-    return PERSONA_VOICE_STYLES.get(persona_id, DEFAULT_VOICE_STYLE)
+    canonical = resolve_alias(persona_id)
+    return PERSONA_VOICE_STYLES.get(canonical, DEFAULT_VOICE_STYLE)
 
 
 def is_style_restricted(style_id: str) -> bool:

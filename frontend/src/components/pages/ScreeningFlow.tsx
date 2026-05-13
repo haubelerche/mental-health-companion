@@ -75,7 +75,7 @@ function AnalyzingLoader() {
   }, [steps.length])
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-[var(--color-lua-bg)] px-6">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-lua-bg rounded-4xl px-6">
       {/* Pulsing logo mark */}
       <motion.div
         animate={{ scale: [1, 1.12, 1] }}
@@ -180,7 +180,7 @@ export function ScreeningFlow() {
   // ── Instrument selection ──────────────────────────────────────────────────
   if (!selected) {
     return (
-      <div className="min-h-screen bg-[var(--color-lua-bg)] px-5 pt-10 pb-28">
+      <div className="min-h-screen bg-lua-bg px-5 pt-10 pb-28 rounded-4xl">
         <p className="mb-1 text-[10px] uppercase tracking-widest text-serene-muted">Sàng lọc</p>
         <h1 className="mb-2 font-display text-3xl text-serene-ink leading-snug">
           Chọn chủ đề sàng lọc
@@ -254,7 +254,7 @@ export function ScreeningFlow() {
 
   // ── Questionnaire ────────────────────────────────────────────────────────────
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--color-lua-bg)] px-5 pb-28 pt-8">
+    <div className="flex min-h-screen flex-col bg-lua-bg rounded-4xl px-5 pb-28 pt-8">
       {/* Header + progress */}
       <div className="mb-8">
         <div className="mb-4 flex items-center gap-3">
