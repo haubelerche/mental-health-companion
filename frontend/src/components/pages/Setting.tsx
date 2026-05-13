@@ -16,12 +16,10 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
 import {
-  APP_SETTINGS_UPDATED_EVENT,
   readAppSettings,
   saveAppSettings,
   updateAppMode,
   type AppearanceMode,
-  type AppSettings,
 } from '../../utils/appSettings'
 import { Switch } from '../ui/switch'
 import { toast } from 'react-toastify'
@@ -80,7 +78,6 @@ export default function Setting() {
   const [reminder, setReminder] = useState(initialSettings.reminder)
   const [weeklySummary, setWeeklySummary] = useState(initialSettings.weeklySummary)
   const [selectedMode, setSelectedMode] = useState<AppearanceMode>(initialSettings.mode)
-  const [isDark, setIsDark] = useState(initialSettings.mode === 'dark')
   const [savedSettings, setSavedSettings] = useState(initialSettings)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
@@ -107,7 +104,6 @@ export default function Setting() {
     setReminder(settings.reminder)
     setWeeklySummary(settings.weeklySummary)
     setSelectedMode(settings.mode)
-    setIsDark(settings.mode === 'dark')
     updateAppMode(settings.mode)
   }
 
@@ -174,7 +170,6 @@ export default function Setting() {
           onChange={(checked) => {
             const nextMode: AppearanceMode = checked ? 'dark' : 'light'
             setSelectedMode(nextMode)
-            setIsDark(checked)
             setSavedSettings((prev) => ({ ...prev, mode: nextMode }))
             updateAppMode(nextMode)
           }}
