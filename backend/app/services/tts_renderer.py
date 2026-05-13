@@ -68,6 +68,17 @@ def elevenlabs_route_allowed(
 def _elevenlabs_credentials_ready(settings: Settings) -> bool:
     return bool((settings.elevenlabs_api_key or "").strip() and (settings.elevenlabs_voice_id or "").strip())
 
+def resolve_elevenlabs_voice_id(*, settings: Settings, voice_style_id: str | None) -> str:
+    """Resolve per-persona ElevenLabs voice id with safe fallback."""
+    style = (voice_style_id or "").strip().lower()
+    if style == "warm_friend":
+        preferred = (getattr(settings, "elevenlabs_voice_id_crush_male", "") or "").strip()
+        return preferred or (getattr(settings, "elevenlabs_voice_id", "") or "").strip()
+    if style == "calm_mentor":
+        preferred = (getattr(settings, "elevenlabs_voice_id_mentor", "") or "").strip()
+        return preferred or (getattr(settings, "elevenlabs_voice_id", "") or "").strip()
+    return (getattr(settings, "elevenlabs_voice_id", "") or "").strip()
+
 
 def _ensure_elevenlabs_eligible(
     *,
@@ -101,7 +112,7 @@ def _truncate_for_tts(script: str, max_chars: int) -> str:
     return s[: max_chars - 1].rstrip() + "…"
 
 
-def _elevenlabs_synthesize(settings: Settings, text: str) -> bytes:
+def _elevenlabs_synthesize(settings: Settings, text: str, *, voice_style_id: str | None = None) -> bytes:
     try:
         from elevenlabs.client import ElevenLabs
         from elevenlabs.types.voice_settings import VoiceSettings
@@ -119,7 +130,7 @@ def _elevenlabs_synthesize(settings: Settings, text: str) -> bytes:
     )
     fmt = (settings.elevenlabs_output_format or "mp3_44100_128").strip()
     model = (settings.elevenlabs_model_id or "eleven_multilingual_v2").strip()
-    voice = (settings.elevenlabs_voice_id or "").strip()
+    voice = resolve_elevenlabs_voice_id(settings=settings, voice_style_id=voice_style_id)
     out_iter = client.text_to_speech.convert(
         voice_id=voice,
         text=text,
@@ -130,11 +141,16 @@ def _elevenlabs_synthesize(settings: Settings, text: str) -> bytes:
     return _normalize_audio_bytes(out_iter)
 
 
-def _invoke_elevenlabs_with_timeout(settings: Settings, text: str) -> tuple[bytes | None, str]:
+def _invoke_elevenlabs_with_timeout(
+    settings: Settings,
+    text: str,
+    *,
+    voice_style_id: str | None = None,
+) -> tuple[bytes | None, str]:
     timeout_s = float(settings.elevenlabs_timeout_seconds)
 
     def _work() -> bytes:
-        return _elevenlabs_synthesize(settings, text)
+        return _elevenlabs_synthesize(settings, text, voice_style_id=voice_style_id)
 
     try:
         with ThreadPoolExecutor(max_workers=1) as pool:
@@ -193,8 +209,9 @@ def _run_elevenlabs(
     user_id: str | None,
     started: float,
     distress_score: float | None,
+    voice_style_id: str | None = None,
 ) -> dict[str, Any]:
-    el_bytes, el_outcome = _invoke_elevenlabs_with_timeout(settings, text)
+    el_bytes, el_outcome = _invoke_elevenlabs_with_timeout(settings, text, voice_style_id=voice_style_id)
     el_latency = (time.perf_counter() - started) * 1000.0
     ds = distress_score if distress_score is not None else -1.0
     if el_bytes:
@@ -248,6 +265,7 @@ def render_tts_audio(
     safety_tier: str | None = None,
     *,
     user_id: str | None = None,
+    voice_style_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Render TTS for a voice job. ``script`` should be the assistant reply text (caller may pre-mask).
@@ -277,4 +295,5 @@ def render_tts_audio(
         user_id=user_id,
         started=started,
         distress_score=distress_score,
+        voice_style_id=voice_style_id,
     )
