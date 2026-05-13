@@ -10,6 +10,7 @@ import { ROUTE_PATHS } from '../../routes/paths'
 import LogoGoogle from '../../assets/branding/icons8-google-logo-100.png'
 import LogoFacebook from '../../assets/branding/icons8-facebook-96.png'
 import bgLogin from '../../assets/motion/login-signup.gif'
+import '../pages/landing/landing.css'
 
 export default function Login() {
     type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
@@ -51,7 +52,7 @@ export default function Login() {
     }
 
     return (
-        <div className="auth-page">
+        <div className="auth-page serene-landing">
             <div className="fixed inset-0">
                 <div
                     className="serene-fullscreen-motion-bg serene-fullscreen-motion-bg--absolute h-full w-full"
@@ -63,15 +64,24 @@ export default function Login() {
                     }}
                     aria-hidden
                 />
-                <div className="absolute inset-0 bg-white/10" />
-                <div className="absolute inset-0 bg-linear-to-b from-white/5 via-transparent to-white/10" />
+     
             </div>
 
             <div className="auth-noise" />
 
             <main className="auth-main px-6 py-10">
                 <div className="mb-8 text-center">
-                    <Link to={ROUTE_PATHS.landing} className="auth-brand">
+                    <Link to={ROUTE_PATHS.landing} className="pixel-headline" 
+                      style={{
+                        fontFamily: 'var(--font-pixel)',
+                        fontSize: 'clamp(4.5rem, 2vw, 4.5rem)',
+                        color: 'var(--yellow)',
+                        textDecoration: 'none',
+                        textShadow: '2px 2px 0 rgba(2,8,18,0.8)',
+                        flexShrink: 0,
+                        fontWeight: '800',
+                        letterSpacing: '2px',
+                    }}>
                         Serene
                     </Link>
                 </div>
