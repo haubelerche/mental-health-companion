@@ -12,10 +12,6 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import bg from '../../assets/backgrounds/bg-noon.png'
-import bg2 from '../../assets/backgrounds/bg-morning.png'
-import bg3 from '../../assets/backgrounds/bg-night.png'
-import bg4 from '../../assets/backgrounds/bg-reflection.png'
 
 import { useAuth } from '../../hooks/useAuth'
 import { ROUTE_PATHS } from '../../routes/paths'
@@ -26,7 +22,6 @@ import {
   updateAppMode,
   type AppearanceMode,
   type AppSettings,
-  type ThemeOption,
 } from '../../utils/appSettings'
 import { Switch } from '../ui/switch'
 import { toast } from 'react-toastify'
@@ -37,14 +32,6 @@ type ToggleRowProps = {
   description: string
   checked: boolean
   onChange: (checked: boolean) => void
-}
-
-type ThemeCardProps = {
-  label: string
-  image: string
-  selected: boolean
-  isDark: boolean
-  onSelect: () => void
 }
 
 type TabId = 'main' | 'notifications' | 'appearance'
@@ -61,34 +48,7 @@ function ToggleRow({ title, description, checked, onChange }: ToggleRowProps) {
   )
 }
 
-function ThemeCard({ label, image, selected, isDark: _isDark, onSelect }: ThemeCardProps) {
-  void _isDark
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className="group text-left"
-      aria-pressed={selected}
-    >
-      <div
-        className={[
-          'aspect-16/10 cursor-pointer overflow-hidden rounded-3xl border-2 group-hover:scale-[1.02]',
-          selected ? 'border-theme-primary shadow-2xl border-3' : 'border-theme-border',
-        ].join(' ')}
-      >
-        <img src={image} alt={label} className="h-full w-full object-cover" />
-      </div>
-      <p
-        className={[
-          'mt-3 text-center text-[0.7rem] font-semibold uppercase tracking-[0.28em]',
-          selected ? 'text-theme-accent' : 'text-theme-text-secondary',
-        ].join(' ')}
-      >
-        {label}
-      </p>
-    </button>
-  )
-}
+
 
 function SettingMenuItem({ icon: Icon, title, description, onClick }: { icon: LucideIcon, title: string, description: string, onClick: () => void }) {
   return (
@@ -115,41 +75,24 @@ export default function Setting() {
   
   const [activeTab, setActiveTab] = useState<TabId>('main')
   
-  const [isDark, setIsDark] = useState(initialSettings.mode === 'dark')
   const [maskIdentity, setMaskIdentity] = useState(initialSettings.maskIdentity)
   const [shareData, setShareData] = useState(initialSettings.shareData)
   const [reminder, setReminder] = useState(initialSettings.reminder)
   const [weeklySummary, setWeeklySummary] = useState(initialSettings.weeklySummary)
   const [selectedMode, setSelectedMode] = useState<AppearanceMode>(initialSettings.mode)
-  const [selectedTheme, setSelectedTheme] = useState<ThemeOption>(initialSettings.theme)
+  const [isDark, setIsDark] = useState(initialSettings.mode === 'dark')
   const [savedSettings, setSavedSettings] = useState(initialSettings)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
 
-  const previewTheme = (theme: ThemeOption) => {
-    const previewSettings: AppSettings = {
-      theme,
-      mode: selectedMode,
-      maskIdentity,
-      shareData,
-      reminder,
-      weeklySummary,
-    }
-    window.dispatchEvent(
-      new CustomEvent<AppSettings>(APP_SETTINGS_UPDATED_EVENT, {
-        detail: previewSettings,
-      }),
-    )
-  }
-
   const handleSaveChanges = () => {
     const settings = {
-      theme: selectedTheme,
-      mode: selectedMode,
+      ...savedSettings,
       maskIdentity,
       shareData,
       reminder,
       weeklySummary,
+      mode: selectedMode,
     }
 
     saveAppSettings(settings)
@@ -159,13 +102,13 @@ export default function Setting() {
 
   const handleCancel = () => {
     const settings = savedSettings
-    setSelectedTheme(settings.theme)
-    setSelectedMode(settings.mode)
     setMaskIdentity(settings.maskIdentity)
     setShareData(settings.shareData)
     setReminder(settings.reminder)
     setWeeklySummary(settings.weeklySummary)
-    previewTheme(settings.theme)
+    setSelectedMode(settings.mode)
+    setIsDark(settings.mode === 'dark')
+    updateAppMode(settings.mode)
   }
 
   const handleLogout = async () => {
@@ -190,72 +133,7 @@ export default function Setting() {
     }
   }
 
-  const renderAppearance = () => (
-    <section className="space-y-6">
-      <div className="flex items-center gap-2 border-b border-theme-secondary/30 pb-2">
-        <Palette className="h-5 w-5 text-theme-accent" />
-        <h2 className="font-display text-2xl text-theme-text-primary">Giao diện</h2>
-      </div>
 
-      <div className="grid gap-4">
-        <ToggleRow
-          title="Chế độ tối"
-          description="Bật để dùng tông màu tối cho giao diện chính."
-          checked={selectedMode === 'dark'}
-          onChange={(checked) => {
-            const nextMode: AppearanceMode = checked ? 'dark' : 'light'
-            setSelectedMode(nextMode)
-            setIsDark(checked)
-            setSavedSettings((prev) => ({ ...prev, mode: nextMode }))
-            updateAppMode(nextMode)
-          }}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
-        <ThemeCard
-          label="Sunset Ocean"
-          image={bg}
-          selected={selectedTheme === 'sunset'}
-          isDark={isDark}
-          onSelect={() => {
-            setSelectedTheme('sunset')
-            previewTheme('sunset')
-          }}
-        />
-        <ThemeCard
-          label="Blue Ocean"
-          image={bg4}
-          selected={selectedTheme === 'ocean'}
-          isDark={isDark}
-          onSelect={() => {
-            setSelectedTheme('ocean')
-            previewTheme('ocean')
-          }}
-        />
-        <ThemeCard
-          label="Dawn Sky"
-          image={bg2}
-          selected={selectedTheme === 'dawn'}
-          isDark={isDark}
-          onSelect={() => {
-            setSelectedTheme('dawn')
-            previewTheme('dawn')
-          }}
-        />
-        <ThemeCard
-          label="Night Sky"
-          image={bg3}
-          selected={selectedTheme === 'night'}
-          isDark={isDark}
-          onSelect={() => {
-            setSelectedTheme('night')
-            previewTheme('night')
-          }}
-        />
-      </div>
-    </section>
-  )
 
   const renderNotifications = () => (
     <section className="space-y-6">
@@ -276,6 +154,30 @@ export default function Setting() {
           description="Tổng kết những khoảnh khắc phản chiếu trong tuần."
           checked={weeklySummary}
           onChange={setWeeklySummary}
+        />
+      </div>
+    </section>
+  )
+
+  const renderAppearance = () => (
+    <section className="space-y-6">
+      <div className="flex items-center gap-2 border-b border-theme-border/30 pb-2">
+        <Palette className="h-5 w-5 text-theme-accent" />
+        <h2 className="font-display text-2xl text-theme-text-primary">Giao diện</h2>
+      </div>
+
+      <div className="grid gap-4">
+        <ToggleRow
+          title="Chế độ tối"
+          description="Bật để dùng tông màu tối cho giao diện chính."
+          checked={selectedMode === 'dark'}
+          onChange={(checked) => {
+            const nextMode: AppearanceMode = checked ? 'dark' : 'light'
+            setSelectedMode(nextMode)
+            setIsDark(checked)
+            setSavedSettings((prev) => ({ ...prev, mode: nextMode }))
+            updateAppMode(nextMode)
+          }}
         />
       </div>
     </section>
@@ -332,9 +234,10 @@ export default function Setting() {
                 <SettingMenuItem
                   icon={Palette}
                   title="Giao diện"
-                  description="Chủ đề, chế độ sáng/tối và hình nền"
+                  description="Chế độ sáng/tối"
                   onClick={() => setActiveTab('appearance')}
                 />
+
                 <SettingMenuItem
                   icon={Repeat}
                   title="Cá nhân hóa Onboarding"
@@ -372,8 +275,7 @@ export default function Setting() {
             shareData !== savedSettings.shareData ||
             reminder !== savedSettings.reminder ||
             weeklySummary !== savedSettings.weeklySummary ||
-            selectedMode !== savedSettings.mode ||
-            selectedTheme !== savedSettings.theme) && (
+            selectedMode !== savedSettings.mode) && (
               <footer className="mt-12 flex flex-col-reverse gap-3 border-t border-theme-border/30 pt-8 sm:flex-row sm:justify-end sm:gap-5">
                 <button
                   type="button"
