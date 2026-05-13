@@ -33,6 +33,7 @@ export default function KnowledgeShelf({ shelf, balance, ownedItemIds, onPurchas
                         balance={balance}
                         owned={ownedItemIds.has(item.item_id)}
                         onPurchase={onPurchase}
+                        comingSoon
                     />
                 ))}
             </div>
