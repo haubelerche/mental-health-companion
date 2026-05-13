@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import enforce_admin_ip, get_admin_claims
 from app.core.responses import ok
 from app.services.db.session import get_db
-from app.services.db.models import Conversation, CrisisLog, MoodCheckin, Resource, PlayEvent, Message
+from app.services.db.models import Conversation, CrisisLog, MoodCheckin, Resource, Message
 from app.services.chat_cost_metrics import get_chat_cost_snapshot
 from app.services.utils import local_date_utc7
 from .shared import router, _audit

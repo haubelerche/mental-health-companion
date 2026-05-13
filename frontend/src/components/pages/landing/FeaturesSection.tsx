@@ -4,7 +4,7 @@ import calmness from '../../../assets/motion/calmness.gif'
 import pageSereneLanding from '../../../assets/motion/page-serene-landing.gif'
 import miniPicture from '../../../assets/motion/mini-picture.gif'
 import fishing from '../../../assets/motion/fishing.gif'
-import support from '../../../assets/motion/support.gif'
+import support from '../../../assets/motion/heart.gif'
 
 const FEATURES = [
     {
