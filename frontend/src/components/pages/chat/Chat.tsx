@@ -269,7 +269,6 @@ function readStoredChatSession(personaId: string) {
     return personaId === DEFAULT_PERSONA_ID ? localStorage.getItem(LEGACY_CHAT_SESSION_KEY) : null
 }
 
-
 export default function Chat() {
     type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
     const FALLBACK_GUEST_CHAT_DURATION_SECONDS = 120
