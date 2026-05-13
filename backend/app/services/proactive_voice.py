@@ -22,7 +22,12 @@ from app.services.db.models import SyncOutbox
 from app.services.db.session import get_session_factory
 from app.services.pii_mask import mask_pii
 from app.services.tts_exceptions import PermanentTtsError
-from app.services.tts_renderer import TTS_AUDIO_OUTPUT_DIR, _normalize_audio_bytes, render_tts_audio
+from app.services.tts_renderer import (
+    TTS_AUDIO_OUTPUT_DIR,
+    _normalize_audio_bytes,
+    render_tts_audio,
+    resolve_elevenlabs_voice_id,
+)
 from app.voice.dedup import compute_event_signature, dedup_status_for, find_dedup_job
 from app.voice.style_mapping import resolve_active_style
 
@@ -221,7 +226,7 @@ def enqueue_voice_job(
     voice_style_id = resolve_active_style(
         persona_id, user_owns_voice_style=user_owns_voice_style
     )
-    voice_id = str(getattr(settings, "elevenlabs_voice_id", "") or "")
+    voice_id = resolve_elevenlabs_voice_id(settings=settings, voice_style_id=voice_style_id)
     signature = compute_event_signature(
         user_id=user_id,
         session_id=session_id,
@@ -389,6 +394,7 @@ def _process_job(job_id: int, owner_token: str | None = None) -> None:
                 distress_f,
                 tier_s,
                 user_id=user_id or None,
+                voice_style_id=str((payload.get("voice") or {}).get("voice_style_id") or ""),
             )
         except PermanentTtsError as exc:
             tts_out = {
