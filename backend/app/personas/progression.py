@@ -16,7 +16,7 @@ from app.rewards.catalog import CATALOG_BY_ID
 from app.services.db.models import MoodCheckin
 
 # Core personas are always available; this module historically only listed UNLOCKABLE_PERSONAS.
-CORE_PERSONA_IDS: tuple[str, ...] = ("dung_luong", "nguoi_thay")
+CORE_PERSONA_IDS: tuple[str, ...] = ("dung_luong", "dat_le")
 
 
 def _count_mood_checkins(db: Session, user_id: str) -> int:
