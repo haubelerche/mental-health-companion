@@ -35,12 +35,9 @@ export default function LandingHeader() {
                 left: 0,
                 right: 0,
                 zIndex: 50,
-                background: scrolled
-                    ? 'rgba(7,17,31,0.85)'
-                    : 'transparent',
-                backdropFilter: scrolled ? 'blur(16px)' : 'none',
-                borderBottom: scrolled ? '1px solid var(--border-soft)' : '1px solid transparent',
-                transition: 'background 0.35s ease, border-color 0.35s ease, backdrop-filter 0.35s ease',
+                background: 'rgba(7,17,31,1)', // Nền đặc để che ảnh nền bên dưới
+                borderBottom: '1px solid var(--border-soft)',
+                transition: 'background 0.35s ease, border-color 0.35s ease',
             }}
         >
             <div

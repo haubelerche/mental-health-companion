@@ -433,6 +433,10 @@
    13. Responsive
    ──────────────────────────────────────────── */
 @media (max-width: 768px) {
+  .serene-landing .hero-content {
+    padding-top: 80px;
+  }
+
   .serene-landing .pixel-headline {
     font-size: clamp(1.8rem, 4vw, 2.5rem);
   }
