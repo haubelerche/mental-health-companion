@@ -8,7 +8,6 @@ import {
     MessageSquareText,
     Wind,
     Leaf,
-    ClipboardList,
     Info,
     ChevronRight,
     X,
@@ -347,7 +346,6 @@ export default function Home() {
     const [completedDays, setCompletedDays] = useState<number[]>([])
     const [checkinHistoryOpen, setCheckinHistoryOpen] = useState(false)
     const streak = backendStreakDays ?? 0
-    const [wellnessScores, setWellnessScores] = useState<WellnessScores | null>(null)
     const [nutritionTip, setNutritionTip] = useState<NutritionDailyTip | null>(null)
     const [homeMoodWords, setHomeMoodWords] = useState<string[]>([])
     const [quoteIndex, setQuoteIndex] = useState(0)
@@ -425,18 +423,7 @@ export default function Home() {
                 setBackendStreakDays(data.progress.streak_days ?? 0)
                 setIsTodayCompleted(data.progress.is_today_completed ?? false)
                 setCompletedDays(data.progress.completed_days ?? [])
-                const scoreOf = (dim: string, fb: number) => {
-                    const row = data.wellness_dimensions.find((x) => x.dimension === dim)
-                    return row?.score != null ? Math.round(row.score) : fb
-                }
-                setWellnessScores({
-                    emotional: scoreOf('emotion', 55),
-                    sleep: scoreOf('sleep', 55),
-                    mindfulness: scoreOf('mindfulness', 55),
-                    social: scoreOf('connection', 55),
-                    physical: scoreOf('body', 55),
-                    growth: scoreOf('growth', 55),
-                })
+
             })
             .catch(() => undefined)
 
