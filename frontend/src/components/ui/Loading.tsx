@@ -4,7 +4,7 @@ const Loading = ({ text = 'Bạn chờ xíu nha...' }) => {
         <div className="flex items-center justify-center h-[50dvh]">
             <div className="text-center">
                 <img className="mx-auto" src={loadingImg} alt="loading" />
-                <p className="text-xl mt-3 text-theme-text-primary font-display font-semibold">{text}</p>
+                <p className="text-xl mt-3 text-serene-primary font-display font-semibold">{text}</p>
             </div>
         </div>
     )

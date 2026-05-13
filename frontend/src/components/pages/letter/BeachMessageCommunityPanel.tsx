@@ -1,6 +1,7 @@
-import { formatRelativeTime, getUi } from './shared'
+import {  getUi } from './shared'
 import type { ReplyArchiveItem, SentLetterItem } from '../../../services/anonymousShareService'
 import Loading from '../../ui/Loading'
+import { parseTime } from '@/utils/parseTime'
 
 export function BeachMessageCommunityPanel({
     dark,
@@ -21,15 +22,12 @@ export function BeachMessageCommunityPanel({
     const ui = getUi(isDark)
 
     return (
-        <div className="relative z-10 max-w-2xl mx-auto px-6 py-16 pb-24" style={{ animation: 'fadeUp 0.8s ease both' }}>
-            <div className="mb-10">
-                <h2
-                    className={`${ui.textPrimary} font-display text-4xl italic font-normal`}
-                    style={{ textShadow: isDark ? '0 2px 16px rgba(0,0,0,0.36)' : '0 2px 10px rgba(255,255,255,0.35)' }}
-                >
-                    Kho thư cá nhân
-                </h2>
-            </div>
+        <div className="relative z-10 max-w-2xl mx-auto px-4 pb-18 mt-5 mb-10" style={{ animation: 'fadeUp 0.8s ease both' }}>
+
+            <h2 className={`${ui.textPrimary} mb-5 font-display text-4xl italic text-center`}>
+                Kho thư cá nhân
+            </h2>
+
 
             <div className={`${ui.glassLight} bg-theme-surface border rounded-2xl p-4 mb-8`}>
                 <div className="flex items-center justify-between mb-3">
@@ -48,10 +46,10 @@ export function BeachMessageCommunityPanel({
                             >
                                 <div className="flex items-start justify-between gap-3 mb-1">
                                     <p className={`${ui.textSubtle} font-display text-base font-semibold`}>Thư của bạn</p>
-                                    <p className={`${ui.textSubtler} text-xs`}>{formatRelativeTime(item.sent_at)}</p>
+                                    <p className={`${ui.textSubtler} text-xs`}>{parseTime(item.sent_at)}</p>
                                 </div>
-                                <p className={`${ui.textSubtler} text-sm line-clamp-1 mb-1`}>{item.content}</p>
-                                <p className={`${ui.textSubtler} text-xs uppercase tracking-wider`}>
+                                <p className={`${ui.textSubtle} text-sm line-clamp-1 mb-1`}>{item.content}</p>
+                                <p className={`${ui.textSubtler} text-xs tracking-wider italic`}>
                                     {item.reply
                                         ? `${item.reply.anonymous_name ? `Ẩn danh: ${item.reply.anonymous_name}` : 'Có hồi âm'}${item.reply.has_reaction ? ` · Đã được thả ${item.reply.reaction_type ?? 'cảm xúc'}` : ' · Chưa được thả cảm xúc'}`
                                         : 'Đang chờ hồi âm'}
@@ -81,13 +79,13 @@ export function BeachMessageCommunityPanel({
                             >
                                 <div className="flex items-start justify-between gap-3 mb-1">
                                     <p className={`${ui.textSubtle} font-display text-base font-semibold`}>Phản hồi của bạn</p>
-                                    <p className={`${ui.textSubtler} text-xs`}>{formatRelativeTime(item.sent_at)}</p>
+                                    <p className={`${ui.textSubtler} text-xs`}>{parseTime(item.sent_at)}</p>
                                 </div>
                                 <p className={`${ui.textSubtler} text-xs mb-2`}>
                                     {item.anonymous_name ? `Ẩn danh: ${item.anonymous_name}` : 'Ẩn danh'}
                                     {item.has_reaction ? ` · Đã được thả ${item.reaction_type ?? 'cảm xúc'}` : ' · Chưa được thả cảm xúc'}
                                 </p>
-                                <p className={`${ui.textSubtler} text-sm line-clamp-2 mb-2`}>{item.content}</p>
+                                <p className={`${ui.textSubtle} text-sm line-clamp-2 mb-2`}>{item.content}</p>
                                 {item.original_content ? (
                                     <p className={`${ui.textSubtler} text-xs italic line-clamp-2`}>Trả lời cho: {item.original_content}</p>
                                 ) : null}
