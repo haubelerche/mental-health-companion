@@ -38,12 +38,61 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 _EMBED_MODEL = "text-embedding-3-small"
+ADVISOR_JSONL_STATUS_ALLOWED = {"approved", "rejected", "needs_review"}
+ADVISOR_JSONL_DOMAIN_PATHS = {
+    "empathy": _REPO / "data" / "data-advisors" / "empathy" / "empathy.jsonl",
+    "cbt_pattern": _REPO / "data" / "data-advisors" / "cbtpattern" / "cbt-pattern.jsonl",
+    "reflection": _REPO / "data" / "data-advisors" / "reflection" / "reflection.jsonl",
+    "strategy": _REPO / "data" / "data-advisors" / "strategy" / "strategy.jsonl",
+    "safety": _REPO / "data" / "data-advisors" / "safety" / "safety.jsonl",
+    "relevance": _REPO / "data" / "data-advisors" / "relevance" / "relevance.jsonl",
+    "nutrition": _REPO / "data" / "data-advisors" / "nutrition" / "nutrition.jsonl",
+}
 
 
 def _normalize(text: str) -> str:
     folded = unicodedata.normalize("NFKD", text or "")
     folded = "".join(ch for ch in folded if not unicodedata.combining(ch))
     return re.sub(r"\s+", " ", folded.replace("Ä‘", "d").lower()).strip()
+
+
+def validate_advisor_jsonl_record(raw: dict[str, Any]) -> tuple[bool, list[str]]:
+    """Validate advisor JSONL before staging or promotion."""
+    errors: list[str] = []
+    quality = raw.get("quality_flags") if isinstance(raw.get("quality_flags"), dict) else {}
+    if quality.get("no_final_text") is not True:
+        errors.append("quality_flags.no_final_text must be true")
+    if raw.get("display_allowed") is not False:
+        errors.append("display_allowed must be false")
+    if str(raw.get("locale") or "").strip() != "vi":
+        errors.append("locale must be vi")
+    status = str(raw.get("safety_review_status") or raw.get("review_status") or "").strip()
+    if status not in ADVISOR_JSONL_STATUS_ALLOWED:
+        errors.append("safety_review_status must be approved, rejected, or needs_review")
+    forbidden_keys = {"final_text", "assistant_response", "reply", "message_to_user", "user_message_text"}
+    present = sorted(forbidden_keys & set(raw))
+    if present:
+        errors.append(f"forbidden user-facing fields present: {', '.join(present)}")
+    return not errors, errors
+
+
+def iter_validated_advisor_jsonl(domain_id: str) -> list[tuple[dict[str, Any], list[str]]]:
+    path = ADVISOR_JSONL_DOMAIN_PATHS[domain_id]
+    rows: list[tuple[dict[str, Any], list[str]]] = []
+    for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            raw = json.loads(line)
+        except json.JSONDecodeError as exc:
+            rows.append(({"line": lineno}, [f"invalid json: {exc.msg}"]))
+            continue
+        if not isinstance(raw, dict):
+            rows.append(({"line": lineno}, ["row must be a json object"]))
+            continue
+        valid, errors = validate_advisor_jsonl_record(raw)
+        rows.append((raw, [] if valid else errors))
+    return rows
 
 
 def _tags_from_text(text: str) -> tuple[list[str], list[str], list[str], list[str]]:
@@ -109,11 +158,30 @@ def infer_interaction_need(question: str, response: str = "") -> str:
     return "venting"
 
 
+def infer_advisor_domains(interaction_need: str, patterns: list[str], topics: list[str], risks: list[str]) -> list[str]:
+    domains: list[str] = []
+    if risks or interaction_need == "safety":
+        domains.append("safety")
+    if patterns or interaction_need in {"cognitive_reframe", "reassurance"}:
+        domains.append("cbt_pattern")
+    if interaction_need in {"problem_solving", "grounding"}:
+        domains.append("strategy")
+    if "sleep_energy" in topics:
+        domains.append("nutrition")
+    domains.append("empathy")
+    out: list[str] = []
+    for item in domains:
+        if item not in out:
+            out.append(item)
+    return out[:5]
+
+
 def build_case_from_raw(row: dict[str, str]) -> dict[str, Any]:
     question = str(row.get("question") or "").strip()
     response = str(row.get("response") or "").strip()
     topics, emotions, patterns, risks = _tags_from_text(f"{question} {response}")
     interaction_need = infer_interaction_need(question, response)
+    advisor_domains = infer_advisor_domains(interaction_need, patterns, topics, risks)
     primary_problem = question[:360]
     goal = "giúp người dùng gọi tên vấn đề, giảm tự trách và chọn một bước nhỏ an toàn"
     if interaction_need == "grounding":
@@ -154,6 +222,10 @@ def build_case_from_raw(row: dict[str, str]) -> dict[str, Any]:
         "source_response_summary": response[:650],
         "safety_review_status": "needs_review" if risks else "pending",
         "quality_score": 0.55,
+        "source": str(row.get("source") or "counseling_knowledge").strip() or "counseling_knowledge",
+        "advisor_domains": advisor_domains,
+        "safety_constraints": {"no_diagnosis": True, "no_raw_response_copy": True},
+        "metadata": {"processor": "backfill_advisor_case_library.v1"},
     }
 
 
@@ -238,14 +310,16 @@ def backfill(*, dry_run: bool = False, limit: int | None = None, batch_size: int
                             topic_tags, emotional_state_tags, interaction_need, cognitive_pattern_tags,
                             counseling_goal, recommended_approach, intervention_steps,
                             reflection_questions, do_say, do_not_say, risk_flags,
-                            source_response_summary, safety_review_status, quality_score, embedding
+                            source_response_summary, safety_review_status, quality_score,
+                            source, advisor_domains, safety_constraints, metadata, embedding
                         )
                         VALUES (
                             gen_random_uuid(), :raw_case_id, :language, :user_context, :primary_problem,
                             :topic_tags, :emotional_state_tags, :interaction_need, :cognitive_pattern_tags,
                             :counseling_goal, :recommended_approach, CAST(:intervention_steps AS jsonb),
                             CAST(:reflection_questions AS jsonb), CAST(:do_say AS jsonb), CAST(:do_not_say AS jsonb), :risk_flags,
-                            :source_response_summary, :safety_review_status, :quality_score, '{vec_str}'::vector
+                            :source_response_summary, :safety_review_status, :quality_score,
+                            :source, :advisor_domains, CAST(:safety_constraints AS jsonb), CAST(:metadata AS jsonb), '{vec_str}'::vector
                         )
                         ON CONFLICT DO NOTHING
                         """
@@ -257,6 +331,8 @@ def backfill(*, dry_run: bool = False, limit: int | None = None, batch_size: int
                         "reflection_questions": json.dumps(case["reflection_questions"], ensure_ascii=False),
                         "do_say": json.dumps(case["do_say"], ensure_ascii=False),
                         "do_not_say": json.dumps(case["do_not_say"], ensure_ascii=False),
+                        "safety_constraints": json.dumps(case["safety_constraints"], ensure_ascii=False),
+                        "metadata": json.dumps(case["metadata"], ensure_ascii=False),
                     },
                 )
                 inserted += 1
