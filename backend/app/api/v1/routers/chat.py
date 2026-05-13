@@ -33,7 +33,6 @@ from app.services.guest_service import heartbeat as guest_heartbeat
 from app.services.guest_service import start_session as guest_start_session
 from app.services.langfuse_tracing import ChatTurnTracer, set_active_tracer
 from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn, stream_non_sos_turn_events
-from app.services.neo4j_client import get_user_patterns_async
 from app.services.longterm_memory import (
     UserMemoryContext,
     build_user_memory_context,
@@ -75,14 +74,16 @@ from app.services.voice_policy import VoiceMessagePolicyEngine, VoicePolicyConte
 from app.services.utils import make_id, get_now
 from app.voice.types import TTS_TERMINAL_STATUSES
 from app.personas.router import route_persona
+from app.personas.greetings import persona_chat_greeting_text
 from app.services.persona_unlock_persistence import is_persona_unlocked
+from app.services.meme_selector import maybe_select_meme_suggestion
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 SYSTEM_AUDIT_ADMIN = "sys_auto"
-DEFAULT_PERSONA_ID = "ban_than"
+DEFAULT_PERSONA_ID = "dung_luong"
 
 
 def _mark_stage(latency_map: dict[str, int], stage: str, started_at: float) -> None:
@@ -100,7 +101,13 @@ def _build_heartbeat_event(*, started_at: float, last_heartbeat_at: float, stage
     return now, "event: heartbeat\ndata: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
 
 
-def _enqueue_turn_mem0(user_id: str, raw_text: str, assistant_text: str) -> None:
+def _enqueue_turn_mem0(
+    user_id: str,
+    raw_text: str,
+    assistant_text: str,
+    *,
+    user_name: str | None = None,
+) -> None:
     """Persist recent turn to Mem0 without blocking the API response path."""
     try:
         MemoryManager.instance().add_session(
@@ -109,6 +116,7 @@ def _enqueue_turn_mem0(user_id: str, raw_text: str, assistant_text: str) -> None
                 {"role": "user", "content": mask_pii(raw_text)},
                 {"role": "assistant", "content": mask_pii(assistant_text)},
             ],
+            user_name=user_name,
         )
     except Exception as exc:  # pragma: no cover - fail-safe
         logger.warning("mem0 turn add failed for %s: %s", user_id, exc)
@@ -438,6 +446,7 @@ def _enqueue_voice_policy(
     db: Session,
     user_id: str,
     session_id: str,
+    persona_id: str | None,
     decision,
     snap,
     trigger_reason: str,
@@ -481,6 +490,7 @@ def _enqueue_voice_policy(
                 voice_script=plan.voice_script,
                 trigger_reason=trigger_reason,
                 trigger_snapshot=trigger_snapshot,
+                persona_id=persona_id,
                 risk_mode=decision.risk_mode,
                 voice_intent=str(plan.intent),
                 priority=plan.priority,
@@ -618,7 +628,7 @@ def _compact_recommendation_attachments(items: list[dict] | None) -> list[dict]:
 
 _PERSONA_GREETINGS: dict[str, str] = {
     "ban_than": "Wassupp, hôm nay cậu ổn không? Tui luôn ở đây lắng nghe chia sẻ của cậu.",
-    "nguoi_thay": "Chào em, hôm nay em có điều gì muốn kể cho thầy nghe không?",
+    "dat_le": "Chào em, hôm nay em có điều gì muốn kể cho thầy nghe không?",
     "cun": "Gâu Gâu! cục vàng của sen yêu đây! Hôm nay sen có chuyện gì muốn kể cho cún nghe không? 🐾",
     "meo": "Mèo méooo~ Hôm nay sen lèm sao? Có gì vui kể cho hoàng thượng nghe không? 🐱",
     "crush": "Hey, mình ở đây rồi. Hôm nay bạn thế nào? 💬",
@@ -627,11 +637,11 @@ _PERSONA_GREETINGS: dict[str, str] = {
 
 @router.get("/greeting")
 def get_greeting(
-    persona_id: str = Query(default="ban_than"),
+    persona_id: str = Query(default="dung_luong"),
     current_user: User = Depends(get_current_user),
 ) -> dict:
     pid = persona_id.strip() or DEFAULT_PERSONA_ID
-    text = _PERSONA_GREETINGS.get(pid, _PERSONA_GREETINGS[DEFAULT_PERSONA_ID])
+    text = persona_chat_greeting_text(pid)
     return ok({"text": text, "persona_id": pid})
 
 
@@ -828,6 +838,7 @@ def send_message(
                 db=db,
                 user_id=current_user.user_id,
                 session_id=session.session_id,
+                persona_id=DEFAULT_PERSONA_ID,
                 decision=voice_decision,
                 snap=snap,
                 trigger_reason="sos_gate_forced",
@@ -859,6 +870,7 @@ def send_message(
 
     # distress_score frozen after decide_sos() — mood is context for LangGraph, not a routing delta.
     distress = distress0
+    selected_persona_id = _active_persona_id(db, current_user.user_id, distress=distress)
 
     turn = None
     message_hash = hash_message(raw_text, context_seed=f"{session.session_id}:{session.message_count}:{len(ctx.recent_messages)}")
@@ -877,11 +889,8 @@ def send_message(
             )
             _mark_stage(latency_trace, "memory_load_ms", memory_started)
             llm_started = time.perf_counter()
+            # Keep request path low-latency: avoid synchronous Neo4j prefetch here.
             _graph_patterns: dict = {}
-            try:
-                _graph_patterns = asyncio.run(get_user_patterns_async(current_user.user_id))
-            except Exception as _neo4j_exc:
-                logger.debug("neo4j pre-fetch failed in send_message: %s", _neo4j_exc)
             _nutrition_meals = _load_today_meals(db, current_user.user_id)
             _base_traits = dict(memory_ctx.traits if memory_ctx else {})
             if memory_ctx and memory_ctx.onboarding:
@@ -898,7 +907,7 @@ def send_message(
                 active_goals=(memory_ctx.active_goals if memory_ctx else []),
                 effective_coping=(memory_ctx.effective_coping if memory_ctx else []),
                 clinical_trajectory=(memory_ctx.clinical_trajectory if memory_ctx else ""),
-                persona_id=_active_persona_id(db, current_user.user_id, distress=distress),
+                persona_id=selected_persona_id,
                 user_id=current_user.user_id,
                 session_id=session.session_id,
                 active_memory_text="",
@@ -936,14 +945,17 @@ def send_message(
     db.add(assistant_msg)
     session.message_count += 1
     session.last_message_at = now
-    persist_turn_memory(
-        db,
-        user_id=current_user.user_id,
-        session_id=session.session_id,
-        user_message=raw_text,
-        assistant_reply=assistant_content,
-        sos_triggered=False,
-    )
+    try:
+        persist_turn_memory(
+            db,
+            user_id=current_user.user_id,
+            session_id=session.session_id,
+            user_message=raw_text,
+            assistant_reply=assistant_content,
+            sos_triggered=False,
+        )
+    except Exception as exc:  # pragma: no cover - fail-open persistence path
+        logger.warning("turn memory persistence failed for %s: %s", current_user.user_id, exc)
     review_decision = route_for_human_review(
         distress_score=snap.distress_score,
         sos_triggered=False,
@@ -963,6 +975,9 @@ def send_message(
     threading.Thread(
         target=_enqueue_turn_mem0,
         args=(current_user.user_id, raw_text, assistant_content),
+        kwargs={
+            "user_name": str(getattr(current_user, "display_name", None) or "bạn"),
+        },
         daemon=True,
     ).start()
 
@@ -1018,10 +1033,23 @@ def send_message(
         visible_text=assistant_content,
         reason_codes=tuple([signal_for_voice.trigger_reason] if signal_for_voice.escalate else []),
     ))
+    meme_suggestion = maybe_select_meme_suggestion(
+        persona_id=selected_persona_id,
+        safety_tier=str(snap.safety_tier),
+        distress_score=float(snap.distress_score),
+        session_id=session.session_id,
+        assistant_turn_index=int(session.message_count),
+        user_message=str(raw_text or ""),
+        assistant_text=str(assistant_content or ""),
+    )
+    if meme_suggestion:
+        data["meme_suggestion"] = meme_suggestion
+
     voice_result = _enqueue_voice_policy(
         db=db,
         user_id=current_user.user_id,
         session_id=session.session_id,
+        persona_id=selected_persona_id,
         decision=voice_decision,
         snap=snap,
         trigger_reason=signal_for_voice.trigger_reason if signal_for_voice.escalate else f"{voice_decision.risk_mode}_voice_policy",
@@ -1262,6 +1290,7 @@ def send_message_stream(
                         db=db,
                         user_id=current_user.user_id,
                         session_id=session.session_id,
+                        persona_id=DEFAULT_PERSONA_ID,
                         decision=voice_decision,
                         snap=snap,
                         trigger_reason="sos_gate_forced",
@@ -1313,11 +1342,8 @@ def send_message_stream(
                 if hb:
                     yield hb
                 yield "event: status\ndata: " + json.dumps({"stage": "model_stream_start"}, ensure_ascii=False) + "\n\n"
+                # Keep stream first-token latency low: skip synchronous Neo4j prefetch.
                 _stream_graph_patterns: dict = {}
-                try:
-                    _stream_graph_patterns = asyncio.run(get_user_patterns_async(current_user.user_id))
-                except Exception as _neo4j_exc:
-                    logger.debug("neo4j pre-fetch failed in send_message_stream: %s", _neo4j_exc)
                 _stream_nutrition_meals = _load_today_meals(db, current_user.user_id)
                 _stream_base_traits = dict(memory_ctx.traits if memory_ctx else {})
                 if memory_ctx and memory_ctx.onboarding:
@@ -1426,6 +1452,9 @@ def send_message_stream(
             threading.Thread(
                 target=_enqueue_turn_mem0,
                 args=(current_user.user_id, raw_text, assistant_content),
+                kwargs={
+                    "user_name": str(getattr(current_user, "display_name", None) or "bạn"),
+                },
                 daemon=True,
             ).start()
 
@@ -1483,6 +1512,7 @@ def send_message_stream(
                 db=db,
                 user_id=current_user.user_id,
                 session_id=session.session_id,
+                persona_id=_stream_persona_id,
                 decision=voice_decision,
                 snap=snap,
                 trigger_reason=signal_for_voice.trigger_reason if signal_for_voice.escalate else f"{voice_decision.risk_mode}_voice_policy",
