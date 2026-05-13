@@ -16,7 +16,7 @@ RouterAction = Literal["keep", "switch", "suggest", "deactivate", "reject"]
 
 _BRIDGE_MESSAGES: dict[str, str] = {
     "dung_luong": "Dũng đây. Mình quay về nhịp chắc hơn một chút nha, cậu cứ nói phần đang nặng nhất trước.",
-    "nguoi_thay": "Tôi ở đây cùng bạn nhìn rõ điều đang làm hôm nay nặng hơn một chút.",
+    "dat_le": "Tôi ở đây cùng bạn nhìn rõ điều đang làm hôm nay nặng hơn một chút.",
     "hau_luong": "Hú, Hậu đây. Tình hình thế nào rồi bạn?",
 }
 
