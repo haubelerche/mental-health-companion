@@ -246,9 +246,19 @@ class WorkerManager:
     def __init__(self):
         self.workers: Dict[str, AdminWorker] = {}
         self.logs = []
-        asyncio.create_task(self.initialize())
+        self._initialized = False
+        self._initialization_task: Optional[asyncio.Task] = None
+
+    async def ensure_initialized(self) -> None:
+        if self._initialized:
+            return
+        if self._initialization_task is None:
+            self._initialization_task = asyncio.create_task(self.initialize())
+        await self._initialization_task
 
     async def initialize(self):
+        if self._initialized:
+            return
         await asyncio.sleep(2)
         logger.info("Initializing WorkerManager from Database...")
         db = get_session_factory()()
@@ -279,6 +289,7 @@ class WorkerManager:
             logger.error(f"WorkerManager initialization failed: {e}")
         finally:
             db.close()
+            self._initialized = True
 
     def add_log(self, target_id: str, message: str, status: str = "success", details: dict = None):
         log_entry = {
