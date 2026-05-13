@@ -94,18 +94,6 @@ const getRecoCards = (hour: number, isDark: boolean): RecoCard[] => {
             ? 'bg-amber-950/18 border border-amber-800/20'
             : 'bg-amber-50/90 border border-amber-500/60',
     },
-    {
-        icon: ClipboardList,
-        label: 'Làm bài Test',
-        desc: 'Sàng lọc sức khỏe tinh thần',
-        route: `${ROUTE_PATHS.screening}`,
-        accentClass: isDark
-            ? 'bg-blue-500/12 text-blue-100 border border-blue-200'
-            : 'bg-blue-100 text-blue-900 border border-blue-500',
-        cardClass: isDark
-            ? 'bg-blue-900/50 border border-blue-800/20'
-            : 'bg-blue-50/90 border border-blue-500/60',
-    },
 ]
 
 }
@@ -586,7 +574,10 @@ export default function Home() {
                         </button>
                     </div>
 
-                    <div className="relative overflow-hidden rounded-[24px] min-h-[300px] shadow-lg mt-5">
+                    <Link
+                        to={ROUTE_PATHS.screening}
+                        className="relative block overflow-hidden rounded-[24px] min-h-[300px] shadow-lg mt-5 transition-transform hover:scale-[1.01]"
+                    >
                         <img
                             src={exerciseImg}
                             alt="Một hình minh họa cho các gợi ý bắt đầu nhanh"
@@ -594,12 +585,12 @@ export default function Home() {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/30 to-transparent" />
                         <div className="absolute inset-x-0 bottom-0 p-5 text-white">
-                            <p className="text-sm font-bold uppercase tracking-[0.2em] text-theme-text-secondary">Bắt đầu từ một hơi thở</p>
+                            <p className="text-sm font-bold uppercase tracking-[0.2em] text-theme-text-secondary">Làm bài test sức khỏe tinh thần</p>
                             <p className="mt-1 text-sm ">Một chạm là có thể bắt đầu ngay</p>
                         </div>
-                    </div>
+                    </Link>
 
-                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide mt-5">
+                    <div className="flex gap-4 justify-center mt-5 flex-wrap">
                         {recoCards.map((card) => {
                             const RecoIcon = card.icon
                             return (
