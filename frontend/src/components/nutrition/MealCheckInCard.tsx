@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Coffee, Sun, Utensils, Send, CheckCircle2, Loader2 } from 'lucide-react'
+import { Coffee, Sun, Utensils, Send, CheckCircle2, Loader2, History } from 'lucide-react'
 import { nutritionService, type MealSlot, type TodayCheckinsResponse } from '../../services/nutritionService'
 import { toast } from 'react-toastify'
 import Mascot from '../pixel/Mascot'
+import MealHistoryModal from './MealHistoryModal'
 
 const SLOT_CONFIG: Record<MealSlot, { label: string; icon: any; color: string }> = {
     breakfast: { label: 'Bữa sáng', icon: Coffee, color: 'text-amber-500' },
@@ -16,6 +17,7 @@ export default function MealCheckInCard() {
     const [itemsText, setItemsText] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [loading, setLoading] = useState(true)
+    const [historyOpen, setHistoryOpen] = useState(false)
 
     useEffect(() => {
         loadStatus()
@@ -176,6 +178,20 @@ export default function MealCheckInCard() {
                     )}
                 </div>
             </div>
+
+            <div className="mt-4 flex justify-center">
+                <button
+                    onClick={() => setHistoryOpen(true)}
+                    className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary/60 hover:text-theme-accent transition-colors cursor-pointer"
+                >
+                    <History className="h-3.5 w-3.5" /> Xem lịch sử ghi nhận
+                </button>
+            </div>
+
+            <MealHistoryModal 
+                isOpen={historyOpen} 
+                onClose={() => setHistoryOpen(false)} 
+            />
         </section>
     )
 }
