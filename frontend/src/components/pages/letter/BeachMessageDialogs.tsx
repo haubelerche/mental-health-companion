@@ -268,7 +268,10 @@ export function WriteOverlay({ onClose, onSuccess, dark }: { onClose: () => void
                                 autoFocus
                                 className="w-full rounded-[24px] p-6 font-display text-xl italic font-medium leading-relaxed resize-none outline-none transition-all bg-theme-border/5 text-theme-text-primary focus:ring-1 focus:ring-theme-accent/30"
                             />
-                            <div className="flex justify-end">
+                            <div className="flex justify-between items-center">
+                                <span className={`text-sm font-medium ${text.trim().split(/\s+/).filter(Boolean).length >= 200 ? 'text-emerald-500' : 'text-theme-text-secondary/60'}`}>
+                                    {text.trim().split(/\s+/).filter(Boolean).length} từ
+                                </span>
                                 <button
                                     type="button"
                                     onClick={async () => {
