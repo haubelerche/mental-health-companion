@@ -16,6 +16,7 @@ from app.safety.policy import LETTER_MAX_REWARD_PER_DAY, LETTER_REWARD_AMOUNT, L
 from app.services.db.models import LetterReviewEvent, TherapyLetter, SyncOutbox, User
 from app.services.db.session import get_db
 from app.services.schemas.payloads import LetterReactRequest, LetterReplyRequest, LetterReportRequest, LetterSendRequest
+from app.services.letter_ai_worker import AI_SERENE_USER_ID, run_ai_reply_worker
 from app.services.utils import make_anon_name, make_id, get_now
 
 router = APIRouter(tags=["letters"])
@@ -230,10 +231,11 @@ def send_letter(
         raise AppError("LETTER_SEND_DAILY_LIMIT",
                        "Bạn đã gửi tối đa 5 thư hôm nay", 400)
 
-    receiver_id = _pick_receiver(db, sender_id=current_user.user_id)
-    if receiver_id is None:
-        raise AppError("LETTER_NO_RECEIVER",
-                       "Hiện chưa có người nhận phù hợp", 400)
+    receiver_id = AI_SERENE_USER_ID
+    # receiver_id = _pick_receiver(db, sender_id=current_user.user_id)
+    # if receiver_id is None:
+    #     raise AppError("LETTER_NO_RECEIVER",
+    #                    "Hiện chưa có người nhận phù hợp", 400)
 
     # --- Safety guardrail ---
     verdict = review_letter(payload.content)
@@ -306,7 +308,35 @@ def send_letter(
     _write_review_event(db, letter=letter, verdict=verdict)
 
     reward_result: dict | None = None
-    if verdict.reward_allowed and _letter_rewards_today(db, current_user.user_id) < LETTER_MAX_REWARD_PER_DAY:
+    
+    # Custom reward logic: > 200 words = 15 hearts
+    word_count = len(payload.content.split())
+    if word_count >= 200:
+        amount = 15
+        reward_result = grant_hearts(
+            db,
+            user_id=current_user.user_id,
+            amount=amount,
+            event_type="letter_long_content_bonus",
+            source_tab="letter",
+            idempotency_key=f"letter_bonus:{current_user.user_id}:{letter.letter_id}",
+            background_tasks=background_tasks,
+        )
+        if reward_result.get("granted"):
+            letter.reward_event_id = reward_result["event_id"]
+            # Send notification about the bonus
+            from app.services.notification_service import send_instant_notification
+            send_instant_notification(
+                db,
+                user_id=current_user.user_id,
+                event_type="reward.granted",
+                payload={
+                    "amount": amount,
+                    "message": f"Cảm ơn bạn đã chia sẻ tâm sự thật dài! Bạn được tặng {amount} Tim để khích lệ tinh thần nhé. ❤️"
+                },
+                background_tasks=background_tasks
+            )
+    elif verdict.reward_allowed and _letter_rewards_today(db, current_user.user_id) < LETTER_MAX_REWARD_PER_DAY:
         reward_result = grant_hearts(
             db,
             user_id=current_user.user_id,
@@ -317,14 +347,8 @@ def send_letter(
             background_tasks=background_tasks,
         )
 
-        if reward_result.get("granted"):
+        if reward_result and reward_result.get("granted"):
             letter.reward_event_id = reward_result["event_id"]
-
-    if letter_status == "active":
-        _notify_receiver_letter_received(
-            db, receiver_id, letter_id=letter.letter_id, sender_id=current_user.user_id,
-            background_tasks=background_tasks
-        )
 
     db.commit()
 
@@ -375,6 +399,7 @@ def get_inbox(
                 "status": "received",
                 "letter_type": letter.letter_type, # Let FE distinguish
                 "can_reply": letter.letter_type == "public", # Only public letters can be replied to
+                "anonymous_name": letter.anonymous_name,
             }
         )
 
@@ -446,15 +471,16 @@ def forward_letter(
         raise AppError("LETTER_FORWARD_NOT_ALLOWED",
                        "Bạn không được chuyển tiếp thư này", 403)
 
-    new_receiver = _pick_receiver(
-        db,
-        sender_id=letter.user_id,
-        letter_id=letter_id,
-        excluded_user_ids={current_user.user_id},
-    )
-    if new_receiver is None:
-        raise AppError("LETTER_NO_RECEIVER",
-                       "Hiện chưa có người nhận phù hợp", 400)
+    new_receiver = AI_SERENE_USER_ID
+    # new_receiver = _pick_receiver(
+    #     db,
+    #     sender_id=letter.user_id,
+    #     letter_id=letter_id,
+    #     excluded_user_ids={current_user.user_id},
+    # )
+    # if new_receiver is None:
+    #     raise AppError("LETTER_NO_RECEIVER",
+    #                    "Hiện chưa có người nhận phù hợp", 400)
 
     letter.forward_count += 1
     letter.receiver_id = new_receiver

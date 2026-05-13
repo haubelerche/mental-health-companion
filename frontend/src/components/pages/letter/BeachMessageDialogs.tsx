@@ -59,7 +59,7 @@ export function LetterOverlay({
                     </div>
                 </div>
 
-                <div className="px-10 py-12 bg-theme-surface/5">
+                <div className="px-10 py-12 bg-theme-surface/5 max-h-[45vh] overflow-y-auto custom-scrollbar">
                     <p className={`${ui.textPrimary} font-display text-2xl italic font-medium leading-relaxed tracking-[.5px] whitespace-pre-wrap`}>
                         "{letter.body}"
                     </p>
@@ -360,7 +360,9 @@ export function SentLetterDialog({
                     <div className="space-y-3">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-theme-accent/70 px-2">Nội dung bạn gửi</p>
                         <div className={`rounded-3xl p-6 ${isDark ? 'bg-white/10' : 'bg-black/10'}`}>
-                            <p className="text-theme-text-primary font-display text-xl italic leading-relaxed whitespace-pre-wrap">"{item.content}"</p>
+                            <div className="max-h-[150px] overflow-y-auto custom-scrollbar pr-2">
+                                <p className="text-theme-text-primary font-display text-xl italic leading-relaxed whitespace-pre-wrap">"{item.content}"</p>
+                            </div>
                             <p className="text-theme-text-secondary/40 text-[10px] font-bold mt-4 uppercase tracking-tighter">{formatRelativeTime(item.sent_at)}</p>
                         </div>
                     </div>
@@ -373,10 +375,12 @@ export function SentLetterDialog({
                                     <div className="flex items-center gap-2 mb-4 border-b border-theme-border/5 pb-3">
                                         <Shell className="h-5 w-5 shrink-0 text-emerald-600/80" aria-hidden />
                                         <p className="text-theme-text-primary text-[11px] font-bold uppercase tracking-widest">
-                                            {item.reply.anonymous_name ? item.reply.anonymous_name : 'Người lạ ẩn danh'}
+                                            {item.reply.anonymous_name || 'Người lạ ẩn danh'}
                                         </p>
                                     </div>
-                                    <p className="text-theme-text-primary font-display text-xl italic leading-relaxed whitespace-pre-wrap">"{item.reply.content}"</p>
+                                    <div className="max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
+                                        <p className="text-theme-text-primary font-display text-xl italic leading-relaxed whitespace-pre-wrap">"{item.reply.content}"</p>
+                                    </div>
                                     <p className="text-theme-text-secondary/40 text-[10px] font-bold mt-4 uppercase tracking-tighter">{formatRelativeTime(item.reply.received_at)}</p>
                                     <div className="mt-6 flex justify-end">
                                         <button
@@ -447,7 +451,10 @@ export function ReceivedLetterDialog({
                                     Dưới danh nghĩa: {item.anonymous_name ? item.anonymous_name : 'Ẩn danh'}
                                 </p>
                             </div>
-                            <p className="text-theme-text-primary font-display text-xl italic leading-relaxed whitespace-pre-wrap">"{item.content}"</p>
+                            <div className="max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
+                                <p className="text-theme-text-primary font-display text-xl italic leading-relaxed whitespace-pre-wrap">"{item.content}"</p>
+                            </div>
+
                             <div className="mt-4 flex items-center justify-between">
                                 <p className="text-theme-text-secondary/40 text-[10px] font-bold uppercase tracking-tighter">{formatRelativeTime(item.sent_at)}</p>
                                 {item.has_reaction && (
@@ -463,11 +470,13 @@ export function ReceivedLetterDialog({
                     <div className="space-y-3">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-theme-text-secondary/50 px-2">Thư gốc từ người lạ</p>
                         <div className="rounded-3xl p-6 bg-theme-surface/20">
-                            {item.original_content ? (
-                                <p className="text-theme-text-secondary/70 font-display text-lg italic leading-relaxed whitespace-pre-wrap">"{item.original_content}"</p>
-                            ) : (
-                                <p className="text-theme-text-secondary/30 text-sm italic">Nội dung thư gốc đã bị con sóng cuốn trôi...</p>
-                            )}
+                            <div className="max-h-[150px] overflow-y-auto custom-scrollbar pr-2">
+                                {item.original_content ? (
+                                    <p className="text-theme-text-secondary/70 font-display text-lg italic leading-relaxed whitespace-pre-wrap">"{item.original_content}"</p>
+                                ) : (
+                                    <p className="text-theme-text-secondary/30 text-sm italic">Nội dung thư gốc đã bị con sóng cuốn trôi...</p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

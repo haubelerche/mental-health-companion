@@ -115,7 +115,9 @@ async def letter_task(config=None, trigger_id=None):
     try:
         # We might want to update run_ai_reply_worker to return list of IDs/content
         # For now, let's just enhance the log here if possible or just log the count with context
-        result = await run_ai_reply_worker(db, hours_threshold=0)
+        # Use threshold from config if provided, else default to 1 hour
+        threshold = config.get("hours_threshold", 1) if config else 1
+        result = await run_ai_reply_worker(db, hours_threshold=threshold)
         count = result["count"]
         details = result["details"]
         
