@@ -9,9 +9,9 @@ export const PERSONA_DISPLAY_NAME: Record<string, string> = {
 }
 
 export const PERSONA_SHORT_DESCRIPTION: Record<string, string> = {
-    dung_luong: 'Vui vẻ, hay gửi meme đúng ngữ cảnh, sống tích cực, biết lắng nghe',
-    dat_le: 'Trầm ngâm, suy ngẫm triết lý cuộc đời, hay động viên, truyền cảm hứng',
-    hau_luong: 'Hướng nội hay gửi voice message vì lười nhắn, do vô tư nên chữa được lo âu và overthinking',
+    dung_luong: 'Vui vẻ, bắt mood tốt, hay gửi meme cho vui,biết lắng nghe, tử tế, đùa nhẹ đúng lúc',
+    dat_le: 'Trầm tính, có chiều sâu; giúp bạn nhìn vấn đề rõ ràng hơn, triết lý hơn',
+    hau_luong: 'Hướng nội, đơn giản, ít áp lực, hay gửi voice message nhẹ để giảm overthinking',
 }
 
 export function isPersonaId(value: string | null | undefined): value is PersonaId {

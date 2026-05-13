@@ -7,8 +7,6 @@ import { Shield, Lock, ArrowRight, Loader2 } from 'lucide-react'
 interface Props {
     onSuccess: () => void
 }
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 export default function AdminReAuthModal({ onSuccess }: Props) {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')

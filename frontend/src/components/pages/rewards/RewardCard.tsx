@@ -1,7 +1,7 @@
 import { ApiRequestError } from '@/api/types'
 import { useThemeContext } from '@/contexts/ThemeContext'
 import type { RewardStoreItem } from '@/services/rewardsService'
-import { Gift, Heart, X } from 'lucide-react'
+import { Gift, Heart, Lock, X } from 'lucide-react'
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import datAvatar from '../../../assets/assistants/dat-le.png'
@@ -13,6 +13,7 @@ type Props = {
     balance: number
     owned: boolean
     onPurchase: (itemId: string) => Promise<void>
+    comingSoon?: boolean
 }
 
 type PersonaDetail = {
@@ -22,39 +23,39 @@ type PersonaDetail = {
     name: string
     job: string
     personality: string
-    life: string
+    quote: string
     core: boolean
 }
 
 const PERSONA_DETAILS: Record<string, PersonaDetail> = {
     persona_dung_luong: {
         avatar: dungAvatar,
-        cardLabel: 'Sinh viên năm tám',
-        status: 'Dung Luong (Đang túc trực)',
+        cardLabel: 'Sinh Viên Năm Tám',
+        status: 'Đang trực ở trang Dinh Dưỡng',
         name: 'Dung Luong',
         job: 'Sinh viên sắp ra trường',
-        personality: 'Vui vẻ, hay gửi meme đúng ngữ cảnh, sống tích cực, biết lắng nghe',
-        life: 'Deadline lắm quá huhuhu... thôi kệ nó, đi mua trà sữa đã',
+        personality: 'Vui vẻ, thánh meme, sống tích cực, biết lắng nghe.',
+        quote: 'Nhỡ sau này không rực rỡ thì saooo... Thôi kệ nó, đi ăn đã. Có thực mới vực được đạo.',
         core: true,
     },
     persona_dat_le: {
         avatar: datAvatar,
         cardLabel: 'Intern Mắt Thâm',
-        status: 'Dat Le (Đang túc trực)',
+        status: 'Đang trực ở hệ thống Thông Báo',
         name: 'Dat Le',
         job: 'Intern lương ba cọc, không đồng',
-        personality: 'Trầm ngâm, suy ngẫm triết lý cuộc đời, hay động viên, truyền cảm hứng',
-        life: 'Lương 3 triệu thì trời mưa có nên lội tới công ty không ?',
+        personality: 'Trông im im thì đang nghĩ về triết lý cuộc đời, hay động viên, truyền cảm hứng',
+        quote: 'Cái gì khó quá thì mình vừa khóc, vừa làm. Cứ dũng cảm tiến tiếp thì cuộc đời rồi sẽ rực rỡ thôi...',
         core: true,
     },
     persona_hau_luong: {
         avatar: hauAvatar,
-        cardLabel: 'Nhân viên Cú vọ',
-        status: 'Hau Luong (Bị nhốt ở công ty)',
+        cardLabel: 'Nhân viên Tâm huyết',
+        status: 'Đang bị nhốt ở công ty',
         name: 'Hau Luong',
         job: 'Nhân viên văn phòng',
-        personality: 'Hướng nội hay gửi voice message vì lười nhắn, do vô tư nên chữa được lo âu và overthinking',
-        life: 'Đau lưng, mỏi gối tê tay, Hau và máy tính sống bên nhau trọn đời về sau, hạnh phúc không? Không biết...',
+        personality: 'Gang-gang, mindset "kệ kệ - kệ đi" nên chữa được lo âu và overthinking',
+        quote: 'Hau cần được quang hợp, hãy tích tim để mở khóa cho Hau ra khỏi đây.',
         core: false,
     },
 }
@@ -63,7 +64,7 @@ function personaDetailFor(item: RewardStoreItem): PersonaDetail | null {
     return PERSONA_DETAILS[item.item_id] ?? null
 }
 
-export default function RewardCard({ item, balance, owned, onPurchase }: Props) {
+export default function RewardCard({ item, balance, owned, onPurchase, comingSoon = false }: Props) {
     const [detailOpen, setDetailOpen] = useState(false)
     const [purchasing, setPurchasing] = useState(false)
     const personaDetail = personaDetailFor(item)
@@ -71,7 +72,7 @@ export default function RewardCard({ item, balance, owned, onPurchase }: Props) 
     const effectiveOwned = owned || isCorePersona
     const canAfford = balance >= item.price_hearts
     const requirementsMet = !item.requirements || Object.keys(item.requirements).length === 0
-    const disabled = effectiveOwned || !canAfford || !requirementsMet || purchasing
+    const disabled = comingSoon || effectiveOwned || !canAfford || !requirementsMet || purchasing
     const { effectiveTheme } = useThemeContext()
     const isDark = effectiveTheme === 'dark'
 
@@ -123,7 +124,7 @@ export default function RewardCard({ item, balance, owned, onPurchase }: Props) 
                     <p>- Tên: {personaDetail.name}</p>
                     <p>- Nghề nghiệp: {personaDetail.job}</p>
                     <p>- Tính cách: {personaDetail.personality}</p>
-                    <p>- Chuyện đời: {personaDetail.life}</p>
+                    <p>- Câu cửa miệng: {personaDetail.quote}</p>
                 </div>
             </div>
         </div>,
@@ -133,18 +134,32 @@ export default function RewardCard({ item, balance, owned, onPurchase }: Props) 
     return (
         <>
             <div
-                className="relative flex min-h-[17rem] flex-col gap-3 rounded-2xl border border-theme-text-secondary bg-theme-surface p-4 shadow-xl transition-all hover:-translate-y-1 hover:shadow-md"
-                onClick={() => personaDetail && setDetailOpen(true)}
-                role={personaDetail ? 'button' : undefined}
-                tabIndex={personaDetail ? 0 : undefined}
+                className={`relative flex min-h-[17rem] flex-col gap-3 rounded-2xl border p-4 shadow-xl transition-all ${
+                    comingSoon
+                        ? 'border-slate-200 bg-white text-slate-900'
+                        : 'border-theme-text-secondary bg-theme-surface hover:-translate-y-1 hover:shadow-md'
+                }`}
+                onClick={() => !comingSoon && personaDetail && setDetailOpen(true)}
+                role={!comingSoon && personaDetail ? 'button' : undefined}
+                tabIndex={!comingSoon && personaDetail ? 0 : undefined}
+                aria-disabled={comingSoon || undefined}
                 onKeyDown={(event) => {
-                    if (personaDetail && (event.key === 'Enter' || event.key === ' ')) {
+                    if (!comingSoon && personaDetail && (event.key === 'Enter' || event.key === ' ')) {
                         event.preventDefault()
                         setDetailOpen(true)
                     }
                 }}
             >
-                {effectiveOwned && (
+                {comingSoon && (
+                    <div className="absolute right-0 top-0 rounded-bl-xl bg-slate-100 px-3 py-1">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                            <Lock className="h-3 w-3" aria-hidden />
+                            Đang được phát triển
+                        </span>
+                    </div>
+                )}
+
+                {!comingSoon && effectiveOwned && (
                     <div className="absolute right-0 top-0 rounded-bl-xl bg-theme-accent/20 px-3 py-1 backdrop-blur-sm">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-theme-accent">
                             {isCorePersona ? 'Đang túc trực' : 'Đã giải cứu'}
@@ -152,17 +167,24 @@ export default function RewardCard({ item, balance, owned, onPurchase }: Props) 
                     </div>
                 )}
 
-                <div className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-xl ${isDark ? 'bg-amber-500/10' : 'bg-amber-100'}`}>
+                <div className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-xl ${comingSoon ? 'bg-slate-100 text-slate-500' : isDark ? 'bg-amber-500/10' : 'bg-amber-100'}`}>
                     {personaDetail ? (
                         <img src={personaDetail.avatar} alt="" className="h-16 w-16 object-contain" aria-hidden="true" />
+                    ) : comingSoon ? (
+                        <Lock className="h-7 w-7" aria-hidden />
                     ) : (
                         <Gift className={`h-6 w-6 ${item.icon_key ? 'text-amber-500' : 'text-amber-500/50'}`} aria-hidden />
                     )}
                 </div>
 
                 <div className="flex-1">
-                    <p className="text-base font-semibold leading-tight text-theme-text-primary">{title}</p>
-                    {subtitle && <p className="mt-1.5 text-[13px] leading-relaxed text-theme-text-secondary">{subtitle}</p>}
+                    <p className={`text-base font-semibold leading-tight ${comingSoon ? 'text-slate-900' : 'text-theme-text-primary'}`}>{title}</p>
+                    {subtitle && <p className={`mt-1.5 text-[13px] leading-relaxed ${comingSoon ? 'text-slate-600' : 'text-theme-text-secondary'}`}>{subtitle}</p>}
+                    {comingSoon && (
+                        <p className="mt-3 text-[12px] font-medium leading-relaxed text-slate-500">
+                            Chức năng này đang được phát triển, chưa sẵn sàng để dùng.
+                        </p>
+                    )}
                     {personaDetail && (
                         <p className="mt-3 line-clamp-3 text-[12px] leading-relaxed text-theme-text-secondary">
                             {personaDetail.personality}
@@ -171,7 +193,12 @@ export default function RewardCard({ item, balance, owned, onPurchase }: Props) 
                 </div>
 
                 <div className="mt-2 flex items-center justify-between border-t border-theme-border/20 pt-3">
-                    {isCorePersona ? (
+                    {comingSoon ? (
+                        <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                            <Lock className="h-4 w-4" aria-hidden />
+                            Chưa mở
+                        </p>
+                    ) : isCorePersona ? (
                         <p className="text-sm font-bold text-theme-accent">Đang túc trực</p>
                     ) : (
                         <p className={`flex items-center gap-1.5 text-sm font-bold ${isDark ? 'text-rose-400' : 'text-rose-500'}`}>
@@ -179,7 +206,7 @@ export default function RewardCard({ item, balance, owned, onPurchase }: Props) 
                         </p>
                     )}
 
-                    {!effectiveOwned && (
+                    {!comingSoon && !effectiveOwned && (
                         <button
                             type="button"
                             disabled={disabled}
