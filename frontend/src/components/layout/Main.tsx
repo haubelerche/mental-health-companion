@@ -132,7 +132,7 @@ export default function Main() {
                     alt="Hình nền yên bình"
                     className="h-full w-full object-cover"
                 />
-                <div className="absolute inset-0 bg-white/20" />
+                <div className="absolute inset-0 bg-white/5" />
             </div>
 
             <Sidebar
