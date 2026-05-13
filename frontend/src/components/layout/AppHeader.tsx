@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { HomeIcon, Library, MessageSquare, Settings, Sparkles, Utensils } from 'lucide-react'
 import { ROUTE_PATHS } from '../../routes/paths'
-import { ThemeToggle } from '../common/ThemeToggle'
+
 
 const PAGE_NAMES: Record<string, string> = {
     [ROUTE_PATHS.home]: 'Trang chủ',
@@ -74,7 +74,7 @@ export function AppHeader() {
 
                 {/* Top-right: settings & theme toggle */}
                 <div className="flex items-center gap-3">
-                    <ThemeToggle />
+
                     <NavLink
                         to={ROUTE_PATHS.setting}
                         aria-label="Cài đặt"
@@ -85,27 +85,7 @@ export function AppHeader() {
                 </div>
             </header>
 
-            {/* ── Mobile: top bar ── */}
-            <div
-                className="fixed left-0 right-0 top-0 z-40 flex items-center justify-between px-5 py-4 backdrop-blur-md md:hidden bg-theme-bg-secondary/40"
-            >
-                <span
-                    className="font-display text-base italic text-theme-text-secondary"
-                >
-                    {pageName}
-                </span>
-                <div className="flex items-center gap-3">
-                    <ThemeToggle />
-                    <NavLink
-                        to={ROUTE_PATHS.setting}
-                        aria-label="Cài đặt"
-                        className="text-theme-text-secondary/50 hover:text-theme-text-primary transition-opacity"
-                    >
-                        <Settings className="h-4 w-4" />
-                    </NavLink>
-                </div>
-            </div>
-
+                    
             {/* ── Mobile: bottom nav pill ── */}
             <nav
                 className="fixed bottom-4 left-1/2 z-50 flex w-[min(94vw,520px)] -translate-x-1/2 items-center justify-between rounded-3xl border px-3 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.1)] backdrop-blur-xl md:hidden border-theme-border bg-theme-bg-secondary/95"
