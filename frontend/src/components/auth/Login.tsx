@@ -64,39 +64,35 @@ export default function Login() {
                     }}
                     aria-hidden
                 />
-     
             </div>
-
-            <div className="auth-noise" />
 
             <main className="auth-main">
                 <div className="mb-3 text-center">
                     <Link to={ROUTE_PATHS.landing} className="pixel-headline" 
-                      style={{
-                        fontFamily: 'var(--font-pixel)',
-                        fontSize: 'clamp(6.5rem, 2vw, 4.5rem)',
-                        color: 'var(--yellow)',
-                        textDecoration: 'none',
-                        textShadow: '3px 3px 0 #020812, -1px -1px 0 #020812, 1px -1px 0 #020812, -1px 1px 0 #020812, 1px 1px 0 #020812',
-                        flexShrink: 0,
-                        fontWeight: '800',
-                        letterSpacing: '2px',
-                        
-                    }}>
+                        style={{
+                            fontFamily: 'var(--font-pixel)',
+                            fontSize: 'clamp(5.5rem, 2vw, 4.5rem)',
+                            color: 'var(--yellow)',
+                            textDecoration: 'none',
+                            textShadow: '3px 3px 0 #020812, -1px -1px 0 #020812, 1px -1px 0 #020812, -1px 1px 0 #020812, 1px 1px 0 #020812',
+                            flexShrink: 0,
+                            fontWeight: '800',
+                            letterSpacing: '2px',    
+                        }}>
                         Serene.AI
                     </Link>
                 </div>
 
-                <div className="auth-card max-w-xl p-8 sm:p-10">
-                    <header className="mb-10 text-center">
-                        <h1 className="font-display text-4xl text-serene-ink sm:text-5xl">Chào mừng bạn trở lại</h1>
+                <div className="auth-card max-w-lg p-8 sm:p-10">
+                    <header className="mb-8 text-center">
+                        <h1 className="font-display text-3xl text-serene-ink sm:text-4xl">Chào mừng bạn trở lại</h1>
                        <p className="mt-3 text-xs uppercase tracking-[0.22em] text-serene-muted/80">
                             Tìm lại sự bình yên trong tâm hồn
                         </p>
                     </header>
 
                 
-                    <form className="space-y-6" onSubmit={handleSubmit}>
+                    <form className="space-y-4" onSubmit={handleSubmit}>
                         <div>
                             <label
                                 htmlFor="email"
@@ -140,7 +136,7 @@ export default function Login() {
                             <Link
                                 to={ROUTE_PATHS.forget}
                                 type="button"
-                                className="text-[10px] font-medium uppercase tracking-[0.3em] text-serene-primary transition hover:text-serene-primary"
+                                className="text-[10px] hover:underline font-medium uppercase tracking-[0.3em] text-serene-primary transition hover:text-serene-primary"
                             >
                                 Quên mật khẩu?
                             </Link>
@@ -159,7 +155,7 @@ export default function Login() {
                         </div>
                     </form>
                     
-                    <div className="my-8 flex items-center gap-4 text-[10px] uppercase tracking-[0.32em] text-serene-muted">
+                    <div className="my-4 flex items-center gap-3 text-[10px] uppercase tracking-[0.32em] text-serene-muted">
                         <span className="h-px flex-1 bg-serene-outline" />
                         <span>Hoặc</span>
                         <span className="h-px flex-1 bg-serene-outline" />
@@ -170,7 +166,7 @@ export default function Login() {
                             type="button"
                             onClick={() => handleOAuthLogin('google')}
                             disabled={Boolean(oauthLoading)}
-                            className=" inline-flex items-center justify-center gap-3 rounded-2xl border border-serene-outline/70 cursor-pointer bg-white/70 px-4 py-2 text-sm font-medium text-serene-ink transition hover:border-serene-primary/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+                            className=" inline-flex items-center justify-center gap-3 rounded-2xl border border-serene-outline/70 cursor-pointer bg-white/70 px-4 py-2 text-sm font-medium text-serene-ink transition hover:border-serene-primary/50 hover:bg-serene-muted/5 disabled:cursor-not-allowed disabled:opacity-70"
                         >
                             <img src={LogoGoogle} alt="Google" className="h-7 w-7" />
                             {oauthLoading === 'google' ? 'Đang mở Google...' : 'Tiếp tục với Google'}
@@ -179,14 +175,14 @@ export default function Login() {
                             type="button"
                             onClick={() => handleOAuthLogin('facebook')}
                             disabled={Boolean(oauthLoading)}
-                            className="inline-flex items-center justify-center gap-3 rounded-2xl border border-serene-outline/70 cursor-pointer bg-white/70 px-4 py-2 text-sm font-medium text-serene-ink transition hover:border-serene-primary/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+                            className="inline-flex items-center justify-center gap-3 rounded-2xl border border-serene-outline/70 cursor-pointer bg-white/70 px-4 py-2 text-sm font-medium text-serene-ink transition hover:border-serene-primary/50 hover:bg-serene-muted/5 disabled:cursor-not-allowed disabled:opacity-70"
                         >
                             <img src={LogoFacebook} alt="Facebook" className="h-7 w-7" />
                             {oauthLoading === 'facebook' ? 'Đang mở Facebook...' : 'Tiếp tục với Facebook'}
                         </button>
                     </div>
 
-                    <footer className="mt-12 text-center">
+                    <footer className="mt-10 text-center">
                         <p className="text-xs tracking-tight text-serene-muted/60">
                             Bạn chưa có tài khoản?{' '}
                             <Link

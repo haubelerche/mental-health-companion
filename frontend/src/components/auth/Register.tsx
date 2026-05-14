@@ -86,16 +86,14 @@ export default function Register() {
                     }}
                     aria-hidden
                 />
-                <div className="absolute inset-0 bg-serene-primary/10 mix-blend-overlay" />
             </div>
 
-
             <main className="auth-main">
-                     <nav className="mb-3 text-center">
-                <Link to={ROUTE_PATHS.landing} className="pixel-headline" 
-                    style={{
+                <div className="mb-3 text-center">
+                    <Link to={ROUTE_PATHS.landing} className="pixel-headline" 
+                        style={{
                             fontFamily: 'var(--font-pixel)',
-                            fontSize: 'clamp(6.5rem, 2vw, 4.5rem)',
+                            fontSize: 'clamp(5.5rem, 2vw, 4.5rem)',
                             color: 'var(--yellow)',
                             textDecoration: 'none',
                             textShadow: '3px 3px 0 #020812, -1px -1px 0 #020812, 1px -1px 0 #020812, -1px 1px 0 #020812, 1px 1px 0 #020812',
@@ -103,23 +101,23 @@ export default function Register() {
                             fontWeight: '800',
                             letterSpacing: '2px',
                         }}>
-                    Serene.AI
-                </Link>
-            </nav>
-                <div className="auth-card max-w-xl p-8 sm:p-10">
-                    <header className="mb-10 text-center">
+                        Serene.AI
+                    </Link>
+                </div>
+                <div className="auth-card max-w-lg p-8 sm:p-10">
+                    <header className="mb-8 text-center">
                         <div className="flex items-center justify-center gap-3">
-                            <Link to={ROUTE_PATHS.login} >
+                            <Link to={ROUTE_PATHS.login} className='hover:text-serene-primary text-serene-ink '>
                                 <ArrowLeft className="h-6 w-6" />
                             </Link>
-                            <h1 className="font-display text-4xl text-serene-ink sm:text-5xl">Bắt đầu hành trình</h1>
+                            <h1 className="font-display text-4xl text-serene-ink sm:text-4xl">Bắt đầu hành trình</h1>
                         </div>
-                        <p className="mt-3 text-xs uppercase tracking-[0.22em] text-serene-muted/80">
+                        <p className="mt-3 text-[10px] uppercase tracking-[0.22em] text-serene-muted/80">
                             Tạo tài khoản cá nhân của bạn
                         </p>
                     </header>
 
-                    <form className="space-y-6" onSubmit={handleSubmit}>
+                    <form className="space-y-4" onSubmit={handleSubmit}>
 
                         <div className="space-y-1">
                             <label className="auth-label ml-1" htmlFor="fullName">
@@ -184,8 +182,6 @@ export default function Register() {
                             </div>
                         </div>
 
-                      
-
                         <button
                             type="submit"
                             disabled={isLoading}
@@ -199,7 +195,7 @@ export default function Register() {
                         <span className="h-px flex-1 bg-serene-outline" />
                     </div>
 
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3">
                         <button
                             type="button"
                             onClick={() => handleOAuthLogin('google')}
