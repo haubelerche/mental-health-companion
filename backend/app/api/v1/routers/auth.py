@@ -52,7 +52,7 @@ from app.services.security import (
     verify_password,
 )
 from app.services.utils import make_id, now_plus, get_now
-from app.personas.aliases import is_known_persona, resolve_alias
+from app.personas.aliases import REJECTED_ROMANTIC_PERSONA, is_known_persona, resolve_alias
 from app.services.persona_unlock_persistence import is_persona_unlocked
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -573,6 +573,8 @@ def update_persona(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if resolve_alias(payload.persona_id) == REJECTED_ROMANTIC_PERSONA:
+        raise AppError("persona_locked", "Persona not unlocked. Purchase it in the store first.", 403)
     if not is_known_persona(payload.persona_id):
         raise AppError("persona_unknown", f"Unknown persona: {payload.persona_id}", 400)
     canonical_persona_id = resolve_alias(payload.persona_id)

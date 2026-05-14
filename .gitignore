@@ -51,6 +51,16 @@ backend/.ai-log/
 *.sql
 *.pkl
 
+!docs/
+!docs/*.md
+!docs/**/*.md
+*.csv
+*.jsonl
+*.json
+*.txt
+*.sql
+*.pkl
+
 # Pytest temp workspace (local only)
 .pytest_tmp/
 
@@ -96,14 +106,13 @@ test-results/
 tests/
 !backend/tests/
 backend/tests/*
+!backend/tests/analyst/
+!backend/tests/analyst/*.py
 !backend/tests/test_friend_naturalness_regression.py
+!backend/tests/test_memory_recall_turn.py
+!backend/tests/test_session_lifecycle_memory_cards.py
 
 
-# Ignore all Markdown files at repository root only
-/*.md
-/*.MD
-!DATABASE_DESIGN_AUDIT_REPORT.md
-!DATABASE_ARCHITECTURE.md
-!DATABASE_REFACTOR_PHASE_PLAN.md
+
 .ts
 /*.yaml
