@@ -9,6 +9,7 @@ const DEFAULT_WORDS = [
     'Bình yên', 'Hứng khởi', 'Biết ơn', 'Tự tin',
     'Mệt mỏi', 'Lo âu', 'Buồn rầu', 'Căng thẳng',
     'Vui vẻ', 'Trống rỗng', 'Cô đơn', 'Bối rối',
+    'Khác',
 ]
 
 export function MoodWordChips({ words = DEFAULT_WORDS, selected, onChange, className }: Props) {
@@ -21,7 +22,7 @@ export function MoodWordChips({ words = DEFAULT_WORDS, selected, onChange, class
     }
 
     return (
-        <div className={`flex flex-wrap gap-2 ${className ?? ''}`}>
+        <div className={`flex flex-wrap justify-center gap-2 ${className ?? ''}`}>
             {words.map((word) => (
                 <button
                     key={word}

@@ -1,5 +1,5 @@
 import { type LucideIcon } from 'lucide-react'
-import { useThemeContext } from '../../../contexts/ThemeContext'
+
 
 export type ExerciseTabId = 'all' | 'breathing_exercise' | 'grounding_exercise' | 'body_scan'
 
@@ -15,8 +15,7 @@ interface ExerciseFilterChipsProps {
   onChange: (tab: ExerciseTabId) => void
 }
 export default function ExerciseFilterChips({ tabs, activeTab, onChange }: ExerciseFilterChipsProps) {
-  const { effectiveTheme } = useThemeContext()
-  const isDark = effectiveTheme === 'dark'
+
 
   return (
     <section aria-labelledby="exercise-filters" className="py-6!">

@@ -39,6 +39,7 @@ const MOOD_WORDS = [
   'Trống rỗng',
   'Cô đơn',
   'Bối rối',
+  'Khác',
 ]
 
 const VI_MOOD_WORD_TO_KEY: Record<string, MoodKey> = {
@@ -55,6 +56,7 @@ const VI_MOOD_WORD_TO_KEY: Record<string, MoodKey> = {
   'Trống rỗng': 'fine',
   'Cô đơn': 'bad',
   'Bối rối': 'fine',
+  'Khác': 'fine',
 }
 
 const SEVERITY_RANK: MoodKey[] = ['terrible', 'bad', 'fine', 'good', 'awesome']
