@@ -57,8 +57,18 @@ export type MeResponse = {
 }
 
 function buildOAuthStartUrl(provider: OAuthProvider, returnTo: string): string {
-    const apiBaseUrl = getApiBaseUrl()
-    const apiOrigin = apiBaseUrl.startsWith('http') ? apiBaseUrl.replace(/\/v1\/?$/, '') : window.location.origin
+    let apiOrigin = window.location.origin
+    const wsUrl = import.meta.env.VITE_API_WS as string | undefined
+    
+    if (wsUrl) {
+        apiOrigin = wsUrl.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:')
+    } else {
+        const apiBaseUrl = getApiBaseUrl()
+        if (apiBaseUrl.startsWith('http')) {
+            apiOrigin = apiBaseUrl.replace(/\/v1\/?$/, '')
+        }
+    }
+    
     const encodedReturnTo = encodeURIComponent(returnTo)
     return `${apiOrigin}/v1/auth/oauth/${provider}/start?return_to=${encodedReturnTo}`
 }
