@@ -103,7 +103,7 @@ def maybe_select_meme_suggestion(
     distress_score: float,
     session_id: str,
     assistant_turn_index: int,
-    cooldown_turns: int = 2,
+    cooldown_turns: int = 1,
     user_message: str = "",
     assistant_text: str = "",
 ) -> MemeSuggestion | None:
@@ -111,8 +111,8 @@ def maybe_select_meme_suggestion(
     Context-aware playful meme policy for `dung_luong` only.
 
     - Scope: normal chat, low distress, persona `dung_luong`.
-    - Cooldown: at most once per `cooldown_turns` assistant turns.
-    - Frequency: contextual matches are frequent; generic fallback is hashed.
+    - Cooldown: every turn (cooldown_turns=1 default for dung_luong's frequent style).
+    - Frequency: contextual matches always fire; generic fallback fires on every eligible turn.
     """
     if persona_id != "dung_luong":
         return None
@@ -139,11 +139,6 @@ def maybe_select_meme_suggestion(
             "trigger_reason": f"dung_luong_{reason}",
         }
 
-    seed = f"{session_id}:{assistant_turn_index}:meme"
-    bucket = int(hashlib.sha1(seed.encode("utf-8")).hexdigest()[:8], 16) % 10
-    if bucket > 5:
-        return None
-
     pick_seed = f"{session_id}:{assistant_turn_index}:asset"
     pick = int(hashlib.sha1(pick_seed.encode("utf-8")).hexdigest()[:8], 16) % len(_EMOTION_MEMES)
     filename = _EMOTION_MEMES[pick]
@@ -151,5 +146,5 @@ def maybe_select_meme_suggestion(
         "id": f"emotion_{pick}",
         "image_path": filename,
         "alt": "Emotion meme",
-        "trigger_reason": "dung_luong_sparse_emotion_meme",
+        "trigger_reason": "dung_luong_emotion_meme",
     }

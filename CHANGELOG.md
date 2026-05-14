@@ -4,6 +4,31 @@
 
 ---
 
+## [Unreleased] — AutoCBT compliance tests for ChatOrchestrator advisor pipeline · 2026-05-14
+
+### Added (tests)
+- `backend/tests/test_autocbt_compliance.py` — 12 new deterministic tests (no HTTP, no DB, no API key) verifying Serene's advisor pipeline against AutoCBT §18 acceptance criteria: role contract (`AdvisorAdvice` schema forbids `final_text`; `AdvisorPool` discards objects carrying it), routing bounds (`fast` tier skips advisor pool; `AdvisorSelection` schema enforces `max_length=2` and `max_rounds=1`), `should_use=False` and low-confidence advisor exclusion from `used_advisor_ids`, recent distress context escalation to `advisor_assisted`, timeout resilience, single-round loop prevention, observability contract, diagnosis/disorder-probability blocking via schema (`extra="forbid"`) and `_enforce_must_avoid`, `_LEAKY_TERMS` filtering through `_collect_safe_moves`, and safety/SOS route bypass. All 12 pass in 1.2 s; `test_chat_advisor_assisted_integration.py` (3 tests) still green.
+
+---
+
+## [Unreleased] — docs: sync PRD.md to v6.2 (technical changes 2026-05-14)
+
+### Changed
+- `docs/PRD.md` — bumped to v6.2; added ultra-fast path sub-route (§7.1, §8.1), `DistressConversationUi`/`DistressSupportPopup` in high-risk payload (§8.3, §11.3), updated `RuntimeState` with `use_fast_friend_model`, `graph_patterns`, `nutrition_meals`, `DistressRouter` mutation rules (§9), added `AnalystPipelineService`/`SessionLifecycleService`/`MemoryRecallService` contracts (§10), new PostgreSQL tables `analyst_runs`/`analyst_feature_snapshots`/`insight_hypotheses`/`insight_evidence` (§13), new outbox events, chat response shape with `distress_ui` field (§14.2), analyst API endpoints (§14.7), analyst pipeline metrics (§16.1), new access control rows (§15.2), 4 new open decisions (§20).
+
+---
+
+## [Unreleased] — Dũng persona: meme + voice frequency boost · 2026-05-14
+
+### Changed
+- `backend/app/services/meme_selector.py` — `dung_luong` persona now sends a meme every turn (`cooldown_turns` default 2→1). Generic fallback meme bucket gate removed: every eligible turn gets a meme image instead of ~60% of turns.
+- `backend/app/api/v1/routers/chat.py` — Both `/chat/message` and `/chat/message/stream` now bypass the 120-second voice cooldown and force `current_turn_has_emotional_weight=True` for `dung_luong`, enabling voice to interleave on every casual turn instead of only on distress-flagged turns.
+
+### Added (tests)
+- `backend/tests/test_meme_selector.py` — Updated `test_listening_context_selects_listening_meme_every_turn` to assert memes fire on every consecutive turn; added `test_generic_meme_fires_on_every_eligible_turn` for non-contextual messages.
+
+---
+
 ## [Unreleased] — Ultra-fast path + token reduction in FriendNode · 2026-05-14
 
 ### Changed
