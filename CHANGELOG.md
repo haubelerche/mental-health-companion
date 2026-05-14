@@ -68,6 +68,7 @@
 
 ### Fixed
 - `frontend/src/components/dashboard/WellnessOverviewHero.tsx` — khung "Tình hình hiện tại" trên trang Nhìn lại dùng nền pastel xanh biển/xanh lá và màu chữ tối cố định để không hòa vào nền card.
+- `frontend/src/components/pages/chat/Chat.tsx` — payload gửi chat giữ rõ `persona_id: activePersonaId` để contract persona-scoped session không bị lệch khi gửi qua stream/fallback.
 
 ### Added
 - `backend/app/services/schemas/payloads.py`, `backend/app/services/sos_handler.py` — thêm `distress_ui` contract, Dat Le SOS popup payload, cooldown policy theo session, và message segments an toàn cho frontend.
@@ -76,6 +77,7 @@
 
 ### Changed
 - `backend/app/api/v1/routers/chat.py`, `backend/app/services/crisis_intervention_planner.py` — SOS chat text chuyển sang `DistressConversationPlan` dài hơn, đồng cảm hơn, không dump hotline/card stack vào thân chat; safety audit, voice policy và crisis logging vẫn giữ.
+- `backend/app/services/langgraph_chat.py` — thêm ultra-fast prompt path cho lượt low-distress ngắn, giữ persona block nhưng bỏ bớt planning/fewshot/memory overhead.
 - `frontend/src/components/pages/chat/Chat.tsx` — suppress `CrisisStepper`/follow-up inline cards khi backend trả `distress_ui.suppress_inline_crisis_cards=true`.
 - `frontend/src/routes/paths.ts`, `frontend/src/components/pages/exercises/ExercisesPage.tsx`, `frontend/src/services/exerciseService.ts`, `backend/app/services/exercise_catalog.py` — thêm alias `anxiety_breathing` để CTA không trỏ vào route chết.
 

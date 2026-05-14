@@ -780,7 +780,8 @@ export default function Chat() {
         const now = Date.now()
         const requestId = now
         const requestSessionId = sessionId
-        const requestPersonaId = activePersonaId
+        const requestPayload = { message: text, session_id: requestSessionId, persona_id: activePersonaId }
+        const requestPersonaId = requestPayload.persona_id
         const pendingId = `p_${now}`
         activeRequestIdRef.current = requestId
         sendingRef.current = true
@@ -796,13 +797,13 @@ export default function Chat() {
         try {
             if (!isGuestMode) {
                 try {
-                    const streamResponse = await chatService.sendMessageStream({ message: text, session_id: requestSessionId, persona_id: requestPersonaId })
+                    const streamResponse = await chatService.sendMessageStream(requestPayload)
                     await consumeChatSse(streamResponse, pendingId, requestId, requestSessionId, requestPersonaId)
                 } catch (err) {
                     if (!isActiveChatRequest(requestId, requestSessionId, requestPersonaId)) return
                     const status = err instanceof ApiRequestError ? (err.status ?? 0) : 0
                     if (!(err instanceof ApiRequestError) || (status !== 0 && status < 500)) throw err
-                    const rawData = await chatService.sendMessage({ message: text, session_id: requestSessionId, persona_id: requestPersonaId })
+                    const rawData = await chatService.sendMessage(requestPayload)
                     if (!isActiveChatRequest(requestId, requestSessionId, requestPersonaId)) return
                     const data = rawData as ChatApiData
                     const sid = typeof data.session_id === 'string' ? data.session_id : null

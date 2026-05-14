@@ -1168,6 +1168,66 @@ def _enforce_persona_identity(reply: str, persona_id: str) -> str:
         flags=re.IGNORECASE,
     )
     return text
+
+
+# Distress/length thresholds for the ultra-fast prompt path.
+_ULTRAFAST_DISTRESS_MAX: float = 0.20
+_ULTRAFAST_MSG_LEN_MAX: int = 50
+
+
+def _is_ultrafast_eligible(*, distress_score: float, user_message: str) -> bool:
+    """True when the turn is low-risk casual chat that needs no planning/fewshot overhead."""
+    return distress_score < _ULTRAFAST_DISTRESS_MAX and len(user_message.strip()) < _ULTRAFAST_MSG_LEN_MAX
+
+
+def _build_ultrafast_messages(
+    state: ChatGraphState,
+    distress_score: float,
+    persona_id: str,
+) -> tuple[list[dict[str, str]], int]:
+    """Build a minimal (~450-token) message list for ultra-fast casual turns.
+
+    Skips plan_hint, fewshot examples, mentalchat block, and memory hint.
+    Retains persona block and core instruction so quality and identity stay intact.
+    """
+    persona_block = _build_persona_block(persona_id)
+    emoji_line = (
+        "Với Dũng ở low-risk, được phép dùng tối đa 1 emoji nếu hợp ngữ cảnh."
+        if persona_id == "dung_luong"
+        else "Không dùng emoji."
+    )
+    ultrafast_base = (
+        "Bạn là Serene, trợ lý đồng hành tinh thần bằng tiếng Việt tự nhiên. "
+        "Viết như người Việt trẻ nhắn tin: ngắn 2–3 câu, đúng ngữ cảnh, không văn mẫu, không markdown. "
+        "Đọc tín hiệu cảm xúc ngầm và phản hồi vào tình huống; không nhại lại lời user. "
+        "Tối đa một câu hỏi. Không dùng câu khuôn mẫu về cảm xúc. "
+        + emoji_line + " "
+        "Không dùng ngôn ngữ possessive, exclusive, romantic hoặc dependency-building. "
+        "Không tự xưng là Friend hay thực thể con người ngoài đời. "
+        "Trả lời JSON: reply, assistant_tone (supportive|validating|cheerful|calming|neutral), "
+        "goi_y_nhanh (3 chuỗi ngắn), the_dinh_kem ([])."
+    )
+    persona_priority = (
+        "ƯU TIÊN: tuân thủ persona block ngay sau đây trước khi tạo reply.\n"
+        f"{persona_block}"
+    )
+    user_text = str(state.get("user_message") or "")
+    short_history = _recent_transcript_hint(state, max_turns=2, max_chars_per_turn=120)
+    personality = _build_personality_hint(state)
+    if short_history:
+        user_payload = f"{personality}\nLịch sử:\n{short_history}\nTin nhắn mới:\n{user_text}"
+    else:
+        user_payload = f"{personality}\n{user_text}"
+
+    msgs: list[dict[str, str]] = [
+        {"role": "system", "content": ultrafast_base},
+        {"role": "system", "content": persona_priority},
+        {"role": "user", "content": user_payload},
+    ]
+    token_est = _log_token_budget("ultrafast_in", ultrafast_base, persona_priority, user_payload)
+    return msgs, token_est
+
+
 def friend_node(state: ChatGraphState) -> dict[str, Any]:
     span_start = time.perf_counter()
     correlation_id = str(state.get("correlation_id") or "")
@@ -1189,109 +1249,125 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         settings.openai_model_friend_fast if use_fast_model and settings.openai_model_friend_fast else settings.openai_model_friend
     )
 
-    mentalchat_block = _build_mentalchat_examples(
-        user_text, settings.openai_api_key or "", distress_score=distress_now
-    )
-    safe_mentalchat_block = _sanitize_prompt_block(mentalchat_block)
-    style_fewshot_block = _sanitize_prompt_block(
-        build_fewshot_style_block(
+    # ── Ultra-fast path: minimal prompt for casual low-distress turns ──────────
+    _ultrafast = _is_ultrafast_eligible(distress_score=distress_now, user_message=user_text)
+    if _ultrafast:
+        friend_messages, friend_in_tokens = _build_ultrafast_messages(state, distress_now, persona_id)
+        safe_mentalchat_block = ""
+        logger.info(
+            "[UltraFast] corr=%s distress=%.2f msg_len=%d",
+            correlation_id, distress_now, len(user_text),
+        )
+    else:
+        # ── Normal path: full prompt assembly ─────────────────────────────────
+        mentalchat_block = _build_mentalchat_examples(
+            user_text, settings.openai_api_key or "", distress_score=distress_now
+        )
+        safe_mentalchat_block = _sanitize_prompt_block(mentalchat_block)
+        # Skip fewshot examples below distress 0.30 — saves ~300 tokens on casual turns.
+        style_fewshot_block = (
+            ""
+            if distress_now < 0.30
+            else _sanitize_prompt_block(
+                build_fewshot_style_block(
+                    user_message=user_text,
+                    risk_mode="elevated" if distress_now >= 0.55 else "normal",
+                    distress_score=distress_now,
+                    persona_id=persona_id,
+                )
+            )
+        )
+        generation_plan = build_response_plan(
             user_message=user_text,
-            risk_mode="elevated" if distress_now >= 0.55 else "normal",
+            candidate_text="",
             distress_score=distress_now,
             persona_id=persona_id,
+            sos_triggered=False,
         )
-    )
-    generation_plan = build_response_plan(
-        user_message=user_text,
-        candidate_text="",
-        distress_score=distress_now,
-        persona_id=persona_id,
-        sos_triggered=False,
-    )
-    plan_hint = (
-        "[RESPONSE PLAN - render naturally, do not expose]\n"
-        f"interaction_need: {generation_plan.interaction_need}\n"
-        f"emotional_state: {generation_plan.emotional_state}\n"
-        f"situation_read: {generation_plan.situation_read}\n"
-        f"stance: {generation_plan.stance}\n"
-        f"allowed_moves: {', '.join(generation_plan.allowed_moves)}\n"
-        f"forbidden_moves: {', '.join(generation_plan.forbidden_moves)}\n"
-        f"advice_allowed: {generation_plan.advice_allowed}\n"
-        f"safety_mode: {generation_plan.safety_mode}"
-    )
-    memory_text = str(state.get("active_memory_text") or "").strip()
-    memory_hint = (
-        f"[Ký ức liên quan từ mem0_memories — cá nhân hóa câu trả lời dựa trên điều này, không nhắc lại nguyên văn]\n{memory_text}\n"
-        if memory_text else ""
-    )
-    emoji_policy_line = (
-        "Với Dũng ở low-risk (distress < 0.5), được phép dùng tối đa 1 emoji nếu hợp ngữ cảnh; "
-        "ngoài điều kiện đó thì không dùng emoji."
-        if persona_id == "dung_luong"
-        else "Không dùng emoji trong chat cảm xúc."
-    )
-    base_system_prompt = (
-        "Bạn là Serene, trợ lý đồng hành tinh thần bằng tiếng Việt tự nhiên. "
-        "Viết như người Việt trẻ nhắn tin tự nhiên: ngắn, đúng ngữ cảnh, có duyên vừa đủ, không văn mẫu. "
-        "Nhiệm vụ của bạn không phải nhại lại hay trích nguyên văn lời user; hãy đọc tín hiệu cảm xúc ngầm và phản hồi vào tình huống. "
-        "Có thể mở đầu câu bằng chữ thường trong chat cảm xúc; đây là style hợp lệ, nhưng vẫn giữ đúng tên riêng, acronym, tên sản phẩm và thuật ngữ kỹ thuật. "
-        "Mỗi reply cần có một nhận định cụ thể hoặc một giả thuyết mềm về tình huống trước khi gợi ý. "
-        "Validate trước khi khuyên; nếu user chỉ đang xả, đừng giải quyết quá sớm. "
-        "Trả lời 2–4 câu, một đoạn gọn; không dùng markdown. "
-        + emoji_policy_line + " "
-        "Mỗi lượt tối đa một câu hỏi nếu người dùng chưa xin phân tích sâu. "
-        "Tránh các câu mặc định như 'tôi rất tiếc khi nghe điều đó', 'cảm xúc của bạn là hoàn toàn hợp lệ', "
-        "'bạn không đơn độc', 'mọi chuyện rồi sẽ ổn', 'hãy suy nghĩ tích cực', 'Bạn có muốn chia sẻ thêm không?'. "
-        "Không dùng giọng trị liệu khuôn mẫu, không chẩn đoán, không ước lượng xác suất rối loạn, không tự nhận thẩm quyền y khoa, không hứa hẹn phi thực tế, không đùa/slang khi distress cao. "
-        "Không dùng ngôn ngữ possessive, exclusive, romantic commitment hoặc dependency-building; "
-        "Không tự xưng là Friend hay thực thể con người ngoài đời. "
-        "Trả lời JSON với các khóa: reply, assistant_tone (supportive|validating|cheerful|calming|mentor|neutral), "
-        "goi_y_nhanh (3 chuỗi), the_dinh_kem (mảng object {type,id,title,description,duration_sec,action,route,thumbnail}). "
-        "Chỉ dùng route bắt đầu bằng /serene/ và action thuộc open_exercise|open_resource|open_connect_map."
-        + f"\n{plan_hint}\n"
-        + (f"\n{memory_hint}" if memory_hint else "")
-        + (f"\n{style_fewshot_block}\n" if style_fewshot_block else "")
-        + (f"\n{safe_mentalchat_block}\n" if safe_mentalchat_block else "")
-    )
-    persona_priority_prompt = (
-        "ƯU TIÊN CAO NHẤT: bạn phải tuân thủ persona block ngay sau đây trước khi tạo reply. "
-        "Không được pha loãng giọng persona bằng giọng generic mặc định.\n"
-        f"{persona_block}"
-    )
-    if distress_now < 0.42 and len(user_text) <= 140 and not _is_recall_query(user_text):
-        short_history = _recent_transcript_hint(state, max_turns=3, max_chars_per_turn=180)
-        if short_history:
-            user_payload = (
-                f"{_build_personality_hint(state)}\n"
-                f"Lịch sử gần:\n{short_history}\n"
-                f"Tin nhắn mới:\n{user_text}"
-            )
+        plan_hint = (
+            "[RESPONSE PLAN - render naturally, do not expose]\n"
+            f"interaction_need: {generation_plan.interaction_need}\n"
+            f"emotional_state: {generation_plan.emotional_state}\n"
+            f"situation_read: {generation_plan.situation_read}\n"
+            f"stance: {generation_plan.stance}\n"
+            f"allowed_moves: {', '.join(generation_plan.allowed_moves)}\n"
+            f"forbidden_moves: {', '.join(generation_plan.forbidden_moves)}\n"
+            f"advice_allowed: {generation_plan.advice_allowed}\n"
+            f"safety_mode: {generation_plan.safety_mode}"
+        )
+        memory_text = str(state.get("active_memory_text") or "").strip()
+        memory_hint = (
+            f"[Ký ức liên quan từ mem0_memories — cá nhân hóa câu trả lời dựa trên điều này, không nhắc lại nguyên văn]\n{memory_text}\n"
+            if memory_text else ""
+        )
+        emoji_policy_line = (
+            "Với Dũng ở low-risk (distress < 0.5), được phép dùng tối đa 1 emoji nếu hợp ngữ cảnh; "
+            "ngoài điều kiện đó thì không dùng emoji."
+            if persona_id == "dung_luong"
+            else "Không dùng emoji trong chat cảm xúc."
+        )
+        base_system_prompt = (
+            "Bạn là Serene, trợ lý đồng hành tinh thần bằng tiếng Việt tự nhiên. "
+            "Viết như người Việt trẻ nhắn tin tự nhiên: ngắn, đúng ngữ cảnh, có duyên vừa đủ, không văn mẫu. "
+            "Nhiệm vụ của bạn không phải nhại lại hay trích nguyên văn lời user; hãy đọc tín hiệu cảm xúc ngầm và phản hồi vào tình huống. "
+            "Có thể mở đầu câu bằng chữ thường trong chat cảm xúc; đây là style hợp lệ, nhưng vẫn giữ đúng tên riêng, acronym, tên sản phẩm và thuật ngữ kỹ thuật. "
+            "Mỗi reply cần có một nhận định cụ thể hoặc một giả thuyết mềm về tình huống trước khi gợi ý. "
+            "Validate trước khi khuyên; nếu user chỉ đang xả, đừng giải quyết quá sớm. "
+            "Trả lời 2–4 câu, một đoạn gọn; không dùng markdown. "
+            + emoji_policy_line + " "
+            "Mỗi lượt tối đa một câu hỏi nếu người dùng chưa xin phân tích sâu. "
+            "Tránh các câu mặc định như 'tôi rất tiếc khi nghe điều đó', 'cảm xúc của bạn là hoàn toàn hợp lệ', "
+            "'bạn không đơn độc', 'mọi chuyện rồi sẽ ổn', 'hãy suy nghĩ tích cực', 'Bạn có muốn chia sẻ thêm không?'. "
+            "Không dùng giọng trị liệu khuôn mẫu, không chẩn đoán, không ước lượng xác suất rối loạn, không tự nhận thẩm quyền y khoa, không hứa hẹn phi thực tế, không đùa/slang khi distress cao. "
+            "Không dùng ngôn ngữ possessive, exclusive, romantic commitment hoặc dependency-building; "
+            "Không tự xưng là Friend hay thực thể con người ngoài đời. "
+            "Trả lời JSON với các khóa: reply, assistant_tone (supportive|validating|cheerful|calming|mentor|neutral), "
+            "goi_y_nhanh (3 chuỗi), the_dinh_kem (mảng object {type,id,title,description,duration_sec,action,route,thumbnail}). "
+            "Chỉ dùng route bắt đầu bằng /serene/ và action thuộc open_exercise|open_resource|open_connect_map."
+            + f"\n{plan_hint}\n"
+            + (f"\n{memory_hint}" if memory_hint else "")
+            + (f"\n{style_fewshot_block}\n" if style_fewshot_block else "")
+            + (f"\n{safe_mentalchat_block}\n" if safe_mentalchat_block else "")
+        )
+        persona_priority_prompt = (
+            "ƯU TIÊN CAO NHẤT: bạn phải tuân thủ persona block ngay sau đây trước khi tạo reply. "
+            "Không được pha loãng giọng persona bằng giọng generic mặc định.\n"
+            f"{persona_block}"
+        )
+        if distress_now < 0.42 and len(user_text) <= 140 and not _is_recall_query(user_text):
+            short_history = _recent_transcript_hint(state, max_turns=3, max_chars_per_turn=180)
+            if short_history:
+                user_payload = (
+                    f"{_build_personality_hint(state)}\n"
+                    f"Lịch sử gần:\n{short_history}\n"
+                    f"Tin nhắn mới:\n{user_text}"
+                )
+            else:
+                user_payload = f"{_build_personality_hint(state)}\n{user_text}"
         else:
-            user_payload = f"{_build_personality_hint(state)}\n{user_text}"
-    else:
-        friend_context = _build_friend_context(state, distress_score=distress_now)
-        user_payload = f"{friend_context}\n\nTin nhắn mới:\n{user_text}"
+            friend_context = _build_friend_context(state, distress_score=distress_now)
+            user_payload = f"{friend_context}\n\nTin nhắn mới:\n{user_text}"
 
-    # Build analyst context as second system message (spec §FriendNode prompt assembly order).
-    _ab: AnalystBundle | None = state.get("analyst_bundle")  # type: ignore[assignment]
-    analyst_ctx = ""
-    if _ab and _ab.clinical_note:
-        analyst_ctx = (
-            "[ANALYST CONTEXT — không hiển thị cho user]\n"
-            f"Chủ đề cảm xúc: {_ab.emotional_theme}\n"
-            f"Ghi chú lâm sàng: {_ab.clinical_note}\n"
-            f"Gợi ý khai thác: {_ab.suggested_focus or 'không có'}\n"
-            f"Tín hiệu rủi ro: {', '.join(_ab.risk_indicators) or 'không có'}"
-        )
-    friend_messages: list[dict[str, str]] = [
-        {"role": "system", "content": base_system_prompt},
-        {"role": "system", "content": persona_priority_prompt},
-    ]
-    if analyst_ctx:
-        friend_messages.append({"role": "system", "content": analyst_ctx})
-    friend_messages.append({"role": "user", "content": user_payload})
+        # Build analyst context as second system message (spec §FriendNode prompt assembly order).
+        _ab: AnalystBundle | None = state.get("analyst_bundle")  # type: ignore[assignment]
+        analyst_ctx = ""
+        if _ab and _ab.clinical_note:
+            analyst_ctx = (
+                "[ANALYST CONTEXT — không hiển thị cho user]\n"
+                f"Chủ đề cảm xúc: {_ab.emotional_theme}\n"
+                f"Ghi chú lâm sàng: {_ab.clinical_note}\n"
+                f"Gợi ý khai thác: {_ab.suggested_focus or 'không có'}\n"
+                f"Tín hiệu rủi ro: {', '.join(_ab.risk_indicators) or 'không có'}"
+            )
+        friend_messages: list[dict[str, str]] = [
+            {"role": "system", "content": base_system_prompt},
+            {"role": "system", "content": persona_priority_prompt},
+        ]
+        if analyst_ctx:
+            friend_messages.append({"role": "system", "content": analyst_ctx})
+        friend_messages.append({"role": "user", "content": user_payload})
 
-    friend_in_tokens = _log_token_budget("friend_in", base_system_prompt, persona_priority_prompt, analyst_ctx, user_payload)
+        friend_in_tokens = _log_token_budget("friend_in", base_system_prompt, persona_priority_prompt, analyst_ctx, user_payload)
 
     payload: dict[str, Any] = {
         "reply": _persona_fallback_reply(persona_id, distress_now),
