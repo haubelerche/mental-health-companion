@@ -58,7 +58,7 @@ export default function LandingHeader() {
                         letterSpacing: '2px',
                     }}
                 >
-                    SereneAI
+                    Serene.AI
                 </Link>
 
                 {/* Desktop nav */}
