@@ -148,7 +148,7 @@ def _fallback_visible_text(user_message: str, *, emotional_state: str, interacti
     if emotional_state == "self_blame":
         return (
             f"{SELF_BLAME_ANCHORS[0]} với {anchor}, phản ứng rối và tự trách như vậy là dễ hiểu. "
-            "Cứ bình tĩnh thôi phần nào đang làm bạn suy nhất ngay lúc này?"
+            "Cứ bình tĩnh kể mình nghe nào, phần nào đang làm bạn suy nhất ngay lúc này?"
         )
     if interaction_need == "grounding":
         return (
@@ -157,7 +157,7 @@ def _fallback_visible_text(user_message: str, *, emotional_state: str, interacti
         )
     return (
         f"ừ, mình nghe {anchor} đang khiến bạn cảm thấy nặng nề. "
-        "mình chưa vội khuyên gì dài, phần nào đang khó chịu nhất lúc này?"
+        "hãy từ từ kể cho mình nghe nhé, phần nào đang khó chịu nhất lúc này?"
     )
 
 

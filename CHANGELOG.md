@@ -4,6 +4,13 @@
 
 ---
 
+## [Unreleased] — Ultra-fast path + token reduction in FriendNode · 2026-05-14
+
+### Changed
+- `backend/app/services/langgraph_chat.py` — Added `_is_ultrafast_eligible` and `_build_ultrafast_messages` helpers. `friend_node` now branches: turns with `distress_score < 0.20` and message length < 50 chars use a minimal ~585-token prompt (identity + truncated persona block, no plan_hint, no fewshots, no mentalchat block), down from ~2,200 tokens → estimated latency ~1.0–1.5 s vs ~2.7 s for casual small talk. Normal path (distress ≥ 0.20) also skips `style_fewshot_block` when `distress_score < 0.30`, saving ~300 tokens on low-risk conversational turns without affecting quality.
+
+---
+
 ## [Unreleased] — Shared screening results across Home and Reflect · 2026-05-14
 
 ### Fixed
@@ -111,6 +118,7 @@
 
 ### Fixed
 - `backend/app/services/safety_output_validator.py` — heuristic `missing_context_anchor` trước đây gần như luôn fail với câu chat tiếng Việt ngắn hợp lệ (yêu cầu ≥16 token), khiến `build_response_plan` thay toàn bộ bằng fallback viết sẵn thay vì giữ output LLM đã qua `render_final_text`. Nay dùng ngưỡng mềm hơn (≥40 ký tự hoặc ≥6 token).
+- `backend/app/services/response_planner.py` — fallback copy khi user tự trách/khó chịu mềm hơn, mời kể tiếp thay vì hỏi cụt.
 - `frontend/src/components/pages/chat/Chat.tsx` — thông báo khi SSE không nhận được sự kiện `final` (thường gặp khi backend `--reload` ngắt stream) rõ hơn cho người dùng dev.
 
 ### Added
