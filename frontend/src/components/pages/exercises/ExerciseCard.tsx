@@ -1,7 +1,7 @@
 import { type LucideIcon } from 'lucide-react'
 import { Clock3, Play } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useThemeContext } from '../../../contexts/ThemeContext'
+
 
 export interface ExerciseCardData {
   id: string
@@ -25,8 +25,6 @@ interface ExerciseCardProps {
 
 export default function ExerciseCard({ exercise, onStart, index }: ExerciseCardProps) {
   const Icon = exercise.icon
-  const { effectiveTheme } = useThemeContext()
-  const isDark = effectiveTheme === 'dark'
 
   return (
     <motion.button

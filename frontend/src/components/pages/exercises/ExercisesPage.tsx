@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { Accessibility, Focus, LayoutGrid, Leaf, Sparkles, Waves, Wind, Volume2, VolumeX, Pause, Play, ArrowLeft } from 'lucide-react'
+import { Accessibility, Focus, LayoutGrid, Sparkles, Waves, Wind, Volume2, VolumeX, Pause, Play, ArrowLeft } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ROUTE_PATHS } from '../../../routes/paths'
 import { useThemeContext } from '../../../contexts/ThemeContext'

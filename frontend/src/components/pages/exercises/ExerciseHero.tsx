@@ -1,6 +1,6 @@
-import { ArrowLeft, Sparkles, Wind, Focus, Accessibility } from 'lucide-react'
-import { useThemeContext } from '../../../contexts/ThemeContext'
+import { ArrowLeft, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
+
 
 interface ExerciseHeroProps {
   onBack: () => void
@@ -9,8 +9,7 @@ interface ExerciseHeroProps {
 }
 
 export default function ExerciseHero({ onBack, title, subtitle }: ExerciseHeroProps) {
-  const { effectiveTheme } = useThemeContext()
-  const isDark = effectiveTheme === 'dark'
+
 
   return (
     <section className={`pixel-card relative overflow-hidden p-8 sm:p-12 lg:p-16 bg-theme-surface border-2`} style={{ borderRadius: '4px' }}>
