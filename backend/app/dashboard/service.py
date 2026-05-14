@@ -107,7 +107,7 @@ def _map_db_severity(raw: str | None) -> Literal["neutral", "watch"]:
     if not raw:
         return "neutral"
     low = raw.strip().lower()
-    if low in ("low", "neutral"):
+    if low in ("low", "neutral", "informational"):
         return "neutral"
     if low in ("moderate", "medium", "watch", "elevated", "high"):
         return "watch"

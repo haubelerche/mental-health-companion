@@ -23,6 +23,7 @@ from app.api.v1.routers import (
 )
 from app.knowledge.routes import router as knowledge_router
 from app.memory.routes import router as memory_router
+from app.analyst.routes import router as analyst_router
 from app.api.v1.routers.admin import router as admin_router
 
 api_router = APIRouter()
@@ -48,3 +49,4 @@ api_router.include_router(knowledge_router)
 api_router.include_router(ws.router)
 api_router.include_router(letter.router)
 api_router.include_router(notifications.router)
+api_router.include_router(analyst_router)

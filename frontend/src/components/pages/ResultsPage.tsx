@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import type { ScreeningResult } from '../../services/screeningService'
 import { ROUTE_PATHS } from '../../routes/paths'
+import { saveScreeningResult } from '../../utils/screeningResults'
 
 type SeverityMeta = {
   label: string
@@ -183,11 +184,7 @@ export function ResultsPage() {
 
   useEffect(() => {
     if (result && result.instrument_id) {
-      localStorage.setItem(`serene_screening_${result.instrument_id}`, JSON.stringify({
-        raw_score: result.raw_score,
-        severity_label: result.severity_label,
-        timestamp: new Date().toISOString()
-      }))
+      saveScreeningResult(result)
     }
   }, [result])
   const rawSeverity = result?.severity_label

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import ipaddress
+import time
+from types import SimpleNamespace
 from urllib.parse import urlparse
 
 from fastapi import Cookie, Depends, Header, Request
 from sqlalchemy import select
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -16,6 +18,32 @@ from app.services.security import decode_token
 
 
 ALLOWED_CSRF_METHODS = {"POST", "PATCH", "DELETE"}
+_USER_CACHE_TTL_SECONDS = 45
+_USER_CACHE: dict[str, tuple[float, SimpleNamespace]] = {}
+
+
+def _cache_user(user: User) -> None:
+    _USER_CACHE[str(user.user_id)] = (
+        time.monotonic() + _USER_CACHE_TTL_SECONDS,
+        SimpleNamespace(
+            user_id=user.user_id,
+            email=getattr(user, "email", None),
+            display_name=getattr(user, "display_name", None),
+            is_active=True,
+            policy_acknowledged_at=getattr(user, "policy_acknowledged_at", None),
+        ),
+    )
+
+
+def _get_cached_user(user_id: str) -> User | None:
+    cached = _USER_CACHE.get(str(user_id))
+    if not cached:
+        return None
+    expires_at, user = cached
+    if expires_at <= time.monotonic():
+        _USER_CACHE.pop(str(user_id), None)
+        return None
+    return user  # type: ignore[return-value]
 
 
 def _normalized_origin(value: str | None) -> str | None:
@@ -95,10 +123,14 @@ def get_current_user(
 
     try:
         user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
-    except OperationalError as exc:
+    except SQLAlchemyError as exc:
+        cached = _get_cached_user(str(user_id))
+        if cached is not None:
+            return cached
         raise AppError("DATABASE_UNAVAILABLE", "Database is temporarily unavailable. Please retry shortly.", 503) from exc
     if not user:
         raise AppError("AUTH_INVALID_TOKEN", "Token không hợp lệ", 401)
+    _cache_user(user)
     return user
 
 
@@ -126,10 +158,14 @@ def get_current_user_for_stream(
     with get_session_factory()() as db:
         try:
             user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
-        except OperationalError as exc:
+        except SQLAlchemyError as exc:
+            cached = _get_cached_user(str(user_id))
+            if cached is not None:
+                return cached
             raise AppError("DATABASE_UNAVAILABLE", "Database is temporarily unavailable. Please retry shortly.", 503) from exc
         if not user:
             raise AppError("AUTH_INVALID_TOKEN", "Invalid token", 401)
+        _cache_user(user)
         db.expunge(user)
         return user
 
@@ -199,5 +235,5 @@ async def get_current_user_ws(
 
     try:
         return db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
-    except OperationalError:
+    except SQLAlchemyError:
         return None

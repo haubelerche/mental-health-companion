@@ -26,6 +26,7 @@ export const ROUTE_PATHS = {
     screening: '/serene/screening',
     results: '/serene/results',
     exercises: '/serene/exercises',
+    anxietyBreathingExercise: '/serene/exercises?exercise=anxiety_breathing',
     rewards: '/serene/rewards',
 
     //admin

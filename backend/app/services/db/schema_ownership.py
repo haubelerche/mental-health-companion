@@ -46,10 +46,10 @@ SCHEMA_OWNERSHIP: dict[str, TableOwnership] = {
     "journal_entries": TableOwnership("journal_entries", "legacy_retired_drop_now", "journaling", "Retired."),
     "mem0_memories": TableOwnership(
         "mem0_memories",
-        "active_canonical",
+        "active_product_questionable",
         "memory",
-        "Canonical user-memory persistence store.",
-        "This is the only canonical user-memory persistence table.",
+        "Optional derived vector cache for memory retrieval.",
+        "Must not be treated as source of truth for user-visible memory cards or session summaries.",
     ),
     "session_summaries_archive": TableOwnership(
         "session_summaries_archive",
@@ -215,15 +215,15 @@ SCHEMA_OWNERSHIP: dict[str, TableOwnership] = {
     ),
     "memory_cards": TableOwnership(
         "memory_cards",
-        "legacy_retired_drop_now",
+        "active_canonical",
         "memory",
-        "Retired user-facing memory-card table; must not be recreated.",
+        "Canonical user-facing memory-card store with review lifecycle.",
     ),
     "memory_card_audit_events": TableOwnership(
         "memory_card_audit_events",
-        "legacy_retired_drop_now",
+        "active_canonical",
         "memory",
-        "Retired memory-card audit table; must not be recreated.",
+        "Canonical audit trail for user memory-card actions.",
     ),
     "screening_results": TableOwnership(
         "screening_results",
