@@ -19,13 +19,19 @@ MAX_CONTENT_CHARS = 300
 MAX_TITLE_CHARS = 120
 
 VALID_TYPES = {
+    "background",
+    "support_style",
     "preference",
-    "emotional_pattern",
     "coping_history",
     "current_stressor",
     "nutrition_pattern",
-    "kindness_pattern",
     "persona_preference",
+    "temporary_context",
+    "event_memory",
+    "support_insight",
+    "relationship_context",
+    "goal_or_hope",
+    "emotional_pattern",
 }
 
 

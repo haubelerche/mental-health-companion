@@ -1,12 +1,16 @@
-"""Narrow repository for canonical Mem0-backed user memories."""
+"""Narrow repository for optional Mem0-derived retrieval cache rows."""
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+from app.services.utils import get_now
 
 _OWNER_EXPR = """
 COALESCE(
@@ -88,10 +92,10 @@ def _is_sqlite(db: Session) -> bool:
 
 
 def list_user_memories(db: Session, *, user_id: str, limit: int = 100) -> list[Mem0Memory]:
-    """List canonical vector memories owned by a user.
+    """List derived vector-cache memories owned by a user.
 
-    Mem0 owns the table shape, so application code must only rely on the stable
-    id and payload contract we write through MemoryManager.
+    User-visible memory must be served from app.memory_cards. This helper is
+    retained only for bounded recall fallback and diagnostics.
     """
     if _is_sqlite(db):
         return []
@@ -135,6 +139,62 @@ def delete_user_memory(db: Session, *, user_id: str, memory_id: str) -> bool:
         {"user_id": user_id, "memory_id": memory_id},
     ).scalar()
     return deleted_id is not None
+
+
+def ensure_session_summary_memory(
+    db: Session,
+    *,
+    user_id: str,
+    session_id: str,
+    summary_text: str,
+    created_at: str | None = None,
+) -> str | None:
+    """Legacy helper for derived mem0 cache rows; not user-visible canonical memory."""
+    if _is_sqlite(db):
+        return None
+
+    safe_user_id = str(user_id or "").strip()
+    safe_session_id = str(session_id or "").strip()
+    safe_summary = " ".join(str(summary_text or "").split()).strip()
+    if not safe_user_id or not safe_session_id or not safe_summary:
+        return None
+
+    existing_id = db.execute(
+        text(
+            f"""
+            SELECT m.id::text
+            FROM app.mem0_memories AS m
+            WHERE {_OWNER_EXPR} = :user_id
+              AND NULLIF(m.payload->>'session_id', '') = :session_id
+              AND {_SOURCE_EXPR} = 'session_summary'
+            ORDER BY {_CREATED_AT_EXPR} DESC NULLS LAST, m.id::text DESC
+            LIMIT 1
+            """
+        ),
+        {"user_id": safe_user_id, "session_id": safe_session_id},
+    ).scalar()
+    if existing_id:
+        return str(existing_id)
+
+    memory_id = str(uuid4())
+    payload = {
+        "user_id": safe_user_id,
+        "data": safe_summary[:700],
+        "source": "session_summary",
+        "created_at": created_at or get_now().isoformat(),
+        "session_id": safe_session_id,
+        "summary": safe_summary[:700],
+    }
+    db.execute(
+        text(
+            """
+            INSERT INTO app.mem0_memories (id, payload)
+            VALUES (CAST(:id AS uuid), CAST(:payload AS jsonb))
+            """
+        ),
+        {"id": memory_id, "payload": json.dumps(payload, ensure_ascii=False)},
+    )
+    return memory_id
 
 
 def list_all_user_memories(db: Session, *, user_id: str, batch_size: int = 200, max_rows: int = 2000) -> list[Mem0Memory]:

@@ -68,6 +68,18 @@ export const chatService = {
     getVoiceJob: (ttsJobId: string) =>
         httpClient.get<VoiceJobResponse>(`/chat/voice-jobs/${ttsJobId}`),
     getSessions: () => httpClient.get<{ sessions: SessionSummary[] }>('/chat/sessions'),
+    endSession: (sessionId: string) =>
+        httpClient.postWithCsrf<{
+            session_id: string
+            summarized: boolean
+            summary: string
+            archive_created?: boolean
+            memory_cards_created?: number
+            memory_cards_total?: number
+        }>(
+            '/chat/end',
+            { session_id: sessionId },
+        ),
     getSessionMessages: (sessionId: string, limit = 40, offset = 0) =>
         httpClient.get<{ session_id: string; messages: SessionMessage[]; total: number; has_more: boolean }>(
             `/chat/sessions/${sessionId}/messages?limit=${limit}&offset=${offset}`,

@@ -4,11 +4,11 @@ Real-time notification delivery via WebSocket
 """
 
 import logging
+from types import SimpleNamespace
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Depends, Cookie
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.services.db.session import get_db, get_session_factory
+from app.services.db.session import get_db
 from app.services.db.models import User
 from app.api.deps import get_current_user
 from app.services.security import decode_token
@@ -33,18 +33,11 @@ async def get_current_user_ws_cookie(
     user_id = payload.get("sub")
     if not user_id:
         return None
-
-    from sqlalchemy import select
-    with get_session_factory()() as db:
-        try:
-            user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
-        except SQLAlchemyError as exc:
-            logger.warning("WebSocket cookie auth database unavailable: %s", exc)
-            return None
-        if not user:
-            return None
-        db.expunge(user)
-        return user
+    # The notification socket is a high-churn, long-lived connection. A valid
+    # signed access token is enough here; HTTP APIs still verify active users
+    # against the database. Avoiding a DB checkout prevents local pool starvation
+    # from breaking Chat > Ký ức and other foreground requests.
+    return SimpleNamespace(user_id=str(user_id))
 
 
 @router.websocket("/notifications")
@@ -66,15 +59,7 @@ async def websocket_notifications(
                 payload = decode_token(token)
                 user_id = payload.get("sub")
                 if user_id:
-                    from sqlalchemy import select
-                    with get_session_factory()() as db:
-                        try:
-                            user = db.scalar(select(User).where(User.user_id == user_id, User.is_active.is_(True)))
-                        except SQLAlchemyError as exc:
-                            logger.warning("WebSocket token auth database unavailable: %s", exc)
-                            user = None
-                        if user:
-                            db.expunge(user)
+                    user = SimpleNamespace(user_id=str(user_id))
             except Exception:
                 pass
         
