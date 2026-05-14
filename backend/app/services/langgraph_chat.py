@@ -1185,12 +1185,14 @@ def _build_ultrafast_messages(
     distress_score: float,
     persona_id: str,
 ) -> tuple[list[dict[str, str]], int]:
-    """Build a minimal (~450-token) message list for ultra-fast casual turns.
+    """Build a minimal (~550-token) message list for ultra-fast casual turns.
 
     Skips plan_hint, fewshot examples, mentalchat block, and memory hint.
-    Retains persona block and core instruction so quality and identity stay intact.
+    Truncates the persona block to identity + key rules only to stay within budget.
     """
-    persona_block = _build_persona_block(persona_id)
+    # Keep first ~700 chars of persona block: covers identity, pronouns, tone, and top style rules.
+    full_persona_block = _build_persona_block(persona_id)
+    persona_block = full_persona_block[:700].rstrip()
     emoji_line = (
         "Với Dũng ở low-risk, được phép dùng tối đa 1 emoji nếu hợp ngữ cảnh."
         if persona_id == "dung_luong"
