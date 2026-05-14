@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useNotification } from '../../contexts/NotificationContext'
+import { useAuth } from '../../hooks/useAuth'
 import { notificationService, type UserNotification } from '../../services/notificationService'
 import RealtimeNotificationAssistant, { type AppNotification } from './RealtimeNotificationAssistant'
 import { OPEN_NOTIFICATION_MODAL_EVENT } from '../pages/notifications/events'
@@ -21,6 +22,7 @@ function toAppNotification(item: UserNotification): AppNotification {
 
 export default function RealtimeNotificationAssistantBridge() {
     const navigate = useNavigate()
+    const { user } = useAuth()
     const { notifications, removeNotification, markAsRead } = useNotification()
     const [apiNotifications, setApiNotifications] = useState<UserNotification[]>([])
     const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set())
@@ -35,8 +37,10 @@ export default function RealtimeNotificationAssistantBridge() {
     }, [])
 
     useEffect(() => {
-        void refreshUnreadNotifications()
-    }, [refreshUnreadNotifications])
+        if (user) {
+            void refreshUnreadNotifications()
+        }
+    }, [refreshUnreadNotifications, user])
 
     const safeNotifications = useMemo<AppNotification[]>(() => {
         const fromRealtime: AppNotification[] = notifications
