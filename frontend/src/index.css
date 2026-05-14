@@ -343,3 +343,16 @@
 .notification-toast.letter { border-left: 4px solid #8b5cf6; }
 .notification-toast.safety { border-left: 4px solid #ef4444; }
 .notification-toast.system { border-left: 4px solid #3b82f6; }
+
+/* ─── Food Validation Feedback Animations ─── */
+@keyframes fadeShake {
+    0% { opacity: 0; transform: translateX(-6px); }
+    30% { transform: translateX(4px); }
+    60% { transform: translateX(-2px); }
+    100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes fadeIn {
+    0% { opacity: 0; transform: translateY(-4px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+

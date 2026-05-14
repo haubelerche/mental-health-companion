@@ -66,9 +66,7 @@ const getRecoCards = (hour: number, isDark: boolean): RecoCard[] => {
         desc: isMorning
             ? '5 phút · Bắt đầu ngày mới'
             : '10 phút · Dễ đi vào giấc ngủ',
-        route: isMorning
-            ? `${ROUTE_PATHS.exercises}?type=meditation&id=morning_5`
-            : `${ROUTE_PATHS.exercises}?type=meditation&id=sleep_deep`,
+        route: ROUTE_PATHS.exercises,
         accentClass: isDark
             ? 'bg-violet-500/12 text-violet-200 border border-violet-200'
             : 'bg-violet-100 text-violet-800 border border-violet-500',
