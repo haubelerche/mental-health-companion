@@ -1473,17 +1473,19 @@ def send_message(
         or any(k in str(raw_text or "").lower() for k in ("buon", "met", "lo", "stress", "ap luc", "khong on"))
     )
     purely_technical = any(k in str(raw_text or "").lower() for k in ("api", "code", "bug", "deploy", "database")) and distress_for_voice < 0.55
+    # dung_luong: voice interleaves on every casual turn — bypass cooldown and always mark weight
+    _dung_voice = selected_persona_id == "dung_luong"
     voice_decision = VoiceMessagePolicyEngine.decide(VoicePolicyContext(
         user_id=current_user.user_id,
         session_id=session.session_id,
         distress_score=distress_for_voice,
         safety_tier=str(snap.safety_tier),
         sos_triggered=False,
-        cooldown_active=cooldown_is_active,
-        cooldown_seconds_remaining=cooldown_seconds,
+        cooldown_active=False if _dung_voice else cooldown_is_active,
+        cooldown_seconds_remaining=0 if _dung_voice else cooldown_seconds,
         user_voice_enabled=get_voice_consent(db, current_user.user_id),
         provider_enabled=True,
-        current_turn_has_emotional_weight=emotional_weight,
+        current_turn_has_emotional_weight=True if _dung_voice else emotional_weight,
         purely_technical_turn=purely_technical,
         visible_text=assistant_content,
         reason_codes=tuple([signal_for_voice.trigger_reason] if signal_for_voice.escalate else []),
@@ -2081,17 +2083,19 @@ def send_message_stream(
                 or any(k in str(raw_text or "").lower() for k in ("buon", "met", "lo", "stress", "ap luc", "khong on"))
             )
             purely_technical = any(k in str(raw_text or "").lower() for k in ("api", "code", "bug", "deploy", "database")) and distress_for_voice < 0.55
+            # dung_luong: voice interleaves on every casual turn — bypass cooldown and always mark weight
+            _dung_voice = _stream_persona_id == "dung_luong"
             voice_decision = VoiceMessagePolicyEngine.decide(VoicePolicyContext(
                 user_id=current_user.user_id,
                 session_id=session.session_id,
                 distress_score=distress_for_voice,
                 safety_tier=str(snap.safety_tier),
                 sos_triggered=False,
-                cooldown_active=cooldown_is_active,
-                cooldown_seconds_remaining=cooldown_seconds,
+                cooldown_active=False if _dung_voice else cooldown_is_active,
+                cooldown_seconds_remaining=0 if _dung_voice else cooldown_seconds,
                 user_voice_enabled=get_voice_consent(db, current_user.user_id),
                 provider_enabled=True,
-                current_turn_has_emotional_weight=emotional_weight,
+                current_turn_has_emotional_weight=True if _dung_voice else emotional_weight,
                 purely_technical_turn=purely_technical,
                 visible_text=assistant_content,
                 reason_codes=tuple([signal_for_voice.trigger_reason] if signal_for_voice.escalate else []),

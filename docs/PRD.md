@@ -1,7 +1,7 @@
 # PRD.md — Serene AI Mental-Health Companion
 
 **Document type:** Product + Backend + Runtime Requirements Document  
-**Version:** 6.1 — Context-Rot-Resistant Canonical PRD  
+**Version:** 6.2 — Technical Sync (2026-05-14)  
 **Status:** MVP architecture specification  
 **Supersedes:** `BACKEND_PLAN.md`, `BUILDING-PLAN-AGENT-SPECS.md`  
 **Target stack:** React, FastAPI, LangGraph-style orchestration, PostgreSQL/pgvector, Redis, Neo4j, Celery/Outbox, OpenAI-compatible LLMs  
@@ -492,11 +492,15 @@ In the diagram below, `FriendNode`, `AnalystNode`, and `SafetyFinalizer` are **L
 ```text
 Frontend
   -> FastAPI ChatGateway
-  -> ContextLoader
+  -> ContextLoader (loads profile, mood, safety_flags, graph_patterns, nutrition_meals)
   -> SafetyGate
       -> if high-risk: SafetyFinalizer        // Safety Agent
+           -> returns de-escalation payload + DistressConversationUi (DistressSupportPopup)
       -> else: DistressRouter
-          -> friend_direct: PersonaRouter -> FriendNode   // Serene Conversation Agent
+           -> sets route_decision, use_fast_friend_model
+          -> friend_direct:
+               -> ultra-fast path (distress < 0.20 AND msg ≤ 50 chars): minimal ~550-token prompt, no fewshot
+               -> normal path: PersonaRouter -> FriendNode   // Serene Conversation Agent
           -> analyst_then_friend: AnalystNode -> AnalystBundle -> PersonaRouter -> FriendNode
                // ^ Internal Analyst Agent          ^ Serene Conversation Agent (same FriendNode step)
   -> SafetyOutputValidator
@@ -504,8 +508,14 @@ Frontend
   -> AsyncWorkers
       -> MemoryWorker
       -> GraphSyncWorker
-      -> InsightWorker
+      -> InsightWorker (feeds AnalystPipelineService)
       -> TTSJobService
+      -> SessionLifecycleService (on session close: summarize -> MemoryCard creation)
+
+Offline Analyst Pipeline (async, not in-request):
+  AnalystPipelineService: collect SourceEvents -> PrivacyFilter -> FeatureBuilder
+    -> ContextPackBuilder -> LLMAnalyzer -> InsightAggregator -> InsightHypothesis / InsightEvidence
+  Trigger types: "turn" | "daily" | "rolling_3d" | "weekly" | "on_demand_dashboard" | "post_screening"
 ```
 
 ### 7.2 Rejected Architecture
@@ -548,13 +558,17 @@ The five-agent model is rejected because it creates role overlap, persona fragme
 ```text
 1. User sends a message.
 2. ChatGateway validates auth, guest token, and session.
-3. ContextLoader loads recent messages, profile, mood, screening, safety flags, optional memories/graph context.
+3. ContextLoader loads recent messages, profile, mood, screening, safety flags,
+   graph_patterns (Neo4j async pre-fetch), nutrition_meals, optional pgvector memories.
 4. SafetyGate runs first.
 5. If no high-risk state:
-   - DistressRouter decides route.
-   - Internal Analyst Agent (`AnalystNode`) runs only if pattern insight is needed.
+   - DistressRouter decides route and sets use_fast_friend_model flag.
+   - If ultra-fast eligible (distress_score < 0.20 AND message ≤ 50 chars):
+     FriendNode uses minimal ~550-token prompt (no fewshot, no plan_hint, no memory hint).
+   - If analyst_then_friend: Internal Analyst Agent (`AnalystNode`) runs and produces AnalystBundle.
    - PersonaRouter applies persona, unlock, cooldown, and safety fallback.
-   - Serene Conversation Agent (`FriendNode`) generates the Serene response.
+   - Serene Conversation Agent (`FriendNode`) generates the Serene response
+     (uses openai_model_friend_fast when use_fast_friend_model=True and distress_score < 0.55).
 6. SafetyOutputValidator validates the final response.
 7. SyncWriter persists required records.
 8. Async workers update memory/profile/Neo4j/dashboard/TTS.
@@ -583,7 +597,8 @@ User message
        - no DistressRouter
        - no Internal Analyst Agent (`AnalystNode`)
        - no normal Serene Conversation Agent (`FriendNode`)
-       - return de-escalation payload
+       - return de-escalation payload + DistressConversationUi containing DistressSupportPopup
+         (character "Đạt" / dat_le; cooldown_seconds = 900; includes breathing_exercise_route and support_route)
   -> SyncWriter:
        - user message
        - assistant safety response
@@ -609,7 +624,9 @@ ConversationMode = "normal | de_escalation"
 ConfidenceLevel = "low | medium | high"
 RiskLevelHint = "low | moderate | elevated"
 
+# Implementation reference: backend/app/services/langgraph_chat.py ChatGraphState
 RuntimeState = {
+    # === IMMUTABLE INPUTS (set once, never mutated by nodes) ===
     "request_id": str,
     "correlation_id": str,
     "user_id": str | None,
@@ -621,16 +638,39 @@ RuntimeState = {
     "mood_snapshot": dict,
     "screening_snapshot": dict,
     "safety_flags": dict,
-    "distress_score": float,
+    "distress_score": float,          # FROZEN — distress_router must never mutate this
     "risk_level": int,
+    "graph_patterns": dict,           # UserPatternsResult from Neo4j, pre-fetched async; {} if unavailable
+    "nutrition_meals": list | None,   # today's meal check-ins; None if none logged
+    "long_term_memories": list[str],
+    "mem0_facts": list[str],
+    "top_triggers": list[str],
+    "active_goals": list[str],
+    "effective_coping": list[str],
+    "clinical_trajectory": str | None,
+
+    # === CONTROL FLAGS ===
+    "use_fast_friend_model": bool,     # set by distress_router; True when distress < 0.55 and msg short
+
+    # === ROUTER OUTPUT ===
     "route_decision": RouteDecision | None,
     "route_reason": str | None,
-    "analyst_bundle": dict | None,
+    "routing_history": list[str],
+
+    # === INTERNAL ANALYST AGENT OUTPUT ===
+    "analyst_bundle": dict | None,    # typed AnalystBundle; None until AnalystNode runs
+
+    # === SERENE CONVERSATION AGENT OUTPUT ===
+    "reply": str,
+    "assistant_tone": str,
+    "goi_y_nhanh": list[str],
+    "the_dinh_kem": list[dict],
+
+    # === ORCHESTRATION ===
     "persona_state": dict,
     "persona_router_decision": dict | None,
     "conversation_mode": ConversationMode,
     "crisis_route_finalized": bool,
-    "routing_history": list[str]
 }
 ```
 
@@ -640,7 +680,7 @@ Mutation rules (first column = orchestration identifier; see Reader Summary for 
 |---|---|
 | `SafetyGate` | `risk_level`, `distress_score`, `safety_flags`, `route_decision` |
 | `SafetyFinalizer` (Safety Agent) | `conversation_mode`, `crisis_route_finalized`, forced persona safety metadata |
-| `DistressRouter` | `route_decision`, `route_reason`, `routing_history` |
+| `DistressRouter` | `route_decision`, `route_reason`, `use_fast_friend_model`, `routing_history` |
 | `PersonaRouter` | `persona_state`, `persona_router_decision`, `routing_history` |
 | `AnalystNode` (Internal Analyst Agent) | `analyst_bundle`, `routing_history` only |
 | `FriendNode` (Serene Conversation Agent) | output-related fields and `routing_history` only |
@@ -676,6 +716,9 @@ Mutation rules (first column = orchestration identifier; see Reader Summary for 
 | `InsightWorker` | Builds dashboard cards, trends, and weekly summaries asynchronously. |
 | `TTSJobService` | Renders voice asynchronously and never blocks chat. |
 | `TTSDedupService` | Deduplicates TTS by content/persona/voice/risk hash before enqueue. |
+| `AnalystPipelineService` | Offline async insight pipeline: collects `SourceEvent`s, applies `PrivacyFilter`, builds `FeatureSnapshot`, runs `LLMAnalyzer`, aggregates into `InsightHypothesis` / `InsightEvidence`. Idempotent via `idempotency_key`. Never runs in-request. |
+| `SessionLifecycleService` | On session close (reason: `new_session`, `idle_timeout`, `explicit_end`, `logout`, etc.): generates summary, creates `MemoryCard` rows, invalidates Redis profile cache. |
+| `MemoryRecallService` | Deterministic handler for factual recall turns (`TurnKind`: `factual_memory_recall`, `identity_recall`). Returns `RecallReply` from `MemoryCard` + pgvector + profile; bypasses normal LLM path for eligible turns. |
 
 Failure behavior:
 
@@ -751,9 +794,29 @@ Thresholds must be centralized in configuration, not hardcoded across files.
     {"type": "trusted_contact"},
     {"type": "counselor_or_clinic"}
   ],
-  "followup_priority": true
+  "followup_priority": true,
+  "distress_ui": {
+    "mode": "sos_soft_popup",
+    "suppress_inline_crisis_cards": true,
+    "support_popup": {
+      "show": true,
+      "popup_id": "sos_dat_le:{session_id}:{risk_level}",
+      "character_id": "dat_le",
+      "character_label": "Đạt",
+      "asset_path": "/frontend/assets/dat-le-shock-sos.png",
+      "title": "Đạt đang ở đây",
+      "message_segments": [{"type": "text", ...}, {"type": "route_link", ...}],
+      "support_route": "/serene/support",
+      "breathing_exercise_route": "/serene/exercises?exercise=anxiety_breathing",
+      "cooldown_seconds": 900
+    },
+    "allow_quick_replies": false,
+    "preferred_input_focus": false
+  }
 }
 ```
+
+`DistressConversationUi` is also returned on non-SOS elevated turns with `mode: "distress_soft_support"` and `DistressSupportPopup(show=false)`. The frontend (`DatLeSosPopup.tsx`) enforces the 900-second client-side cooldown via `useDistressPopupCooldown`.
 
 Forbidden:
 
@@ -843,8 +906,18 @@ admin_audit_log, user_profiles, user_profile_snapshots,
 mem0_memories, session_summaries_archive, resources,
 bookmarks, play_events, sync_outbox, heart_wallets,
 heart_reward_events, heart_spend_events, reward_store_items,
-user_inventory_items, persona_unlock_states, memory_cards
+user_inventory_items, persona_unlock_states, memory_cards,
+analyst_runs, analyst_feature_snapshots,
+insight_hypotheses, insight_evidence
 ```
+
+`analyst_runs`: idempotent pipeline run records (`run_id`, `user_id`, `run_type`, `status`, `window_start/end`, `data_cutoff_at`, `idempotency_key`, `feature_version`).
+
+`analyst_feature_snapshots`: serialized `AnalystFeatureSnapshotPayload` per run (mood, nutrition, screening, memory, conversation, engagement, safety_internal, data_quality domains).
+
+`insight_hypotheses`: aggregated non-diagnostic insight per user (`hypothesis_type`, `title`, `user_safe_summary`, `confidence`, `severity_band`, `evidence_count`, `display_allowed`).
+
+`insight_evidence`: evidence items linked to a hypothesis (`source_table`, `source_id`, `sensitivity`, `redacted_text`); restricted access, never shown raw to user.
 
 Redis keys:
 
@@ -877,6 +950,11 @@ session.ended
 resource.helpful_feedback
 persona.preference_updated
 knowledge_pack.completed
+analyst.run_requested
+analyst.insight_ready
+session.lifecycle_close
+memory_card.created
+memory_card.deduped
 ```
 
 ---
@@ -929,9 +1007,18 @@ Normal response shape:
   "safety": {
     "risk_level": 0,
     "followup_priority": false
+  },
+  "distress_ui": {
+    "mode": "none",
+    "suppress_inline_crisis_cards": false,
+    "support_popup": {"show": false},
+    "allow_quick_replies": true,
+    "preferred_input_focus": true
   }
 }
 ```
+
+`distress_ui` is always present. `mode` is `"none"` for low-risk turns, `"distress_soft_support"` for elevated non-SOS, `"sos_soft_popup"` for high-risk turns. Frontend enforces `cooldown_seconds` client-side.
 
 ### 14.3 Screening
 
@@ -973,6 +1060,18 @@ DELETE /v1/memory/cards/{card_id}
 POST /v1/tts/jobs
 GET  /v1/tts/jobs/{job_id}
 ```
+
+### 14.7 Analyst Pipeline
+
+```http
+GET  /v1/analyst/dashboard/insights
+GET  /v1/analyst/dashboard/insights/{insight_id}/evidence
+POST /v1/analyst/refresh
+GET  /v1/analyst/runs
+GET  /v1/analyst/runs/{run_id}
+```
+
+`GET /analyst/dashboard/insights` returns `InsightHypothesis` rows with `display_allowed=true`; confidence, severity_band, evidence_count, window dates. No raw evidence text. Evidence detail requires separate call to `/evidence` endpoint (restricted). `POST /analyst/refresh` accepts `run_type` and optional `force` flag; enqueues or runs synchronously (`run_now=true` for dev/admin only).
 
 ---
 
@@ -1030,6 +1129,9 @@ Access control:
 | heart_wallets / heart_reward_events / heart_spend_events | user read + service write |
 | memory_cards | user controls + service role |
 | sync_outbox (voice.tts_request jobs) | user read via API + service write |
+| analyst_runs, analyst_feature_snapshots | service role only; user may read own run status via API |
+| insight_hypotheses | user read (display_allowed=true rows) + restricted service role |
+| insight_evidence | restricted service role only; never shown raw to user |
 
 ---
 
@@ -1044,16 +1146,22 @@ Access control:
 
 | Metric | Target |
 |---|---:|
-| P95 normal chat latency | < 3s |
+| P95 normal chat latency (full path) | < 3s |
+| P95 ultra-fast chat latency (distress < 0.20, msg ≤ 50 chars) | < 1s target |
 | Safety high-risk recall | Near 100% for configured rules |
 | Average LLM calls per normal turn | <= 1.3 target |
 | Internal Analyst Agent (`AnalystNode`) invocation rate | Monitor and avoid overuse |
 | Internal Analyst Agent (`AnalystNode`) timeout rate | Monitor |
+| `AnalystPipelineService` run completion rate | Monitor (`completed` / total started) |
+| `AnalystPipelineService` `skipped_insufficient_data` rate | Monitor; high rate = user data gaps |
+| `AnalystPipelineService` `blocked_by_safety` rate | Monitor; safety boundary is working |
+| Memory card extraction rate per session close | Monitor |
 | Outbox success rate | >= 99.5% |
 | Redis profile cache hit | >= 80% |
 | Neo4j sync lag | < 10s target |
 | Crisis payload render success | 100% |
 | TTS dedup hit rate | Monitor and improve |
+| `DistressSupportPopup` shown rate per SOS turn | Monitor; frontend cooldown compliance |
 
 Logs per request:
 
@@ -1180,6 +1288,10 @@ Do not log raw sensitive content in normal application logs.
 10. How to handle minors or users outside target age range.
 11. Whether TTS audio is stored, cached temporarily, or regenerated.
 12. Whether persona unlock requirements are fixed or remotely configurable.
+13. Whether `AnalystPipelineService` runs are user-visible in full or only surfaced as dashboard insight cards.
+14. Whether insight evidence detail endpoint should be admin-only or accessible to the owning user.
+15. Retention period for `analyst_runs` and `analyst_feature_snapshots`.
+16. Whether `DistressSupportPopup` cooldown should be server-enforced (currently client-side only via `useDistressPopupCooldown`).
 
 ---
 
