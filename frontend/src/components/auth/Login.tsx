@@ -77,12 +77,13 @@ export default function Login() {
                         fontSize: 'clamp(6.5rem, 2vw, 4.5rem)',
                         color: 'var(--yellow)',
                         textDecoration: 'none',
-                        textShadow: '2px 2px 0 rgba(2,8,18,0.8)',
+                        textShadow: '3px 3px 0 #020812, -1px -1px 0 #020812, 1px -1px 0 #020812, -1px 1px 0 #020812, 1px 1px 0 #020812',
                         flexShrink: 0,
                         fontWeight: '800',
                         letterSpacing: '2px',
+                        
                     }}>
-                        Serene
+                        Serene.AI
                     </Link>
                 </div>
 
