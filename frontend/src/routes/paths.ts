@@ -5,6 +5,7 @@ export const ROUTE_PATHS = {
     oauthCallback: '/auth/callback',
     register: '/register',
     forget: '/forget-password',
+    privacy: '/privacy',
 
     // serene
     home: '/serene',
