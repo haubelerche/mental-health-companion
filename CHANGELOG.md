@@ -4,6 +4,92 @@
 
 ---
 
+## [Unreleased] — Ultra-fast path + token reduction in FriendNode · 2026-05-14
+
+### Changed
+- `backend/app/services/langgraph_chat.py` — Added `_is_ultrafast_eligible` and `_build_ultrafast_messages` helpers. `friend_node` now branches: turns with `distress_score < 0.20` and message length < 50 chars use a minimal ~585-token prompt (identity + truncated persona block, no plan_hint, no fewshots, no mentalchat block), down from ~2,200 tokens → estimated latency ~1.0–1.5 s vs ~2.7 s for casual small talk. Normal path (distress ≥ 0.20) also skips `style_fewshot_block` when `distress_score < 0.30`, saving ~300 tokens on low-risk conversational turns without affecting quality.
+
+---
+
+## [Unreleased] — Shared screening results across Home and Reflect · 2026-05-14
+
+### Fixed
+- `frontend/src/utils/screeningResults.ts`, `Home.tsx`, `ScreeningPanel.tsx`, `ResultsPage.tsx` — kết quả PHQ-9/GAD-7 sau khi làm test một lần nay được lưu/đọc qua cùng helper và hiển thị đồng bộ trên Home lẫn Reflect.
+
+---
+
+## [Unreleased] — Memory system: compact UI, dedup, LLM extraction, per-turn trigger · 2026-05-14
+
+### Added
+- `backend/app/memory/llm_extractor.py` — LLM-based atomic memory extraction using the configured `openai_model_analyst`. Calls the LLM with a strict JSON prompt that produces one-sentence user-facing candidates (`display_text` starting with "Bạn từng…" etc.). Falls back silently to empty result on any LLM error so the deterministic extractor covers the gap.
+- `backend/app/api/v1/routers/chat.py` — `_extract_turn_cards_background()` runs in a daemon thread after each non-SOS turn commit in both `/message` and `/message/stream` handlers. Builds a masked two-line transcript, merges LLM + deterministic extraction, then calls `create_cards_from_candidates` with its own DB session. Never blocks the chat response.
+
+### Changed
+- `backend/app/memory/extractor.py` — `MemoryType` Literal expanded with 5 new user-facing types: `event_memory`, `support_insight`, `relationship_context`, `goal_or_hope`, `emotional_pattern`.
+- `backend/app/memory/guardrail.py` — `VALID_TYPES` updated to include all 5 new memory types.
+- `backend/app/memory/service.py` — `_VALID_MEMORY_TYPES` constant updated to include all new types. `get_user_cards` now skips cards with unknown `memory_type` without attempting to UPDATE them, preventing `chk_memory_type` constraint violations. Added `display_copy_from_card` import that was previously missing.
+- `backend/app/memory/display_copy.py` — `BADGE_LABELS` updated with display labels for all new types: "Chuyện đã kể", "Insight", "Gia đình & quan hệ", "Mục tiêu", "Mẫu cảm xúc".
+- `backend/app/memory/llm_extractor.py` — `_SYSTEM_PROMPT` updated to include guidance for all 5 new types. `_VALID_MEMORY_TYPES` updated to match.
+- `backend/app/services/db/models.py` — `chk_memory_type` CheckConstraint updated to include all new types.
+- `backend/app/services/session_lifecycle.py` — `_extract_candidates` now runs LLM extraction first, then merges deterministic results (deduped by `memory_type + subject + predicate`). Session summary fallback updated to avoid analyst-format labels.
+
+### Fixed
+- Memory cards no longer require session close (`/chat/end`) to appear — extraction now runs after every non-SOS turn.
+- Legacy memory cards with unknown `memory_type` are silently excluded from `GET /chat/memory-cards` without crashing the endpoint.
+- `backend/app/services/db/session.py` — Supabase session pooler (port 5432) now hard-capped at `pool_size=4 max_overflow=1` (was bumped to 5+2=7 by old code). Prevents `EMAXCONNSESSION` errors on free-tier Supabase which limits the session pooler to 15 total client slots. Includes a warning log recommending the switch to the transaction pooler (port 6543).
+- `backend/alembic/versions/0033_memory_card_atomic_dedupe.py` — migration now cleans up legacy `kindness_pattern` rows (sets `status='deleted_by_system'`) before adding the `chk_memory_type` constraint, so `alembic upgrade head` no longer fails with `CheckViolation` on existing databases.
+- `backend/alembic/versions/0034_memory_type_extended.py` — new migration that applies the expanded `chk_memory_type` constraint (13 types) to production databases already at revision 0033.
+- `backend/app/memory/service.py` — `upsert_memory_candidate` now performs a secondary dedup by `normalized_text` when no canonical-key match is found. The LLM generates different `subject`/`predicate` for the same visible sentence on successive calls, producing different canonical keys but identical display text and therefore duplicate rows. Secondary dedup catches this and merges instead of inserting.
+- `backend/alembic/versions/0035_memory_text_dedup.py` — adds `idx_memory_cards_user_type_norm_text` unique partial index on `(user_id, memory_type, normalized_text)` WHERE active; back-fills by marking duplicate rows `merged_duplicate` and summing their `mention_count` into the oldest surviving card. Also extends the `IntegrityError` handler in `upsert_memory_candidate` to recover from races on the new index.
+- `backend/app/api/v1/routers/chat.py` — `UnboundLocalError: _stream_persona_id not associated with a value` on cached turns. The variable was only assigned inside `if turn is None:` but used after that block. Moved assignment to before the cache-hit branch so cached-turn stream responses no longer crash.
+- `backend/app/memory/display_copy.py` — `display_copy_from_card` now uses `display_category` (short label) when available and truncates `title` to `MAX_TITLE_CHARS` and `body` to `MAX_BODY_CHARS` before validation. Legacy cards with full-sentence titles (> 60 chars) were being permanently marked `rejected_by_guardrail`; they now display correctly.
+- `backend/app/memory/service.py` — `get_user_cards` now only permanently marks `rejected_by_guardrail` for cards with truly empty content. Cards that fail `display_copy_from_card` due to content-length or other transient issues are skipped for this request without being permanently rejected. The flush+commit is now explicit when marking empty-content cards.
+
+### Tests
+- `backend/tests/test_memory_atomic_dedupe.py` — added `test_semantic_duplicate_merges_when_similarity_high` (canonical-key merge path), `test_memory_api_returns_compact_display_shape`, `test_memory_api_returns_empty_list_for_user_with_no_cards`, `test_get_user_cards_skips_legacy_invalid_memory_type` (updated for expanded valid-type set).
+
+---
+
+## [Unreleased] — Pixel Healing Analytics Dashboard redesign · 2026-05-14
+
+### Added
+- `frontend/src/components/dashboard/CurrentSnapshotHero.tsx` — thay thế WellnessOverviewHero bằng hero card có mascot pixel, headline đồng cảm, 4 chips trạng thái (tình hình / khó khăn / điểm tựa / bước hôm nay), và data basis rõ ràng.
+- `frontend/src/components/dashboard/PixelMoodCalendar.tsx` — calendar pixel SVG mood faces (very-happy/happy/okay/tired/sad/missing) theo tuần, bấm ngày mở detail panel hiển thị mood, energy, emotions, triggers, note.
+- `frontend/src/components/dashboard/LifestyleRhythmPanel.tsx` — 4 mini cards ngủ/ăn/năng lượng/kết nối dùng dữ liệu `dimensions` với màu sắc theo trạng thái (steady/needs_attention/improving).
+- `frontend/src/components/dashboard/ChallengeCards.tsx` — challenge cards từ `top_triggers` + `trigger_emotion_matrix`, mỗi card có icon nhận dạng trigger, emotions liên quan, và copy đồng cảm tự nhiên.
+- `frontend/src/components/dashboard/PatternGroupCards.tsx` — non-diagnostic pattern insight cards với accordion xem thêm, confidence badge, evidence count, suggested_action, và disclaimer "Đây không phải chẩn đoán."
+- `frontend/src/components/dashboard/ScreeningPanel.tsx` — compact screening strip cho PHQ-9/GAD-7, hiện empty state với CTA khi chưa có dữ liệu, không dùng donut chart lớn.
+- `frontend/src/components/dashboard/CopingEffectivenessPanel.tsx` — coping history panel với insight-derived entries và "Thử lại" CTA, fallback empty state khi chưa có dữ liệu.
+- `frontend/src/components/dashboard/NextStepsPlan.tsx` — thay TodaySmallStepCard bằng primary + 2 secondary steps rõ ràng về lý do.
+
+### Changed
+- `frontend/src/components/pages/reflect/Reflect.tsx` — bố cục mới 11 section theo thứ tự: CurrentSnapshotHero → PixelMoodCalendar → MoodTrendChart → LifestyleRhythmPanel → TriggerEmotionHeatmap → ChallengeCards → PatternGroupCards → ScreeningPanel → CopingEffectivenessPanel → NextStepsPlan → DataQualityNotice. Subtitle header đổi sang "Một bản đồ nhỏ giúp bạn hiểu cảm xúc, giấc ngủ, ăn uống và những điều đang ảnh hưởng đến mình."
+
+### Fixed
+- `frontend/src/utils/foodValidator.ts` — bỏ escape không cần thiết trong regex token hóa để frontend lint pass sau khi merge main mới.
+- `backend/tests/test_contract_shapes.py` — cập nhật WebSocket cookie-auth contract theo logic hiện tại: xác thực bằng signed token, không checkout DB cho socket notification.
+
+---
+
+## [Unreleased] — Distress SOS soft popup and contextual chat retention · 2026-05-14
+
+### Fixed
+- `frontend/src/components/dashboard/WellnessOverviewHero.tsx` — khung "Tình hình hiện tại" trên trang Nhìn lại dùng nền pastel xanh biển/xanh lá và màu chữ tối cố định để không hòa vào nền card.
+- `frontend/src/components/pages/chat/Chat.tsx` — payload gửi chat giữ rõ `persona_id: activePersonaId` để contract persona-scoped session không bị lệch khi gửi qua stream/fallback.
+
+### Added
+- `backend/app/services/schemas/payloads.py`, `backend/app/services/sos_handler.py` — thêm `distress_ui` contract, Dat Le SOS popup payload, cooldown policy theo session, và message segments an toàn cho frontend.
+- `frontend/src/components/crisis/DatLeSosPopup.tsx` — thêm popup Đạt Lê không chặn input, dùng `dat-le-shock-sos.png`, CTA tới `/serene/support` và bài thở lo âu.
+- `backend/tests/test_chat_sos_flow.py`, `test_sos_popup_policy.py`, `test_distress_conversation_writer.py`, `test_sos_anti_repeat.py` — regression tests cho payload SOS mới, cooldown, response retention và anti-repeat.
+
+### Changed
+- `backend/app/api/v1/routers/chat.py`, `backend/app/services/crisis_intervention_planner.py` — SOS chat text chuyển sang `DistressConversationPlan` dài hơn, đồng cảm hơn, không dump hotline/card stack vào thân chat; safety audit, voice policy và crisis logging vẫn giữ.
+- `backend/app/services/langgraph_chat.py` — thêm ultra-fast prompt path cho lượt low-distress ngắn, giữ persona block nhưng bỏ bớt planning/fewshot/memory overhead.
+- `frontend/src/components/pages/chat/Chat.tsx` — suppress `CrisisStepper`/follow-up inline cards khi backend trả `distress_ui.suppress_inline_crisis_cards=true`.
+- `frontend/src/routes/paths.ts`, `frontend/src/components/pages/exercises/ExercisesPage.tsx`, `frontend/src/services/exerciseService.ts`, `backend/app/services/exercise_catalog.py` — thêm alias `anxiety_breathing` để CTA không trỏ vào route chết.
+
+---
+
 ## [Unreleased] — Reward store: coming-soon locks · 2026-05-13
 
 ### Changed
@@ -32,6 +118,7 @@
 
 ### Fixed
 - `backend/app/services/safety_output_validator.py` — heuristic `missing_context_anchor` trước đây gần như luôn fail với câu chat tiếng Việt ngắn hợp lệ (yêu cầu ≥16 token), khiến `build_response_plan` thay toàn bộ bằng fallback viết sẵn thay vì giữ output LLM đã qua `render_final_text`. Nay dùng ngưỡng mềm hơn (≥40 ký tự hoặc ≥6 token).
+- `backend/app/services/response_planner.py` — fallback copy khi user tự trách/khó chịu mềm hơn, mời kể tiếp thay vì hỏi cụt.
 - `frontend/src/components/pages/chat/Chat.tsx` — thông báo khi SSE không nhận được sự kiện `final` (thường gặp khi backend `--reload` ngắt stream) rõ hơn cho người dùng dev.
 
 ### Added

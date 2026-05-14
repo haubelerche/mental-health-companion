@@ -1,5 +1,5 @@
 """Memory API package.
 
-Canonical user memory is stored in app.mem0_memories and exposed through
-app.memory.routes. Legacy memory cards have been retired.
+Canonical user-facing memory is stored in app.memory_cards and exposed through
+app.memory.routes. Mem0 is an optional derived retrieval cache, not source of truth.
 """

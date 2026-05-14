@@ -5,6 +5,7 @@ from .pool import AdvisorPool
 from .nutrition_support import NutritionSupportAdvisor
 from .reflection import ReflectionAdvisor
 from .relevance_naturalness_critic import RelevanceNaturalnessCritic
+from .safety_boundary import SafetyBoundaryAdvisor
 from .strategy_resource import StrategyResourceAdvisor
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     "ReflectionAdvisor",
     "StrategyResourceAdvisor",
     "RelevanceNaturalnessCritic",
+    "SafetyBoundaryAdvisor",
 ]

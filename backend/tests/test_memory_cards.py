@@ -7,6 +7,7 @@ Those tables were retired and should never be required for test collection.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -96,3 +97,29 @@ def test_delete_memory_uses_authenticated_user_for_authorization(monkeypatch):
         {"user_id": "usr_mem_test", "memory_id": "mem_allowed"},
         {"user_id": "usr_mem_test", "memory_id": "mem_foreign"},
     ]
+
+
+def test_memory_api_returns_display_ready_fields(monkeypatch):
+    card = SimpleNamespace(
+        card_id="mc_1",
+        memory_type="support_style",
+        title="Cách Serene nên hỗ trợ bạn",
+        content="Bạn có vẻ hợp với những câu trả lời ngắn gọn và trực tiếp.",
+        status="pending_user_review",
+        personalization_disabled=False,
+        created_at=datetime(2026, 5, 14, tzinfo=UTC),
+        expires_at=None,
+    )
+    monkeypatch.setattr("app.memory.routes.get_user_cards", lambda *_args, **_kwargs: [card])
+
+    response = _client().get("/chat/memory-cards")
+
+    assert response.status_code == 200
+    item = response.json()["data"]["memory_cards"][0]
+    assert item["id"] == "mc_1"
+    assert item["memory_id"] == "mc_1"
+    assert item["display_category"] == "Cách Serene nên hỗ trợ bạn"
+    assert item["display_text"] == "Bạn có vẻ hợp với những câu trả lời ngắn gọn và trực tiếp."
+    assert item["mention_count"] == 1
+    assert "confidence" not in item
+    assert "metadata" not in item

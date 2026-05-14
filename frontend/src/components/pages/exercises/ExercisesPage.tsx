@@ -43,6 +43,18 @@ const EXERCISES: ExerciseCardData[] = [
     audioSrc: '/audio/breath-4-7-8.mp3',
   },
   {
+    id: 'anxiety_breathing',
+    type: 'breathing_exercise',
+    title: 'Thở khi lo âu',
+    durationLabel: '2 phút',
+    description: 'Một nhịp thở ngắn để có điểm tựa khi cảm xúc đang dâng cao.',
+    structure: '4-7-8',
+    recommendedFor: 'Khi lo âu hoặc quá tải cảm xúc',
+    tone: 'Nâng đỡ',
+    gradient: 'from-[#8EB6E8]/22 via-[#F4E8C8]/14 to-transparent',
+    icon: Waves,
+  },
+  {
     id: 'equal_breath',
     type: 'breathing_exercise',
     title: 'Hít thở đều',

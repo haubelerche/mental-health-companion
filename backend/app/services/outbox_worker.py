@@ -12,11 +12,9 @@ from app.services.utils import get_now
 logger = logging.getLogger(__name__)
 
 # NOTE: Notification event types are now handled in real-time via notification_service.
-# This worker remains as a placeholder/skeleton for other non-notification outbox events
-# that might be added in the future.
-OTHER_EVENT_TYPES = {
-    # Add other background event types here if needed
-}
+# Keep this explicit empty allow-list so the worker never claims graph, voice,
+# memory, or other unrelated outbox events by accident.
+NOTIFICATION_EVENT_TYPES: tuple[str, ...] = ()
 
 async def _dispatch_async(event: SyncOutbox, db: Session) -> None:
     """
@@ -24,18 +22,17 @@ async def _dispatch_async(event: SyncOutbox, db: Session) -> None:
     """
     event_name = str(event.event_type or "")
     
-    # Placeholder for future non-notification events
-    if event_name in OTHER_EVENT_TYPES:
+    # Placeholder for future notification outbox events
+    if event_name in NOTIFICATION_EVENT_TYPES:
         # Handle other events here
         pass
     else:
         logger.warning(f"Outbox event_type is unhandled: {event_name}")
-        # Mark as done if we don't know what to do with it to avoid infinite loop
-        return
+        raise ValueError(f"Unhandled outbox event_type: {event_name}")
 
 async def process_outbox_batch_async(limit: int = 50) -> int:
     """Process a batch of events asynchronously"""
-    if not OTHER_EVENT_TYPES:
+    if not NOTIFICATION_EVENT_TYPES:
         # Optimization: if no event types are registered, don't even query the DB
         return 0
         
@@ -47,7 +44,7 @@ async def process_outbox_batch_async(limit: int = 50) -> int:
             select(SyncOutbox)
             .where(
                 SyncOutbox.status == "pending",
-                SyncOutbox.event_type.in_(OTHER_EVENT_TYPES),
+                SyncOutbox.event_type.in_(NOTIFICATION_EVENT_TYPES),
             )
             .order_by(SyncOutbox.created_at.asc())
             .limit(limit)
@@ -102,4 +99,3 @@ async def run_outbox_worker_loop_async(poll_seconds: float = 5.0) -> None:
 def run_outbox_worker_loop(poll_seconds: float = 5.0) -> None:
     """Entry point to run the async loop from sync code"""
     asyncio.run(run_outbox_worker_loop_async(poll_seconds))
-

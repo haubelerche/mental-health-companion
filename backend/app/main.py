@@ -18,7 +18,7 @@ from app.core.errors import AppError, humanize_validation_errors
 from app.core.responses import fail
 from app.services.db.init_db import init_db
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import SQLAlchemyError
 
 settings = get_settings()
 
@@ -114,8 +114,8 @@ def fallback_handler(_: Request, __: Exception):
     return fail("SCHEMA_VALIDATION_FAILED", "Đã xảy ra lỗi nội bộ", 500)
 
 
-@app.exception_handler(OperationalError)
-def db_unavailable_handler(_: Request, __: OperationalError):
+@app.exception_handler(SQLAlchemyError)
+def db_unavailable_handler(_: Request, __: SQLAlchemyError):
     return fail("DATABASE_UNAVAILABLE", "Database is temporarily unavailable. Please retry shortly.", 503)
 
 

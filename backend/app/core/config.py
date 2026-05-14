@@ -76,6 +76,9 @@ class Settings(BaseSettings):
         default=False,
         validation_alias=AliasChoices("COUNSELING_EXAMPLES_PROMPT_ENABLED"),
     )
+    fewshot_style_enabled: bool = Field(default=False, validation_alias=AliasChoices("FEWSHOT_STYLE_ENABLED"))
+    memory_mem0_write_enabled: bool = Field(default=False, validation_alias=AliasChoices("MEMORY_MEM0_WRITE_ENABLED"))
+    memory_card_auto_active: bool = Field(default=False, validation_alias=AliasChoices("MEMORY_CARD_AUTO_ACTIVE"))
     mem0_strict_mode: bool = Field(default=False, validation_alias=AliasChoices("MEM0_STRICT_MODE"))
     chat_expose_scoring_debug: bool = Field(
         default=False,

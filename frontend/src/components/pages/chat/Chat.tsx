@@ -28,6 +28,8 @@ import { HotlineBar } from '../../crisis/HotlineBar'
 import { BreathingTimer } from '../../crisis/BreathingTimer'
 import { CrisisStepper } from '../../crisis/CrisisStepper'
 import type { CrisisAction } from '../../crisis/CrisisActionCard'
+import { DatLeSosPopup, type DistressSupportPopup } from '../../crisis/DatLeSosPopup'
+import { useDistressPopupCooldown } from '../../crisis/useDistressPopupCooldown'
 import { ChatHistoryModal } from './ChatHistoryModal'
 import UserMemoriesTab from './UserMemoriesTab'
 import PersonaSelector from './PersonaSelector'
@@ -85,6 +87,15 @@ type ChatApiData = {
     followup_priority?: boolean
     // Crisis plan fields (from serene_sos_voice_intervention_plan.md)
     crisis_plan?: CrisisPlan | null
+    distress_ui?: DistressConversationUi | null
+}
+
+type DistressConversationUi = {
+    mode?: 'none' | 'distress_soft_support' | 'sos_soft_popup'
+    suppress_inline_crisis_cards?: boolean
+    support_popup?: DistressSupportPopup | null
+    allow_quick_replies?: boolean
+    preferred_input_focus?: boolean
 }
 
 type CrisisActionCard = {
@@ -289,15 +300,22 @@ export default function Chat() {
     const [guestSecondsLeft, setGuestSecondsLeft] = useState<number>(FALLBACK_GUEST_CHAT_DURATION_SECONDS)
     const [guestSessionLoading, setGuestSessionLoading] = useState(false)
     const [activeTab, setActiveTab] = useState<'chat' | 'memory'>('chat')
+    const [memoryRefreshKey, setMemoryRefreshKey] = useState(0)
+    const [endingSession, setEndingSession] = useState(false)
     const pollRef = useRef<number | null>(null)
     const bottomRef = useRef<HTMLDivElement | null>(null)
     const optionsRef = useRef<HTMLDivElement | null>(null)
     const activePersonaRef = useRef<string>(DEFAULT_PERSONA_ID)
+    const activeSessionRef = useRef<string | null>(sessionId)
+    const activeRequestIdRef = useRef(0)
+    const sendingRef = useRef(false)
     const guestDeadlineRef = useRef<number | null>(null)
     const guestExpiredNotifiedRef = useRef(false)
     const playedVoiceJobsRef = useRef<Set<string>>(new Set())
     const [hotlineSheetOpen, setHotlineSheetOpen] = useState(false)
     const [breathingOpen, setBreathingOpen] = useState(false)
+    const [activeDistressPopup, setActiveDistressPopup] = useState<DistressSupportPopup | null>(null)
+    const { isDismissed: isDistressPopupDismissed, dismiss: dismissDistressPopup } = useDistressPopupCooldown()
     const { user } = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
@@ -307,6 +325,10 @@ export default function Chat() {
     useEffect(() => {
         activePersonaRef.current = activePersonaId
     }, [activePersonaId])
+
+    useEffect(() => {
+        activeSessionRef.current = sessionId
+    }, [sessionId])
 
     useEffect(() => {
         if (isGuestMode) return
@@ -320,6 +342,9 @@ export default function Chat() {
 
     useEffect(() => {
         if (isGuestMode) return
+        activeRequestIdRef.current += 1
+        sendingRef.current = false
+        setSending(false)
         setSessionId(readStoredChatSession(activePersonaId))
         setMessages([])
         setPendingAudioUrl(null)
@@ -429,6 +454,18 @@ export default function Chat() {
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [messages])
+
+    useEffect(() => {
+        const latestPopup = [...messages]
+            .reverse()
+            .map((message) => message.apiData?.distress_ui?.support_popup)
+            .find((popup): popup is DistressSupportPopup => Boolean(popup?.show && popup.popup_id))
+        if (!latestPopup || isDistressPopupDismissed(latestPopup.popup_id)) {
+            setActiveDistressPopup(null)
+            return
+        }
+        setActiveDistressPopup(latestPopup)
+    }, [isDistressPopupDismissed, messages])
 
     useEffect(() => {
         return () => {
@@ -599,7 +636,20 @@ export default function Chat() {
         }
     }
 
-    const consumeChatSse = async (response: Response, pendingId: string) => {
+    const isActiveChatRequest = (requestId: number, requestSessionId: string | null, requestPersonaId: string) => {
+        if (activeRequestIdRef.current !== requestId) return false
+        if (activePersonaRef.current !== requestPersonaId) return false
+        if (requestSessionId && activeSessionRef.current !== requestSessionId) return false
+        return true
+    }
+
+    const consumeChatSse = async (
+        response: Response,
+        pendingId: string,
+        requestId: number,
+        requestSessionId: string | null,
+        requestPersonaId: string,
+    ) => {
         if (!response.ok) {
             throw new Error('Streaming chat thất bại')
         }
@@ -631,15 +681,18 @@ export default function Chat() {
                 try {
                     const payload = JSON.parse(raw) as Record<string, unknown>
                     if (currentEvent === 'delta') {
+                        if (!isActiveChatRequest(requestId, requestSessionId, requestPersonaId)) continue
                         streamedText += String(payload.text ?? '')
                         setMessages((prev) =>
                             prev.map((m) => (m.id === pendingId ? { ...m, content: streamedText || '...', isPending: false } : m)),
                         )
                     } else if (currentEvent === 'heartbeat') {
+                        if (!isActiveChatRequest(requestId, requestSessionId, requestPersonaId)) continue
                         const stage = String(payload.stage ?? 'pre_llm')
                         const elapsedMs = Number(payload.elapsed_ms ?? 0)
                         setVoiceStatus(`Đang xử lý (${stage}) - ${elapsedMs}ms`)
                     } else if (currentEvent === 'status') {
+                        if (!isActiveChatRequest(requestId, requestSessionId, requestPersonaId)) continue
                         if (payload.stage === 'ready' && typeof payload.latency_ms === 'number') {
                             setVoiceStatus(`Latency backend: ${payload.latency_ms}ms`)
                         }
@@ -652,6 +705,7 @@ export default function Chat() {
             }
         }
 
+        if (!isActiveChatRequest(requestId, requestSessionId, requestPersonaId)) return
         if (!finalData) {
             throw new Error(
                 'Không nhận được dữ liệu cuối từ stream. Kết nối có thể bị ngắt, thử gửi lại; nếu đang chạy backend --reload, tránh sửa file khi đang stream.',
@@ -675,9 +729,30 @@ export default function Chat() {
         applyTtsJob(finalData)
     }
 
-    const handleNewChat = () => {
+    const handleNewChat = async () => {
+        if (endingSession) return
+        activeRequestIdRef.current += 1
+        sendingRef.current = false
+        setSending(false)
+        const currentSessionId = sessionId
+        let openedMemoryTab = false
+        if (user && !isGuestMode && currentSessionId && !currentSessionId.startsWith('gst_')) {
+            setEndingSession(true)
+            try {
+                await chatService.endSession(currentSessionId)
+                setMemoryRefreshKey((value) => value + 1)
+                setActiveTab('memory')
+                openedMemoryTab = true
+            } catch (err) {
+                toast.error(err instanceof Error ? err.message : 'Không chốt được phiên trò chuyện')
+                return
+            } finally {
+                setEndingSession(false)
+            }
+        }
         setSessionId(null)
         setMessages([])
+        if (!openedMemoryTab) setActiveTab('chat')
         playedVoiceJobsRef.current.clear()
         setPendingAudioUrl(null)
         setVoiceStatus('')
@@ -696,13 +771,20 @@ export default function Chat() {
     }
 
     const doSend = async (text: string) => {
+        if (sendingRef.current || endingSession) return
         if (isGuestMode && guestSecondsLeft <= 0) {
             toast.info('Phin chat th  ht. Mi bn ng k ti khon  tip tc.')
             navigate(ROUTE_PATHS.register)
             return
         }
         const now = Date.now()
+        const requestId = now
+        const requestSessionId = sessionId
+        const requestPayload = { message: text, session_id: requestSessionId, persona_id: activePersonaId }
+        const requestPersonaId = requestPayload.persona_id
         const pendingId = `p_${now}`
+        activeRequestIdRef.current = requestId
+        sendingRef.current = true
         setInput('')
         setLastFailedText(null)
         setMessages((prev) => [
@@ -715,12 +797,14 @@ export default function Chat() {
         try {
             if (!isGuestMode) {
                 try {
-                    const streamResponse = await chatService.sendMessageStream({ message: text, session_id: sessionId, persona_id: activePersonaId })
-                    await consumeChatSse(streamResponse, pendingId)
+                    const streamResponse = await chatService.sendMessageStream(requestPayload)
+                    await consumeChatSse(streamResponse, pendingId, requestId, requestSessionId, requestPersonaId)
                 } catch (err) {
+                    if (!isActiveChatRequest(requestId, requestSessionId, requestPersonaId)) return
                     const status = err instanceof ApiRequestError ? (err.status ?? 0) : 0
                     if (!(err instanceof ApiRequestError) || (status !== 0 && status < 500)) throw err
-                    const rawData = await chatService.sendMessage({ message: text, session_id: sessionId, persona_id: activePersonaId })
+                    const rawData = await chatService.sendMessage(requestPayload)
+                    if (!isActiveChatRequest(requestId, requestSessionId, requestPersonaId)) return
                     const data = rawData as ChatApiData
                     const sid = typeof data.session_id === 'string' ? data.session_id : null
                     if (sid) setSessionId(sid)
@@ -741,7 +825,8 @@ export default function Chat() {
                     toast.info('Đường truyền stream đang lỗi, mình đã chuyển sang chế độ chat thường.')
                 }
             } else {
-                const rawData = await chatService.sendGuestMessage({ message: text, guest_session_id: sessionId })
+                const rawData = await chatService.sendGuestMessage({ message: text, guest_session_id: requestSessionId })
+                if (!isActiveChatRequest(requestId, requestSessionId, requestPersonaId)) return
                 const data = rawData as ChatApiData
                 const sid = typeof data.session_id === 'string' ? data.session_id : null
                 if (sid) setSessionId(sid)
@@ -764,6 +849,7 @@ export default function Chat() {
                 applyTtsJob(data)
             }
         } catch (err) {
+            if (!isActiveChatRequest(requestId, requestSessionId, requestPersonaId)) return
             if (err instanceof ApiRequestError && err.code === 'GUEST_TRIAL_EXPIRED') {
                 setGuestSecondsLeft(0)
                 guestExpiredNotifiedRef.current = true
@@ -782,7 +868,10 @@ export default function Chat() {
                 ),
             )
         } finally {
-            setSending(false)
+            if (activeRequestIdRef.current === requestId) {
+                sendingRef.current = false
+                setSending(false)
+            }
         }
     }
 
@@ -808,6 +897,9 @@ export default function Chat() {
     }
 
     const loadSessionMessages = async (targetSessionId: string) => {
+        activeRequestIdRef.current += 1
+        sendingRef.current = false
+        setSending(false)
         setHotlineSheetOpen(false)
         try {
             const data = await chatService.getSessionMessages(targetSessionId, 100, 0)
@@ -992,14 +1084,15 @@ export default function Chat() {
                             <>
                                 <button
                                     type="button"
-                                    onClick={() => handleNewChat()}
-                                    className="flex h-8 cursor-pointer items-center gap-1 px-2 text-[#fff4dc] transition"
+                                    onClick={() => void handleNewChat()}
+                                    disabled={endingSession}
+                                    className="flex h-7 cursor-pointer items-center gap-1 px-2 text-[#fff4dc]/75 transition hover:text-[#fff4dc] disabled:cursor-wait disabled:opacity-60"
                                     style={{ background: 'rgba(4,10,6,0.65)', border: '1px solid rgba(255,244,220,0.14)', backdropFilter: 'blur(4px)' }}
                                     aria-label="Cuộc trò chuyện mới"
                                     title="Cuộc trò chuyện mới"
                                 >
                                     <Plus className="h-3.5 w-3.5" />
-                                    <span className="hidden text-xs font-semibold uppercase tracking-wide sm:inline">New</span>
+                                    <span className="hidden text-[9px] font-semibold uppercase tracking-wide sm:inline">{endingSession ? 'Saving' : 'New'}</span>
                                 </button>
                             </>
                             <button
@@ -1035,8 +1128,31 @@ export default function Chat() {
                                                     <p className="mb-2 text-sm font-semibold text-[#fff4dc]">Chọn nhân vật</p>
                                                     <PersonaSelector
                                                         onSelect={(personaId) => {
-                                                            setActivePersonaId(personaId)
-                                                            setShowOptions(false)
+                                                            const switchPersona = async () => {
+                                                                activeRequestIdRef.current += 1
+                                                                sendingRef.current = false
+                                                                setSending(false)
+                                                                const currentSessionId = sessionId
+                                                                if (user && !isGuestMode && currentSessionId && !currentSessionId.startsWith('gst_')) {
+                                                                    setEndingSession(true)
+                                                                    try {
+                                                                        await chatService.endSession(currentSessionId)
+                                                                        setMemoryRefreshKey((value) => value + 1)
+                                                                    } catch (err) {
+                                                                        toast.error(err instanceof Error ? err.message : 'Không chốt được phiên trò chuyện')
+                                                                        return
+                                                                    } finally {
+                                                                        setEndingSession(false)
+                                                                    }
+                                                                }
+                                                                setActivePersonaId(personaId)
+                                                                setSessionId(null)
+                                                                setMessages([])
+                                                                localStorage.removeItem(chatSessionStorageKey(activePersonaId))
+                                                                localStorage.removeItem(LEGACY_CHAT_SESSION_KEY)
+                                                                setShowOptions(false)
+                                                            }
+                                                            void switchPersona()
                                                         }}
                                                     />
                                                 </div>
@@ -1082,7 +1198,10 @@ export default function Chat() {
                                 <button
                                     key={tab}
                                     type="button"
-                                    onClick={() => setActiveTab(tab)}
+                                    onClick={() => {
+                                        setActiveTab(tab)
+                                        if (tab === 'memory') setMemoryRefreshKey((value) => value + 1)
+                                    }}
                                     data-tour-id={tab === 'memory' ? 'chat-memory-tab' : undefined}
                                     className={[
                                         'px-4 py-2 text-[10px] font-bold tracking-[0.22em] uppercase transition-colors',
@@ -1100,7 +1219,7 @@ export default function Chat() {
                     {/*  Tab content  */}
                     {activeTab === 'memory' ? (
                         <div className="m-4 flex-1 overflow-y-auto border border-[#3a6040]/50 bg-[#fff4dc]/88 p-4 sm:m-5">
-                            <UserMemoriesTab />
+                            <UserMemoriesTab refreshKey={memoryRefreshKey} />
                         </div>
                     ) : (
                         <div className="flex-1 overflow-y-auto px-5 py-4 sm:px-7">
@@ -1124,6 +1243,7 @@ export default function Chat() {
                                 ) : (
                                     messages.map((m, idx) => {
                                         const isAI = m.role === 'assistant'
+                                        const suppressInlineCrisisCards = m.apiData?.distress_ui?.suppress_inline_crisis_cards === true
                                         const prev = messages[idx - 1]
                                         const showDivider =
                                             m.timestamp != null &&
@@ -1180,6 +1300,7 @@ export default function Chat() {
                                                             />
                                                         </button>
                                                         {m.apiData?.sos_triggered &&
+                                                            !suppressInlineCrisisCards &&
                                                             m.apiData.crisis_plan && (
                                                                 <CrisisStepper
                                                                     crisisPlan={m.apiData.crisis_plan}
@@ -1187,6 +1308,7 @@ export default function Chat() {
                                                                 />
                                                             )}
                                                         {m.apiData?.sos_triggered &&
+                                                            !suppressInlineCrisisCards &&
                                                             (m.apiData.crisis_plan?.follow_up_texts ?? []).map((msg, i) => (
                                                                 <div
                                                                     key={`followup-${i}`}
@@ -1264,6 +1386,18 @@ export default function Chat() {
                     </form>
                 </div>
             </div>
+            {activeDistressPopup && (
+                <DatLeSosPopup
+                    popup={activeDistressPopup}
+                    onNavigate={(route) => {
+                        if (route.startsWith('/serene/')) navigate(route)
+                    }}
+                    onDismiss={(popupId) => {
+                        dismissDistressPopup(popupId)
+                        setActiveDistressPopup(null)
+                    }}
+                />
+            )}
             <BreathingTimer open={breathingOpen} onClose={() => setBreathingOpen(false)} />
             <HotlineBar visible={hotlineSheetOpen} />
         </div>

@@ -318,6 +318,72 @@ class SessionSummaryArchive(Base):
     )
 
 
+class CanonicalMemoryCard(Base):
+    __tablename__ = "memory_cards"
+    __table_args__ = (
+        CheckConstraint(
+            "memory_type IN ("
+            "'background','support_style','current_stressor','coping_history',"
+            "'preference','persona_preference','nutrition_pattern','temporary_context',"
+            "'event_memory','support_insight','relationship_context','goal_or_hope','emotional_pattern'"
+            ")",
+            name="chk_memory_type",
+        ),
+        CheckConstraint(
+            "status IN ("
+            "'pending_user_review','active','edited_by_user','deleted_by_user',"
+            "'rejected_by_guardrail','merged_duplicate','deleted_by_system'"
+            ")",
+            name="chk_memory_status",
+        ),
+        CheckConstraint(
+            "safety_review_status IN ('pending','approved','rejected')",
+            name="chk_safety_review_status",
+        ),
+    )
+
+    card_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    source_session_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    memory_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    title: Mapped[str] = mapped_column(String(120), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    canonical_key: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    normalized_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mention_count: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
+    first_mentioned_at: Mapped[datetime | None] = mapped_column(TIMESTAMP_COMPAT, nullable=True)
+    last_mentioned_at: Mapped[datetime | None] = mapped_column(TIMESTAMP_COMPAT, nullable=True)
+    evidence_message_ids: Mapped[list[Any]] = mapped_column(JSONB_COMPAT, default=list, server_default="[]", nullable=False)
+    display_category: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    subject: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    predicate: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    is_temporary: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    status: Mapped[str] = mapped_column(String(40), default="pending_user_review", server_default="pending_user_review", nullable=False)
+    safety_review_status: Mapped[str] = mapped_column(String(30), default="pending", server_default="pending", nullable=False)
+    personalization_disabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(TIMESTAMP_COMPAT, nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB_COMPAT, default=dict, server_default="{}", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, default=func.now(), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, default=func.now(), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class CanonicalMemoryCardAuditEvent(Base):
+    __tablename__ = "memory_card_audit_events"
+
+    event_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    memory_card_id: Mapped[str] = mapped_column(ForeignKey("memory_cards.card_id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    old_value: Mapped[dict[str, Any] | None] = mapped_column(JSONB_COMPAT, nullable=True)
+    new_value: Mapped[dict[str, Any] | None] = mapped_column(JSONB_COMPAT, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, default=func.now(), server_default=func.now(), nullable=False)
+
+
+MemoryCard = CanonicalMemoryCard
+MemoryCardAuditEvent = CanonicalMemoryCardAuditEvent
+
+
 class SessionRiskSnapshot(Base):
     __tablename__ = "session_risk_snapshots"
 
@@ -363,10 +429,64 @@ class SessionRiskSnapshot(Base):
     )
 
 
+class AnalystRun(Base):
+    __tablename__ = "analyst_runs"
+
+    run_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    run_type: Mapped[str] = mapped_column(
+        String(40),
+        CheckConstraint(
+            "run_type IN ('turn','daily','rolling_3d','weekly','on_demand_dashboard','post_screening')",
+            name="ck_analyst_runs_type",
+        ),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        String(40),
+        CheckConstraint(
+            "status IN ('queued','running','completed','failed','skipped_insufficient_data','blocked_by_safety')",
+            name="ck_analyst_runs_status",
+        ),
+        nullable=False,
+        default="queued",
+        server_default="queued",
+    )
+    window_start: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, nullable=False)
+    window_end: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, nullable=False)
+    data_cutoff_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    input_summary: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, default=dict, server_default="{}", nullable=False)
+    source_counts: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, default=dict, server_default="{}", nullable=False)
+    missing_sources: Mapped[list[Any]] = mapped_column(JSONB_COMPAT, default=list, server_default="[]", nullable=False)
+    model_version: Mapped[str | None] = mapped_column(String, nullable=True)
+    feature_version: Mapped[str] = mapped_column(String, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, default=func.now(), server_default=func.now(), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP_COMPAT, nullable=True)
+
+
+class AnalystFeatureSnapshot(Base):
+    __tablename__ = "analyst_feature_snapshots"
+
+    snapshot_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    run_id: Mapped[str | None] = mapped_column(ForeignKey("analyst_runs.run_id", ondelete="SET NULL"), nullable=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    window_start: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, nullable=False)
+    window_end: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, nullable=False)
+    data_cutoff_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, nullable=False)
+    window_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    feature_version: Mapped[str] = mapped_column(String, nullable=False)
+    features: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, nullable=False)
+    source_counts: Mapped[dict[str, Any]] = mapped_column(JSONB_COMPAT, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, default=func.now(), server_default=func.now(), nullable=False)
+
+
 class AnalystSignal(Base):
     __tablename__ = "analyst_signals"
 
     signal_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    run_id: Mapped[str | None] = mapped_column(ForeignKey("analyst_runs.run_id", ondelete="SET NULL"), nullable=True)
     user_id: Mapped[str] = mapped_column(
         String, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
     )
@@ -411,12 +531,16 @@ class AnalystSignal(Base):
     display_allowed: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false", nullable=False
     )
+    raw_structured_output: Mapped[dict[str, Any]] = mapped_column(
+        JSONB_COMPAT, default=dict, server_default="{}", nullable=False
+    )
 
 
 class InsightHypothesis(Base):
     __tablename__ = "insight_hypotheses"
 
     insight_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    run_id: Mapped[str | None] = mapped_column(ForeignKey("analyst_runs.run_id", ondelete="SET NULL"), nullable=True)
     user_id: Mapped[str] = mapped_column(
         String, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
     )
@@ -430,7 +554,10 @@ class InsightHypothesis(Base):
         String(40),
         CheckConstraint(
             "hypothesis_type IN ('stress_pattern','sleep_disruption','social_withdrawal',"
-            "'low_mood_trend','anxiety_like_worry_loop','coping_success','engagement_pattern','other')",
+            "'low_mood_trend','anxiety_like_worry_loop','coping_success','engagement_pattern','other',"
+            "'mood_trend','trigger_pattern','nutrition_mood_link','sleep_energy_link',"
+            "'coping_preference','support_style_preference','reflection_pattern',"
+            "'data_quality_notice','screening_context_notice')",
             name="ck_insight_hyp_type",
         ),
         nullable=False,
@@ -457,7 +584,7 @@ class InsightHypothesis(Base):
     severity_band: Mapped[Optional[str]] = mapped_column(
         String(20),
         CheckConstraint(
-            "severity_band IS NULL OR severity_band IN ('low','moderate','elevated')",
+            "severity_band IS NULL OR severity_band IN ('informational','low','moderate','medium','high')",
             name="ck_insight_hyp_severity",
         ),
         nullable=True,
@@ -465,7 +592,7 @@ class InsightHypothesis(Base):
     status: Mapped[str] = mapped_column(
         String(20),
         CheckConstraint(
-            "status IN ('active','dismissed','expired','superseded')",
+            "status IN ('candidate','active','superseded','dismissed_by_user','expired','blocked_by_safety')",
             name="ck_insight_hyp_status",
         ),
         default="active",
@@ -483,6 +610,33 @@ class InsightHypothesis(Base):
         server_default="analyst_pipeline",
         nullable=False,
     )
+
+
+class InsightEvidence(Base):
+    __tablename__ = "insight_evidence"
+
+    evidence_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    insight_id: Mapped[str] = mapped_column(ForeignKey("insight_hypotheses.insight_id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    source_table: Mapped[str] = mapped_column(String, nullable=False)
+    source_id: Mapped[str] = mapped_column(String, nullable=False)
+    evidence_type: Mapped[str] = mapped_column(String, nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, nullable=False)
+    user_safe_excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    numeric_value: Mapped[dict[str, Any] | None] = mapped_column(JSONB_COMPAT, nullable=True)
+    weight: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sensitivity: Mapped[str] = mapped_column(
+        String(20),
+        CheckConstraint(
+            "sensitivity IN ('low','medium','high','restricted')",
+            name="ck_insight_evidence_sensitivity",
+        ),
+        default="medium",
+        server_default="medium",
+        nullable=False,
+    )
+    display_allowed: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP_COMPAT, default=func.now(), server_default=func.now(), nullable=False)
 
 
 class AdminAuditLog(Base):

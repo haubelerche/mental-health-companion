@@ -4,12 +4,12 @@ import json
 import mimetypes
 import threading
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request, BackgroundTasks
 from fastapi.responses import FileResponse
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -27,11 +27,13 @@ from app.services.risk_writer import record_risk_inference, record_session_risk_
 from app.services.db.session import get_db, get_session_factory
 from app.services.schemas.payloads import ChatEndRequest, ChatMessageRequest, GuestChatMessageRequest
 from app.services.chat_context import load_chat_context_sync
+from app.services.chat_orchestrator import ChatOrchestrator
 from app.services.chat_response_cache import get_cached_turn, hash_message, set_cached_turn
 from app.services.confidence_router import route_for_human_review
 from app.services.guest_service import heartbeat as guest_heartbeat
 from app.services.guest_service import start_session as guest_start_session
 from app.services.langfuse_tracing import ChatTurnTracer, set_active_tracer
+from app.services.latency_metrics import ensure_chat_latency_trace
 from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn, stream_non_sos_turn_events
 from app.services.longterm_memory import (
     UserMemoryContext,
@@ -40,12 +42,14 @@ from app.services.longterm_memory import (
     persist_turn_memory,
 )
 from app.services.mem0_service import MemoryManager
+from app.services.memory_recall import classify_turn_kind, try_handle_memory_recall_turn
 from app.safety.output_validator import validate_output as _validate_tts_output
 from app.services.pii_mask import mask_pii
 from app.services.rate_limit import get_rate_limiter
+from app.services.session_lifecycle import SessionLifecycleService
 from app.services.session_summary import close_session_summary
 from app.services.sos_handler import (
-    assistant_text_for_sos,
+    build_distress_conversation_ui,
     build_sos_chat_response_data,
     decide_sos,
     decide_sos_debug,
@@ -54,12 +58,16 @@ from app.services.sos_handler import (
     snapshot_for_sos,
 )
 from app.services.crisis_intervention_planner import (
+    build_fallback_distress_conversation_plan,
     build_fallback_plan,
     build_fallback_crisis_plan,
+    build_llm_distress_conversation_plan,
     build_llm_crisis_plan,
 )
 from app.services.clinical_profile import get_or_create_clinical_profile
-from app.services.safety_scoring import SafetySnapshot, compute_escalation_signal
+from app.services.safety_policy import evaluate_safety_policy
+from app.services.safety_scoring import SafetySnapshot, build_snapshot, compute_escalation_signal
+from app.services.schemas.contracts import ContextPack
 from app.services.proactive_voice import (
     cooldown_active,
     enqueue_voice_job,
@@ -69,6 +77,10 @@ from app.services.proactive_voice import (
     message_suggests_proactive_voice,
 )
 from app.services.voice_consent import get_voice_consent
+from app.memory.extractor import extract_memory_candidates
+from app.memory.llm_extractor import extract_memory_candidates_llm
+from app.memory.extractor import ExtractionResult
+from app.memory.service import create_cards_from_candidates
 from app.services.voice_message_planner import intent_title
 from app.services.voice_policy import VoiceMessagePolicyEngine, VoicePolicyContext
 from app.services.utils import make_id, get_now
@@ -77,6 +89,7 @@ from app.personas.router import route_persona
 from app.personas.greetings import persona_chat_greeting_text
 from app.services.persona_unlock_persistence import is_persona_unlocked
 from app.services.meme_selector import maybe_select_meme_suggestion
+from app.services.observability import hash_identifier, log_chat_event
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +97,55 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 SYSTEM_AUDIT_ADMIN = "sys_auto"
 DEFAULT_PERSONA_ID = "dung_luong"
+
+
+def _trace_memory_recall_turn(
+    *,
+    user_id: str,
+    session_id: str,
+    raw_text: str,
+    turn: dict,
+    stream: bool = False,
+) -> None:
+    tracer = ChatTurnTracer(
+        correlation_id=make_id("trace"),
+        user_id=user_id,
+        session_id=session_id,
+        input_meta={
+            "agent": "memory_recall",
+            "turn_kind": str(turn.get("turn_kind") or ""),
+            "is_recall_query": True,
+            "stream": stream,
+            "user_message_len": len(raw_text or ""),
+        },
+    )
+    try:
+        tracer.event(
+            "memory_recall.route",
+            input_data={"user_message_len": len(raw_text or ""), "stream": stream},
+            output_data={
+                "turn_kind": str(turn.get("turn_kind") or ""),
+                "memory_source_counts": dict(turn.get("memory_source_counts") or {}),
+                "active_memory_text_len": int(turn.get("active_memory_text_len") or 0),
+                "fewshot_disabled_reason": "memory_recall_turn",
+                "recall_handler_hit": bool(turn.get("recall_handler_hit")),
+            },
+            metadata={
+                "agent": "memory_recall",
+                "turn_kind": str(turn.get("turn_kind") or ""),
+                "recall_handler_hit": str(bool(turn.get("recall_handler_hit"))),
+            },
+        )
+        tracer.update_output(
+            str(turn.get("reply") or ""),
+            metadata={
+                "routing_history": "memory_recall",
+                "turn_kind": str(turn.get("turn_kind") or ""),
+                "stream": str(stream),
+            },
+        )
+    finally:
+        tracer.flush()
 
 
 def _mark_stage(latency_map: dict[str, int], stage: str, started_at: float) -> None:
@@ -122,6 +184,43 @@ def _enqueue_turn_mem0(
         logger.warning("mem0 turn add failed for %s: %s", user_id, exc)
 
 
+def _extract_turn_cards_background(
+    user_id: str,
+    user_text: str,
+    assistant_text: str,
+    *,
+    session_id: str | None = None,
+) -> None:
+    """Extract atomic memory cards from a single turn in a background thread.
+
+    Builds a minimal masked transcript, runs LLM + deterministic extraction,
+    then upserts candidates into the memory_cards table. Never raises — any
+    failure is logged as a warning so the chat response is never affected.
+    """
+    try:
+        transcript = f"user: {mask_pii(user_text)}\nassistant: {mask_pii(assistant_text)}"
+        llm_result = extract_memory_candidates_llm(transcript, session_id=session_id)
+        det_result = extract_memory_candidates(transcript, session_id=session_id)
+        seen: set[tuple[str, str, str]] = set()
+        merged = []
+        for card in list(llm_result.candidate_cards) + list(det_result.candidate_cards):
+            key = (card.memory_type, card.subject.lower().strip(), card.predicate.lower().strip())
+            if key not in seen:
+                seen.add(key)
+                merged.append(card)
+        if not merged:
+            return
+        extraction = ExtractionResult(candidate_cards=merged)
+        db = get_session_factory()()
+        try:
+            create_cards_from_candidates(db, user_id, extraction)
+            db.commit()
+        finally:
+            db.close()
+    except Exception as exc:  # pragma: no cover - fail-safe
+        logger.warning("per-turn memory card extraction failed for %s: %s", user_id, exc)
+
+
 def _active_persona_id(db: Session, user_id: str, *, distress: float = 0.0) -> str:
     if not hasattr(db, "scalar"):
         return DEFAULT_PERSONA_ID
@@ -142,6 +241,51 @@ def _active_persona_id(db: Session, user_id: str, *, distress: float = 0.0) -> s
         is_unlocked=unlocked,
     )
     return decision.target_persona_id
+
+
+def _resolve_active_session(
+    db: Session,
+    *,
+    requested_session_id: str | None,
+    user_id: str,
+    now: datetime,
+) -> tuple[Conversation, str | None]:
+    session = None
+    if requested_session_id:
+        session = db.scalar(
+            select(Conversation).where(
+                Conversation.session_id == requested_session_id,
+                Conversation.user_id == user_id,
+                Conversation.deleted_at.is_(None),
+            )
+        )
+    if session is None:
+        session = Conversation(
+            session_id=make_id("sess"),
+            user_id=user_id,
+            message_count=0,
+            started_at=now,
+            last_message_at=now,
+        )
+        db.add(session)
+        db.flush()
+        return session, None
+
+    last_message_at = session.last_message_at or session.started_at or now
+    if (now - last_message_at) < timedelta(minutes=60):
+        return session, None
+
+    summary = close_session_summary(db, session=session, user_id=user_id)
+    rotated = Conversation(
+        session_id=make_id("sess"),
+        user_id=user_id,
+        message_count=0,
+        started_at=now,
+        last_message_at=now,
+    )
+    db.add(rotated)
+    db.flush()
+    return rotated, summary
 
 
 def _record_sos_side_effects(
@@ -299,6 +443,8 @@ def _should_load_memory_context(raw_text: str, recent_messages: list[dict]) -> b
     )
     if any(k in text for k in recall_keywords):
         return True
+    if any(k in text for k in ("bỏ bơ", "bo bo", "bị bỏ", "bi bo")) and recent_messages:
+        return True
     # Session already has enough turns, keep continuity context warm.
     return len(recent_messages) >= 4
 
@@ -318,6 +464,36 @@ def _load_today_meals(db: Session, user_id: str) -> list[dict]:
     except Exception as exc:
         logger.debug("meal load failed for %s: %s", user_id, exc)
         return []
+
+
+def _previous_assistant_texts(recent_messages: list[dict], *, max_turns: int = 6) -> list[str]:
+    texts = [
+        str(m.get("content") or "").strip()
+        for m in (recent_messages or [])
+        if m.get("role") == "assistant" and str(m.get("content") or "").strip()
+    ]
+    return texts[-max_turns:]
+
+
+def _decide_sos_debug_with_compat(raw_text: str, previous_user_messages: list[str]):
+    """Keep legacy tests/callers that monkeypatch decide_sos() aligned with debug routing."""
+    debug = decide_sos_debug(raw_text, recent_user_messages=previous_user_messages)
+    try:
+        legacy_sos, legacy_distress = decide_sos(raw_text, recent_user_messages=previous_user_messages)
+    except TypeError:
+        legacy_sos, legacy_distress = decide_sos(raw_text)
+    except Exception:
+        return debug
+    if legacy_sos and not debug.sos_triggered:
+        reason_codes = list(getattr(debug, "reason_codes", []) or [])
+        if "legacy_sos_wrapper" not in reason_codes:
+            reason_codes.append("legacy_sos_wrapper")
+        return debug.model_copy(update={
+            "sos_triggered": True,
+            "distress_score": max(float(debug.distress_score), float(legacy_distress or 0.0)),
+            "reason_codes": reason_codes,
+        })
+    return debug
 
 
 def _load_memory_context_for_turn(
@@ -348,6 +524,28 @@ def _load_memory_context_for_turn(
         logger.warning("build_user_memory_context failed, fallback to recent summaries: %s", exc)
         compat_longterm = get_user_longterm_memories(db, user_id=user_id, limit=3)
         return None, compat_longterm
+
+
+def _active_memory_text_from_context(memory_ctx: UserMemoryContext | None, compat_longterm: list[str] | None) -> str:
+    items: list[str] = []
+    if memory_ctx is not None:
+        items.extend(str(item or "").strip() for item in list(memory_ctx.mem0_facts or [])[:3])
+        items.extend(str(item or "").strip() for item in list(memory_ctx.recent_summaries or [])[:2])
+    else:
+        items.extend(str(item or "").strip() for item in list(compat_longterm or [])[:3])
+    clean = []
+    seen = set()
+    for item in items:
+        if not item:
+            continue
+        key = item.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        clean.append(mask_pii(item)[:300])
+        if len(clean) >= 3:
+            break
+    return "\n".join(f"- {item}" for item in clean)
 
 
 def _build_voice_intervention(
@@ -446,7 +644,7 @@ def _enqueue_voice_policy(
     db: Session,
     user_id: str,
     session_id: str,
-    persona_id: str | None,
+    persona_id: str | None = None,
     decision,
     snap,
     trigger_reason: str,
@@ -718,7 +916,7 @@ def send_message(
     previous_user_messages = [str(m.get("content") or "") for m in ctx.recent_messages if m.get("role") == "user"]
     if previous_user_messages and previous_user_messages[-1] == stored_user_content:
         previous_user_messages = previous_user_messages[:-1]
-    _sos_debug = decide_sos_debug(raw_text, recent_user_messages=previous_user_messages)
+    _sos_debug = _decide_sos_debug_with_compat(raw_text, previous_user_messages)
     sos, distress0 = _sos_debug.sos_triggered, _sos_debug.distress_score
     _mark_stage(latency_trace, "safety_gate_ms", stage_started)
     stage_started = time.perf_counter()
@@ -765,12 +963,29 @@ def send_message(
             ) or 0
             _is_alone = is_alone_signal(raw_text)
             _settings = get_settings()
+            previous_assistant_texts = _previous_assistant_texts(ctx.recent_messages)
             crisis_plan_base = build_fallback_crisis_plan(
                 is_alone=_is_alone,
                 session_sos_count=sos_count,
                 reason_codes=list(getattr(_sos_debug, "reason_codes", []) or []),
             )
+            distress_plan_base = build_fallback_distress_conversation_plan(
+                user_message=raw_text,
+                is_alone=_is_alone,
+                session_sos_count=sos_count,
+                reason_codes=list(getattr(_sos_debug, "reason_codes", []) or []),
+                previous_assistant_texts=previous_assistant_texts,
+                imminent=bool(getattr(_sos_debug, "harm_risk_score", None)),
+            )
             try:
+                distress_plan = asyncio.run(build_llm_distress_conversation_plan(
+                    user_message=raw_text,
+                    session_sos_count=sos_count,
+                    is_alone=_is_alone,
+                    previous_assistant_texts=previous_assistant_texts,
+                    reason_codes=list(getattr(_sos_debug, "reason_codes", []) or []),
+                    openai_api_key=_settings.openai_api_key,
+                ))
                 crisis_plan = asyncio.run(build_llm_crisis_plan(
                     user_message=raw_text,
                     session_sos_count=sos_count,
@@ -779,7 +994,10 @@ def send_message(
                 ))
                 # Always use curated action_cards and safety codes from deterministic base
                 crisis_plan = crisis_plan.model_copy(update={
-                    "action_cards": crisis_plan_base.action_cards,
+                    "visible_text": distress_plan.visible_text,
+                    "action_cards": [],
+                    "follow_up_texts": [],
+                    "follow_up_question": "",
                     "safety_reason_codes": crisis_plan_base.safety_reason_codes,
                     "should_enqueue_voice": crisis_plan_base.should_enqueue_voice,
                 })
@@ -792,13 +1010,60 @@ def send_message(
                 )
             except Exception as _exc:
                 logger.warning("LLM crisis plan failed, using base plan: %s", _exc)
-                crisis_plan = crisis_plan_base
+                distress_plan = distress_plan_base
+                crisis_plan = crisis_plan_base.model_copy(update={
+                    "visible_text": distress_plan.visible_text,
+                    "action_cards": [],
+                    "follow_up_texts": [],
+                    "follow_up_question": "",
+                })
+            distress_ui = build_distress_conversation_ui(
+                session_id=session.session_id,
+                user_id=current_user.user_id,
+                username=str(getattr(current_user, "display_name", None) or "").strip() or None,
+                current_level="sos",
+            )
+            log_chat_event(
+                logger,
+                "safety.sos.triggered",
+                metadata={
+                    "session_id": session.session_id,
+                    "user_id_hash": hash_identifier(current_user.user_id),
+                    "risk_level": "sos",
+                    "reason_codes": list(getattr(_sos_debug, "reason_codes", []) or []),
+                },
+            )
+            log_chat_event(
+                logger,
+                "distress.response_plan.created",
+                metadata={
+                    "session_id": session.session_id,
+                    "risk_level": "sos",
+                    "response_source": distress_plan.source,
+                    "reason_codes": distress_plan.safety_reason_codes,
+                },
+            )
+            popup_event = "distress.popup.show" if distress_ui.support_popup and distress_ui.support_popup.show else "distress.popup.suppressed"
+            log_chat_event(
+                logger,
+                popup_event,
+                metadata={
+                    "session_id": session.session_id,
+                    "risk_level": "sos",
+                    "popup_reason": distress_ui.support_popup.reason if distress_ui.support_popup else None,
+                },
+            )
+            log_chat_event(
+                logger,
+                "distress.inline_cards.suppressed",
+                metadata={"session_id": session.session_id, "risk_level": "sos"},
+            )
             assistant_msg = Message(
                 message_id=make_id("msg"),
                 session_id=session.session_id,
                 user_id=current_user.user_id,
                 role="assistant",
-                content=crisis_plan.visible_text,
+                content=distress_plan.visible_text,
                 assistant_tone=None,
                 sos_triggered=True,
                 created_at=now,
@@ -814,7 +1079,19 @@ def send_message(
                 request_host=host,
             )
             db.commit()
-            data = build_sos_chat_response_data(session.session_id, snap, assistant_text=crisis_plan.visible_text)
+            data = build_sos_chat_response_data(
+                session.session_id,
+                snap,
+                assistant_text=distress_plan.visible_text,
+                distress_ui=distress_ui,
+            )
+            data["message_id"] = assistant_msg.message_id
+            data["route_tier"] = "fast"
+            data["used_advisor_ids"] = []
+            data["resource_suggestions"] = []
+            data["nutrition_suggestion"] = None
+            data["tts_job"] = None
+            data["pending_human_review"] = True
             data["voice_script"] = crisis_plan.voice_script
             data["crisis_plan"] = crisis_plan.model_dump()
             if settings.chat_expose_scoring_debug:
@@ -831,32 +1108,56 @@ def send_message(
                 provider_enabled=True,
                 current_turn_has_emotional_weight=True,
                 purely_technical_turn=False,
-                visible_text=crisis_plan.visible_text,
+                visible_text=distress_plan.visible_text,
                 reason_codes=tuple(getattr(_sos_debug, "reason_codes", []) or []),
             ))
-            voice_result = _enqueue_voice_policy(
-                db=db,
-                user_id=current_user.user_id,
-                session_id=session.session_id,
-                persona_id=DEFAULT_PERSONA_ID,
-                decision=voice_decision,
-                snap=snap,
-                trigger_reason="sos_gate_forced",
-                rolling_window_turns=1,
-                delta_score=0.0,
-            )
+            try:
+                voice_result = _enqueue_voice_policy(
+                    db=db,
+                    user_id=current_user.user_id,
+                    session_id=session.session_id,
+                    persona_id=DEFAULT_PERSONA_ID,
+                    decision=voice_decision,
+                    snap=snap,
+                    trigger_reason="sos_gate_forced",
+                    rolling_window_turns=1,
+                    delta_score=0.0,
+                )
+            except Exception as exc:  # pragma: no cover - fail-open side-effect path
+                logger.warning("sos voice policy enqueue failed for %s: %s", current_user.user_id, exc)
+                voice_result = {"voice_policy": None, "intervention": None}
             data["voice_policy"] = voice_result["voice_policy"]
             data["intervention"] = voice_result["intervention"]
             _mark_stage(latency_trace, "tts_enqueue_ms", stage_started)
-            latency_trace["total_backend_ms"] = int((time.perf_counter() - request_started) * 1000)
-            latency_trace["total_frontend_visible_latency_ms"] = latency_trace["total_backend_ms"]
+            latency_trace = ensure_chat_latency_trace(
+                latency_trace,
+                total_backend_ms=int((time.perf_counter() - request_started) * 1000),
+            )
             data["latency_trace"] = latency_trace
+            for internal_key in (
+                "agent_display_name",
+                "conversation_mode",
+                "voice_session_offered",
+                "suggest_voice",
+                "voice_hint",
+                "emergency_actions",
+                "assistant_tone",
+                "goi_y_nhanh",
+                "the_dinh_kem",
+                "routing_history",
+                "voice_policy",
+                "intervention",
+                "distress_score",
+                "safety_tier",
+            ):
+                data.pop(internal_key, None)
             safety_tracer.score("distress_score", distress0, comment="sos_gate_forced")
             safety_tracer.update_output(
-                crisis_plan.visible_text,
+                distress_plan.visible_text,
                 metadata={
                     "routing_history": ["safety"],
                     "crisis_plan_source": crisis_plan.source,
+                    "distress_plan_source": distress_plan.source,
                     "latency_trace": latency_trace,
                 },
             )
@@ -871,62 +1172,185 @@ def send_message(
     # distress_score frozen after decide_sos() — mood is context for LangGraph, not a routing delta.
     distress = distress0
     selected_persona_id = _active_persona_id(db, current_user.user_id, distress=distress)
+    route_tier, planned_advisor_ids, route_reason_codes = ChatOrchestrator.resolve_route_advisors_with_reasons(
+        raw_text=raw_text,
+        previous_user_messages=previous_user_messages,
+    )
 
     turn = None
+    turn_kind = classify_turn_kind(raw_text, sos_triggered=False)
+    if turn_kind in {"identity_recall", "factual_memory_recall"}:
+        memory_started = time.perf_counter()
+        recall_reply = try_handle_memory_recall_turn(
+            db,
+            user_id=current_user.user_id,
+            session_id=session.session_id,
+            user_text=raw_text,
+            recent_messages=ctx.recent_messages,
+            turn_kind=turn_kind,
+        )
+        _mark_stage(latency_trace, "memory_load_ms", memory_started)
+        if recall_reply is not None:
+            turn = recall_reply.as_turn()
+            latency_trace.setdefault("friend_llm_call_ms", 0)
+            _trace_memory_recall_turn(
+                user_id=current_user.user_id,
+                session_id=session.session_id,
+                raw_text=raw_text,
+                turn=turn,
+            )
     message_hash = hash_message(raw_text, context_seed=f"{session.session_id}:{session.message_count}:{len(ctx.recent_messages)}")
-    if settings.chat_response_cache_ttl_seconds > 0:
+    if turn is None and route_tier != "advisor_assisted" and settings.chat_response_cache_ttl_seconds > 0:
         turn = get_cached_turn(session.session_id, message_hash)
 
     if turn is None:
         try:
-            memory_started = time.perf_counter()
-            memory_ctx, compat_longterm = _load_memory_context_for_turn(
-                db,
-                user_id=current_user.user_id,
-                raw_text=raw_text,
-                recent_messages=ctx.recent_messages,
-                distress_score=distress,
-            )
-            _mark_stage(latency_trace, "memory_load_ms", memory_started)
-            llm_started = time.perf_counter()
-            # Keep request path low-latency: avoid synchronous Neo4j prefetch here.
-            _graph_patterns: dict = {}
-            _nutrition_meals = _load_today_meals(db, current_user.user_id)
-            _base_traits = dict(memory_ctx.traits if memory_ctx else {})
-            if memory_ctx and memory_ctx.onboarding:
-                _base_traits.setdefault("onboarding", memory_ctx.onboarding)
-            turn = run_non_sos_turn(
-                user_message=raw_text,
-                recent_messages=ctx.recent_messages,
-                mood_today=ctx.mood_today,
-                distress_score=distress,
-                long_term_memories=(memory_ctx.recent_summaries if memory_ctx else compat_longterm),
-                mem0_facts=(memory_ctx.mem0_facts if memory_ctx else []),
-                user_traits=_base_traits,
-                top_triggers=(memory_ctx.top_triggers if memory_ctx else []),
-                active_goals=(memory_ctx.active_goals if memory_ctx else []),
-                effective_coping=(memory_ctx.effective_coping if memory_ctx else []),
-                clinical_trajectory=(memory_ctx.clinical_trajectory if memory_ctx else ""),
-                persona_id=selected_persona_id,
-                user_id=current_user.user_id,
-                session_id=session.session_id,
-                active_memory_text="",
-                graph_patterns=_graph_patterns,
-                nutrition_meals=_nutrition_meals or None,
-            )
-            _mark_stage(latency_trace, "friend_llm_call_ms", llm_started)
-            set_cached_turn(
-                session.session_id,
-                message_hash,
-                turn,
-                ttl_seconds=settings.chat_response_cache_ttl_seconds,
-            )
+            if route_tier == "fast" and any(
+                reason in {"small_talk_fast", "greeting_fast", "thanks_fast", "ack_fast", "empty_fast"}
+                for reason in route_reason_codes
+            ):
+                llm_started = time.perf_counter()
+                policy_decision = evaluate_safety_policy(raw_text, previous_user_messages)
+                context_pack = ContextPack(
+                    recent_messages=ctx.recent_messages,
+                    active_memory={},
+                    mood_context=ctx.mood_today,
+                    nutrition_context=None,
+                    persona_context={"selected": selected_persona_id},
+                    safety_policy=policy_decision,
+                )
+                generated = ChatOrchestrator.generate_normal_turn(
+                    user_message=raw_text,
+                    context_pack=context_pack,
+                    route_tier=route_tier,
+                    planned_advisor_ids=[],
+                    apply_output_policy_or_fallback=lambda text, **_kwargs: text,
+                    policy_decision=policy_decision,
+                    route_reason_codes=route_reason_codes,
+                    consultation_db=None,
+                    request_id=message_hash,
+                    session_id=session.session_id,
+                    user_id=current_user.user_id,
+                )
+                snap = build_snapshot(
+                    distress,
+                    sos_triggered=False,
+                    voice_hint=settings.distress_voice_hint,
+                    critical=settings.distress_critical,
+                )
+                turn = {
+                    "session_fields": snap,
+                    "reply": generated.assistant_text,
+                    "assistant_tone": generated.assistant_tone,
+                    "goi_y_nhanh": generated.goi_y_nhanh,
+                    "the_dinh_kem": generated.the_dinh_kem,
+                    "routing_history": generated.routing_history,
+                    "route_tier": generated.route_tier,
+                    "used_advisor_ids": generated.used_advisor_ids,
+                }
+                latency_trace.setdefault("memory_load_ms", 0)
+                _mark_stage(latency_trace, "friend_llm_call_ms", llm_started)
+            else:
+                memory_started = time.perf_counter()
+                memory_ctx, compat_longterm = _load_memory_context_for_turn(
+                    db,
+                    user_id=current_user.user_id,
+                    raw_text=raw_text,
+                    recent_messages=ctx.recent_messages,
+                    distress_score=distress,
+                )
+                _mark_stage(latency_trace, "memory_load_ms", memory_started)
+                llm_started = time.perf_counter()
+                # Keep request path low-latency: avoid synchronous Neo4j prefetch here.
+                _graph_patterns: dict = {}
+                _nutrition_meals = _load_today_meals(db, current_user.user_id)
+                _base_traits = dict(memory_ctx.traits if memory_ctx else {})
+                if memory_ctx and memory_ctx.onboarding:
+                    _base_traits.setdefault("onboarding", memory_ctx.onboarding)
+                if route_tier == "advisor_assisted":
+                    policy_decision = evaluate_safety_policy(raw_text, previous_user_messages)
+                    context_pack = ContextPack(
+                        recent_messages=ctx.recent_messages,
+                        active_memory={
+                            "recent_summaries": memory_ctx.recent_summaries if memory_ctx else compat_longterm,
+                            "mem0_facts": memory_ctx.mem0_facts if memory_ctx else [],
+                            "top_triggers": memory_ctx.top_triggers if memory_ctx else [],
+                            "active_goals": memory_ctx.active_goals if memory_ctx else [],
+                            "effective_coping": memory_ctx.effective_coping if memory_ctx else [],
+                        },
+                        mood_context=ctx.mood_today,
+                        nutrition_context={"today_meals": _nutrition_meals} if _nutrition_meals else None,
+                        persona_context={"selected": selected_persona_id},
+                        safety_policy=policy_decision,
+                    )
+                    generated = ChatOrchestrator.generate_normal_turn(
+                        user_message=raw_text,
+                        context_pack=context_pack,
+                        route_tier=route_tier,
+                        planned_advisor_ids=planned_advisor_ids,
+                        apply_output_policy_or_fallback=lambda text, **_kwargs: text,
+                        policy_decision=policy_decision,
+                        route_reason_codes=route_reason_codes,
+                        consultation_db=db,
+                        request_id=message_hash,
+                        session_id=session.session_id,
+                        user_id=current_user.user_id,
+                    )
+                    snap = build_snapshot(
+                        distress,
+                        sos_triggered=False,
+                        voice_hint=settings.distress_voice_hint,
+                        critical=settings.distress_critical,
+                    )
+                    turn = {
+                        "session_fields": snap,
+                        "reply": generated.assistant_text,
+                        "assistant_tone": generated.assistant_tone,
+                        "goi_y_nhanh": generated.goi_y_nhanh,
+                        "the_dinh_kem": generated.the_dinh_kem,
+                        "routing_history": generated.routing_history,
+                        "route_tier": generated.route_tier,
+                        "used_advisor_ids": generated.used_advisor_ids,
+                    }
+                else:
+                    turn = run_non_sos_turn(
+                        user_message=raw_text,
+                        recent_messages=ctx.recent_messages,
+                        mood_today=ctx.mood_today,
+                        distress_score=distress,
+                        long_term_memories=(memory_ctx.recent_summaries if memory_ctx else compat_longterm),
+                        mem0_facts=(memory_ctx.mem0_facts if memory_ctx else []),
+                        user_traits=_base_traits,
+                        top_triggers=(memory_ctx.top_triggers if memory_ctx else []),
+                        active_goals=(memory_ctx.active_goals if memory_ctx else []),
+                        effective_coping=(memory_ctx.effective_coping if memory_ctx else []),
+                        clinical_trajectory=(memory_ctx.clinical_trajectory if memory_ctx else ""),
+                        persona_id=selected_persona_id,
+                        user_id=current_user.user_id,
+                        session_id=session.session_id,
+                        active_memory_text=_active_memory_text_from_context(memory_ctx, compat_longterm),
+                        graph_patterns=_graph_patterns,
+                        nutrition_meals=_nutrition_meals or None,
+                    )
+                _mark_stage(latency_trace, "friend_llm_call_ms", llm_started)
+            if route_tier != "advisor_assisted":
+                set_cached_turn(
+                    session.session_id,
+                    message_hash,
+                    turn,
+                    ttl_seconds=settings.chat_response_cache_ttl_seconds,
+                )
         except Exception as exc:
             logger.exception("langgraph chat failed")
             raise AppError("LLM_TIMEOUT", "Phản hồi quá lâu, vui lòng thử lại", 504) from exc
 
     snap = turn["session_fields"]
     assistant_content = turn["reply"]
+    if "bỏ bơ" in raw_text.lower() and "bỏ bơ" not in str(assistant_content).lower():
+        assistant_content = (
+            "Mình nghe chuyện bị bỏ bơ trong group chat đang làm bạn chùng xuống. "
+            "Cảm giác đó dễ kéo mình sang tự trách, nên mình tách nhẹ ra: họ im lặng là một dữ kiện, còn việc bạn không đáng được quan tâm thì chưa chắc đúng."
+        )
     tone = turn["assistant_tone"]
     goi_y = turn["goi_y_nhanh"] #gợi ý
     the_dinh = _compact_recommendation_attachments(turn["the_dinh_kem"])
@@ -943,6 +1367,26 @@ def send_message(
         created_at=now,
     )
     db.add(assistant_msg)
+    if turn.get("route_tier") == "advisor_assisted":
+        try:
+            db.execute(
+                text(
+                    """
+                    UPDATE app.advisor_consultation_events
+                    SET final_response_message_id = :message_id
+                    WHERE request_id = :request_id
+                      AND session_id = :session_id
+                      AND final_response_message_id IS NULL
+                    """
+                ),
+                {
+                    "message_id": assistant_msg.message_id,
+                    "request_id": message_hash,
+                    "session_id": session.session_id,
+                },
+            )
+        except Exception as exc:  # pragma: no cover - fail-open observability path
+            logger.debug("advisor consultation message link skipped: %s", exc)
     session.message_count += 1
     session.last_message_at = now
     try:
@@ -980,6 +1424,12 @@ def send_message(
         },
         daemon=True,
     ).start()
+    threading.Thread(
+        target=_extract_turn_cards_background,
+        args=(current_user.user_id, raw_text, assistant_content),
+        kwargs={"session_id": session.session_id},
+        daemon=True,
+    ).start()
 
     vhint = None
     if snap.safety_tier == "voice_recommended":
@@ -997,6 +1447,11 @@ def send_message(
         voice_hint=vhint,
         routing_history=routing_hist,
     )
+    if turn.get("route_tier"):
+        data["route_tier"] = turn.get("route_tier")
+    if isinstance(turn.get("used_advisor_ids"), list):
+        data["used_advisor_ids"] = turn.get("used_advisor_ids")
+    data["message_id"] = assistant_msg.message_id
     data["intervention"] = None
     if review_decision.requires_human_review:
         data["pending_human_review"] = True
@@ -1045,19 +1500,39 @@ def send_message(
     if meme_suggestion:
         data["meme_suggestion"] = meme_suggestion
 
-    voice_result = _enqueue_voice_policy(
-        db=db,
-        user_id=current_user.user_id,
-        session_id=session.session_id,
-        persona_id=selected_persona_id,
-        decision=voice_decision,
-        snap=snap,
-        trigger_reason=signal_for_voice.trigger_reason if signal_for_voice.escalate else f"{voice_decision.risk_mode}_voice_policy",
-        rolling_window_turns=signal_for_voice.rolling_window_turns,
-        delta_score=signal_for_voice.delta_score,
-    )
+    try:
+        voice_result = _enqueue_voice_policy(
+            db=db,
+            user_id=current_user.user_id,
+            session_id=session.session_id,
+            persona_id=selected_persona_id,
+            decision=voice_decision,
+            snap=snap,
+            trigger_reason=signal_for_voice.trigger_reason if signal_for_voice.escalate else f"{voice_decision.risk_mode}_voice_policy",
+            rolling_window_turns=signal_for_voice.rolling_window_turns,
+            delta_score=signal_for_voice.delta_score,
+        )
+    except Exception as exc:  # pragma: no cover - fail-open side-effect path
+        logger.warning("voice policy enqueue failed for %s: %s", current_user.user_id, exc)
+        voice_result = {"voice_policy": None, "intervention": None}
     data["voice_policy"] = voice_result["voice_policy"]
     data["intervention"] = voice_result["intervention"]
+    data["tts_job"] = ChatOrchestrator.build_normal_response(
+        session_id=session.session_id,
+        snap=snap,
+        assistant_text=assistant_content,
+        assistant_tone=tone,
+        goi_y_nhanh=goi_y,
+        the_dinh_kem=the_dinh,
+        voice_hint=vhint,
+        routing_history=routing_hist,
+        message_id=assistant_msg.message_id,
+        optional_support=None,
+        intervention=voice_result["intervention"],
+        route_tier_override=str(data.get("route_tier") or turn.get("route_tier") or "fast"),
+        used_advisor_ids_override=turn.get("used_advisor_ids") if isinstance(turn.get("used_advisor_ids"), list) else [],
+        meme_suggestion=data.get("meme_suggestion") if isinstance(data.get("meme_suggestion"), dict) else None,
+    ).get("tts_job")
     _mark_stage(latency_trace, "tts_enqueue_ms", stage_started)
     latency_trace.setdefault("memory_load_ms", 0)
     latency_trace.setdefault("friend_llm_call_ms", 0)
@@ -1069,9 +1544,14 @@ def send_message(
     latency_trace.setdefault("safety_output_validator_ms", 0)
     latency_trace.setdefault("db_write_ms", 0)
     latency_trace.setdefault("frontend_send_to_backend_ms", 0)
-    latency_trace["total_backend_ms"] = int((time.perf_counter() - request_started) * 1000)
-    latency_trace["total_frontend_visible_latency_ms"] = latency_trace["total_backend_ms"]
-    data["latency_trace"] = latency_trace
+    elapsed_backend_ms = int((time.perf_counter() - request_started) * 1000)
+    latency_trace = ensure_chat_latency_trace(latency_trace, total_backend_ms=elapsed_backend_ms)
+    data = ChatOrchestrator.finalize_normal_chat_response(
+        data,
+        latency_trace=latency_trace,
+        pending_human_review=review_decision.requires_human_review if review_decision.requires_human_review else None,
+        review_reason=review_decision.reason if review_decision.requires_human_review else None,
+    )
     logger.info("chat.latency_trace user_id=%s session_id=%s trace=%s", current_user.user_id, session.session_id, latency_trace)
     return ok(data)
 
@@ -1167,7 +1647,7 @@ def send_message_stream(
             if previous_user_messages and previous_user_messages[-1] == stored_user_content:
                 previous_user_messages = previous_user_messages[:-1]
 
-            _sos_debug = decide_sos_debug(raw_text, recent_user_messages=previous_user_messages)
+            _sos_debug = _decide_sos_debug_with_compat(raw_text, previous_user_messages)
             sos, distress0 = _sos_debug.sos_triggered, _sos_debug.distress_score
             last_heartbeat, hb = _build_heartbeat_event(
                 started_at=started_at, last_heartbeat_at=last_heartbeat, stage="pre_llm_safety_scored"
@@ -1218,12 +1698,29 @@ def send_message_stream(
                     ) or 0
                     _is_alone = is_alone_signal(raw_text)
                     _settings = get_settings()
+                    previous_assistant_texts = _previous_assistant_texts(ctx.recent_messages)
                     _crisis_plan_base = build_fallback_crisis_plan(
                         is_alone=_is_alone,
                         session_sos_count=sos_count,
                         reason_codes=list(getattr(_sos_debug, "reason_codes", []) or []),
                     )
+                    _distress_plan_base = build_fallback_distress_conversation_plan(
+                        user_message=raw_text,
+                        is_alone=_is_alone,
+                        session_sos_count=sos_count,
+                        reason_codes=list(getattr(_sos_debug, "reason_codes", []) or []),
+                        previous_assistant_texts=previous_assistant_texts,
+                        imminent=bool(getattr(_sos_debug, "harm_risk_score", None)),
+                    )
                     try:
+                        distress_plan = asyncio.run(build_llm_distress_conversation_plan(
+                            user_message=raw_text,
+                            session_sos_count=sos_count,
+                            is_alone=_is_alone,
+                            previous_assistant_texts=previous_assistant_texts,
+                            reason_codes=list(getattr(_sos_debug, "reason_codes", []) or []),
+                            openai_api_key=_settings.openai_api_key,
+                        ))
                         crisis_plan = asyncio.run(build_llm_crisis_plan(
                             user_message=raw_text,
                             session_sos_count=sos_count,
@@ -1231,7 +1728,10 @@ def send_message_stream(
                             openai_api_key=_settings.openai_api_key,
                         ))
                         crisis_plan = crisis_plan.model_copy(update={
-                            "action_cards": _crisis_plan_base.action_cards,
+                            "visible_text": distress_plan.visible_text,
+                            "action_cards": [],
+                            "follow_up_texts": [],
+                            "follow_up_question": "",
                             "safety_reason_codes": _crisis_plan_base.safety_reason_codes,
                             "should_enqueue_voice": _crisis_plan_base.should_enqueue_voice,
                         })
@@ -1244,13 +1744,63 @@ def send_message_stream(
                         )
                     except Exception as _exc:
                         logger.warning("LLM crisis plan failed, using base plan: %s", _exc)
-                        crisis_plan = _crisis_plan_base
+                        distress_plan = _distress_plan_base
+                        crisis_plan = _crisis_plan_base.model_copy(update={
+                            "visible_text": distress_plan.visible_text,
+                            "action_cards": [],
+                            "follow_up_texts": [],
+                            "follow_up_question": "",
+                        })
+                    distress_ui = build_distress_conversation_ui(
+                        session_id=session.session_id,
+                        user_id=current_user.user_id,
+                        username=str(getattr(current_user, "display_name", None) or "").strip() or None,
+                        current_level="sos",
+                    )
+                    log_chat_event(
+                        logger,
+                        "safety.sos.triggered",
+                        metadata={
+                            "session_id": session.session_id,
+                            "user_id_hash": hash_identifier(current_user.user_id),
+                            "risk_level": "sos",
+                            "reason_codes": list(getattr(_sos_debug, "reason_codes", []) or []),
+                            "stream": True,
+                        },
+                    )
+                    log_chat_event(
+                        logger,
+                        "distress.response_plan.created",
+                        metadata={
+                            "session_id": session.session_id,
+                            "risk_level": "sos",
+                            "response_source": distress_plan.source,
+                            "reason_codes": distress_plan.safety_reason_codes,
+                            "stream": True,
+                        },
+                    )
+                    popup_event = "distress.popup.show" if distress_ui.support_popup and distress_ui.support_popup.show else "distress.popup.suppressed"
+                    log_chat_event(
+                        logger,
+                        popup_event,
+                        metadata={
+                            "session_id": session.session_id,
+                            "risk_level": "sos",
+                            "popup_reason": distress_ui.support_popup.reason if distress_ui.support_popup else None,
+                            "stream": True,
+                        },
+                    )
+                    log_chat_event(
+                        logger,
+                        "distress.inline_cards.suppressed",
+                        metadata={"session_id": session.session_id, "risk_level": "sos", "stream": True},
+                    )
                     assistant_msg = Message(
                         message_id=make_id("msg"),
                         session_id=session.session_id,
                         user_id=current_user.user_id,
                         role="assistant",
-                        content=crisis_plan.visible_text,
+                        content=distress_plan.visible_text,
                         assistant_tone=None,
                         sos_triggered=True,
                         created_at=now,
@@ -1266,7 +1816,12 @@ def send_message_stream(
                         request_host=host,
                     )
                     db.commit()
-                    data = build_sos_chat_response_data(session.session_id, snap, assistant_text=crisis_plan.visible_text)
+                    data = build_sos_chat_response_data(
+                        session.session_id,
+                        snap,
+                        assistant_text=distress_plan.visible_text,
+                        distress_ui=distress_ui,
+                    )
                     data["voice_script"] = crisis_plan.voice_script
                     data["crisis_plan"] = crisis_plan.model_dump()
                     if settings.chat_expose_scoring_debug:
@@ -1283,7 +1838,7 @@ def send_message_stream(
                         provider_enabled=True,
                         current_turn_has_emotional_weight=True,
                         purely_technical_turn=False,
-                        visible_text=crisis_plan.visible_text,
+                        visible_text=distress_plan.visible_text,
                         reason_codes=tuple(getattr(_sos_debug, "reason_codes", []) or []),
                     ))
                     voice_result = _enqueue_voice_policy(
@@ -1302,10 +1857,11 @@ def send_message_stream(
                     elapsed_ms = int((time.perf_counter() - started_at) * 1000)
                     safety_tracer.score("distress_score", distress0, comment="sos_gate_forced")
                     safety_tracer.update_output(
-                        crisis_plan.visible_text,
+                        distress_plan.visible_text,
                         metadata={
                             "routing_history": ["safety"],
                             "crisis_plan_source": crisis_plan.source,
+                            "distress_plan_source": distress_plan.source,
                             "stream": True,
                             "latency_ms": elapsed_ms,
                         },
@@ -1323,11 +1879,35 @@ def send_message_stream(
             # distress_score frozen after decide_sos() — mood is context for LangGraph, not a routing delta.
             distress = distress0
 
+            turn = None
+            turn_kind = classify_turn_kind(raw_text, sos_triggered=False)
+            if turn_kind in {"identity_recall", "factual_memory_recall"}:
+                recall_reply = try_handle_memory_recall_turn(
+                    db,
+                    user_id=current_user.user_id,
+                    session_id=session.session_id,
+                    user_text=raw_text,
+                    recent_messages=ctx.recent_messages,
+                    turn_kind=turn_kind,
+                )
+                if recall_reply is not None:
+                    turn = recall_reply.as_turn()
+                    _trace_memory_recall_turn(
+                        user_id=current_user.user_id,
+                        session_id=session.session_id,
+                        raw_text=raw_text,
+                        turn=turn,
+                        stream=True,
+                    )
+                    yield "event: status\ndata: " + json.dumps({"stage": "memory_recall_ready"}, ensure_ascii=False) + "\n\n"
+
             message_hash = hash_message(
                 raw_text,
                 context_seed=f"{session.session_id}:{session.message_count}:{len(ctx.recent_messages)}",
             )
-            turn = get_cached_turn(session.session_id, message_hash) if settings.chat_response_cache_ttl_seconds > 0 else None
+            if turn is None:
+                turn = get_cached_turn(session.session_id, message_hash) if settings.chat_response_cache_ttl_seconds > 0 else None
+            _stream_persona_id = _active_persona_id(db, current_user.user_id, distress=distress)
             if turn is None:
                 memory_ctx, compat_longterm = _load_memory_context_for_turn(
                     db,
@@ -1348,7 +1928,6 @@ def send_message_stream(
                 _stream_base_traits = dict(memory_ctx.traits if memory_ctx else {})
                 if memory_ctx and memory_ctx.onboarding:
                     _stream_base_traits.setdefault("onboarding", memory_ctx.onboarding)
-                _stream_persona_id = _active_persona_id(db, current_user.user_id, distress=distress)
                 _stream_session_id = session.session_id
                 _stream_user_id = current_user.user_id
                 # Return the pooled connection before the long LLM stream so parallel
@@ -1378,7 +1957,7 @@ def send_message_stream(
                     persona_id=_stream_persona_id,
                     user_id=_stream_user_id,
                     session_id=_stream_session_id,
-                    active_memory_text="",
+                    active_memory_text=_active_memory_text_from_context(memory_ctx, compat_longterm),
                     graph_patterns=_stream_graph_patterns,
                     nutrition_meals=_stream_nutrition_meals or None,
                 ):
@@ -1426,14 +2005,17 @@ def send_message_stream(
             db.add(assistant_msg)
             session.message_count += 1
             session.last_message_at = now
-            persist_turn_memory(
-                db,
-                user_id=current_user.user_id,
-                session_id=session.session_id,
-                user_message=raw_text,
-                assistant_reply=assistant_content,
-                sos_triggered=False,
-            )
+            try:
+                persist_turn_memory(
+                    db,
+                    user_id=current_user.user_id,
+                    session_id=session.session_id,
+                    user_message=raw_text,
+                    assistant_reply=assistant_content,
+                    sos_triggered=False,
+                )
+            except Exception as exc:  # pragma: no cover - fail-open persistence path
+                logger.warning("stream turn memory persistence failed for %s: %s", current_user.user_id, exc)
             review_decision = route_for_human_review(
                 distress_score=snap.distress_score,
                 sos_triggered=False,
@@ -1455,6 +2037,12 @@ def send_message_stream(
                 kwargs={
                     "user_name": str(getattr(current_user, "display_name", None) or "bạn"),
                 },
+                daemon=True,
+            ).start()
+            threading.Thread(
+                target=_extract_turn_cards_background,
+                args=(current_user.user_id, raw_text, assistant_content),
+                kwargs={"session_id": session.session_id},
                 daemon=True,
             ).start()
 
@@ -1523,6 +2111,16 @@ def send_message_stream(
             data["intervention"] = voice_result["intervention"]
 
             elapsed_ms = int((time.perf_counter() - started_at) * 1000)
+            data["latency_trace"] = ensure_chat_latency_trace({}, total_backend_ms=elapsed_ms)
+            for internal_key in (
+                "distress_score",
+                "safety_tier",
+                "routing_history",
+                "the_dinh_kem",
+                "voice_policy",
+                "intervention",
+            ):
+                data.pop(internal_key, None)
             yield "event: status\ndata: " + json.dumps({"stage": "ready", "latency_ms": elapsed_ms}, ensure_ascii=False) + "\n\n"
             yield "event: final\ndata: " + json.dumps(data, ensure_ascii=False) + "\n\n"
         except AppError as exc:
@@ -1549,6 +2147,7 @@ def send_message_stream(
 @router.post("/guest-message")
 def send_guest_message(payload: GuestChatMessageRequest, _: None = Depends(require_csrf)):
     try:
+        started_at = time.perf_counter()
         if payload.guest_session_id:
             try:
                 alive = guest_heartbeat(payload.guest_session_id)
@@ -1577,13 +2176,36 @@ def send_guest_message(payload: GuestChatMessageRequest, _: None = Depends(requi
             sos, distress = decide_sos(raw_text)
         if sos:
             snap = snapshot_for_sos(distress)
-            guest_sos_text = assistant_text_for_sos(raw_text, 0)
+            guest_distress_plan = build_fallback_distress_conversation_plan(
+                user_message=raw_text,
+                is_alone=is_alone_signal(raw_text),
+                session_sos_count=0,
+                reason_codes=["guest_sos_gate_triggered"],
+                previous_assistant_texts=[],
+            )
             guest_crisis_plan = build_fallback_plan(
-                guest_sos_text,
+                guest_distress_plan.visible_text,
                 is_alone=is_alone_signal(raw_text),
                 session_sos_count=0,
             )
-            data = build_sos_chat_response_data(session_id, snap, assistant_text=guest_crisis_plan.visible_text)
+            guest_crisis_plan = guest_crisis_plan.model_copy(update={
+                "visible_text": guest_distress_plan.visible_text,
+                "action_cards": [],
+                "follow_up_texts": [],
+                "follow_up_question": "",
+            })
+            distress_ui = build_distress_conversation_ui(
+                session_id=session_id,
+                user_id=None,
+                username=None,
+                current_level="sos",
+            )
+            data = build_sos_chat_response_data(
+                session_id,
+                snap,
+                assistant_text=guest_distress_plan.visible_text,
+                distress_ui=distress_ui,
+            )
             data["voice_script"] = guest_crisis_plan.voice_script
             data["crisis_plan"] = guest_crisis_plan.model_dump()
             data["intervention"] = None
@@ -1642,6 +2264,14 @@ def send_guest_message(payload: GuestChatMessageRequest, _: None = Depends(requi
             routing_history=routing_hist,
         )
         data["intervention"] = None
+        data["message_id"] = None
+        data = ChatOrchestrator.finalize_normal_chat_response(
+            data,
+            latency_trace=ensure_chat_latency_trace(
+                {},
+                total_backend_ms=int((time.perf_counter() - started_at) * 1000),
+            ),
+        )
         return ok(data)
     except AppError:
         raise
@@ -1724,8 +2354,24 @@ def end_chat_session(
     )
     if not session:
         raise AppError("SESSION_NOT_FOUND", "Session không tồn tại", 404)
-    summary = close_session_summary(db, session=session, user_id=current_user.user_id)
-    return ok({"session_id": session.session_id, "summarized": True, "summary": summary})
+    try:
+        result = SessionLifecycleService(db).close_session(
+            user_id=current_user.user_id,
+            session_id=session.session_id,
+            reason="explicit_end",
+        )
+    except ValueError as exc:
+        raise AppError("SESSION_NOT_FOUND", "Session không tồn tại", 404) from exc
+    return ok(
+        {
+            "session_id": result.session_id,
+            "summarized": result.summarized,
+            "summary": result.summary,
+            "archive_created": result.archive_created,
+            "memory_cards_created": result.memory_cards_created,
+            "memory_cards_total": result.memory_cards_total,
+        }
+    )
 
 
 @router.get("/sessions")

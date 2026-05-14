@@ -1,6 +1,7 @@
-"""Mem0 wrapper for hybrid long-term memory.
+"""Mem0 wrapper for optional derived long-term-memory retrieval cache.
 
 This service is intentionally fail-safe: Mem0 errors never break chat flows.
+Mem0 is not canonical storage for user-visible memory cards or session summaries.
 """
 
 from __future__ import annotations
@@ -129,10 +130,20 @@ class MemoryManager:
         if not user_id or not messages:
             return
         if not self._enabled or not self._client:
+            record_event("mem0.add_skipped", metadata={"reason_code": "mem0_disabled"})
             self._persist_payload_fallback(
                 user_id=user_id,
                 messages=messages,
                 reason_code="mem0_disabled",
+                user_name=user_name,
+            )
+            return
+        if not get_settings().memory_mem0_write_enabled:
+            record_event("mem0.add_skipped", metadata={"reason_code": "write_disabled"})
+            self._persist_payload_fallback(
+                user_id=user_id,
+                messages=messages,
+                reason_code="write_disabled",
                 user_name=user_name,
             )
             return
@@ -144,6 +155,9 @@ class MemoryManager:
             logger.warning("mem0 add_session failed for %s: %s", user_id, exc)
             # Fail-open fallback: preserve durable ownership-scoped memory visibility
             # even when upstream embed/search providers are temporarily unavailable.
+            if self._strict_mode:
+                raise RuntimeError(f"mem0 add failed ({reason_code})") from exc
+            record_event("mem0.add_skipped", metadata={"reason_code": reason_code})
             self._persist_payload_fallback(
                 user_id=user_id,
                 messages=messages,

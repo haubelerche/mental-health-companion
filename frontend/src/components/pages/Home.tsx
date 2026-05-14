@@ -33,6 +33,14 @@ import { useAuth } from '../../hooks/useAuth'
 import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import { REWARD_UPDATED_EVENT } from '../../utils/rewardProgress'
+import {
+    getCombinedScreeningInsight,
+    readStoredScreeningResults,
+    SCREENING_SEVERITY_COLORS,
+    SCREENING_SEVERITY_LABELS,
+    subscribeToScreeningResults,
+    type StoredScreeningResults,
+} from '../../utils/screeningResults'
 import Mascot from '../pixel/Mascot'
 
 type RecoCard = {
@@ -102,32 +110,6 @@ const getRecoCards = (hour: number, isDark: boolean): RecoCard[] => {
     },
 ]
 
-}
-
-const SEVERITY_LABELS: Record<string, string> = {
-  minimal: 'Rất nhẹ',
-  mild: 'Nhẹ',
-  moderate: 'Trung bình',
-  moderately_severe: 'Khá cao',
-  severe: 'Cao',
-}
-
-const SEVERITY_COLORS: Record<string, string> = {
-  minimal: '#4caf50',
-  mild: '#8bc34a',
-  moderate: '#ff9800',
-  moderately_severe: '#e57373',
-  severe: '#c62828',
-}
-
-const getCombinedInsight = (phq9?: string, gad7?: string) => {
-  if (phq9 === 'minimal' && gad7 === 'minimal') {
-    return 'Tâm trạng và mức độ lo âu của bạn đang ở trạng thái rất tốt. Hãy tiếp tục duy trì lối sống lành mạnh!'
-  }
-  if ((phq9 === 'moderate' || phq9 === 'severe') && (gad7 === 'moderate' || gad7 === 'severe')) {
-    return 'Bạn đang có dấu hiệu căng thẳng và mệt mỏi khá cao. Hãy cân nhắc trò chuyện với Serene hoặc tìm kiếm sự hỗ trợ từ chuyên gia.'
-  }
-  return 'Có một vài biến động nhỏ trong tâm trạng hoặc lo âu. Hãy chú ý lắng nghe cơ thể và dành thời gian thư giãn nhiều hơn.'
 }
 
 function getGreeting(): string {
@@ -306,15 +288,11 @@ export default function Home() {
     const [homeMoodWords, setHomeMoodWords] = useState<string[]>([])
     const [quoteIndex, setQuoteIndex] = useState(0)
     
-    const [phq9Result, setPhq9Result] = useState<{ raw_score: number, severity_label: string } | null>(null)
-    const [gad7Result, setGad7Result] = useState<{ raw_score: number, severity_label: string } | null>(null)
+    const [screeningResults, setScreeningResults] = useState<StoredScreeningResults>(() => readStoredScreeningResults())
+    const phq9Result = screeningResults.phq9
+    const gad7Result = screeningResults.gad7
 
-    useEffect(() => {
-        const phq9 = localStorage.getItem('serene_screening_phq9')
-        const gad7 = localStorage.getItem('serene_screening_gad7')
-        if (phq9) setPhq9Result(JSON.parse(phq9))
-        if (gad7) setGad7Result(JSON.parse(gad7))
-    }, [])
+    useEffect(() => subscribeToScreeningResults(setScreeningResults), [])
     const [currentHour, setCurrentHour] = useState(() => new Date().getHours())
     const recoCards = useMemo(() => getRecoCards(currentHour, isDark), [currentHour, isDark])
     const currentSlot = useMemo<TimeSlot>(() => getCurrentTimeSlot(currentHour), [currentHour])
@@ -566,15 +544,15 @@ export default function Home() {
                                             </span>
                                             <span className="text-lg text-theme-text-secondary">/27</span>
                                         </div>
-                                        <p className="text-xs uppercase mt-2 font-semibold" style={{ color: SEVERITY_COLORS[phq9Result.severity_label] }}>
-                                            TRẠNG THÁI: {SEVERITY_LABELS[phq9Result.severity_label]?.toUpperCase() || phq9Result.severity_label.toUpperCase()}
+                                        <p className="text-xs uppercase mt-2 font-semibold" style={{ color: SCREENING_SEVERITY_COLORS[phq9Result.severity_label] }}>
+                                            TRẠNG THÁI: {SCREENING_SEVERITY_LABELS[phq9Result.severity_label].toUpperCase()}
                                         </p>
                                         <div className="w-full bg-theme-border/20 h-1.5 mt-2 rounded-full overflow-hidden">
                                             <div 
                                                 className="h-full" 
                                                 style={{ 
                                                     width: `${(phq9Result.raw_score / 27) * 100}%`,
-                                                    backgroundColor: SEVERITY_COLORS[phq9Result.severity_label]
+                                                    backgroundColor: SCREENING_SEVERITY_COLORS[phq9Result.severity_label]
                                                 }}
                                             />
                                         </div>
@@ -616,15 +594,15 @@ export default function Home() {
                                             </span>
                                             <span className="text-lg text-theme-text-secondary">/21</span>
                                         </div>
-                                        <p className="text-xs uppercase mt-2 font-semibold" style={{ color: SEVERITY_COLORS[gad7Result.severity_label] }}>
-                                            TRẠNG THÁI: {SEVERITY_LABELS[gad7Result.severity_label]?.toUpperCase() || gad7Result.severity_label.toUpperCase()}
+                                        <p className="text-xs uppercase mt-2 font-semibold" style={{ color: SCREENING_SEVERITY_COLORS[gad7Result.severity_label] }}>
+                                            TRẠNG THÁI: {SCREENING_SEVERITY_LABELS[gad7Result.severity_label].toUpperCase()}
                                         </p>
                                         <div className="w-full bg-theme-border/20 h-1.5 mt-2 rounded-full overflow-hidden">
                                             <div 
                                                 className="h-full" 
                                                 style={{ 
                                                     width: `${(gad7Result.raw_score / 21) * 100}%`,
-                                                    backgroundColor: SEVERITY_COLORS[gad7Result.severity_label]
+                                                    backgroundColor: SCREENING_SEVERITY_COLORS[gad7Result.severity_label]
                                                 }}
                                             />
                                         </div>
@@ -653,7 +631,7 @@ export default function Home() {
                     {(phq9Result || gad7Result) && (
                         <div className="mt-4 p-4 bg-theme-surface/30 rounded-xl border border-theme-border/20 text-sm text-theme-text-secondary">
                             <span className="font-bold text-theme-accent">Insight:</span>{' '}
-                            {getCombinedInsight(phq9Result?.severity_label, gad7Result?.severity_label)}
+                            {getCombinedScreeningInsight(phq9Result?.severity_label, gad7Result?.severity_label)}
                         </div>
                     )}
                 </section>

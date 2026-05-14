@@ -11,6 +11,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.memory.service import get_user_cards
 from app.services.db.models import UserProfile
 from app.services.mem0_service import MemoryManager
 from app.services.memory_enrichment import _fallback_extract, apply_to_profile
@@ -158,7 +159,17 @@ def build_user_memory_context(
                 effective_coping.append(text)
     effective_coping = effective_coping[:3]
 
-    mem0_facts = MemoryManager.instance().search(user_id=user_id, query=current_query, limit=5)
+    memory_card_facts = []
+    try:
+        memory_card_facts = [
+            str(card.content or "").strip()
+            for card in get_user_cards(db, user_id=user_id)
+            if card.status in {"active", "edited_by_user"} and not bool(card.personalization_disabled)
+        ][:3]
+    except Exception as exc:
+        logger.warning("memory card context load failed for %s: %s", user_id, exc)
+
+    mem0_facts = memory_card_facts + MemoryManager.instance().search(user_id=user_id, query=current_query, limit=5)
     if not mem0_facts:
         record_event("mem0.recall_fallback", metadata={"reason_code": "empty_recall"})
         mem0_facts = recent_summaries[:2]

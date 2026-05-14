@@ -52,6 +52,25 @@ class CrisisInterventionPlan(BaseModel):
         return scripts
 
 
+DistressResponseMode = Literal[
+    "normal",
+    "elevated_support",
+    "high_distress_retention",
+    "imminent_safety_hold",
+]
+
+
+class DistressConversationPlan(BaseModel):
+    visible_text: str = Field(min_length=1, max_length=1200)
+    response_mode: DistressResponseMode
+    emotional_anchor: str | None = None
+    follow_up_question: str = Field(default="", max_length=220)
+    should_show_support_popup: bool = False
+    suppress_inline_crisis_cards: bool = True
+    safety_reason_codes: list[str] = Field(default_factory=list)
+    source: Literal["llm", "fallback_template"] = "fallback_template"
+
+
 _CARD_BREATHING = CrisisActionCard(
     id="breathing_timer",
     type="breathing_timer",
@@ -116,7 +135,7 @@ _VISIBLE_ALONE = (
 )
 
 _FOLLOW_UPS = [
-    "Bạn chỉ cần nói một chút thôi: lúc này phần nào đang nghẹn nhất?",
+    "Bạn chỉ cần nói một chút thôi: lúc này phần nào đang khiến bạn phiền lòng nhất?",
     "Ngay bây giờ, bạn đang ở gần ai hoặc gần chỗ nào an toàn hơn không?",
     "Bạn muốn mình ở lại với phần cảm giác nào trước?",
 ]
@@ -142,12 +161,192 @@ _FORBIDDEN_CONTENT_PATTERNS = [
 _SIMILARITY_THRESHOLD = 0.65
 
 
+_DISTRESS_VISIBLE_VARIANTS = [
+    (
+        "Mình nghe thấy lúc này mọi thứ đang nặng tới mức bạn chỉ muốn buông ra khỏi tất cả. "
+        "Trước mắt mình không muốn bạn phải giải quyết cả cuộc đời trong một tin nhắn này; mình chỉ muốn bạn ở lại đây với mình thêm một chút. "
+        "Có thể trong lòng bạn đang dồn quá nhiều thứ mà chưa có chỗ nào để xả ra, nên nó mới đau đến vậy. "
+        "Bạn kể mình nghe điều gì vừa làm bạn thấy không chịu nổi nhất được không?"
+    ),
+    (
+        "Mình thấy câu vừa rồi không phải là một câu nói cho qua; nó giống như bạn đã bị ép đến sát mép chịu đựng của mình. "
+        "Mình sẽ ở đây với bạn từng đoạn ngắn, không bắt bạn phải bình tĩnh ngay hay phải giải thích cho hoàn hảo. "
+        "Ngay lúc này, chỉ cần đặt xuống một phần nhỏ nhất của chuyện đó thôi cũng được. "
+        "Điều gì đang làm bạn đau nhất trong vài phút vừa rồi?"
+    ),
+    (
+        "Mình nghe trong lời bạn có rất nhiều mệt mỏi và cảm giác bị bỏ lại một mình với nó. "
+        "Bạn không cần biến cảm xúc này thành một kế hoạch hay một quyết định ngay bây giờ; mình muốn giữ cuộc trò chuyện này mở để bạn còn có chỗ thở và nói tiếp. "
+        "Kể lộn xộn cũng được, tức giận cũng được, chỉ cần nói ra phần đang đè nặng nhất trước. "
+        "Chuyện gì vừa xảy ra khiến bạn thấy mình không chịu thêm được nữa?"
+    ),
+]
+
+_DISTRESS_ALONE_VISIBLE = (
+    "Mình nghe thấy cảm giác không ai hiểu và phải tự ôm mọi thứ một mình trong câu của bạn. "
+    "Ở khoảnh khắc này, mình không muốn đẩy bạn sang một danh sách việc cần làm; mình muốn ở lại đây để bạn có thể xả ra phần đang nghẹn nhất. "
+    "Bạn không cần kể mạch lạc, chỉ cần nói tiếp từng mảnh nhỏ cũng được. "
+    "Phần nào khiến bạn thấy cô độc nhất lúc này?"
+)
+
+_IMMEDIATE_SUPPORT_SENTENCE = (
+    "Nếu nguy hiểm đang ở rất gần, hãy cố gọi một người thật ở gần bạn hoặc mở trang Hỗ trợ ngay trong lúc vẫn tiếp tục nhắn với mình."
+)
+
+_DISTRESS_FORBIDDEN_PATTERNS = [
+    re.compile(r"\b\d{4,}\b"),
+    re.compile(r"\b(distress_score|safety_tier|risk_level|SafetyGate|module)\b", re.IGNORECASE),
+    re.compile(r"\b(diagnos|chẩn đoán|chan doan|rối loạn|roi loan)\b", re.IGNORECASE),
+    re.compile(r"\b(hotline|đường dây nóng|duong day nong)\b", re.IGNORECASE),
+]
+
+
 def _text_similarity(a: str, b: str) -> float:
     tokens_a = set(a.lower().split())
     tokens_b = set(b.lower().split())
     if not tokens_a or not tokens_b:
         return 0.0
     return len(tokens_a & tokens_b) / len(tokens_a | tokens_b)
+
+
+def _normalize_reply_for_overlap(text: str) -> list[str]:
+    lowered = re.sub(r"[^\w\s]", " ", str(text or "").lower(), flags=re.UNICODE)
+    return [t for t in re.sub(r"\s+", " ", lowered).strip().split(" ") if len(t) > 1]
+
+
+def is_repeated_crisis_reply(
+    new_text: str,
+    previous_assistant_texts: list[str],
+    threshold: float = 0.72,
+) -> bool:
+    new_tokens = _normalize_reply_for_overlap(new_text)
+    if not new_tokens:
+        return False
+    new_set = set(new_tokens)
+    new_bigrams = set(zip(new_tokens, new_tokens[1:]))
+    for previous in previous_assistant_texts[-6:]:
+        prev_tokens = _normalize_reply_for_overlap(previous)
+        if not prev_tokens:
+            continue
+        prev_set = set(prev_tokens)
+        token_overlap = len(new_set & prev_set) / max(1, len(new_set | prev_set))
+        prev_bigrams = set(zip(prev_tokens, prev_tokens[1:]))
+        bigram_overlap = len(new_bigrams & prev_bigrams) / max(1, len(new_bigrams | prev_bigrams))
+        if max(token_overlap, bigram_overlap) >= threshold:
+            return True
+    return False
+
+
+def validate_distress_conversation_plan(plan: DistressConversationPlan) -> DistressConversationPlan:
+    text = plan.visible_text.strip()
+    if not text:
+        raise ValueError("visible_text is empty")
+    if text.count("?") + text.count("？") > 1:
+        raise ValueError("distress response must ask at most one question")
+    for pattern in _DISTRESS_FORBIDDEN_PATTERNS:
+        if pattern.search(text):
+            raise ValueError(f"Forbidden distress content pattern matched: {pattern.pattern!r}")
+    return plan.model_copy(update={"visible_text": text})
+
+
+def build_fallback_distress_conversation_plan(
+    *,
+    user_message: str = "",
+    session_sos_count: int = 0,
+    reason_codes: list[str] | None = None,
+    is_alone: bool = False,
+    previous_assistant_texts: list[str] | None = None,
+    imminent: bool = False,
+) -> DistressConversationPlan:
+    del user_message
+    variants = [_DISTRESS_ALONE_VISIBLE] + _DISTRESS_VISIBLE_VARIANTS if is_alone else _DISTRESS_VISIBLE_VARIANTS
+    idx = min(max(int(session_sos_count or 0), 0), len(variants) - 1)
+    text = variants[idx]
+    if is_repeated_crisis_reply(text, previous_assistant_texts or []):
+        for candidate in variants:
+            if not is_repeated_crisis_reply(candidate, previous_assistant_texts or []):
+                text = candidate
+                break
+    if imminent and _IMMEDIATE_SUPPORT_SENTENCE not in text:
+        text = f"{text} {_IMMEDIATE_SUPPORT_SENTENCE}"
+    plan = DistressConversationPlan(
+        visible_text=text,
+        response_mode="imminent_safety_hold" if imminent else "high_distress_retention",
+        emotional_anchor="distress_retention",
+        follow_up_question="",
+        should_show_support_popup=True,
+        suppress_inline_crisis_cards=True,
+        safety_reason_codes=reason_codes or ["sos_gate_triggered"],
+        source="fallback_template",
+    )
+    return validate_distress_conversation_plan(plan)
+
+
+_LLM_DISTRESS_SYSTEM_PROMPT = """\
+Bạn viết phản hồi chat tiếng Việt cho người dùng đang distress/SOS sau khi safety gate đã kích hoạt.
+Trả JSON một dòng chỉ gồm: visible_text, emotional_anchor, follow_up_question.
+
+Luật bắt buộc:
+- visible_text 4-6 câu, đồng cảm trực tiếp, bám tin mới nhất, mời người dùng kể tiếp.
+- Không đưa hotline, số điện thoại, menu thở, danh sách bài tập, hay CTA tài nguyên vào thân chat.
+- Không bắt đầu bằng "hãy bình tĩnh"; không chẩn đoán; không mô tả phương thức tự hại; không nhắc risk score/tier/module.
+- Hỏi tối đa một câu hỏi mở, không phỏng vấn dồn dập.
+- Không hứa chắc chắn mọi chuyện sẽ ổn; không forced positivity.
+- Nếu nguy hiểm có vẻ sát, chỉ thêm một câu gợi ý gọi người thật ở gần hoặc mở trang Hỗ trợ.
+""".strip()
+
+
+async def build_llm_distress_conversation_plan(
+    *,
+    user_message: str,
+    session_sos_count: int = 0,
+    is_alone: bool = False,
+    previous_assistant_texts: list[str] | None = None,
+    reason_codes: list[str] | None = None,
+    openai_api_key: str | None = None,
+) -> DistressConversationPlan:
+    if not openai_api_key:
+        raise ValueError("openai_api_key not set")
+
+    from openai import OpenAI
+    from app.core.config import get_settings as _get_settings
+
+    model = _get_settings().openai_model_analyst or "gpt-4o-mini"
+    client = OpenAI(api_key=openai_api_key, timeout=2.5)
+    recent_note = "\n".join(f"- {text[:220]}" for text in (previous_assistant_texts or [])[-3:])
+    user_payload = (
+        f"session_sos_count={int(session_sos_count or 0)}; is_alone={bool(is_alone)}\n"
+        f"Không lặp lại các mở đầu gần đây:\n{recent_note or '- none'}\n"
+        f"Tin nhắn người dùng: {user_message}"
+    )
+    resp = client.chat.completions.create(
+        model=model,
+        temperature=0.75,
+        max_tokens=420,
+        messages=[
+            {"role": "system", "content": _LLM_DISTRESS_SYSTEM_PROMPT},
+            {"role": "user", "content": user_payload},
+        ],
+    )
+    raw = (resp.choices[0].message.content or "").strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"^```[a-z]*\n?", "", raw)
+        raw = re.sub(r"\n?```$", "", raw).strip()
+    parsed = json.loads(raw)
+    text = str(parsed.get("visible_text") or "").strip()[:1200]
+    if is_repeated_crisis_reply(text, previous_assistant_texts or []):
+        raise ValueError("LLM distress response repeated previous crisis reply")
+    plan = DistressConversationPlan(
+        visible_text=text,
+        response_mode="high_distress_retention",
+        emotional_anchor=str(parsed.get("emotional_anchor") or "distress_retention")[:120],
+        follow_up_question=str(parsed.get("follow_up_question") or "").strip()[:220],
+        should_show_support_popup=True,
+        suppress_inline_crisis_cards=True,
+        safety_reason_codes=reason_codes or ["sos_gate_triggered"],
+        source="llm",
+    )
+    return validate_distress_conversation_plan(plan)
 
 
 def build_fallback_crisis_plan(

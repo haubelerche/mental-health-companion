@@ -11,7 +11,9 @@ from app.advisors import (
     CBTPatternAdvisor,
     EmpathyAdvisor,
     NutritionSupportAdvisor,
+    RelevanceNaturalnessCritic,
     ReflectionAdvisor,
+    SafetyBoundaryAdvisor,
     StrategyResourceAdvisor,
 )
 from app.services.advisor_selector import AdvisorSelector
@@ -336,6 +338,11 @@ class ChatOrchestrator:
         base_traits = dict(memory_ctx.traits if memory_ctx else {})
         if memory_ctx and memory_ctx.onboarding:
             base_traits.setdefault("onboarding", memory_ctx.onboarding)
+        active_memory_text = "\n".join(
+            f"- {str(item or '').strip()[:300]}"
+            for item in list((memory_ctx.mem0_facts if memory_ctx else compat_longterm) or [])[:3]
+            if str(item or "").strip()
+        )
 
         turn = run_non_sos_turn(
             user_message=raw_text,
@@ -356,7 +363,7 @@ class ChatOrchestrator:
             ),
             user_id=user_id,
             session_id=session_id,
-            active_memory_text="",
+            active_memory_text=active_memory_text,
             graph_patterns=graph_patterns,
             nutrition_meals=nutrition_meals or None,
         )
@@ -375,6 +382,8 @@ class ChatOrchestrator:
             "reflection_advisor": ReflectionAdvisor,
             "strategy_resource_advisor": StrategyResourceAdvisor,
             "nutrition_support_advisor": NutritionSupportAdvisor,
+            "relevance_naturalness_critic": RelevanceNaturalnessCritic,
+            "safety_policy_layer": SafetyBoundaryAdvisor,
         }
 
     @staticmethod

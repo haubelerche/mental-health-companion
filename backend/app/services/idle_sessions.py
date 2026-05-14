@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.services.db.models import Conversation
 from app.services.db.session import get_session_factory
-from app.services.session_summary import close_session_summary
+from app.services.session_lifecycle import SessionLifecycleService
 from app.services.utils import get_now
 
 logger = logging.getLogger(__name__)
@@ -44,9 +44,12 @@ def summarize_idle_sessions() -> int:
                 try:
                     conv = db2.scalar(select(Conversation).where(Conversation.session_id == session_id))
                     if conv and conv.summarized_at is None:
-                        close_session_summary(db2, session=conv, user_id=user_id)
+                        SessionLifecycleService(db2).close_session(
+                            user_id=user_id,
+                            session_id=session_id,
+                            reason="idle_timeout",
+                        )
                         n += 1
-                        db2.commit() # Commit after each success to release row locks if any
                 except Exception as exc:
                     db2.rollback()
                     logger.warning("idle summarize failed %s: %s", session_id, exc)

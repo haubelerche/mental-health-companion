@@ -28,6 +28,7 @@ LEGACY_ALIAS_MAP: dict[str, str] = {
     "mentor": "dat_le",
     "hau": "hau_luong",
     "h\u1eadu": "hau_luong",
+    "háº­u": "hau_luong",
     "hau luong": "hau_luong",
     "hau_luong": "hau_luong",
 }

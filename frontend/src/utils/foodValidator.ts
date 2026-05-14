@@ -146,7 +146,7 @@ function textToWords(text: string): Set<string> {
   return new Set(
     text
       .toLowerCase()
-      .split(/[\s,;.!?:…\-–—/()\"\']+/)
+      .split(/[\s,;.!?:…\-–—/()"']+/)
       .map((w) => w.trim())
       .filter((w) => w.length > 0)
   )
