@@ -109,13 +109,6 @@ export default function HeroScene() {
 
                 {/* Content */}
                 <div className="hero-content">
-                    <span className="section-label" style={{ 
-                        marginBottom: '1rem',
-                        textShadow: '2px 2px 0 #020812, -1px -1px 0 #020812, 1px -1px 0 #020812, -1px 1px 0 #020812, 1px 1px 0 #020812'
-                    }}>
-                        SereneAI·Sàng lọc và hỗ trợ sức khỏe tinh thần
-                    </span>
-
                     <h1
                         className="pixel-headline"
                         style={{
@@ -125,7 +118,7 @@ export default function HeroScene() {
                             textShadow: '3px 3px 0 #020812, -1px -1px 0 #020812, 1px -1px 0 #020812, -1px 1px 0 #020812, 1px 1px 0 #020812'
                         }}
                     >
-                       Góc nhỏ yên bình để bạn được lắng nghe, thấu hiểu
+                        Serene.AI – Trợ lý AI hỗ trợ sức khỏe tinh thần cho người Việt
                     </h1>
 
                     <p
