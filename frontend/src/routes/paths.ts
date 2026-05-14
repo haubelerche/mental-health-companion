@@ -6,6 +6,7 @@ export const ROUTE_PATHS = {
     register: '/register',
     forget: '/forget-password',
     privacy: '/privacy',
+    deleteData: '/delete-data',
 
     // serene
     home: '/serene',
