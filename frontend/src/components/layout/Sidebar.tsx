@@ -1,5 +1,5 @@
 import { type MouseEvent, useEffect, useState } from 'react'
-import { Bell, HelpCircle, HomeIcon, Library, MessageSquare, Sailboat, Settings, Sparkles, Utensils, Gift, MoreHorizontal } from 'lucide-react'
+import { Bell, HelpCircle, HomeIcon, Library, MessageSquare, Sailboat, Settings, Sparkles, Utensils, Gift, MoreHorizontal, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { useThemeContext } from '../../contexts/ThemeContext'
@@ -63,13 +63,19 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
         onHide()
     }
 
+    const handleNavClick = () => {
+        if (window.innerWidth < 1024) {
+            onHide()
+        }
+    }
+
     return (
         <>
             {/* ── Desktop sidebar ── */}
             <aside
                 onClick={handleSidebarBlankClick}
                 className={[
-                    'fixed left-0 top-0 z-40 hidden h-full w-60 flex-col border-r p-6 backdrop-blur-3xl transition-transform duration-300 lg:flex',
+                    'fixed left-0 top-0 z-[60] flex h-full w-60 flex-col border-r p-6 backdrop-blur-3xl transition-transform duration-300 lg:z-40',
                     sidebarContainerClass,
                     isOpen ? 'translate-x-0' : '-translate-x-full',
                 ].join(' ')}
@@ -88,6 +94,7 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                                 key={item.label}
                                 to={item.route}
                                 end
+                                onClick={handleNavClick}
                                 data-tour-id={getTourId(item.route)}
                                 className={({ isActive }) =>
                                     [
@@ -119,7 +126,10 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                 {/* Bottom links */}
                 <div className={`mt-4 space-y-1 border-t pt-4 text-base ${isDark ? 'border-white/20 text-white/75' : 'border-black/10 text-serene-muted'}`}>
                     <button
-                        onClick={() => setIsNotificationOpen(true)}
+                        onClick={() => {
+                            setIsNotificationOpen(true)
+                            handleNavClick()
+                        }}
                         className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition cursor-pointer ${hoverTextClass}`}
                     >
                         <Bell className="h-4 w-4" aria-hidden="true" />
@@ -127,6 +137,7 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                     </button>
                     <NavLink
                         to={ROUTE_PATHS.setting}
+                        onClick={handleNavClick}
                         className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition ${hoverTextClass}`}
                     >
                         <Settings className="h-4 w-4" aria-hidden="true" />
@@ -134,6 +145,7 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                     </NavLink>
                     <NavLink
                         to={ROUTE_PATHS.support}
+                        onClick={handleNavClick}
                         data-tour-id="sidebar-help"
                         className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition ${hoverTextClass}`}
                     >
@@ -147,6 +159,28 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                 <div
                     className="fixed left-0 top-0 z-40 hidden h-screen w-4 cursor-e-resize lg:block"
                     onMouseEnter={onReveal}
+                    aria-hidden="true"
+                />
+            )}
+
+            {/* Mobile Sidebar Toggle Button */}
+            <button
+                onClick={isOpen ? onHide : onReveal}
+                className={[
+                    'fixed left-0 top-1/2 z-[70] flex h-10 w-6 -translate-y-1/2 items-center justify-center rounded-r-xl border border-l-0 shadow-md transition-all duration-300 lg:hidden',
+                    isDark ? 'border-white/20 bg-black/40 text-white' : 'border-black/10 bg-white/60 text-serene-ink',
+                    isOpen ? 'translate-x-60' : 'translate-x-0',
+                ].join(' ')}
+                aria-label={isOpen ? 'Đóng menu' : 'Mở menu'}
+            >
+                {isOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </button>
+
+            {/* Mobile Backdrop */}
+            {isOpen && (
+                <div
+                    className="fixed inset-0 z-[55] bg-black/20 backdrop-blur-sm lg:hidden"
+                    onClick={onHide}
                     aria-hidden="true"
                 />
             )}
