@@ -42,9 +42,9 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
     scorePercent: 12,
     interpretation: 'Tâm trạng và năng lượng của bạn đang ở trạng thái ổn định. Tiếp tục duy trì!',
     insights: [
-      'Năng lượng và tâm trạng nhìn chung ổn định',
-      'Tiếp tục duy trì thói quen hiện tại',
-      'Thử một bài tập nhỏ hôm nay',
+      'Bạn đang giữ được nhịp sinh hoạt và cảm xúc khá ổn định',
+      'Những khoảng nghỉ nhỏ trong ngày sẽ giúp duy trì trạng thái này lâu hơn',
+      'Đừng chờ đến khi quá tải mới chăm sóc bản thân',
     ],
     exercises: [
       { icon: Wind, label: 'Thở hộp', desc: '2 phút · Duy trì cân bằng' },
@@ -64,9 +64,9 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
     scorePercent: 28,
     interpretation: 'Có một vài dấu hiệu cần chú ý. Trò chuyện ngắn với Serene có thể giúp ích.',
     insights: [
-      'Có một vài dấu hiệu cần chú ý',
-      'Trò chuyện ngắn có thể giúp ích',
-      'Nhắc bản thân check-in lại ngày mai',
+      'Có dấu hiệu bạn đang hơi mệt hoặc căng thẳng trong thời gian gần đây',
+      'Việc nghỉ ngơi đúng cách và nói ra cảm xúc có thể giúp đầu óc nhẹ hơn',
+      'Hãy chú ý giấc ngủ, mức năng lượng và cảm giác của mình trong vài ngày tới',
     ],
     exercises: [
       { icon: MessageSquareText, label: 'Nói chuyện với Serene', desc: 'Chia sẻ cảm xúc ngay' },
@@ -86,9 +86,9 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
     scorePercent: 52,
     interpretation: 'Cần chú ý hơn đến sức khoẻ tâm thần. Nên trao đổi với ai đó trong 24h tới.',
     insights: [
-      'Cần chú ý hơn đến sức khoẻ tâm thần',
-      'Nên trao đổi với ai đó trong 24h tới',
-      'Bài tập grounding có thể giúp ổn định ngay',
+      'Căng thẳng đang bắt đầu ảnh hưởng rõ hơn đến cảm xúc hoặc sinh hoạt hằng ngày',
+      'Bạn không cần tự chịu đựng một mình — trò chuyện với người tin tưởng có thể giúp ích',
+      'Ưu tiên nghỉ ngơi, ăn uống đều và giảm bớt áp lực trong 1–2 ngày tới',
     ],
     exercises: [
       { icon: MessageSquareText, label: 'Nói chuyện với Serene', desc: 'Serene sẵn sàng ngay bây giờ' },
@@ -108,9 +108,9 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
     scorePercent: 72,
     interpretation: 'Kết quả cho thấy cần hỗ trợ chuyên nghiệp. Bạn không cần đi qua điều này một mình.',
     insights: [
-      'Kết quả cho thấy cần hỗ trợ chuyên nghiệp',
-      'Phần Hỗ trợ có thể chỉ bạn tới nguồn phù hợp',
-      'Bạn không cần đi qua điều này một mình',
+      'Những gì bạn đang trải qua có thể đã vượt quá khả năng tự cân bằng thông thường',
+      'Việc tìm kiếm hỗ trợ chuyên nghiệp lúc này là một bước chăm sóc bản thân rất quan trọng',
+      'Hãy cố gắng ở gần những người khiến bạn cảm thấy an toàn và được lắng nghe',
     ],
     exercises: [
       { icon: HeartHandshake, label: 'Tìm nguồn hỗ trợ', desc: 'Hotlines & chuyên gia' },
@@ -130,9 +130,9 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
     scorePercent: 90,
     interpretation: 'Kết quả quan trọng — cần được hỗ trợ sớm. Bạn đã rất dũng cảm khi làm bài này.',
     insights: [
-      'Kết quả quan trọng — cần được hỗ trợ sớm',
-      'Vui lòng xem phần Hỗ trợ hoặc gọi hotline',
-      'Bạn đã rất dũng cảm khi làm bài này',
+      'Mức độ căng thẳng hoặc kiệt sức hiện tại có thể đang ảnh hưởng mạnh đến tinh thần của bạn',
+      'Bạn xứng đáng nhận được sự hỗ trợ ngay lúc này, thay vì cố gắng chịu đựng thêm',
+      'Nếu thấy quá tải hoặc mất kiểm soát, hãy liên hệ người thân hoặc hotline hỗ trợ càng sớm càng tốt',
     ],
     exercises: [
       { icon: Phone, label: 'Hotline 1800-599-920', desc: 'Miễn phí · 24/7' },

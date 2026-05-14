@@ -5,12 +5,15 @@
  */
 
 import { useWebSocketNotifications } from "../../../hooks/useWebSocketNotifications";
+import { useAuth } from "../../../hooks/useAuth";
 
 const NotificationSetup = () => {
+  const { user } = useAuth();
+  
   // Initialize WebSocket connection
   // The hook will auto-connect and handle reconnection logic
   const { isConnected } = useWebSocketNotifications({
-    autoConnect: true,
+    autoConnect: !!user,
     reconnectAttempts: 5,
     reconnectInterval: 3000,
   });

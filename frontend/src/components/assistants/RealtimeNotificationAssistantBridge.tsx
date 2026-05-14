@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useNotification } from '../../contexts/NotificationContext'
+import { useAuth } from '../../hooks/useAuth'
 import { notificationService, type UserNotification } from '../../services/notificationService'
 import RealtimeNotificationAssistant, { type AppNotification } from './RealtimeNotificationAssistant'
 import { OPEN_NOTIFICATION_MODAL_EVENT } from '../pages/notifications/events'
@@ -21,6 +22,7 @@ function toAppNotification(item: UserNotification): AppNotification {
 
 export default function RealtimeNotificationAssistantBridge() {
     const navigate = useNavigate()
+    const { user } = useAuth()
     const { notifications, removeNotification, markAsRead } = useNotification()
     const [apiNotifications, setApiNotifications] = useState<UserNotification[]>([])
     const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set())
@@ -35,25 +37,10 @@ export default function RealtimeNotificationAssistantBridge() {
     }, [])
 
     useEffect(() => {
-        const initialRefreshId = window.setTimeout(() => {
+        if (user) {
             void refreshUnreadNotifications()
-        }, 0)
-        const intervalId = window.setInterval(() => {
-            void refreshUnreadNotifications()
-        }, 30_000)
-        const onFocus = () => void refreshUnreadNotifications()
-        const onVisible = () => {
-            if (document.visibilityState === 'visible') void refreshUnreadNotifications()
         }
-        window.addEventListener('focus', onFocus)
-        document.addEventListener('visibilitychange', onVisible)
-        return () => {
-            window.clearTimeout(initialRefreshId)
-            window.clearInterval(intervalId)
-            window.removeEventListener('focus', onFocus)
-            document.removeEventListener('visibilitychange', onVisible)
-        }
-    }, [refreshUnreadNotifications])
+    }, [refreshUnreadNotifications, user])
 
     const safeNotifications = useMemo<AppNotification[]>(() => {
         const fromRealtime: AppNotification[] = notifications
