@@ -7,11 +7,14 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.product_constants import CHAT_AGENT_DISPLAY_NAME, DISTRESS_CRITICAL, DISTRESS_VOICE_HINT
+from app.services.redis_client import cache_get_json, cache_set_json
+from app.services.schemas.payloads import DistressConversationUi, DistressMessageSegment, DistressSupportPopup
 from app.services.vn_hotlines import hotline_cards_sos
 from app.services.safety_scoring import SafetySnapshot, build_snapshot, clamp01
 
@@ -436,12 +439,164 @@ def assistant_text_for_stored_message_sos() -> str:
     return _ASSISTANT_TEXT_SOS_VI
 
 
+class CrisisSessionState(BaseModel):
+    active: bool = False
+    highest_level_seen: str | None = None
+    entered_at: datetime | None = None
+    last_popup_at: datetime | None = None
+    last_support_cta_at: datetime | None = None
+    popup_show_count: int = 0
+    repeated_sos_turn_count: int = 0
+    last_assistant_crisis_hashes: list[str] = Field(default_factory=list)
+
+
+_CRISIS_STATE_TTL_SECONDS = 60 * 60 * 24
+_CRISIS_STATE_MEMORY: dict[str, CrisisSessionState] = {}
+_RISK_ORDER = {"none": 0, "elevated": 1, "high": 2, "sos": 3, "critical": 3}
+
+
+def _crisis_state_key(user_id: str | None, session_id: str) -> str:
+    owner = str(user_id or "guest").strip() or "guest"
+    return f"crisis_session_state:{owner}:{session_id}"
+
+
+def _coerce_dt(value: object) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    return None
+
+
+def _load_crisis_state(*, user_id: str | None, session_id: str) -> CrisisSessionState:
+    key = _crisis_state_key(user_id, session_id)
+    raw = cache_get_json(key)
+    if isinstance(raw, dict):
+        try:
+            return CrisisSessionState(**raw)
+        except Exception:
+            pass
+    return _CRISIS_STATE_MEMORY.get(key, CrisisSessionState())
+
+
+def _save_crisis_state(*, user_id: str | None, session_id: str, state: CrisisSessionState) -> None:
+    key = _crisis_state_key(user_id, session_id)
+    _CRISIS_STATE_MEMORY[key] = state
+    cache_set_json(key, state.model_dump(mode="json"), _CRISIS_STATE_TTL_SECONDS)
+
+
+def risk_level_increased(previous_level: str | None, current_level: str) -> bool:
+    prev = _RISK_ORDER.get(str(previous_level or "none").lower(), 0)
+    cur = _RISK_ORDER.get(str(current_level or "none").lower(), 0)
+    return cur > prev
+
+
+def should_show_dat_le_popup(
+    *,
+    current_level: str,
+    previous_state: CrisisSessionState,
+    now: datetime,
+) -> tuple[bool, str]:
+    last_popup_at = _coerce_dt(previous_state.last_popup_at)
+    if not previous_state.active:
+        return True, "entered_distress_mode"
+    if risk_level_increased(previous_state.highest_level_seen, current_level):
+        return True, "risk_level_increased"
+    if last_popup_at is None:
+        return True, "popup_never_shown"
+    if now - last_popup_at >= timedelta(minutes=15):
+        return True, "popup_cooldown_elapsed"
+    return False, "popup_cooldown_active"
+
+
+def build_dat_le_popup_message_segments(username: str | None) -> list[DistressMessageSegment]:
+    name = (username or "bạn").strip() or "bạn"
+    return [
+        DistressMessageSegment(
+            type="text",
+            text=(
+                f"Bình tĩnh nào {name} ơi, cái gì cũng có cách giải quyết của nó mà. "
+                'Nếu cần hỗ trợ của một người có chuyên môn thật sự, bạn hãy mở trang "Hỗ trợ" ngay hoặc thử '
+            ),
+        ),
+        DistressMessageSegment(
+            type="route_link",
+            text="bài tập thở khi lo âu",
+            route="/serene/exercises?exercise=anxiety_breathing",
+        ),
+        DistressMessageSegment(type="text", text=" này ngay nhé!"),
+        DistressMessageSegment(type="line_break"),
+        DistressMessageSegment(
+            type="text",
+            text=(
+                "Nhớ rằng chúng mình luôn ở đây khi bạn cần và hãy cho bản thân phép bản thân "
+                "dám hy vọng, dám đương đầu với khó khăn. Vì không bóng tối nào là mãi mãi..."
+            ),
+        ),
+    ]
+
+
+def build_dat_le_popup_message(username: str | None) -> str:
+    name = (username or "bạn").strip() or "bạn"
+    return (
+        f"Bình tĩnh nào {name} ơi, cái gì cũng có cách giải quyết của nó mà. "
+        'Nếu cần hỗ trợ của một người có chuyên môn thật sự, bạn hãy mở trang "Hỗ trợ" ngay hoặc thử '
+        '<a data-route="/serene/exercises?exercise=anxiety_breathing">bài tập thở khi lo âu</a> '
+        "này ngay nhé!<br>"
+        "Nhớ rằng chúng mình luôn ở đây khi bạn cần và hãy cho bản thân phép bản thân "
+        "dám hy vọng, dám đương đầu với khó khăn. Vì không bóng tối nào là mãi mãi..."
+    )
+
+
+def build_distress_conversation_ui(
+    *,
+    session_id: str,
+    user_id: str | None = None,
+    username: str | None = None,
+    current_level: str = "sos",
+    now: datetime | None = None,
+) -> DistressConversationUi:
+    now_dt = now or datetime.now(timezone.utc)
+    state = _load_crisis_state(user_id=user_id, session_id=session_id)
+    show, reason = should_show_dat_le_popup(current_level=current_level, previous_state=state, now=now_dt)
+    popup_id = f"sos_dat_le:{session_id}:{current_level}"
+    popup = DistressSupportPopup(
+        show=show,
+        popup_id=popup_id,
+        message_html=build_dat_le_popup_message(username),
+        message_segments=build_dat_le_popup_message_segments(username),
+        reason=reason,
+    )
+    highest = current_level if risk_level_increased(state.highest_level_seen, current_level) else state.highest_level_seen or current_level
+    updated = state.model_copy(update={
+        "active": True,
+        "highest_level_seen": highest,
+        "entered_at": state.entered_at or now_dt,
+        "last_popup_at": now_dt if show else state.last_popup_at,
+        "last_support_cta_at": now_dt if show else state.last_support_cta_at,
+        "popup_show_count": int(state.popup_show_count or 0) + (1 if show else 0),
+        "repeated_sos_turn_count": int(state.repeated_sos_turn_count or 0) + (1 if state.active else 0),
+    })
+    _save_crisis_state(user_id=user_id, session_id=session_id, state=updated)
+    return DistressConversationUi(
+        mode="sos_soft_popup",
+        suppress_inline_crisis_cards=True,
+        support_popup=popup,
+        allow_quick_replies=True,
+        preferred_input_focus=True,
+    )
+
+
 def build_sos_chat_response_data(
     session_id: str,
     snapshot: SafetySnapshot,
     *,
     assistant_text: str | None = None,
     voice_hint_text: str | None = None,
+    distress_ui: DistressConversationUi | None = None,
 ) -> dict[str, Any]:
     text = assistant_text or _ASSISTANT_TEXT_SOS_VI
     vhint = voice_hint_text or (
@@ -483,6 +638,14 @@ def build_sos_chat_response_data(
         "referral_options": [{"type": "counselor"}, {"type": "trusted_contact"}],
         "followup_priority": True,
         "routing_history": ["sos_handler"],
+        "distress_ui": (
+            distress_ui
+            or DistressConversationUi(
+                mode="sos_soft_popup",
+                suppress_inline_crisis_cards=True,
+                support_popup=DistressSupportPopup(show=False, reason="not_evaluated"),
+            )
+        ).model_dump(),
     }
 
 

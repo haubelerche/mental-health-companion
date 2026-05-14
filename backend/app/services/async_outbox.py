@@ -9,6 +9,7 @@ from app.services.db.models import SyncOutbox
 from app.services.observability import finish_trace, record_event, record_metric, start_span, start_trace
 from app.services.schemas.contracts import WorkerJob
 from app.services.utils import get_now
+from app.analyst.jobs import process_analyst_run_job
 from app.workers.analyst_event_worker import normalize_analyst_event
 from app.workers.dashboard_insight_worker import process_dashboard_job
 from app.workers.memory_worker import process_memory_job
@@ -19,6 +20,7 @@ _TYPE_TO_EVENT = {
     "dashboard_insight": "worker.dashboard_insight",
     "tts_render": "worker.tts_render",
     "analyst_event": "worker.analyst_event",
+    "analyst_run": "worker.analyst_run",
 }
 _EVENT_TO_TYPE = {v: k for k, v in _TYPE_TO_EVENT.items()}
 _MAX_ATTEMPTS = 3
@@ -32,6 +34,7 @@ _PROCESSORS = {
     "dashboard_insight": process_dashboard_job,
     "tts_render": process_tts_job,
     "analyst_event": normalize_analyst_event,
+    "analyst_run": process_analyst_run_job,
 }
 
 
@@ -169,7 +172,7 @@ def process_claimed_job(db: Session, row: SyncOutbox) -> dict:
 
     try:
         with start_span("worker.process", metadata={"worker_type": job.job_type, "attempt_count": int(row.retry_count or 0) + 1}):
-            if job.job_type == "memory_extraction":
+            if job.job_type in {"memory_extraction", "analyst_run"}:
                 result = processor(job, db=db)
             else:
                 result = processor(job)

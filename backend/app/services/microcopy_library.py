@@ -57,7 +57,7 @@ SAFETY_VOICE_VARIANTS = (
 )
 
 SAFETY_FOLLOW_UPS = (
-    "Bạn chỉ cần nói một chút thôi: lúc này phần nào đang nghẹn nhất?",
+    "Bạn chỉ cần nói một chút thôi: lúc này phần nào đang khiến bạn phiền lòng nhất?",
     "Ngay bây giờ, bạn đang ở gần ai hoặc gần chỗ nào an toàn hơn không?",
     "Bạn muốn mình ở lại với phần cảm giác nào trước?",
 )

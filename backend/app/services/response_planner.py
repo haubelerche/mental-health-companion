@@ -143,12 +143,12 @@ def _fallback_visible_text(user_message: str, *, emotional_state: str, interacti
         lead = GRIEF_ANCHORS[0]
         return (
             f"{lead} mình nghe {anchor} đang làm mọi thứ như rơi xuống, không phải chỉ là buồn thoáng qua. "
-            "không cần kể cho thật mạch lạc đâu; lúc này phần nào đang nghẹn nhất?"
+            "không cần kể cho thật mạch lạc đâu; lúc này phần nào đang khiến bạn phiền lòng nhất?"
         )
     if emotional_state == "self_blame":
         return (
             f"{SELF_BLAME_ANCHORS[0]} với {anchor}, phản ứng rối và tự trách như vậy là dễ hiểu. "
-            "mình đi chậm thôi; phần nào đang nặng nhất ngay lúc này?"
+            "Cứ bình tĩnh thôi phần nào đang làm bạn suy nhất ngay lúc này?"
         )
     if interaction_need == "grounding":
         return (
@@ -156,8 +156,8 @@ def _fallback_visible_text(user_message: str, *, emotional_state: str, interacti
             "bạn thử thở ra dài hơn một nhịp rồi nói cho mình phần dễ nói nhất được không?"
         )
     return (
-        f"ừ, mình nghe {anchor} đang đè lên bạn khá nặng. "
-        "mình chưa vội khuyên gì dài; phần nào đang khó chịu nhất lúc này?"
+        f"ừ, mình nghe {anchor} đang khiến bạn cảm thấy nặng nề. "
+        "mình chưa vội khuyên gì dài, phần nào đang khó chịu nhất lúc này?"
     )
 
 

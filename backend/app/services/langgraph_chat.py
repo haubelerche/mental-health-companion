@@ -1,4 +1,4 @@
-﻿"""
+"""
 LangGraph non-SOS flow: DistressRouter -> AnalystNode (optional) -> FriendNode.
 High-risk SOS is handled outside this graph via deterministic safety handling.
 Naming reference: docs/PRD.md + docs/GLOSSARY_RUNTIME.md.
@@ -254,6 +254,11 @@ def _rule_based_reply(user_text: str) -> str | None:
         return (
             "Mình hiểu đây là cú sốc lớn và cảm giác mất mát đang rất thật. "
             "Lúc này điều nào đau nhất với bạn: bị bỏ rơi, tự trách, hay sợ tương lai?"
+        )
+    if any(k in normalized for k in ("bi bo bo", "bo bo", "group chat", "bi ignore", "khong ai rep")):
+        return (
+            "Mình nghe chuyện bị bỏ bơ trong group chat làm bạn chùng xuống thật. "
+            "Cảm giác đó dễ kéo mình sang tự trách, nên trước mắt mình tách nhẹ ra: chuyện họ im lặng là một dữ kiện, còn kết luận rằng bạn không đáng được quan tâm thì chưa chắc đúng."
         )
     if any(k in normalized for k in ("chia xa", "tam biet", "roi xa", "xa nhau")):
         return (
@@ -1238,7 +1243,7 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         "Tránh các câu mặc định như 'tôi rất tiếc khi nghe điều đó', 'cảm xúc của bạn là hoàn toàn hợp lệ', "
         "'bạn không đơn độc', 'mọi chuyện rồi sẽ ổn', 'hãy suy nghĩ tích cực', 'Bạn có muốn chia sẻ thêm không?'. "
         "Không dùng giọng trị liệu khuôn mẫu, không chẩn đoán, không ước lượng xác suất rối loạn, không tự nhận thẩm quyền y khoa, không hứa hẹn phi thực tế, không đùa/slang khi distress cao. "
-        "Không dùng ngôn ngữ possessive, exclusive, romantic commitment hoặc dependency-building; Hậu chỉ là persona yên tĩnh/voice-message vibe, không phải vai crush. "
+        "Không dùng ngôn ngữ possessive, exclusive, romantic commitment hoặc dependency-building; "
         "Không tự xưng là Friend hay thực thể con người ngoài đời. "
         "Trả lời JSON với các khóa: reply, assistant_tone (supportive|validating|cheerful|calming|mentor|neutral), "
         "goi_y_nhanh (3 chuỗi), the_dinh_kem (mảng object {type,id,title,description,duration_sec,action,route,thumbnail}). "
@@ -1738,7 +1743,7 @@ def stream_non_sos_turn_events(
                 "Tránh các câu mặc định như 'tôi rất tiếc khi nghe điều đó', 'cảm xúc của bạn là hoàn toàn hợp lệ', "
                 "'bạn không đơn độc', 'mọi chuyện rồi sẽ ổn', 'hãy suy nghĩ tích cực', 'Bạn có muốn chia sẻ thêm không?'. "
                 "Không dùng giọng trị liệu khuôn mẫu, không chẩn đoán, không ước lượng xác suất rối loạn, không tự nhận thẩm quyền y khoa, không hứa hẹn phi thực tế, không đùa/slang khi distress cao. "
-                "Không dùng ngôn ngữ possessive, exclusive, romantic commitment hoặc dependency-building; Hậu chỉ là persona yên tĩnh/voice-message vibe, không phải vai crush. "
+                "Không dùng ngôn ngữ possessive, exclusive, romantic commitment hoặc dependency-building "
                 "Không tự xưng là Friend hay thực thể con người ngoài đời."
                 + f"\n{plan_hint}\n"
                 + (f"\n{style_fewshot_block}" if style_fewshot_block else "")

@@ -1,6 +1,36 @@
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field, model_validator
+
+
+class DistressMessageSegment(BaseModel):
+    type: Literal["text", "line_break", "route_link"]
+    text: str | None = Field(default=None, max_length=500)
+    route: str | None = Field(default=None, max_length=200)
+
+
+class DistressSupportPopup(BaseModel):
+    show: bool = False
+    popup_id: str | None = None
+    character_id: Literal["dat_le"] = "dat_le"
+    character_label: str = "Đạt"
+    asset_path: str = "/frontend/assets/dat-le-shock-sos.png"
+    title: str = "Đạt đang ở đây"
+    message_html: str | None = None
+    message_segments: list[DistressMessageSegment] = Field(default_factory=list)
+    support_route: str = "/serene/support"
+    breathing_exercise_route: str = "/serene/exercises?exercise=anxiety_breathing"
+    cooldown_seconds: int = 900
+    reason: str | None = None
+
+
+class DistressConversationUi(BaseModel):
+    mode: Literal["none", "distress_soft_support", "sos_soft_popup"] = "none"
+    suppress_inline_crisis_cards: bool = False
+    support_popup: DistressSupportPopup | None = None
+    allow_quick_replies: bool = True
+    preferred_input_focus: bool = True
 
 
 class SignupRequest(BaseModel):

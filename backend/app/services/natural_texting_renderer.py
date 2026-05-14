@@ -33,6 +33,10 @@ def rewrite_anti_robotic_phrases(text: str) -> str:
     rendered = text or ""
     for source, target in _ROBOTIC_REWRITES:
         rendered = re.sub(re.escape(source), target, rendered, flags=re.IGNORECASE)
+    rendered = rendered.replace(
+        "cảm ơn bạn vì đã nói thật với mình.",
+        "nói thật đoạn này không dễ, cảm ơn bạn vì đã nói với mình.",
+    )
     return rendered
 
 

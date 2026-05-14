@@ -83,7 +83,7 @@ class AnalystBundle(StrictSchema):
 
 class WorkerJob(StrictSchema):
     job_id: str = Field(min_length=1, max_length=100)
-    job_type: Literal["memory_extraction", "dashboard_insight", "tts_render", "analyst_event"]
+    job_type: Literal["memory_extraction", "dashboard_insight", "tts_render", "analyst_event", "analyst_run"]
     user_id: str = Field(min_length=1, max_length=50)
     session_id: str | None = Field(default=None, max_length=50)
     payload_ref: str = Field(min_length=1, max_length=255)

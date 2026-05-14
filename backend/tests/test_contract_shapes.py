@@ -12,7 +12,6 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import create_engine, event
-from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.orm import Session
 
 from app.rewards.catalog import CATALOG
@@ -180,25 +179,15 @@ def test_mem0_pgvector_collection_uses_search_path_not_schema_qualified_identifi
     assert query["options"] == ["-c search_path=app,extensions"]
 
 
-def test_websocket_cookie_auth_fails_closed_when_db_pool_is_exhausted(monkeypatch):
+def test_websocket_cookie_auth_uses_signed_token_without_db_checkout(monkeypatch):
     from app.api.v1.routers import ws
 
-    class BrokenSession:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return False
-
-        def scalar(self, *_args, **_kwargs):
-            raise SQLAlchemyTimeoutError("pool exhausted")
-
     monkeypatch.setattr(ws, "decode_token", lambda _token: {"sub": "usr_timeout"})
-    monkeypatch.setattr(ws, "get_session_factory", lambda: lambda: BrokenSession())
 
     user = asyncio.run(ws.get_current_user_ws_cookie(access_token="token"))
 
-    assert user is None
+    assert user is not None
+    assert user.user_id == "usr_timeout"
 
 
 def test_store_item_required_fields():

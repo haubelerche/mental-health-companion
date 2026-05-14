@@ -6,6 +6,7 @@ from app.api import deps
 from app.api.v1.routers import chat as chat_router
 from app.main import app
 from app.services.latency_metrics import CHAT_LATENCY_INT_STAGES
+from app.services.memory_recall import RecallReply
 from app.services.safety_scoring import SafetySnapshot
 
 
@@ -119,6 +120,60 @@ def test_chat_message_non_sos_success(monkeypatch):
         for stage in CHAT_LATENCY_INT_STAGES:
             assert stage in body["data"]["latency_trace"]
         assert legacy_called["value"] is False
+        assert fake_db.committed is True
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_chat_message_recall_skips_langgraph_and_uses_memory_handler(monkeypatch):
+    fake_db = FakeDB()
+    graph_called = {"value": False}
+    persisted = {"value": False}
+    monkeypatch.setattr(chat_router, "get_rate_limiter", lambda: DummyLimiter())
+    monkeypatch.setattr(chat_router, "decide_sos", lambda _message, **_kw: (False, 0.12))
+    monkeypatch.setattr(
+        chat_router,
+        "load_chat_context_sync",
+        lambda *_args, **_kwargs: SimpleNamespace(recent_messages=[], mood_today=None),
+    )
+    monkeypatch.setattr(
+        chat_router,
+        "try_handle_memory_recall_turn",
+        lambda *_args, **_kwargs: RecallReply(
+            turn_kind="identity_recall",
+            reply="Có. Mình nhớ cậu là AI engineer của Serene AI.",
+            memory_source_counts={"visible_memories": 1},
+            active_memory_text="- AI engineer của Serene AI",
+        ),
+    )
+    monkeypatch.setattr(
+        chat_router,
+        "run_non_sos_turn",
+        lambda **_kwargs: graph_called.__setitem__("value", True),
+    )
+    monkeypatch.setattr(
+        chat_router,
+        "persist_turn_memory",
+        lambda *_args, **_kwargs: persisted.__setitem__("value", True),
+    )
+    monkeypatch.setattr(chat_router, "_enqueue_turn_mem0", lambda *_args, **_kwargs: None)
+
+    def override_db():
+        yield fake_db
+
+    app.dependency_overrides[chat_router.ensure_policy_acknowledged] = _override_user
+    app.dependency_overrides[chat_router.get_db] = override_db
+
+    try:
+        with TestClient(app) as client:
+            resp = client.post("/v1/chat/message", json={"message": "cậu có nhớ tôi là ai không?"})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["success"] is True
+        assert "AI engineer" in body["data"]["assistant_text"]
+        assert "deadline" not in body["data"]["assistant_text"].lower()
+        assert graph_called["value"] is False
+        assert persisted["value"] is True
         assert fake_db.committed is True
     finally:
         app.dependency_overrides.clear()
