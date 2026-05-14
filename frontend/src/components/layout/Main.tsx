@@ -43,7 +43,7 @@ function normalizePathname(pathname: string): string {
 
 export default function Main() {
     const location = useLocation()
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+    const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth >= 1024)
     const [appTheme, setAppTheme] = useState<ThemeOption>(() => readAppSettings().theme)
     /** Bumps every minute on `/serene` so time-of-day background refreshes without touching theme. */
     const [homeTimeTick, setHomeTimeTick] = useState(0)
