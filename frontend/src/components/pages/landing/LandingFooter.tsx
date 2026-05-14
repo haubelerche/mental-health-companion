@@ -5,6 +5,7 @@ import birdGif from '../../../assets/motion/bird.gif'
 const LINKS = [
     { label: 'Về chúng tôi', href: '#vi-sao' },
     { label: 'Chính sách bảo mật', href: '/privacy' },
+    { label: 'Xóa dữ liệu', href: '/delete-data' },
     { label: 'Điều khoản dịch vụ', href: '/terms' },
     { label: 'Liên hệ', href: 'mailto:hello@sereneai.vn' },
 ]
