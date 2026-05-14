@@ -69,8 +69,8 @@ function OptionPill({
             type="button"
             onClick={onClick}
             className={`relative flex w-full items-center gap-3 rounded-2xl border px-5 py-4 text-left transition-all active:scale-[0.98] ${selected
-                ? 'border-serene-primary bg-serene-primary/10 text-serene-ink shadow-sm'
-                : 'border-serene-border bg-white/70 text-serene-ink hover:border-serene-primary/40 hover:bg-white/90'
+                ? 'border-serene-primary bg-serene-primary/10 text-theme-primary shadow-sm'
+                : 'border-serene-border bg-theme-surface/70 text-theme-primary hover:border-serene-primary/40 hover:bg-theme-accent/20'
                 }`}
         >
             {children}
@@ -99,7 +99,7 @@ function StepSplash({ onNext }: { onNext: () => void }) {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.12 }}
-                className="font-display text-5xl text-serene-ink sm:text-6xl"
+                className="font-display text-5xl text-theme-primary sm:text-6xl"
             >
                 Serene
             </motion.h1>
@@ -108,7 +108,7 @@ function StepSplash({ onNext }: { onNext: () => void }) {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="mt-5 max-w-sm text-lg leading-relaxed text-serene-muted"
+                className="mt-5 max-w-sm text-lg leading-relaxed text-theme-secondary"
             >
                 Cùng mình thiết lập một nhịp chăm sóc vừa vặn với bạn, để phần
                 <span className="font-semibold text-serene-primary"> Hôm nay của bạn </span>
@@ -133,8 +133,8 @@ function StepNickname({ value, onChange }: { value: string; onChange: (v: string
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="font-display text-4xl text-serene-ink">Mình nên gọi bạn là gì?</h2>
-                <p className="mt-2 text-sm text-serene-muted">Tên thật, biệt danh, hay bất kỳ cái tên nào bạn thấy thoải mái.</p>
+                <h2 className="font-display text-4xl text-theme-primary">Mình nên gọi bạn là gì?</h2>
+                <p className="mt-2 text-sm text-theme-secondary">Tên thật, biệt danh, hay bất kỳ cái tên nào bạn thấy thoải mái.</p>
             </div>
             <input
                 type="text"
@@ -143,7 +143,7 @@ function StepNickname({ value, onChange }: { value: string; onChange: (v: string
                 placeholder="Nhập tên bạn muốn dùng..."
                 maxLength={64}
                 autoFocus
-                className="w-full rounded-2xl border border-serene-border bg-white/80 px-5 py-4 text-2xl font-medium text-serene-ink placeholder-serene-muted/60 outline-none transition focus:border-serene-primary focus:ring-2 focus:ring-serene-primary/20"
+                className="w-full rounded-2xl border border-serene-border bg-theme-surface/80 px-5 py-4 text-2xl font-medium text-theme-primary placeholder-theme-secondary/60 outline-none transition focus:border-serene-primary focus:ring-2 focus:ring-serene-primary/20"
             />
         </div>
     )
@@ -153,16 +153,16 @@ function StepDisclaimer({ value, onChange }: { value: boolean; onChange: (v: boo
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="font-display text-4xl text-serene-ink">Nơi mọi cảm xúc được lắng nghe</h2>
-                <p className="mt-2 text-sm text-serene-muted">
+                <h2 className="font-display text-4xl text-theme-primary">Nơi mọi cảm xúc được lắng nghe</h2>
+                <p className="mt-2 text-sm text-theme-secondary">
                     Serene được xây dựng để trở thành người bạn đồng hành, giúp bạn thấu hiểu bản thân và tìm thấy sự bình yên trong tâm trí.
                 </p>
             </div>
-            <div className="rounded-2xl border border-serene-border bg-white/80 p-5 text-sm leading-relaxed text-serene-muted">
+            <div className="rounded-2xl border border-serene-border bg-theme-surface/80 p-5 text-sm leading-relaxed text-theme-secondary">
                 Tuy nhiên, các nhân vật AI không có chức năng thay thế bác sĩ hay các lộ trình trị liệu chuyên sâu.
                 Hãy tìm đến chuyên gia y tế khi bạn cần một chẩn đoán y khoa chính thức.
             </div>
-            <label className="flex items-start gap-3 rounded-2xl border border-serene-border bg-white/70 px-4 py-4 text-sm text-serene-ink">
+            <label className="flex items-start gap-3 rounded-2xl border border-serene-border bg-theme-surface/70 px-4 py-4 text-sm text-theme-secondary">
                 <input
                     type="checkbox"
                     checked={value}
@@ -179,16 +179,16 @@ function StepEmotionalState({ value, onChange }: { value: EmotionalState | ''; o
     return (
         <div className="space-y-5">
             <div>
-                <h2 className="font-display text-4xl text-serene-ink">Dạo này bạn thấy thế nào?</h2>
-                <p className="mt-2 text-sm text-serene-muted">Chọn câu gần nhất với trạng thái hiện tại của bạn.</p>
+                <h2 className="font-display text-4xl text-theme-primary">Dạo này bạn thấy thế nào?</h2>
+                <p className="mt-2 text-sm text-theme-secondary">Chọn câu gần nhất với trạng thái hiện tại của bạn.</p>
             </div>
             <div className="space-y-3">
                 {EMOTIONAL_OPTIONS.map((opt) => (
                     <OptionPill key={opt.id} selected={value === opt.id} onClick={() => onChange(opt.id)}>
                         <opt.Icon className="h-7 w-7 shrink-0 text-serene-primary" aria-hidden />
                         <div>
-                            <p className="font-semibold text-serene-ink">{opt.label}</p>
-                            <p className="text-sm text-serene-muted">{opt.desc}</p>
+                            <p className="font-semibold text-theme-primary">{opt.label}</p>
+                            <p className="text-sm text-theme-secondary">{opt.desc}</p>
                         </div>
                     </OptionPill>
                 ))}
@@ -210,14 +210,14 @@ function StepPrimaryConcern({
     return (
         <div className="space-y-5">
             <div>
-                <h2 className="font-display text-4xl text-serene-ink">{title}</h2>
-                <p className="mt-2 text-sm text-serene-muted">Bạn có thể bỏ qua câu này nếu chưa muốn chia sẻ.</p>
+                <h2 className="font-display text-4xl text-theme-primary">{title}</h2>
+                <p className="mt-2 text-sm text-theme-secondary">Bạn có thể bỏ qua câu này nếu chưa muốn chia sẻ.</p>
             </div>
             <div className="space-y-3">
                 {PRIMARY_CONCERN_OPTIONS.map((opt) => (
                     <OptionPill key={opt.id} selected={value === opt.id} onClick={() => onChange(value === opt.id ? '' : opt.id)}>
                         {opt.Icon ? <opt.Icon className="h-6 w-6 shrink-0 text-serene-primary" aria-hidden /> : null}
-                        <span className="font-medium text-serene-ink">{opt.label}</span>
+                        <span className="font-medium text-theme-primary">{opt.label}</span>
                     </OptionPill>
                 ))}
             </div>
@@ -229,15 +229,15 @@ function StepSupportLevel({ value, onChange }: { value: SupportLevel | ''; onCha
     return (
         <div className="space-y-5">
             <div>
-                <h2 className="font-display text-4xl text-serene-ink">Mạng hỗ trợ của bạn hiện thế nào?</h2>
-                <p className="mt-2 text-sm text-serene-muted">Gia đình, bạn bè, đồng nghiệp... Câu này dùng để điều chỉnh gợi ý kết nối phù hợp.</p>
+                <h2 className="font-display text-4xl text-theme-primary">Mạng hỗ trợ của bạn hiện thế nào?</h2>
+                <p className="mt-2 text-sm text-theme-secondary">Gia đình, bạn bè, đồng nghiệp... Câu này dùng để điều chỉnh gợi ý kết nối phù hợp.</p>
             </div>
             <div className="space-y-3">
                 {SUPPORT_OPTIONS.map((opt) => (
                     <OptionPill key={opt.id} selected={value === opt.id} onClick={() => onChange(value === opt.id ? '' : (opt.id as SupportLevel))}>
                         <div>
-                            <p className="font-semibold text-serene-ink">{opt.label}</p>
-                            <p className="text-sm text-serene-muted">{opt.desc}</p>
+                            <p className="font-semibold text-theme-primary">{opt.label}</p>
+                            <p className="text-sm text-theme-secondary">{opt.desc}</p>
                         </div>
                     </OptionPill>
                 ))}
@@ -250,13 +250,13 @@ function StepAgeGroup({ value, onChange }: { value: string; onChange: (v: string
     return (
         <div className="space-y-5">
             <div>
-                <h2 className="font-display text-4xl text-serene-ink">Bạn thuộc nhóm tuổi nào?</h2>
-                <p className="mt-2 text-sm text-serene-muted">Giúp Serene điều chỉnh nội dung phù hợp hơn.</p>
+                <h2 className="font-display text-4xl text-theme-primary">Bạn thuộc nhóm tuổi nào?</h2>
+                <p className="mt-2 text-sm text-theme-secondary">Giúp Serene điều chỉnh nội dung phù hợp hơn.</p>
             </div>
             <div className="space-y-3">
                 {AGE_OPTIONS.map((opt) => (
                     <OptionPill key={opt.id} selected={value === opt.id} onClick={() => onChange(opt.id)}>
-                        <span className="font-medium text-serene-ink">{opt.label}</span>
+                        <span className="font-medium text-theme-primary">{opt.label}</span>
                     </OptionPill>
                 ))}
             </div>
@@ -271,8 +271,8 @@ function StepPractices({ value, onChange }: { value: string[]; onChange: (v: str
     return (
         <div className="space-y-5">
             <div>
-                <h2 className="font-display text-4xl text-serene-ink">Bạn muốn luyện tập điều gì?</h2>
-                <p className="mt-2 text-sm text-serene-muted">Chọn tất cả mục bạn quan tâm (ít nhất 1 mục).</p>
+                <h2 className="font-display text-4xl text-theme-primary">Bạn muốn luyện tập điều gì?</h2>
+                <p className="mt-2 text-sm text-theme-secondary">Chọn tất cả mục bạn quan tâm (ít nhất 1 mục).</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
                 {PRACTICE_OPTIONS.map((item) => {
@@ -282,15 +282,15 @@ function StepPractices({ value, onChange }: { value: string[]; onChange: (v: str
                             key={item.id}
                             type="button"
                             onClick={() => toggle(item.id)}
-                            className={`rounded-2xl border px-4 py-3 text-left transition active:scale-[0.98] ${selected
-                                ? 'border-serene-primary bg-serene-primary/10'
-                                : 'border-serene-border bg-white/70 hover:border-serene-primary/40'
+                            className={`rounded-2xl cursor-pointer border px-4 py-3 text-left transition active:scale-[0.98] ${selected
+                                ? 'border-serene-primary bg-theme-accent/20'
+                                : 'border-serene-border bg-theme-surface/70 hover:bg-theme-accent/20'
                                 }`}
                         >
-                            <div className="mb-1 flex text-serene-primary">
+                            <div className="mb-1 flex text-theme-primary">
                                 <item.Icon className="h-6 w-6" aria-hidden />
                             </div>
-                            <p className={`text-sm font-medium ${selected ? 'text-serene-primary' : 'text-serene-ink'}`}>{item.label}</p>
+                            <p className={`text-sm font-medium ${selected ? 'text-theme-accent-dim' : 'text-theme-primary'}`}>{item.label}</p>
                         </button>
                     )
                 })}
@@ -313,27 +313,27 @@ function StepSchedule({
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="font-display text-4xl text-serene-ink">Lịch sinh hoạt của bạn</h2>
-                <p className="mt-2 text-sm text-serene-muted">Serene dùng mốc giờ này để đề xuất check-in sáng/tối phù hợp hơn.</p>
+                <h2 className="font-display text-4xl text-theme-primary">Lịch sinh hoạt của bạn</h2>
+                <p className="mt-2 text-sm text-theme-secondary">Serene dùng mốc giờ này để đề xuất check-in sáng/tối phù hợp hơn.</p>
             </div>
 
             <div className="space-y-4">
-                <div className="rounded-2xl border border-serene-border bg-white/70 p-5">
-                    <p className="mb-2 text-sm font-medium text-serene-muted">Bạn thường thức dậy lúc</p>
+                <div className="rounded-2xl border border-serene-border bg-theme-surface/70 p-5">
+                    <p className="mb-2 text-sm font-medium text-theme-secondary">Bạn thường thức dậy lúc</p>
                     <input
                         type="time"
                         value={wakeTime}
                         onChange={(e) => onChangeWake(e.target.value)}
-                        className="w-full rounded-2xl border border-serene-border bg-white/80 px-4 py-3 text-2xl font-medium text-serene-ink outline-none transition focus:border-serene-primary focus:ring-2 focus:ring-serene-primary/20"
+                        className="w-full rounded-2xl border border-serene-border bg-theme-surface/80 px-4 py-3 text-2xl font-medium text-theme-primary outline-none transition focus:border-serene-primary focus:ring-2 focus:ring-theme-primary/20"
                     />
                 </div>
-                <div className="rounded-2xl border border-serene-border bg-white/70 p-5">
-                    <p className="mb-2 text-sm font-medium text-serene-muted">Bạn thường đi ngủ lúc</p>
+                <div className="rounded-2xl border border-serene-border bg-theme-surface/70 p-5">
+                    <p className="mb-2 text-sm font-medium text-theme-secondary">Bạn thường đi ngủ lúc</p>
                     <input
                         type="time"
                         value={bedTime}
                         onChange={(e) => onChangeBed(e.target.value)}
-                        className="w-full rounded-2xl border border-serene-border bg-white/80 px-4 py-3 text-2xl font-medium text-serene-ink outline-none transition focus:border-serene-primary focus:ring-2 focus:ring-serene-primary/20"
+                        className="w-full rounded-2xl border border-serene-border bg-theme-surface/80 px-4 py-3 text-2xl font-medium text-theme-primary outline-none transition focus:border-serene-primary focus:ring-2 focus:ring-serene-primary/20"
                     />
                 </div>
             </div>
@@ -345,16 +345,16 @@ function StepStressLevel({ value, onChange }: { value: number; onChange: (v: num
     return (
         <div className="space-y-7">
             <div>
-                <h2 className="font-display text-4xl text-serene-ink">Bạn đang quản lý stress và cảm xúc thế nào?</h2>
-                <p className="mt-2 text-sm text-serene-muted">Thông tin này chỉ để cá nhân hóa gợi ý, không thay thế đánh giá lâm sàng.</p>
+                <h2 className="font-display text-4xl text-theme-primary">Bạn đang quản lý stress và cảm xúc thế nào?</h2>
+                <p className="mt-2 text-sm text-theme-secondary">Thông tin này chỉ để cá nhân hóa gợi ý, không thay thế đánh giá lâm sàng.</p>
             </div>
-            <div className="rounded-2xl border border-serene-border bg-white/70 p-6">
+            <div className="rounded-2xl border border-serene-border bg-theme-surface/70 p-6">
                 <div className="flex h-14 items-center justify-center">
                     <motion.p
                         key={value}
                         initial={{ scale: 0.9, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        className="font-display text-3xl text-serene-primary"
+                        className="font-display text-3xl text-theme-primary"
                     >
                         {STRESS_LABELS[value]}
                     </motion.p>
@@ -397,18 +397,18 @@ function StepSummary({
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="font-display text-4xl text-serene-ink">Kế hoạch cá nhân của bạn đã sẵn sàng</h2>
-                <p className="mt-2 text-sm text-serene-muted">{reason}</p>
+                <h2 className="font-display text-4xl text-theme-primary">Kế hoạch cá nhân của bạn đã sẵn sàng</h2>
+                <p className="mt-2 text-sm text-theme-secondary">{reason}</p>
             </div>
             <div className="space-y-3">
                 {planItems.map((item) => (
-                    <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-serene-border bg-white/70 px-4 py-3">
+                    <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-serene-border bg-theme-surface/70 px-4 py-3">
                         <DailyPlanStepIcon id={item.icon} />
-                        <p className="font-medium text-serene-ink">{item.label}</p>
+                        <p className="font-medium text-theme-primary">{item.label}</p>
                     </div>
                 ))}
             </div>
-            <p className="text-xs text-serene-muted">
+            <p className="text-xs text-theme-secondary">
                 Bạn luôn có thể cập nhật các lựa chọn này sau trong Cài đặt.
             </p>
             {isSubmitting && <p className="text-sm font-medium text-serene-primary">Đang lưu thiết lập của bạn...</p>}
@@ -539,14 +539,14 @@ export function OnboardingFlow() {
                 <img src={bgGradient} alt="" className='w-full h-full object-cover' />
             </div>
             <main className="w-full max-w-4xl px-4 py-10 flex flex-col justify-center ">
-                <div className='bg-serene-bg/70 rounded-3xl shadow-lg p-6'>
+                <div className='bg-theme-surface rounded-3xl shadow-lg p-6'>
                     {!isSplash && (
                         <div className="p-6">
                             <div className="flex items-center gap-3">
                                 <button
                                     type="button"
                                     onClick={prev}
-                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-serene-border bg-white/70 text-serene-muted transition hover:bg-white"
+                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-theme-border bg-theme-surface/70 text-theme-secondary transition hover:bg-white"
                                     aria-label="Quay lại"
                                     disabled={isSubmitting}
                                 >
@@ -564,13 +564,13 @@ export function OnboardingFlow() {
                                     onClick={() => {
                                         void skipOnboarding()
                                     }}
-                                    className="text-xs font-medium text-serene-muted transition hover:text-serene-ink disabled:opacity-50"
+                                    className="font-medium text-theme-secondary transition hover:text-theme-primary disabled:opacity-50 cursor-pointer"
                                     disabled={isSubmitting || (currentStep <= 1 && !draft.disclaimerAccepted)}
                                 >
                                     Bỏ qua
                                 </button>
                             </div>
-                            <p className="mt-2 text-right text-[11px] text-serene-muted">
+                            <p className="mt-2 text-right text-[11px] text-theme-secondary">
                                 {currentStep} / {totalSteps - 1}
                             </p>
                         </div>
