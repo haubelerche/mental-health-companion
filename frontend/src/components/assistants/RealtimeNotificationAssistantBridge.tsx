@@ -35,24 +35,7 @@ export default function RealtimeNotificationAssistantBridge() {
     }, [])
 
     useEffect(() => {
-        const initialRefreshId = window.setTimeout(() => {
-            void refreshUnreadNotifications()
-        }, 0)
-        const intervalId = window.setInterval(() => {
-            void refreshUnreadNotifications()
-        }, 30_000)
-        const onFocus = () => void refreshUnreadNotifications()
-        const onVisible = () => {
-            if (document.visibilityState === 'visible') void refreshUnreadNotifications()
-        }
-        window.addEventListener('focus', onFocus)
-        document.addEventListener('visibilitychange', onVisible)
-        return () => {
-            window.clearTimeout(initialRefreshId)
-            window.clearInterval(intervalId)
-            window.removeEventListener('focus', onFocus)
-            document.removeEventListener('visibilitychange', onVisible)
-        }
+        void refreshUnreadNotifications()
     }, [refreshUnreadNotifications])
 
     const safeNotifications = useMemo<AppNotification[]>(() => {
