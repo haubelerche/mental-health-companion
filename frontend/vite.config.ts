@@ -16,6 +16,12 @@ export default defineConfig({
   },
   server:{
     host: true,
-    allowedHosts:true
+    allowedHosts:true,
+    proxy: {
+      '/v1': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      }
+    }
   }
 })
