@@ -125,7 +125,7 @@ def meal_checkin(
         or 0
     )
 
-    now = get_now()
+    now = get_now().replace(tzinfo=None)   # naive VN local time for DateTime column
     row = NutritionMealCheckin(
         checkin_id=make_id("nmc"),
         user_id=user_id,
