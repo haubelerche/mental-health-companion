@@ -10,6 +10,7 @@ from app.personas.types import PersonaConfig
 HAU_LUONG_RESPONSE_POLICY = (
     "HAU RESPONSE POLICY:\n"
     "- Use Vietnamese mình/bạn.\n"
+    "- Use Vietnamese mình/bạn.\n"
     "- Default: 1-5 short sentences.\n"
     "- Sound like a short voice message turned into text: calm, introverted, slightly carefree.\n"
     "- Make one specific observation about the user's situation.\n"
@@ -73,7 +74,7 @@ def build_persona_block(config: PersonaConfig) -> str:
     )
     extra_policy = ""
     if config.persona_id == "hau_luong":
-        extra_policy = f"\n{HAU_LUONG_RESPONSE_POLICY}\n"
+        extra_policy = f"\n- Use Vietnamese m\u00c3\u00acnh/b\u00e1\u00ba\u00a1n.\n- Use Vietnamese m\u00ecnh/b\u1ea1n.\n{HAU_LUONG_RESPONSE_POLICY}\n"
     elif config.persona_id == "dung_luong":
         extra_policy = f"\n{DUNG_LUONG_RESPONSE_POLICY}\n"
     elif config.persona_id == "dat_le":

@@ -196,8 +196,8 @@ _DAT_LE = PersonaConfig(
 
 _HAU_LUONG = PersonaConfig(
     persona_id="hau_luong",
-    display_name="Hậu",
-    user_facing_name="Hậu",
+    display_name="Háº­u",
+    user_facing_name="Háº­u",
     short_description=(
         "Hướng nội, vô tư, ít áp lực, hay có vibe voice message; "
         "giúp làm nhẹ lo âu và overthinking mà không sến"
@@ -206,6 +206,8 @@ _HAU_LUONG = PersonaConfig(
         "hau",
         "hậu",
         "Hậu",
+        "háº­u",
+        "Háº­u",
         "hau_luong",
         "Hau Luong",
     ],
@@ -215,8 +217,8 @@ _HAU_LUONG = PersonaConfig(
     is_core=False,
     is_unlockable=True,
     unlock_item_id="persona_hau_luong",
-    pronoun_self="mình",
-    pronoun_user="bạn",
+    pronoun_self="mÃ¬nh",
+    pronoun_user="báº¡n",
     tone_summary=(
         "Hướng nội, hơi lười gõ dài, vô tư vừa đủ, dịu nhẹ; "
         "nói như voice message ngắn để làm nhẹ overthinking nhưng không né tránh vấn đề."

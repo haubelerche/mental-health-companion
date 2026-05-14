@@ -15,6 +15,7 @@ ADVISOR_DATA_DOMAINS: dict[str, str] = {
     "strategy_resource_advisor": "strategy",
     "nutrition_support_advisor": "nutrition",
     "relevance_naturalness_critic": "relevance",
+    "safety_policy_layer": "safety",
 }
 
 
@@ -40,6 +41,7 @@ def _as_str_list(value: Any) -> list[str]:
 def _iter_tolerant_json_objects(text: str) -> Iterable[dict[str, Any]]:
     """Read strict JSON arrays and legacy comma-prefixed JSONL fragments."""
 
+    text = text.replace('}\n\n    "rubric_id"', '},\n    "rubric_id"')
     decoder = json.JSONDecoder()
     idx = 0
     size = len(text)
@@ -81,7 +83,7 @@ class AdvisorKnowledgeRecord:
         scope = tuple(_as_str_list(raw.get("advisor_scope")))
         locale = str(raw.get("locale") or "").strip()
         summary = str(raw.get("summary") or raw.get("content") or "").strip()
-        advice = tuple(_as_str_list(raw.get("advisor_advice_to_friend")))
+        advice = tuple(_as_str_list(raw.get("advisor_advice_to_friend") or raw.get("critic_advice_to_friend")))
         quality = raw.get("quality_flags") if isinstance(raw.get("quality_flags"), dict) else {}
         if not item_id or not scope or locale != "vi":
             return None

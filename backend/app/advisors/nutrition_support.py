@@ -11,7 +11,7 @@ from app.services.schemas.contracts import AdvisorAdvice
 def _normalize(text: str) -> str:
     folded = unicodedata.normalize("NFKD", text or "")
     folded = "".join(ch for ch in folded if not unicodedata.combining(ch))
-    return re.sub(r"\s+", " ", folded.replace("đ", "d").lower()).strip()
+    return re.sub(r"\s+", " ", folded.replace("đ", "d").replace("Đ", "D").lower()).strip()
 
 
 class NutritionSupportAdvisor(BaseAdvisor):
@@ -22,22 +22,25 @@ class NutritionSupportAdvisor(BaseAdvisor):
 
     def run(self, *, user_message: str, context_summary: str = "") -> AdvisorAdvice:
         text = _normalize(user_message)
-        should_use = any(
-            k in text
-            for k in (
-                "ăn gì",
-                "dinh dưỡng",
-                "bỏ bữa",
-                "không ăn",
-                "meal",
-                "nutrition",
-                "ăn cơm",
-                "đớp gì",
-                "hốc gì",
-                "nạp vào",
-                "đá bát"
-            )
-        )
+        should_use = any(k in text for k in (
+            "an gi",
+            "dinh duong",
+            "bo bua",
+            "khong an",
+            "bua sang",
+            "bua trua",
+            "bua toi",
+            "goi y dinh duong",
+            "calo",
+            "protein",
+            "meal",
+            "nutrition",
+            "an com",
+            "dop gi",
+            "hoc gi",
+            "nap vao",
+            "da bat",
+        ))
         records = self._knowledge.retrieve(
             advisor_id=self.advisor_id,
             user_message=user_message,

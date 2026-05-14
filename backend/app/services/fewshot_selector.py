@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.core.config import get_settings
 from app.services.interaction_need_classifier import classify_interaction_need
+from app.services.memory_recall import classify_turn_kind
 
 
 @dataclass(frozen=True)
@@ -77,6 +79,11 @@ def build_fewshot_style_block(
     persona_id: str = "dung_luong",
     limit: int = 3,
 ) -> str:
+    if not get_settings().fewshot_style_enabled:
+        return ""
+    turn_kind = classify_turn_kind(user_message, sos_triggered=risk_mode in {"sos", "safety"})
+    if turn_kind in {"identity_recall", "factual_memory_recall", "greeting"}:
+        return ""
     interaction_need = classify_interaction_need(
         user_message,
         distress_score=distress_score,

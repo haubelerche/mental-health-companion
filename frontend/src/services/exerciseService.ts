@@ -53,6 +53,22 @@ export const FALLBACK_EXERCISES: ExerciseItem[] = [
         thumbnail: null,
     },
     {
+        id: 'anxiety_breathing',
+        type: 'breathing_exercise',
+        title: 'Thở khi lo âu',
+        description: 'Bản ngắn của nhịp 4-7-8 để có một điểm tựa khi cảm xúc đang dâng cao.',
+        duration_sec: 120,
+        route: '/serene/exercises?exercise=anxiety_breathing',
+        pattern: { inhale: 4, hold: 7, exhale: 8 },
+        steps: [
+            'Đặt một tay lên ngực hoặc bụng nếu thấy ổn.',
+            'Hít vào bằng mũi trong 4 giây.',
+            'Giữ hơi thở trong 7 giây, hoặc ngắn hơn nếu khó chịu.',
+            'Thở ra thật chậm trong 8 giây.',
+        ],
+        thumbnail: null,
+    },
+    {
         id: 'equal_breath',
         type: 'breathing_exercise',
         title: 'Equal',

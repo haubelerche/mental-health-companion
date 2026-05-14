@@ -39,6 +39,22 @@ class AdvisorSelector:
         if any(
             k in text
             for k in (
+                "tram cam",
+                "roi loan",
+                "chan doan",
+                "benh gi",
+                "bipolar",
+                "luong cuc",
+                "panic",
+                "tu tu",
+                "tu hai",
+                "muon chet",
+            )
+        ):
+            add("safety_policy_layer")
+        if any(
+            k in text
+            for k in (
                 "an gi",
                 "an uong",
                 "khong con thay vi",
@@ -103,6 +119,7 @@ class AdvisorSelector:
             add("empathy_advisor")
         if len(text) > 320:
             add("reflection_advisor")
+            add("relevance_naturalness_critic")
 
         if not picked:
             picked = ["reflection_advisor"]
