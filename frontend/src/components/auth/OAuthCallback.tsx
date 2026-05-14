@@ -12,7 +12,7 @@ function getQueryParams(search: string) {
 }
 
 export default function OAuthCallback() {
-    const { refreshUser } = useAuth()
+    const { user, isLoading } = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
     const [state, setState] = useState<OAuthState>('idle')
@@ -26,29 +26,19 @@ export default function OAuthCallback() {
             return
         }
 
-        let cancelled = false
-        const finishOAuth = async () => {
+        if (isLoading) {
             setState('processing')
-            try {
-                await refreshUser()
-                if (!cancelled) {
-                    toast.success('Đăng nhập OAuth thành công!')
-                    navigate(ROUTE_PATHS.home, { replace: true })
-                }
-            } catch {
-                if (!cancelled) {
-                    setState('error')
-                    toast.error('Không thể hoàn tất đăng nhập. Vui lòng thử lại.')
-                }
-            }
+            return
         }
 
-        void finishOAuth()
-
-        return () => {
-            cancelled = true
+        if (user) {
+            toast.success('Đăng nhập thành công!')
+            navigate(ROUTE_PATHS.home, { replace: true })
+        } else {
+            setState('error')
+            toast.error('Không thể hoàn tất đăng nhập. Vui lòng thử lại.')
         }
-    }, [missingEmail, navigate, provider, refreshUser])
+    }, [isLoading, user, missingEmail, navigate, provider])
 
     const isError = state === 'error' || missingEmail
 
