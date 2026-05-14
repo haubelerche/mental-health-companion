@@ -120,7 +120,7 @@
   border: 3px solid var(--mint-dim);
   border-bottom-width: 7px;
   border-radius: 5px;
-  padding: 14px 32px;
+  padding: 5px 15px;
   cursor: pointer;
   transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.2s ease;
   box-shadow: 0 0 20px var(--pixel-shadow-mint);
