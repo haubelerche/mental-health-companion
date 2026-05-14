@@ -89,12 +89,23 @@ export default function Register() {
                 <div className="absolute inset-0 bg-serene-primary/10 mix-blend-overlay" />
             </div>
 
-            <nav className="fixed top-0 z-20 w-full px-8 py-6">
-                <Link to={ROUTE_PATHS.landing} className="pixel-headline" style={{ fontSize: '2.5rem', textDecoration: 'none' }}>Serene</Link>
-            </nav>
 
             <main className="auth-main">
-                <section className="auth-card max-w-xl p-8 sm:p-12">
+                     <nav className="mb-3 text-center">
+                <Link to={ROUTE_PATHS.landing} className="pixel-headline" 
+                    style={{
+                            fontFamily: 'var(--font-pixel)',
+                            fontSize: 'clamp(6.5rem, 2vw, 4.5rem)',
+                            color: 'var(--yellow)',
+                            textDecoration: 'none',
+                            textShadow: '2px 2px 0 rgba(2,8,18,0.8)',
+                            flexShrink: 0,
+                            fontWeight: '800',
+                            letterSpacing: '2px',
+                        }}
+                >Serene</Link>
+            </nav>
+                <div className="auth-card max-w-xl p-8 sm:p-10">
                     <header className="mb-10 text-center">
                         <div className="flex items-center justify-center gap-3">
                             <Link to={ROUTE_PATHS.login} >
@@ -215,7 +226,7 @@ export default function Register() {
                             </Link>
                         </p>
                     </form>
-                </section>
+                </div>
             </main>
 
             <footer className="auth-footer-meta">
