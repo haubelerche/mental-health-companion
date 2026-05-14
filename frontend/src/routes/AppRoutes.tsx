@@ -8,6 +8,7 @@ import Main from '../components/layout/Main.tsx'
 import Support from '../components/pages/Support.tsx'
 
 import Landing from '../components/pages/landing/Landing.tsx'
+import PrivacyPolicy from '../components/pages/PrivacyPolicy.tsx'
 import Reflect from '../components/pages/reflect/Reflect.tsx'
 import Resources from '../components/pages/resource/Resources.tsx'
 import Nutrition from '../components/nutrition/Nutrition.tsx'
@@ -88,6 +89,8 @@ export default function AppRoutes() {
             <Route path={ROUTE_PATHS.register} element={<Register />} />
             <Route path={ROUTE_PATHS.forget} element={<Forget />} />
             <Route path={ROUTE_PATHS.landing} element={<Landing />} />
+            <Route path={ROUTE_PATHS.privacy} element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<Navigate to={ROUTE_PATHS.privacy} replace />} />
             <Route path={ROUTE_PATHS.onboardingPolicy} element={<Navigate to={ROUTE_PATHS.onboarding} replace />} />
 
             <Route
