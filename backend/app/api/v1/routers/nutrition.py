@@ -125,6 +125,7 @@ def meal_checkin(
         or 0
     )
 
+    now = get_now().replace(tzinfo=None)   # naive VN local time for DateTime column
     row = NutritionMealCheckin(
         checkin_id=make_id("nmc"),
         user_id=user_id,
@@ -134,6 +135,8 @@ def meal_checkin(
         photo_url=payload.photo_url,
         mood_before=payload.mood_before,
         mood_after=payload.mood_after,
+        created_at=now,
+        updated_at=now,
     )
     db.add(row)
     db.flush()
