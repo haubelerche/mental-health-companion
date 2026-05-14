@@ -85,11 +85,11 @@
 }
 
 @utility auth-main {
-    @apply relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-24;
+    @apply relative z-10 flex min-h-screen flex-col items-center justify-center p-3;
 }
 
 @utility auth-brand {
-    @apply font-display text-7xl italic tracking-tight text-serene-ink sm:text-8xl;
+    @apply font-display  italic tracking-tight text-serene-ink;
 }
 
 @utility auth-brand-sub {
@@ -97,7 +97,7 @@
 }
 
 @utility auth-card {
-    @apply w-full rounded-4xl bg-serene-bg/65 backdrop-blur-2xl;
+    @apply w-full rounded-4xl bg-serene-bg;
     box-shadow: 0 40px 80px rgba(47, 52, 46, 0.08);
 }
 

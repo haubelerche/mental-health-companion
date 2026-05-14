@@ -69,12 +69,12 @@ export default function Login() {
 
             <div className="auth-noise" />
 
-            <main className="auth-main px-6 py-10">
-                <div className="mb-8 text-center">
+            <main className="auth-main">
+                <div className="mb-3 text-center">
                     <Link to={ROUTE_PATHS.landing} className="pixel-headline" 
                       style={{
                         fontFamily: 'var(--font-pixel)',
-                        fontSize: 'clamp(4.5rem, 2vw, 4.5rem)',
+                        fontSize: 'clamp(6.5rem, 2vw, 4.5rem)',
                         color: 'var(--yellow)',
                         textDecoration: 'none',
                         textShadow: '2px 2px 0 rgba(2,8,18,0.8)',
@@ -86,18 +86,16 @@ export default function Login() {
                     </Link>
                 </div>
 
-                <section className="auth-card max-w-md p-8 sm:p-10">
+                <div className="auth-card max-w-xl p-8 sm:p-10">
                     <header className="mb-10 text-center">
-                        <h2 className="font-display text-2xl text-serene-ink sm:text-[28px]">
-                            Chào mừng bạn trở lại
-                        </h2>
-                        <p className="mt-2 text-sm text-serene-muted/90">
-                            Tìm lại sự bình yên trong tâm hồn.
+                        <h1 className="font-display text-4xl text-serene-ink sm:text-5xl">Chào mừng bạn trở lại</h1>
+                       <p className="mt-3 text-xs uppercase tracking-[0.22em] text-serene-muted/80">
+                            Tìm lại sự bình yên trong tâm hồn
                         </p>
                     </header>
 
                 
-                    <form className="space-y-8" onSubmit={handleSubmit}>
+                    <form className="space-y-6" onSubmit={handleSubmit}>
                         <div>
                             <label
                                 htmlFor="email"
@@ -171,7 +169,7 @@ export default function Login() {
                             type="button"
                             onClick={() => handleOAuthLogin('google')}
                             disabled={Boolean(oauthLoading)}
-                            className="inline-flex items-center justify-center gap-3 rounded-2xl border border-serene-outline/70 cursor-pointer bg-white/70 px-4 py-2 text-sm font-medium text-serene-ink transition hover:border-serene-primary/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+                            className=" inline-flex items-center justify-center gap-3 rounded-2xl border border-serene-outline/70 cursor-pointer bg-white/70 px-4 py-2 text-sm font-medium text-serene-ink transition hover:border-serene-primary/50 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
                         >
                             <img src={LogoGoogle} alt="Google" className="h-7 w-7" />
                             {oauthLoading === 'google' ? 'Đang mở Google...' : 'Tiếp tục với Google'}
@@ -198,7 +196,7 @@ export default function Login() {
                             </Link>
                         </p>
                     </footer>
-                </section>
+                </div>
 
 
             </main>
