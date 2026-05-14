@@ -14,6 +14,7 @@ export interface ExerciseCardData {
   tone: string
   gradient: string
   icon: LucideIcon
+  audioSrc?: string
 }
 
 interface ExerciseCardProps {
@@ -34,52 +35,60 @@ export default function ExerciseCard({ exercise, onStart, index }: ExerciseCardP
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 12 }}
-      transition={{ duration: 0.24, delay: index * 0.03 }}
+      transition={{ duration: 0.3, delay: index * 0.05 }}
       onClick={() => onStart(exercise.id)}
       aria-label={`Bắt đầu ${exercise.title}, ${exercise.durationLabel}, ${exercise.recommendedFor}`}
-      className={`group relative flex h-auto min-h-[300px] flex-col overflow-hidden rounded-[24px] border p-6 text-left shadow-[0_16px_36px_rgba(16,35,31,0.10)] backdrop-blur-sm transition-transform duration-200 ease-out hover:-translate-y-1 motion-reduce:transform-none motion-reduce:transition-none motion-reduce:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2 ${
-        isDark
-          ? 'border-white/15 bg-[#10231F]/90 hover:bg-[#10231F]/95'
-          : 'border-white/35 bg-[#F8F1DC]/95 hover:bg-[#F8F1DC]/98'
-      }`}
+      className={`pixel-card group relative flex h-auto min-h-[280px] flex-col overflow-hidden p-7 text-left transition-all duration-300 hover:translate-x-[-2px] hover:translate-y-[-2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5F7F68] focus-visible:ring-offset-2`}
+      style={{
+        borderColor: exercise.gradient,
+        borderWidth: '2px',
+        borderRadius: '4px',
+      }}
     >
-      <div className={`absolute inset-0 bg-gradient-to-br ${exercise.gradient} opacity-60 rounded-[24px] pointer-events-none`} aria-hidden />
-      <div className="relative flex h-full flex-col">
-        <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.1em] shadow-sm whitespace-normal ${isDark ? 'border-white/20 bg-white/10 text-[#E8DCC8]' : 'border-white/50 bg-white/40 text-[#2d4a3f]'}`}>
-            <Icon className="h-4 w-4 flex-shrink-0" />
-            <span>{exercise.tone}</span>
-          </span>
-          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold shadow-sm whitespace-normal ${isDark ? 'border-white/20 bg-white/10 text-[#E8DCC8]' : 'border-white/50 bg-white/40 text-[#2d4a3f]'}`}>
-            <Clock3 className="h-4 w-4 flex-shrink-0" />
-            <span>{exercise.durationLabel}</span>
+      <div className="relative flex h-full flex-col gap-3">
+        <div className="flex items-start justify-between">
+          <div 
+            className="flex h-12 w-12 items-center justify-center border-2 bg-theme-bg-secondary" 
+            style={{ borderColor: exercise.gradient, color: exercise.gradient }}
+          >
+            <Icon className="h-6 w-6" />
+          </div>
+          <span 
+            className="pixel-label inline-flex items-center gap-1 px-2 py-1 text-[12px] font-bold"
+            style={{ color: exercise.gradient }}
+          >
+            <Clock3 className="h-3 w-3" />
+            {exercise.durationLabel}
           </span>
         </div>
 
-        <h3 className={`mt-3 text-lg font-bold tracking-tight line-clamp-2 leading-tight ${isDark ? 'text-[#F4E8C8]' : 'text-[#1a2623]'}`}>
-          {exercise.title}
-        </h3>
-        <p className={`mt-3 text-sm leading-5 line-clamp-3 font-medium ${isDark ? 'text-[#E8DCC8]/90' : 'text-[#2d4a3f]'}`}>
-          {exercise.description}
-        </p>
+        <div className="mt-2">
+          <p className="pixel-label text-[12px] font-bold opacity-80" style={{ color: exercise.gradient }}>
+            {exercise.tone}
+          </p>
+          <h3 className="pixel-headline-sm mt-1 text-2xl font-bold tracking-tight" style={{ color: exercise.gradient, fontSize: '1.8rem' }}>
+            {exercise.title}
+          </h3>
+          <p className="vn-body mt-2 text-sm leading-relaxed line-clamp-2 font-medium">
+            {exercise.description}
+          </p>
+        </div>
 
-        <div className="mt-auto space-y-4 pt-5">
-          <div>
-            <p className={`text-[11px] uppercase tracking-[0.25em] font-bold ${isDark ? 'text-[#D4AF7A]' : 'text-[#5F7F68]'}`}>
+        <div className="mt-auto pt-6 flex items-end justify-between">
+          <div className="flex flex-col gap-1">
+            <p className="pixel-label text-[10px] font-bold opacity-50">
               Cấu trúc
             </p>
-            <p className={`mt-2 text-base font-bold ${isDark ? 'text-[#F4E8C8]' : 'text-[#1a2623]'}`}>
+            <p className="vn-body text-sm font-bold opacity-90">
               {exercise.structure}
             </p>
           </div>
-
-          <div className="flex items-end justify-between gap-3">
-            <p className={`flex-1 text-sm leading-5 line-clamp-2 font-medium ${isDark ? 'text-[#E8DCC8]/85' : 'text-[#2d4a3f]'}`}>
-              {exercise.recommendedFor}
-            </p>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#5F7F68] text-white transition-transform duration-200 ease-out group-hover:translate-x-0.5 group-hover:scale-110 flex-shrink-0 shadow-md">
-              <Play className="h-5 w-5 fill-current" />
-            </div>
+          
+          <div 
+            className="flex h-10 w-10 items-center justify-center border-2 transition-all duration-300 group-hover:scale-110 bg-theme-bg-secondary"
+            style={{ borderColor: exercise.gradient, color: exercise.gradient }}
+          >
+            <Play className="h-4 w-4 fill-current ml-0.5" />
           </div>
         </div>
       </div>
