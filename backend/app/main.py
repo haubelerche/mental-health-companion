@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.api import api_router
 from app.core.config import get_settings
-from app.core.errors import AppError
+from app.core.errors import AppError, humanize_validation_errors
 from app.core.responses import fail
 from app.services.db.init_db import init_db
 from fastapi.middleware.cors import CORSMiddleware
@@ -106,73 +106,7 @@ def app_error_handler(_: Request, exc: AppError):
 
 @app.exception_handler(RequestValidationError)
 def validation_error_handler(_: Request, exc: RequestValidationError):
-    """Translate Pydantic validation errors into user-friendly Vietnamese messages."""
-    # Field name translations
-    _FIELD_LABELS: dict[str, str] = {
-        "email": "Email",
-        "password": "Mật khẩu",
-        "new_password": "Mật khẩu mới",
-        "display_name": "Tên hiển thị",
-        "nickname": "Tên gọi",
-        "disclaimer_accepted": "Chấp nhận điều khoản",
-        "message": "Nội dung tin nhắn",
-        "content": "Nội dung",
-        "totp_code": "Mã xác thực",
-        "token": "Token",
-        "mood": "Tâm trạng",
-        "items_text": "Nội dung bữa ăn",
-        "meal_slot": "Bữa ăn",
-        "session_id": "Phiên trò chuyện",
-        "persona_id": "Persona",
-    }
-
-    # Error type translations
-    _ERROR_MSGS: dict[str, str] = {
-        "string_too_short": "quá ngắn",
-        "string_too_long": "quá dài",
-        "missing": "không được để trống",
-        "value_error": "không hợp lệ",
-        "string_pattern_mismatch": "không đúng định dạng",
-        "int_parsing": "phải là số",
-        "bool_parsing": "phải là đúng/sai",
-        "enum": "giá trị không hợp lệ",
-    }
-
-    errors = exc.errors()
-    messages: list[str] = []
-    for err in errors:
-        loc = err.get("loc", ())
-        field = str(loc[-1]) if loc else "dữ liệu"
-        label = _FIELD_LABELS.get(field, field)
-        err_type = err.get("type", "")
-
-        # Special handling for common auth validation cases
-        if field == "email" and "value_error" in err_type:
-            messages.append("Email không đúng định dạng")
-        elif field == "password" and "string_too_short" in err_type:
-            ctx = err.get("ctx", {})
-            min_len = ctx.get("min_length", 8)
-            messages.append(f"Mật khẩu phải có ít nhất {min_len} ký tự")
-        elif field == "password" and "string_too_long" in err_type:
-            messages.append("Mật khẩu quá dài")
-        elif field == "display_name" and "string_too_short" in err_type:
-            messages.append("Tên hiển thị không được để trống")
-        elif err_type == "missing":
-            messages.append(f"{label} không được để trống")
-        else:
-            friendly = _ERROR_MSGS.get(err_type, "không hợp lệ")
-            messages.append(f"{label} {friendly}")
-
-    # Deduplicate while preserving order
-    seen: set[str] = set()
-    unique: list[str] = []
-    for m in messages:
-        if m not in seen:
-            seen.add(m)
-            unique.append(m)
-
-    human_message = ". ".join(unique) if unique else "Dữ liệu không hợp lệ"
-    return fail("INVALID_PARAMETER", human_message, 400)
+    return fail("INVALID_PARAMETER", humanize_validation_errors(exc), 400)
 
 
 @app.exception_handler(Exception)
