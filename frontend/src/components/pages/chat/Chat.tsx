@@ -1118,7 +1118,7 @@ export default function Chat() {
                                 </button>
                                 {showOptions && (
                                     <div
-                                        className="absolute right-0 top-10 z-50 w-80 border border-[#3a6040]/55 p-3 shadow-2xl"
+                                        className="fixed right-4 top-14 z-50 w-80 border border-[#3a6040]/55 p-3 shadow-2xl"
                                         style={{ background: 'rgba(6,14,9,0.97)', backdropFilter: 'blur(12px)' }}
                                     >
                                         <p className="mb-3 text-xs uppercase tracking-[0.28em] text-[#fff4dc]/75">Tùy chọn</p>
@@ -1207,7 +1207,7 @@ export default function Chat() {
                                         'px-4 py-2 text-[10px] font-bold tracking-[0.22em] uppercase transition-colors',
                                         activeTab === tab
                                             ? 'border-b-2 border-[#f8c96b] text-[#f8c96b]'
-                                            : 'text-[#fff4dc]/30/60',
+                                            : 'text-[#fff4dc]/50 hover:text-[#fff4dc]/80',
                                     ].join(' ')}
                                 >
                                     {tab === 'chat' ? 'Chat' : 'Ký ức'}
@@ -1350,40 +1350,42 @@ export default function Chat() {
                     )}
 
                     {/*  Input bar  */}
-                    <form
-                        onSubmit={handleSend}
-                        className="shrink-0 px-5 py-3 sm:px-7"
-                        style={{ borderTop: '1px solid rgba(58,96,64,0.42)', background: 'rgba(3,7,5,0.98)' }}
-                    >
-                        <div className="flex items-center gap-3">
-                            <span className="hidden font-mono text-sm text-[#3a6040]/65 sm:inline" aria-hidden="true">
-                                &gt;&gt;
-                            </span>
-                            <input
-                                type="text"
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                disabled={isGuestMode && guestSecondsLeft <= 0}
-                                data-tour-id="chat-input"
-                                placeholder="Chia sẻ điều bạn đang cảm thấy..."
-                                className="flex-1 border-0 bg-transparent px-2 py-1.5 text-sm text-[#b8dfc8] placeholder:text-[#fff4dc]/20 focus:outline-none"
-                            />
-                            <button
-                                type="submit"
-                                disabled={!canSend}
-                                className="flex h-8 shrink-0 items-center justify-center px-5 text-[11px] font-bold uppercase tracking-[0.1em] text-[#c8f0d8] transition disabled:cursor-not-allowed disabled:opacity-30"
-                                style={{
-                                    background: '#2d5535',
-                                    border: '2px solid rgba(106,170,112,0.42)',
-                                    boxShadow: '2px 2px 0 rgba(0,0,0,0.5)',
-                                }}
-                                aria-label="Gửi tin nhắn"
-                            >
-                                <span className="hidden sm:inline">SEND</span>
-                                <Send className="h-4 w-4 sm:hidden" />
-                            </button>
-                        </div>
-                    </form>
+                    {activeTab === 'chat' && (
+                        <form
+                            onSubmit={handleSend}
+                            className="shrink-0 px-5 py-3 sm:px-7"
+                            style={{ borderTop: '1px solid rgba(58,96,64,0.42)', background: 'rgba(3,7,5,0.98)' }}
+                        >
+                            <div className="flex items-center gap-3">
+                                <span className="hidden font-mono text-sm text-[#3a6040]/65 sm:inline" aria-hidden="true">
+                                    &gt;&gt;
+                                </span>
+                                <input
+                                    type="text"
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    disabled={isGuestMode && guestSecondsLeft <= 0}
+                                    data-tour-id="chat-input"
+                                    placeholder="Chia sẻ điều bạn đang cảm thấy..."
+                                    className="flex-1 border-0 bg-transparent px-2 py-1.5 text-sm text-[#b8dfc8] placeholder:text-[#fff4dc]/20 focus:outline-none"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!canSend}
+                                    className="flex h-8 shrink-0 items-center justify-center px-5 text-[11px] font-bold uppercase tracking-[0.1em] text-[#c8f0d8] transition disabled:cursor-not-allowed disabled:opacity-30"
+                                    style={{
+                                        background: '#2d5535',
+                                        border: '2px solid rgba(106,170,112,0.42)',
+                                        boxShadow: '2px 2px 0 rgba(0,0,0,0.5)',
+                                    }}
+                                    aria-label="Gửi tin nhắn"
+                                >
+                                    <span className="hidden sm:inline">SEND</span>
+                                    <Send className="h-4 w-4 sm:hidden" />
+                                </button>
+                            </div>
+                        </form>
+                    )}
                 </div>
             </div>
             {activeDistressPopup && (
