@@ -1,4 +1,4 @@
-"""
+﻿"""
 LangGraph non-SOS flow: DistressRouter -> AnalystNode (optional) -> FriendNode.
 High-risk SOS is handled outside this graph via deterministic safety handling.
 Naming reference: docs/PRD.md + docs/GLOSSARY_RUNTIME.md.
@@ -38,10 +38,10 @@ logger = logging.getLogger(__name__)
 class AnalystBundle:
     """Typed analyst output passed via state to FriendNode. Frozen to prevent mutation."""
 
-    clinical_note: str          # ≤200 chars, Vietnamese, no diagnosis
+    clinical_note: str          # â‰¤200 chars, Vietnamese, no diagnosis
     emotional_theme: str        # snake_case, English (e.g. "academic_pressure")
     suggested_focus: str | None # optional angle for FriendNode to explore
-    risk_indicators: list[str]  # ≤3 observable signals, no diagnosis
+    risk_indicators: list[str]  # â‰¤3 observable signals, no diagnosis
 
 
 # ~2.5 chars per token for mixed Vietnamese/English content (conservative).
@@ -70,7 +70,7 @@ class ChatGraphState(TypedDict, total=False):
     active_goals: list[str]
     effective_coping: list[str]
     clinical_trajectory: str | None
-    distress_score: float           # FROZEN — distress_router must never mutate this
+    distress_score: float           # FROZEN â€” distress_router must never mutate this
     active_persona_id: str
     active_memory_text: str         # optional canonical memory text; usually supplied via mem0_facts
     graph_patterns: dict            # UserPatternsResult from Neo4j, pre-fetched async; {} if unavailable
@@ -85,8 +85,8 @@ class ChatGraphState(TypedDict, total=False):
     route_reason: str
 
     # === INTERNAL ANALYST AGENT (`AnalystNode`) OUTPUT ===
-    analyst_instruction: str        # raw string — Phase 2 will migrate to analyst_bundle
-    analyst_bundle: AnalystBundle | None  # typed output — populated from Phase 2 onward
+    analyst_instruction: str        # raw string â€” Phase 2 will migrate to analyst_bundle
+    analyst_bundle: AnalystBundle | None  # typed output â€” populated from Phase 2 onward
 
     # === SERENE CONVERSATION AGENT (`FriendNode`) OUTPUT ===
     reply: str
@@ -140,13 +140,13 @@ def _persona_temperature(persona_id: str, *, use_fast_model: bool, distress_scor
             return 0.42
         return 0.50
     if canonical == "hau_luong":
-        # Safety gate deactivates Hậu at distress >= 0.60; this branch is the
+        # Safety gate deactivates Háº­u at distress >= 0.60; this branch is the
         # belt-and-suspenders for any caller that bypassed the gate.
         if distress_score >= 0.60:
             return 0.30
         if distress_score >= 0.45:
             return 0.48
-        # Effective low-risk Hậu temperature is locked at 0.70 to keep her
+        # Effective low-risk Háº­u temperature is locked at 0.70 to keep her
         # voice-message vibe playful but grounded. Clamp into [0.1, 0.9] so a
         # future base-temperature change cannot drift the resolved value out
         # of the persona's safety band.
@@ -167,15 +167,15 @@ def _persona_fallback_reply(persona_id: str, distress_score: float) -> str:
     persona_id = normalize_persona_id(persona_id)
     if persona_id == "hau_luong":
         return (
-            "Mình vừa bị ngắt một chút, nhưng vẫn ở đây. Bạn cứ nói tiếp từng ý ngắn thôi, mình nghe cùng bạn."
+            "MÃ¬nh vá»«a bá»‹ ngáº¯t má»™t chÃºt, nhÆ°ng váº«n á»Ÿ Ä‘Ã¢y. Báº¡n cá»© nÃ³i tiáº¿p tá»«ng Ã½ ngáº¯n thÃ´i, mÃ¬nh nghe cÃ¹ng báº¡n."
         )
     if persona_id == "dat_le":
-        return "Tôi vẫn ở đây cùng bạn. Nếu bạn muốn, tôi sẽ cùng bạn đi từng bước để nhìn rõ điều đang làm bạn nặng nhất."
+        return "TÃ´i váº«n á»Ÿ Ä‘Ã¢y cÃ¹ng báº¡n. Náº¿u báº¡n muá»‘n, tÃ´i sáº½ cÃ¹ng báº¡n Ä‘i tá»«ng bÆ°á»›c Ä‘á»ƒ nhÃ¬n rÃµ Ä‘iá»u Ä‘ang lÃ m báº¡n náº·ng nháº¥t."
     if persona_id == "dung_luong":
-        return "Tớ vẫn ở đây với cậu nè. Nếu cậu muốn, mình gỡ từng chút một từ điều đang làm cậu nặng lòng nhất nhé."
+        return "Tá»› váº«n á»Ÿ Ä‘Ã¢y vá»›i cáº­u nÃ¨. Náº¿u cáº­u muá»‘n, mÃ¬nh gá»¡ tá»«ng chÃºt má»™t tá»« Ä‘iá»u Ä‘ang lÃ m cáº­u náº·ng lÃ²ng nháº¥t nhÃ©."
     if distress_score >= 0.6:
-        return "Mình bị ngắt quãng một chút nhưng vẫn ở đây cùng bạn. Bạn có thể nói tiếp điều đang làm bạn nặng nhất lúc này nhé?"
-    return "Mình vừa bị ngắt quãng một chút, nhưng mình vẫn ở đây để lắng nghe bạn."
+        return "MÃ¬nh bá»‹ ngáº¯t quÃ£ng má»™t chÃºt nhÆ°ng váº«n á»Ÿ Ä‘Ã¢y cÃ¹ng báº¡n. Báº¡n cÃ³ thá»ƒ nÃ³i tiáº¿p Ä‘iá»u Ä‘ang lÃ m báº¡n náº·ng nháº¥t lÃºc nÃ y nhÃ©?"
+    return "MÃ¬nh vá»«a bá»‹ ngáº¯t quÃ£ng má»™t chÃºt, nhÆ°ng mÃ¬nh váº«n á»Ÿ Ä‘Ã¢y Ä‘á»ƒ láº¯ng nghe báº¡n."
 def _trace_span(correlation_id: str, span: str, *, duration_ms: float, token_count: int = 0, extra: dict[str, Any] | None = None) -> None:
     payload = {
         "correlation_id": correlation_id,
@@ -188,9 +188,9 @@ def _trace_span(correlation_id: str, span: str, *, duration_ms: float, token_cou
     logger.info("[Trace] %s", payload)
 
 
-# Routing thresholds — single source of truth for distress_router decisions.
-_ANALYST_DISTRESS_THRESHOLD: float = 0.72   # distress >= this → route to analyst
-_FAST_MODEL_DISTRESS_THRESHOLD: float = 0.55 # distress < this (+ short msg) → fast model
+# Routing thresholds â€” single source of truth for distress_router decisions.
+_ANALYST_DISTRESS_THRESHOLD: float = 0.82   # distress >= this â†’ route to analyst
+_FAST_MODEL_DISTRESS_THRESHOLD: float = 0.55 # distress < this (+ short msg) â†’ fast model
 _FAST_MODEL_MSG_LEN_MAX: int = 220           # max message length for fast-model eligibility
 
 _GREETING_RE = re.compile(r"\b(chao|hi|hello|helo|xin chao|yo|hey)\b", re.IGNORECASE)
@@ -223,7 +223,7 @@ _MAX_PROMPT_BLOCK_LEN = 1200
 def _normalize_guard_text(text: str) -> str:
     lowered = (text or "").lower().strip()
     decomposed = unicodedata.normalize("NFKD", lowered)
-    no_accent = "".join(ch for ch in decomposed if not unicodedata.combining(ch)).replace("đ", "d")
+    no_accent = "".join(ch for ch in decomposed if not unicodedata.combining(ch)).replace("Ä‘", "d")
     compact = re.sub(r"[^a-z0-9\s@$]", " ", no_accent)
     leet_normalized = _LEET_RE.sub(lambda m: _LEET_MAP.get(m.group(), m.group()), compact)
     return re.sub(r"\s+", " ", leet_normalized).strip()
@@ -241,34 +241,6 @@ def _sanitize_prompt_block(block: str) -> str:
     return cleaned[:_MAX_PROMPT_BLOCK_LEN]
 
 
-
-
-def _rule_based_reply(user_text: str) -> str | None:
-    normalized = _normalize_guard_text(user_text)
-    if re.search(r"\b(muon giet|se giet|dinh giet|kill)\b", normalized):
-        return (
-            "Mình cần nói rõ: ý định làm hại người khác là nguy hiểm và cần dừng lại ngay. "
-            "Bạn hãy rời khỏi nơi có xung đột, đặt các vật sắc nhọn ra xa, và nói cho mình biết bạn đang ở đâu để mình hỗ trợ bước tiếp theo."
-        )
-    if any(k in normalized for k in ("bo da", "chia tay", "that tinh")):
-        return (
-            "Mình hiểu đây là cú sốc lớn và cảm giác mất mát đang rất thật. "
-            "Lúc này điều nào đau nhất với bạn: bị bỏ rơi, tự trách, hay sợ tương lai?"
-        )
-    if any(k in normalized for k in ("bi bo bo", "bo bo", "group chat", "bi ignore", "khong ai rep")):
-        return (
-            "Mình nghe chuyện bị bỏ bơ trong group chat làm bạn chùng xuống thật. "
-            "Cảm giác đó dễ kéo mình sang tự trách, nên trước mắt mình tách nhẹ ra: chuyện họ im lặng là một dữ kiện, còn kết luận rằng bạn không đáng được quan tâm thì chưa chắc đúng."
-        )
-    if any(k in normalized for k in ("chia xa", "tam biet", "roi xa", "xa nhau")):
-        return (
-            "Mình nghe rõ nỗi buồn chia xa của bạn, nhất là khi mới quen nhưng đã thấy rất thân. "
-            "Cảm giác hụt hẫng và trống vắng lúc này là điều hoàn toàn dễ hiểu. "
-            "Bạn muốn mình cùng bạn giữ lại một điều đẹp từ mối kết nối này, hay giúp bạn đi qua khoảnh khắc buồn tối nay trước?"
-        )
-    if any(k in normalized for k in ("toi dua thui", "toi dua", "just kidding")):
-        return "Mình hiểu bạn đang đùa, nhưng mình vẫn muốn giữ an toàn cho bạn. Dạo này có điều gì làm bạn căng quá không?"
-    return None
 
 
 def _is_recall_query(user_text: str) -> bool:
@@ -347,8 +319,8 @@ def _recommended_attachments(user_message: str, distress_score: float) -> list[d
             {
                 "type": "nutrition_tip",
                 "id": "daily_nutrition",
-                "title": "Gợi ý dinh dưỡng cho tâm trạng",
-                "description": "Xem món ăn hôm nay và lý do giúp ổn định cảm xúc.",
+                "title": "Gá»£i Ã½ dinh dÆ°á»¡ng cho tÃ¢m tráº¡ng",
+                "description": "Xem mÃ³n Äƒn hÃ´m nay vÃ  lÃ½ do giÃºp á»•n Ä‘á»‹nh cáº£m xÃºc.",
                 "action": "open_resource",
                 "route": "/serene/nutrition",
             }
@@ -374,7 +346,7 @@ def _normalize_attachments(items: list[dict[str, Any]], user_message: str, distr
         normalized = {
             "type": str(item.get("type") or "resource"),
             "id": str(item.get("id") or "suggestion"),
-            "title": str(item.get("title") or "Gợi ý từ Serene")[:120],
+            "title": str(item.get("title") or "Gá»£i Ã½ tá»« Serene")[:120],
             "description": str(item.get("description") or "")[:240],
             "duration_sec": item.get("duration_sec") if isinstance(item.get("duration_sec"), int) else None,
             "action": action or "open_resource",
@@ -395,20 +367,20 @@ def _default_user_quick_replies(user_message: str, distress_score: float) -> lis
     lowered = user_message.lower()
     if distress_score >= 0.55:
         return [
-            "Mình đang rất quá tải, cậu giúp mình từng bước nhé.",
-            "Mình muốn nói thêm điều làm mình sợ nhất lúc này.",
-            "Cậu hướng dẫn mình một bài thở ngắn ngay bây giờ nhé.",
+            "MÃ¬nh Ä‘ang ráº¥t quÃ¡ táº£i, cáº­u giÃºp mÃ¬nh tá»«ng bÆ°á»›c nhÃ©.",
+            "MÃ¬nh muá»‘n nÃ³i thÃªm Ä‘iá»u lÃ m mÃ¬nh sá»£ nháº¥t lÃºc nÃ y.",
+            "Cáº­u hÆ°á»›ng dáº«n mÃ¬nh má»™t bÃ i thá»Ÿ ngáº¯n ngay bÃ¢y giá» nhÃ©.",
         ]
     if any(k in lowered for k in ("khong ngu", "mat ngu", "ngu")):
         return [
-            "Mình khó ngủ mấy hôm nay, cậu giúp mình ổn định lại nhé.",
-            "Mình muốn thử một cách thư giãn trước khi ngủ.",
-            "Mình cần một kế hoạch nhẹ cho tối nay.",
+            "MÃ¬nh khÃ³ ngá»§ máº¥y hÃ´m nay, cáº­u giÃºp mÃ¬nh á»•n Ä‘á»‹nh láº¡i nhÃ©.",
+            "MÃ¬nh muá»‘n thá»­ má»™t cÃ¡ch thÆ° giÃ£n trÆ°á»›c khi ngá»§.",
+            "MÃ¬nh cáº§n má»™t káº¿ hoáº¡ch nháº¹ cho tá»‘i nay.",
         ]
     return [
-        "Mình muốn kể thêm về chuyện này.",
-        "Mình đang thấy khó chịu và cần cậu lắng nghe.",
-        "Cậu gợi ý cho mình một bước nhỏ lúc này nhé.",
+        "MÃ¬nh muá»‘n ká»ƒ thÃªm vá» chuyá»‡n nÃ y.",
+        "MÃ¬nh Ä‘ang tháº¥y khÃ³ chá»‹u vÃ  cáº§n cáº­u láº¯ng nghe.",
+        "Cáº­u gá»£i Ã½ cho mÃ¬nh má»™t bÆ°á»›c nhá» lÃºc nÃ y nhÃ©.",
     ]
 
 
@@ -489,13 +461,13 @@ def _build_mentalchat_examples(
 
         if not examples:
             return ""
-        lines = ["--- Ví dụ tham khảo từ chuyên gia tâm lý ---"]
+        lines = ["--- VÃ­ dá»¥ tham kháº£o tá»« chuyÃªn gia tÃ¢m lÃ½ ---"]
         for i, ex in enumerate(examples, 1):
             instr = str(ex.get("instruction") or "").strip()[:300]
             resp = str(ex.get("response") or "").strip()[:400]
             if instr and resp:
-                lines.append(f"[{i}] Tình huống: {instr}")
-                lines.append(f"    Cách tiếp cận: {resp}")
+                lines.append(f"[{i}] TÃ¬nh huá»‘ng: {instr}")
+                lines.append(f"    CÃ¡ch tiáº¿p cáº­n: {resp}")
         return "\n".join(lines) if len(lines) > 1 else ""
     except Exception as exc:
         logger.debug("mentalchat examples skipped: %s", exc)
@@ -505,10 +477,10 @@ def _build_mentalchat_examples(
 def _build_friend_context(state: ChatGraphState, distress_score: float | None = None) -> str:
     """Build Friend context in 3 tiers based on distress to minimise token spend.
 
-    Tier 1 — low  (distress < 0.42, short msg): handled by caller via _build_personality_hint.
-    Tier 2 — mid  (0.42 ≤ distress < 0.65): transcript (3 turns) + mood + traits + analyst note.
+    Tier 1 â€” low  (distress < 0.42, short msg): handled by caller via _build_personality_hint.
+    Tier 2 â€” mid  (0.42 â‰¤ distress < 0.65): transcript (3 turns) + mood + traits + analyst note.
     Recall turns are memory-sensitive even when distress is low, so they include a small memory slice.
-    Tier 3 — high (distress ≥ 0.65): full context (6 turns + mem0 + long-term + profile).
+    Tier 3 â€” high (distress â‰¥ 0.65): full context (6 turns + mem0 + long-term + profile).
     """
     d = distress_score if distress_score is not None else float(state.get("distress_score") or 0.0)
 
@@ -524,7 +496,7 @@ def _build_friend_context(state: ChatGraphState, distress_score: float | None = 
     mem0_facts = [str(item or "").strip() for item in (state.get("mem0_facts") or []) if str(item or "").strip()]
     mem0_blob = "\n".join(f"- {item}" for item in mem0_facts[:5]) if mem0_facts else ""
 
-    # ── Tier 2: medium distress ──────────────────────────────────────────────
+    # â”€â”€ Tier 2: medium distress â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if d < 0.65:
         transcript_lines: list[str] = []
         for turn in (state.get("recent_messages") or [])[-3:]:
@@ -533,36 +505,36 @@ def _build_friend_context(state: ChatGraphState, distress_score: float | None = 
             if content:
                 # Truncate long turns to keep context tight
                 transcript_lines.append(f"{role}: {content[:200]}")
-        transcript = "\n".join(transcript_lines) if transcript_lines else "(chưa có lịch sử)"
+        transcript = "\n".join(transcript_lines) if transcript_lines else "(chÆ°a cÃ³ lá»‹ch sá»­)"
         traits = dict(state.get("user_traits") or {})
-        tone_hint = str(traits.get("preferred_tone") or "").strip() or "dịu dàng"
+        tone_hint = str(traits.get("preferred_tone") or "").strip() or "dá»‹u dÃ ng"
         parts = [f"Distress: {d:.2f}"]
         if mood_line:
             parts.append(mood_line)
         parts.append(f"Tone: {tone_hint}")
         if is_recall_turn and mem0_blob:
-            parts.append(f"Ký ức liên quan:\n{mem0_blob}")
+            parts.append(f"KÃ½ á»©c liÃªn quan:\n{mem0_blob}")
         if is_recall_turn and memory_blob:
-            parts.append(f"Tóm tắt session gần:\n{memory_blob}")
-        parts.append(f"Lịch sử (3 lượt):\n{transcript}")
+            parts.append(f"TÃ³m táº¯t session gáº§n:\n{memory_blob}")
+        parts.append(f"Lá»‹ch sá»­ (3 lÆ°á»£t):\n{transcript}")
         if analyst_hint:
             parts.append(f"Analyst: {analyst_hint[:400]}")
         return "\n".join(parts)
 
-    # ── Tier 3: high distress — full context ─────────────────────────────────
+    # â”€â”€ Tier 3: high distress â€” full context â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     transcript_lines_full: list[str] = []
     for turn in (state.get("recent_messages") or [])[-6:]:
         role = str(turn.get("role", "")).strip() or "unknown"
         content = str(turn.get("content", "")).strip()
         if content:
             transcript_lines_full.append(f"{role}: {content}")
-    transcript_full = "\n".join(transcript_lines_full) if transcript_lines_full else "(chưa có lịch sử)"
+    transcript_full = "\n".join(transcript_lines_full) if transcript_lines_full else "(chÆ°a cÃ³ lá»‹ch sá»­)"
 
     top_triggers = [str(item or "").strip() for item in (state.get("top_triggers") or []) if str(item or "").strip()]
     coping = [str(item or "").strip() for item in (state.get("effective_coping") or []) if str(item or "").strip()]
     goals = [str(item or "").strip() for item in (state.get("active_goals") or []) if str(item or "").strip()]
     traits_full = dict(state.get("user_traits") or {})
-    preferred_tone = str(traits_full.get("preferred_tone") or "").strip() or "(chưa rõ)"
+    preferred_tone = str(traits_full.get("preferred_tone") or "").strip() or "(chÆ°a rÃµ)"
     communication_style = str(traits_full.get("communication_style") or "").strip() or ""
     trajectory = str(state.get("clinical_trajectory") or "").strip()
 
@@ -571,21 +543,21 @@ def _build_friend_context(state: ChatGraphState, distress_score: float | None = 
         sections.append(mood_line)
     profile_parts = [f"Tone: {preferred_tone}"]
     if communication_style:
-        profile_parts.append(f"Phong cách: {communication_style}")
+        profile_parts.append(f"Phong cÃ¡ch: {communication_style}")
     if top_triggers:
         profile_parts.append(f"Trigger: {', '.join(top_triggers[:3])}")
     if coping:
         profile_parts.append(f"Coping: {', '.join(coping[:3])}")
     if goals:
-        profile_parts.append(f"Mục tiêu: {'; '.join(goals[:2])}")
+        profile_parts.append(f"Má»¥c tiÃªu: {'; '.join(goals[:2])}")
     if trajectory:
-        profile_parts.append(f"Hành trình: {trajectory}")
+        profile_parts.append(f"HÃ nh trÃ¬nh: {trajectory}")
     sections.append(" | ".join(profile_parts))
     if mem0_blob:
-        sections.append(f"Ký ức liên quan:\n{mem0_blob}")
+        sections.append(f"KÃ½ á»©c liÃªn quan:\n{mem0_blob}")
     if memory_blob:
-        sections.append(f"Tóm tắt session gần:\n{memory_blob}")
-    sections.append(f"Lịch sử:\n{transcript_full}")
+        sections.append(f"TÃ³m táº¯t session gáº§n:\n{memory_blob}")
+    sections.append(f"Lá»‹ch sá»­:\n{transcript_full}")
     if analyst_hint:
         sections.append(f"Analyst: {analyst_hint[:800]}")
     return "\n".join(sections)
@@ -595,9 +567,9 @@ def _build_personality_hint(state: ChatGraphState) -> str:
     traits = dict(state.get("user_traits") or {})
     preferred_tone = str(traits.get("preferred_tone") or "").strip()
     top_triggers = [str(item or "").strip() for item in (state.get("top_triggers") or []) if str(item or "").strip()]
-    trigger_hint = ", ".join(top_triggers[:2]) if top_triggers else "chưa rõ trigger"
-    tone_hint = preferred_tone or "dịu dàng"
-    return f"[User profile: tone={tone_hint}; hay gặp={trigger_hint}]"
+    trigger_hint = ", ".join(top_triggers[:2]) if top_triggers else "chÆ°a rÃµ trigger"
+    tone_hint = preferred_tone or "dá»‹u dÃ ng"
+    return f"[User profile: tone={tone_hint}; hay gáº·p={trigger_hint}]"
 
 
 def _recent_transcript_hint(state: ChatGraphState, *, max_turns: int = 3, max_chars_per_turn: int = 220) -> str:
@@ -627,102 +599,11 @@ def _detect_hardship_signals(text: str) -> list[str]:
     return matches
 
 
-def _build_empathy_anchor(user_message: str, distress_score: float) -> str:
-    signals = _detect_hardship_signals(user_message)
-    if "tai_chinh" in signals and "gia_dinh" in signals:
-        return (
-            "Mình nghe rất rõ gánh nặng phải gồng tài chính cho gia đình, nhất là khi bạn đã cố hết sức mà vẫn thấy chưa đủ. "
-            "Cảm giác bất lực trong hoàn cảnh đó là thật và rất đau."
-        )
-    if "mat_ngu" in signals and "kiet_suc" in signals:
-        return (
-            "Mất ngủ kéo dài làm mọi thứ nặng hơn rất nhiều, nên việc bạn thấy kiệt sức và dễ vỡ là phản ứng rất người. "
-            "Không phải bạn yếu, mà là cơ thể và tâm trí đang báo đã quá tải."
-        )
-    if "co_don" in signals:
-        return (
-            "Nghe như bạn đã phải ôm quá nhiều thứ một mình quá lâu, nên cảm giác trống và mệt là điều dễ hiểu. "
-            "Đôi khi chỉ cần có người thật sự hiểu cũng đã là một chỗ tựa quan trọng."
-        )
-    if "kiet_suc" in signals:
-        return (
-            "Mình nghe bạn đang bị dồn nén từ nhiều phía, và cảm giác nghẹt thở đó không hề nhỏ. "
-            "Trong trạng thái này, việc bạn chao đảo là điều hoàn toàn có thể hiểu."
-        )
-    if distress_score >= 0.6:
-        return (
-            "Mình nghe bạn đang phải chống đỡ quá nhiều thứ cùng lúc. "
-            "Khi cảm xúc bị dồn như vậy, thấy rối và mệt là phản ứng rất thật."
-        )
-    return (
-        "Mình nghe bạn và mình tin rằng cảm giác bạn đang mang là có lý do của nó, không hề 'làm quá'. "
-        "Đôi khi sống sót qua một ngày khó đã là một nỗ lực lớn."
-    )
-
-
-def _needs_deeper_empathy_reply(reply: str, user_message: str = "") -> bool:
-    stripped = str(reply or "").strip()
-    if not stripped:
-        return True
-    if len(stripped.split()) < 25:
-        return True
-    normalized = _normalize_guard_text(stripped)
-    if _GENERIC_FOLLOWUP_RE.search(normalized) and len(normalized.split()) < 55:
-        return True
-    has_emotion_reflection = any(
-        marker in normalized
-        for marker in (
-            "cam giac",
-            "met",
-            "bat an",
-            "buc xuc",
-            "ap luc",
-            "kho",
-            "rat de hieu",
-            "qua tai",
-            "bat luc",
-        )
-    )
-    if not has_emotion_reflection:
-        return True
-    if user_message:
-        user_signals = _detect_hardship_signals(user_message)
-        if user_signals:
-            mentions_context = any(token in normalized for token in ("mat ngu", "tien", "luong", "gia dinh", "kiet suc", "mot minh", "qua tai"))
-            if not mentions_context:
-                return True
-    return False
-
+def _enforce_reply_quality(reply: str, user_message: str, distress_score: float) -> str:
+    return reply
 
 def _enforce_reply_quality(reply: str, user_message: str, distress_score: float) -> str:
-    if not _needs_deeper_empathy_reply(reply, user_message):
-        return reply
-    normalized_user = _normalize_guard_text(user_message)
-    if any(k in normalized_user for k in ("chia xa", "tam biet", "roi xa", "xa nhau")):
-        return (
-            "Mình nghe bạn đang buồn sâu vì sắp phải chia xa những người bạn mới quen, và cảm giác quyến luyến đến nhanh như vậy "
-            "thật sự có thể làm tim mình trống đi một nhịp. Phản ứng đó rất người và rất dễ hiểu, nhất là khi bạn đã kịp thấy "
-            "an toàn, được kết nối. Nếu bạn muốn, mình có thể cùng bạn giữ lại một điều ý nghĩa từ quãng thời gian này, rồi chọn "
-            "một cách nhẹ để đi qua tối nay. Điều bạn sợ nhất khi phải tạm xa họ là gì?"
-        )
-    if any(k in normalized_user for k in ("co don", "mot minh", "lac long", "khong ai hieu")):
-        return (
-            "Mình nghe bạn đang rất cô đơn và cảm giác như không ai thật sự hiểu mình, nên mệt và tủi lúc này là điều rất dễ hiểu. "
-            "Bạn không cần gồng lên một mình ở đây, mình sẽ đi cùng bạn từng chút một. Nếu được, mình muốn bắt đầu từ điều đang "
-            "làm bạn thấy lạc lõng nhất ngay lúc này, bạn kể cho mình nghe nhé?"
-        )
-    anchor = _build_empathy_anchor(user_message, distress_score)
-    if distress_score >= 0.6:
-        return (
-            f"{anchor} "
-            "Mình không muốn ép bạn phải ổn ngay. Nếu được, mình đề nghị một bước rất nhỏ và thực tế lúc này: "
-            "thả lỏng vai, thở chậm 4 nhịp, rồi nói cho mình một điều đang đè nặng nhất ngay trong tối nay để mình ở đây cùng bạn gỡ từng lớp."
-        )
-    return (
-        f"{anchor} "
-        "Nếu bạn đồng ý, mình sẽ không nói lý thuyết dài: mình cùng bạn chọn một bước nhỏ đủ thực tế trong 5 phút tới để bớt nặng đi một chút. "
-        "Bạn muốn bắt đầu bằng việc đặt tên cảm xúc đang lớn nhất, hay chốt một việc nhỏ có thể làm ngay?"
-    )
+    return reply
 
 
 def _sanitize_assistant_reply(reply: str) -> str:
@@ -786,7 +667,7 @@ def _apply_cold_start_profile(
         )
         merged_traits = dict(user_traits or {})
         merged_traits.update(profile.warm_traits or {})
-        # distress_score is frozen after middleware — do not apply cold-start delta (Phase 4).
+        # distress_score is frozen after middleware â€” do not apply cold-start delta (Phase 4).
         return distress_score, merged_traits, str(profile.screening_note or "").strip()
     except Exception as exc:
         logger.debug("cold-start profile skipped: %s", exc)
@@ -839,10 +720,10 @@ def _legacy_supervisor_route(
 def distress_router(state: ChatGraphState) -> dict[str, Any]:
     """Route each non-SOS turn to analyst or friend using 3 priority-ordered rules.
 
-    Priority 1 — crisis_route_finalized override (belt-and-suspenders)
-    Priority 2 — distress_score >= _ANALYST_DISTRESS_THRESHOLD
-    Priority 3 — message matches _ANALYST_TRIGGER_RE (explicit analysis intent)
-    Default    — friend
+    Priority 1 â€” crisis_route_finalized override (belt-and-suspenders)
+    Priority 2 â€” distress_score >= _ANALYST_DISTRESS_THRESHOLD
+    Priority 3 â€” message matches _ANALYST_TRIGGER_RE (explicit analysis intent)
+    Default    â€” friend
     """
     span_start = time.perf_counter()
     correlation_id = str(state.get("correlation_id") or "")
@@ -956,7 +837,7 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
     mood_note = ""
     m = state.get("mood_today")
     if m:
-        mood_note = f"Mood hôm nay: {m.get('mood', '')} {m.get('emoji', '')}."
+        mood_note = f"Mood hÃ´m nay: {m.get('mood', '')} {m.get('emoji', '')}."
 
     ctx_lines = []
     for turn in (state.get("recent_messages") or [])[-6:]:
@@ -964,44 +845,44 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
     transcript = "\n".join(ctx_lines)
 
     instruction = (
-        "Bạn là Analyst ẩn danh. Vai trò: phân tích nội bộ, không nói chuyện với user. "
-        "Trả lời JSON một dòng hợp lệ với 4 khóa bắt buộc: "
-        '`clinical_note` (str ≤200 chars, tiếng Việt, không chẩn đoán), '
-        '`emotional_theme` (str snake_case tiếng Anh, ví dụ: "academic_pressure"), '
-        "`suggested_focus` (str hoặc null — gợi ý chủ đề Friend có thể khai thác), "
-        "`risk_indicators` (list[str] ≤3 tín hiệu quan sát được, không chẩn đoán). "
-        "Không tạo reply cho user. Không nhắc PII. Không dùng 'trầm cảm/rối loạn' như chẩn đoán. "
-        'Nếu không đủ context → {"clinical_note":"","emotional_theme":"unclear","suggested_focus":null,"risk_indicators":[]}'
+        "Báº¡n lÃ  Analyst áº©n danh. Vai trÃ²: phÃ¢n tÃ­ch ná»™i bá»™, khÃ´ng nÃ³i chuyá»‡n vá»›i user. "
+        "Tráº£ lá»i JSON má»™t dÃ²ng há»£p lá»‡ vá»›i 4 khÃ³a báº¯t buá»™c: "
+        '`clinical_note` (str â‰¤200 chars, tiáº¿ng Viá»‡t, khÃ´ng cháº©n Ä‘oÃ¡n), '
+        '`emotional_theme` (str snake_case tiáº¿ng Anh, vÃ­ dá»¥: "academic_pressure"), '
+        "`suggested_focus` (str hoáº·c null â€” gá»£i Ã½ chá»§ Ä‘á» Friend cÃ³ thá»ƒ khai thÃ¡c), "
+        "`risk_indicators` (list[str] â‰¤3 tÃ­n hiá»‡u quan sÃ¡t Ä‘Æ°á»£c, khÃ´ng cháº©n Ä‘oÃ¡n). "
+        "KhÃ´ng táº¡o reply cho user. KhÃ´ng nháº¯c PII. KhÃ´ng dÃ¹ng 'tráº§m cáº£m/rá»‘i loáº¡n' nhÆ° cháº©n Ä‘oÃ¡n. "
+        'Náº¿u khÃ´ng Ä‘á»§ context â†’ {"clinical_note":"","emotional_theme":"unclear","suggested_focus":null,"risk_indicators":[]}'
     )
     mem0_facts = [str(item or "").strip() for item in (state.get("mem0_facts") or []) if str(item or "").strip()]
     top_triggers = [str(item or "").strip() for item in (state.get("top_triggers") or []) if str(item or "").strip()]
     effective_coping = [str(item or "").strip() for item in (state.get("effective_coping") or []) if str(item or "").strip()]
     context_lines = []
     if mem0_facts:
-        context_lines.append(f"Ký ức liên quan: {'; '.join(mem0_facts[:3])}")
+        context_lines.append(f"KÃ½ á»©c liÃªn quan: {'; '.join(mem0_facts[:3])}")
     if top_triggers:
-        context_lines.append(f"Trigger lặp lại: {', '.join(top_triggers[:3])}")
+        context_lines.append(f"Trigger láº·p láº¡i: {', '.join(top_triggers[:3])}")
     if effective_coping:
-        context_lines.append(f"Coping từng giúp: {', '.join(effective_coping[:3])}")
+        context_lines.append(f"Coping tá»«ng giÃºp: {', '.join(effective_coping[:3])}")
     trajectory = str(state.get("clinical_trajectory") or "").strip()
     if trajectory:
-        context_lines.append(f"Hành trình tâm lý: {trajectory}")
-    profile_context = "\n".join(context_lines) if context_lines else "(chưa có profile context)"
+        context_lines.append(f"HÃ nh trÃ¬nh tÃ¢m lÃ½: {trajectory}")
+    profile_context = "\n".join(context_lines) if context_lines else "(chÆ°a cÃ³ profile context)"
     nutrition_meals = state.get("nutrition_meals") or []
     if nutrition_meals:
         meal_lines = "\n".join(
-            f"- {m.get('slot', '?')}: {m.get('items') or '(chưa ghi)'}"
+            f"- {m.get('slot', '?')}: {m.get('items') or '(chÆ°a ghi)'}"
             for m in nutrition_meals
         )
-        nutrition_block = f"Bữa ăn hôm nay:\n{meal_lines}\n"
+        nutrition_block = f"Bá»¯a Äƒn hÃ´m nay:\n{meal_lines}\n"
     else:
         nutrition_block = ""
     user_payload = (
         f"{profile_context}\n"
         f"{mood_note}\n"
         f"{nutrition_block}"
-        f"Lịch sử gần đây:\n{transcript}\n"
-        f"Tin mới: {state.get('user_message', '')}"
+        f"Lá»‹ch sá»­ gáº§n Ä‘Ã¢y:\n{transcript}\n"
+        f"Tin má»›i: {state.get('user_message', '')}"
     )
 
     # Read Neo4j patterns pre-fetched by the async caller
@@ -1012,21 +893,21 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
     _graph_context_block = ""
     if _graph_context_used:
         _t = ", ".join(
-            f"{x['name']} (×{x['count']})"
+            f"{x['name']} (Ã—{x['count']})"
             for x in _graph_raw.get("triggers", [])
             if x.get("count")
-        ) or "chưa ghi nhận"
-        _e = ", ".join(x["name"] for x in _graph_raw.get("emotions", [])) or "chưa ghi nhận"
+        ) or "chÆ°a ghi nháº­n"
+        _e = ", ".join(x["name"] for x in _graph_raw.get("emotions", [])) or "chÆ°a ghi nháº­n"
         _c = ", ".join(
-            f"{x['name']} (hiệu quả={x['effectiveness']:.2f})"
+            f"{x['name']} (hiá»‡u quáº£={x['effectiveness']:.2f})"
             for x in _graph_raw.get("coping", [])
             if x.get("effectiveness") is not None
-        ) or "chưa ghi nhận"
+        ) or "chÆ°a ghi nháº­n"
         _graph_context_block = (
-            f"\n\n[Lịch sử hành vi từ Neo4j — derived context]\n"
-            f"Tác nhân hay gặp: {_t}\n"
-            f"Cảm xúc hay gặp: {_e}\n"
-            f"Chiến lược đối phó đã thử: {_c}"
+            f"\n\n[Lá»‹ch sá»­ hÃ nh vi tá»« Neo4j â€” derived context]\n"
+            f"TÃ¡c nhÃ¢n hay gáº·p: {_t}\n"
+            f"Cáº£m xÃºc hay gáº·p: {_e}\n"
+            f"Chiáº¿n lÆ°á»£c Ä‘á»‘i phÃ³ Ä‘Ã£ thá»­: {_c}"
         )
     logger.debug("analyst_node graph_context_used=%s", _graph_context_used)
     instruction = instruction + _sanitize_prompt_block(_graph_context_block)
@@ -1074,7 +955,7 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
             logger.warning("analyst llm failed: %s", exc)
             text_out = '{"clinical_note":"","emotional_theme":"unclear","suggested_focus":null,"risk_indicators":[]}'
     else:
-        text_out = '{"clinical_note":"Người dùng đang chia sẻ căng thẳng.","emotional_theme":"general_distress","suggested_focus":"Bạn muốn kể thêm về điều đó không?","risk_indicators":[]}'
+        text_out = '{"clinical_note":"NgÆ°á»i dÃ¹ng Ä‘ang chia sáº» cÄƒng tháº³ng.","emotional_theme":"general_distress","suggested_focus":"Báº¡n muá»‘n ká»ƒ thÃªm vá» Ä‘iá»u Ä‘Ã³ khÃ´ng?","risk_indicators":[]}'
 
     import json as _json
     _bundle: AnalystBundle
@@ -1116,7 +997,7 @@ def _postprocess_friend_reply(
     """Enforce quality, sanitize, ground, and append distress follow-up if needed.
 
     Single authority for all post-LLM reply processing. Used by both friend_node
-    and the streaming path — changes here apply everywhere.
+    and the streaming path â€” changes here apply everywhere.
     Returns (safe_reply: str, grounded_result) where grounded_result has
     .grounded (bool) and .reasons (list[str]).
     """
@@ -1133,7 +1014,7 @@ def _postprocess_friend_reply(
     grounded = sanitize_grounded_reply(safe, mentalchat_block)
     safe = grounded.reply
     if distress_score >= 0.6 and "?" not in safe and persona_id == DEFAULT_PERSONA_ID:
-        safe = safe.rstrip(".! ") + ". Bạn có thể nói thêm điều đang làm bạn thấy tệ nhất lúc này không?"
+        safe = safe.rstrip(".! ") + ". Báº¡n cÃ³ thá»ƒ nÃ³i thÃªm Ä‘iá»u Ä‘ang lÃ m báº¡n tháº¥y tá»‡ nháº¥t lÃºc nÃ y khÃ´ng?"
     logger.info(
         "[FriendPostProcess] corr=%s grounded=%s quality_changed=%s",
         correlation_id,
@@ -1150,10 +1031,10 @@ def _enforce_persona_identity(reply: str, persona_id: str) -> str:
         return text
     cfg = _active_persona_config(persona_id)
     label = str(cfg.get("label") or "").strip()
-    self_pronoun = str(cfg.get("self_pronoun") or "mình").strip()
-    user_pronoun = str(cfg.get("user_pronoun") or "bạn").strip()
-    self_cap = self_pronoun[:1].upper() + self_pronoun[1:] if self_pronoun else "Mình"
-    intro = f"{self_cap} là [{label}] của {user_pronoun} nè. "
+    self_pronoun = str(cfg.get("self_pronoun") or "mÃ¬nh").strip()
+    user_pronoun = str(cfg.get("user_pronoun") or "báº¡n").strip()
+    self_cap = self_pronoun[:1].upper() + self_pronoun[1:] if self_pronoun else "MÃ¬nh"
+    intro = f"{self_cap} lÃ  [{label}] cá»§a {user_pronoun} nÃ¨. "
 
     text = re.sub(
         r"^\s*(friend)\b[\s,:-]*",
@@ -1162,7 +1043,7 @@ def _enforce_persona_identity(reply: str, persona_id: str) -> str:
         flags=re.IGNORECASE,
     )
     text = re.sub(
-        r"^\s*\b(mình|toi|tôi|tui)\s+(là|la|tên là|ten la)\s+(friend)\b[\s,:-]*",
+        r"^\s*\b(mÃ¬nh|toi|tÃ´i|tui)\s+(lÃ |la|tÃªn lÃ |ten la)\s+(friend)\b[\s,:-]*",
         intro,
         text,
         flags=re.IGNORECASE,
@@ -1194,30 +1075,30 @@ def _build_ultrafast_messages(
     full_persona_block = _build_persona_block(persona_id)
     persona_block = full_persona_block[:700].rstrip()
     emoji_line = (
-        "Với Dũng ở low-risk, được phép dùng tối đa 1 emoji nếu hợp ngữ cảnh."
+        "Vá»›i DÅ©ng á»Ÿ low-risk, Ä‘Æ°á»£c phÃ©p dÃ¹ng tá»‘i Ä‘a 1 emoji náº¿u há»£p ngá»¯ cáº£nh."
         if persona_id == "dung_luong"
-        else "Không dùng emoji."
+        else "KhÃ´ng dÃ¹ng emoji."
     )
     ultrafast_base = (
-        "Bạn là Serene, trợ lý đồng hành tinh thần bằng tiếng Việt tự nhiên. "
-        "Viết như người Việt trẻ nhắn tin: ngắn 2–3 câu, đúng ngữ cảnh, không văn mẫu, không markdown. "
-        "Đọc tín hiệu cảm xúc ngầm và phản hồi vào tình huống; không nhại lại lời user. "
-        "Tối đa một câu hỏi. Không dùng câu khuôn mẫu về cảm xúc. "
+        "Báº¡n lÃ  Serene, trá»£ lÃ½ Ä‘á»“ng hÃ nh tinh tháº§n báº±ng tiáº¿ng Viá»‡t tá»± nhiÃªn. "
+        "Viáº¿t nhÆ° ngÆ°á»i Viá»‡t tráº» nháº¯n tin: ngáº¯n 2â€“3 cÃ¢u, Ä‘Ãºng ngá»¯ cáº£nh, khÃ´ng vÄƒn máº«u, khÃ´ng markdown. "
+        "Äá»c tÃ­n hiá»‡u cáº£m xÃºc ngáº§m vÃ  pháº£n há»“i vÃ o tÃ¬nh huá»‘ng; khÃ´ng nháº¡i láº¡i lá»i user. "
+        "Tá»‘i Ä‘a má»™t cÃ¢u há»i. KhÃ´ng dÃ¹ng cÃ¢u khuÃ´n máº«u vá» cáº£m xÃºc. "
         + emoji_line + " "
-        "Không dùng ngôn ngữ possessive, exclusive, romantic hoặc dependency-building. "
-        "Không tự xưng là Friend hay thực thể con người ngoài đời. "
-        "Trả lời JSON: reply, assistant_tone (supportive|validating|cheerful|calming|neutral), "
-        "goi_y_nhanh (3 chuỗi ngắn), the_dinh_kem ([])."
+        "KhÃ´ng dÃ¹ng ngÃ´n ngá»¯ possessive, exclusive, romantic hoáº·c dependency-building. "
+        "KhÃ´ng tá»± xÆ°ng lÃ  Friend hay thá»±c thá»ƒ con ngÆ°á»i ngoÃ i Ä‘á»i. "
+        "Tráº£ lá»i JSON: reply, assistant_tone (supportive|validating|cheerful|calming|neutral), "
+        "goi_y_nhanh (3 chuá»—i ngáº¯n), the_dinh_kem ([])."
     )
     persona_priority = (
-        "ƯU TIÊN: tuân thủ persona block ngay sau đây trước khi tạo reply.\n"
+        "Æ¯U TIÃŠN: tuÃ¢n thá»§ persona block ngay sau Ä‘Ã¢y trÆ°á»›c khi táº¡o reply.\n"
         f"{persona_block}"
     )
     user_text = str(state.get("user_message") or "")
     short_history = _recent_transcript_hint(state, max_turns=2, max_chars_per_turn=120)
     personality = _build_personality_hint(state)
     if short_history:
-        user_payload = f"{personality}\nLịch sử:\n{short_history}\nTin nhắn mới:\n{user_text}"
+        user_payload = f"{personality}\nLá»‹ch sá»­:\n{short_history}\nTin nháº¯n má»›i:\n{user_text}"
     else:
         user_payload = f"{personality}\n{user_text}"
 
@@ -1251,7 +1132,7 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         settings.openai_model_friend_fast if use_fast_model and settings.openai_model_friend_fast else settings.openai_model_friend
     )
 
-    # ── Ultra-fast path: minimal prompt for casual low-distress turns ──────────
+    # â”€â”€ Ultra-fast path: minimal prompt for casual low-distress turns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     _ultrafast = _is_ultrafast_eligible(distress_score=distress_now, user_message=user_text)
     if _ultrafast:
         friend_messages, friend_in_tokens = _build_ultrafast_messages(state, distress_now, persona_id)
@@ -1261,12 +1142,12 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
             correlation_id, distress_now, len(user_text),
         )
     else:
-        # ── Normal path: full prompt assembly ─────────────────────────────────
+        # â”€â”€ Normal path: full prompt assembly â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         mentalchat_block = _build_mentalchat_examples(
             user_text, settings.openai_api_key or "", distress_score=distress_now
         )
         safe_mentalchat_block = _sanitize_prompt_block(mentalchat_block)
-        # Skip fewshot examples below distress 0.30 — saves ~300 tokens on casual turns.
+        # Skip fewshot examples below distress 0.30 â€” saves ~300 tokens on casual turns.
         style_fewshot_block = (
             ""
             if distress_now < 0.30
@@ -1299,41 +1180,55 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         )
         memory_text = str(state.get("active_memory_text") or "").strip()
         memory_hint = (
-            f"[Ký ức liên quan từ mem0_memories — cá nhân hóa câu trả lời dựa trên điều này, không nhắc lại nguyên văn]\n{memory_text}\n"
+            f"[KÃ½ á»©c liÃªn quan tá»« mem0_memories â€” cÃ¡ nhÃ¢n hÃ³a cÃ¢u tráº£ lá»i dá»±a trÃªn Ä‘iá»u nÃ y, khÃ´ng nháº¯c láº¡i nguyÃªn vÄƒn]\n{memory_text}\n"
             if memory_text else ""
         )
         emoji_policy_line = (
-            "Với Dũng ở low-risk (distress < 0.5), được phép dùng tối đa 1 emoji nếu hợp ngữ cảnh; "
-            "ngoài điều kiện đó thì không dùng emoji."
+            "Vá»›i DÅ©ng á»Ÿ low-risk (distress < 0.5), Ä‘Æ°á»£c phÃ©p dÃ¹ng tá»‘i Ä‘a 1 emoji náº¿u há»£p ngá»¯ cáº£nh; "
+            "ngoÃ i Ä‘iá»u kiá»‡n Ä‘Ã³ thÃ¬ khÃ´ng dÃ¹ng emoji."
             if persona_id == "dung_luong"
-            else "Không dùng emoji trong chat cảm xúc."
+            else "KhÃ´ng dÃ¹ng emoji trong chat cáº£m xÃºc."
+        )
+        distress_length_hint = (
+            "Pháº£n há»“i khoáº£ng 40â€“55 tá»« â€” Ä‘á»§ Ä‘á»ƒ thá»ƒ hiá»‡n sá»± Ä‘á»“ng cáº£m vÃ  Ä‘á»c hiá»ƒu tÃ¬nh huá»‘ng; khÃ´ng quÃ¡ dÃ i. "
+            if distress_now >= 0.5
+            else "Tráº£ lá»i 2â€“3 cÃ¢u, gá»n. "
+        )
+        question_policy = (
+            "KhÃ´ng nháº¥t thiáº¿t pháº£i há»i láº¡i á»Ÿ cuá»‘i cÃ¢u; Æ°u tiÃªn nháº­n Ä‘á»‹nh / phÃ¢n tÃ­ch tÃ¬nh huá»‘ng vÃ  cÃ¡ch á»©ng xá»­ cá»§a ngÆ°á»i dÃ¹ng. "
+            "Chá»‰ thÃªm cÃ¢u há»i khi thá»±c sá»± cáº§n thÃªm thÃ´ng tin Ä‘á»ƒ hiá»ƒu rÃµ hÆ¡n. "
+            if distress_now >= 0.5
+            else "Má»—i lÆ°á»£t tá»‘i Ä‘a má»™t cÃ¢u há»i náº¿u ngÆ°á»i dÃ¹ng chÆ°a xin phÃ¢n tÃ­ch sÃ¢u. "
         )
         base_system_prompt = (
-            "Bạn là Serene, trợ lý đồng hành tinh thần bằng tiếng Việt tự nhiên. "
-            "Viết như người Việt trẻ nhắn tin tự nhiên: ngắn, đúng ngữ cảnh, có duyên vừa đủ, không văn mẫu. "
-            "Nhiệm vụ của bạn không phải nhại lại hay trích nguyên văn lời user; hãy đọc tín hiệu cảm xúc ngầm và phản hồi vào tình huống. "
-            "Có thể mở đầu câu bằng chữ thường trong chat cảm xúc; đây là style hợp lệ, nhưng vẫn giữ đúng tên riêng, acronym, tên sản phẩm và thuật ngữ kỹ thuật. "
-            "Mỗi reply cần có một nhận định cụ thể hoặc một giả thuyết mềm về tình huống trước khi gợi ý. "
-            "Validate trước khi khuyên; nếu user chỉ đang xả, đừng giải quyết quá sớm. "
-            "Trả lời 2–4 câu, một đoạn gọn; không dùng markdown. "
+            "Báº¡n lÃ  Serene, trá»£ lÃ½ Ä‘á»“ng hÃ nh tinh tháº§n báº±ng tiáº¿ng Viá»‡t tá»± nhiÃªn. "
+            "Viáº¿t nhÆ° ngÆ°á»i Viá»‡t tráº» nháº¯n tin tá»± nhiÃªn: Ä‘Ãºng ngá»¯ cáº£nh, cÃ³ duyÃªn vá»«a Ä‘á»§, khÃ´ng vÄƒn máº«u. "
+            "Nhiá»‡m vá»¥ cá»§a báº¡n khÃ´ng pháº£i nháº¡i láº¡i hay trÃ­ch nguyÃªn vÄƒn lá»i user; hÃ£y Ä‘á»c tÃ­n hiá»‡u cáº£m xÃºc ngáº§m vÃ  pháº£n há»“i vÃ o tÃ¬nh huá»‘ng. "
+            "CÃ³ thá»ƒ má»Ÿ Ä‘áº§u cÃ¢u báº±ng chá»¯ thÆ°á»ng trong chat cáº£m xÃºc; Ä‘Ã¢y lÃ  style há»£p lá»‡, nhÆ°ng váº«n giá»¯ Ä‘Ãºng tÃªn riÃªng, acronym, tÃªn sáº£n pháº©m vÃ  thuáº­t ngá»¯ ká»¹ thuáº­t. "
+            "Má»—i reply cáº§n: (1) nháº­n Ä‘á»‹nh cá»¥ thá»ƒ vá» tÃ¬nh huá»‘ng / cÃ¡ch á»©ng xá»­ cá»§a ngÆ°á»i dÃ¹ng, "
+            "(2) thá»ƒ hiá»‡n Ä‘á»“ng cáº£m tháº­t (khÃ´ng khuÃ´n máº«u), "
+            "(3) náº¿u cáº§n â€” má»™t gá»£i Ã½ nhá» hoáº·c nháº­n xÃ©t má»m, khÃ´ng pháº£i bÆ°á»›c giáº£i quyáº¿t vá»™i. "
+            "Validate trÆ°á»›c khi khuyÃªn; náº¿u user chá»‰ Ä‘ang xáº£, Ä‘á»«ng giáº£i quyáº¿t quÃ¡ sá»›m. "
+            + distress_length_hint
+            + "KhÃ´ng dÃ¹ng markdown. "
             + emoji_policy_line + " "
-            "Mỗi lượt tối đa một câu hỏi nếu người dùng chưa xin phân tích sâu. "
-            "Tránh các câu mặc định như 'tôi rất tiếc khi nghe điều đó', 'cảm xúc của bạn là hoàn toàn hợp lệ', "
-            "'bạn không đơn độc', 'mọi chuyện rồi sẽ ổn', 'hãy suy nghĩ tích cực', 'Bạn có muốn chia sẻ thêm không?'. "
-            "Không dùng giọng trị liệu khuôn mẫu, không chẩn đoán, không ước lượng xác suất rối loạn, không tự nhận thẩm quyền y khoa, không hứa hẹn phi thực tế, không đùa/slang khi distress cao. "
-            "Không dùng ngôn ngữ possessive, exclusive, romantic commitment hoặc dependency-building; "
-            "Không tự xưng là Friend hay thực thể con người ngoài đời. "
-            "Trả lời JSON với các khóa: reply, assistant_tone (supportive|validating|cheerful|calming|mentor|neutral), "
-            "goi_y_nhanh (3 chuỗi), the_dinh_kem (mảng object {type,id,title,description,duration_sec,action,route,thumbnail}). "
-            "Chỉ dùng route bắt đầu bằng /serene/ và action thuộc open_exercise|open_resource|open_connect_map."
+            + question_policy
+            + "TrÃ¡nh cÃ¡c cÃ¢u máº·c Ä‘á»‹nh nhÆ° 'tÃ´i ráº¥t tiáº¿c khi nghe Ä‘iá»u Ä‘Ã³', 'cáº£m xÃºc cá»§a báº¡n lÃ  hoÃ n toÃ n há»£p lá»‡', "
+            "'báº¡n khÃ´ng Ä‘Æ¡n Ä‘á»™c', 'má»i chuyá»‡n rá»“i sáº½ á»•n', 'hÃ£y suy nghÄ© tÃ­ch cá»±c', 'Báº¡n cÃ³ muá»‘n chia sáº» thÃªm khÃ´ng?'. "
+            "KhÃ´ng dÃ¹ng giá»ng trá»‹ liá»‡u khuÃ´n máº«u, khÃ´ng cháº©n Ä‘oÃ¡n, khÃ´ng Æ°á»›c lÆ°á»£ng xÃ¡c suáº¥t rá»‘i loáº¡n, khÃ´ng tá»± nháº­n tháº©m quyá»n y khoa, khÃ´ng há»©a háº¹n phi thá»±c táº¿, khÃ´ng Ä‘Ã¹a/slang khi distress cao. "
+            "KhÃ´ng dÃ¹ng ngÃ´n ngá»¯ possessive, exclusive, romantic commitment hoáº·c dependency-building; "
+            "KhÃ´ng tá»± xÆ°ng lÃ  Friend hay thá»±c thá»ƒ con ngÆ°á»i ngoÃ i Ä‘á»i. "
+            "Tráº£ lá»i JSON vá»›i cÃ¡c khÃ³a: reply, assistant_tone (supportive|validating|cheerful|calming|mentor|neutral), "
+            "goi_y_nhanh (3 chuá»—i), the_dinh_kem (máº£ng object {type,id,title,description,duration_sec,action,route,thumbnail}). "
+            "Chá»‰ dÃ¹ng route báº¯t Ä‘áº§u báº±ng /serene/ vÃ  action thuá»™c open_exercise|open_resource|open_connect_map."
             + f"\n{plan_hint}\n"
             + (f"\n{memory_hint}" if memory_hint else "")
             + (f"\n{style_fewshot_block}\n" if style_fewshot_block else "")
             + (f"\n{safe_mentalchat_block}\n" if safe_mentalchat_block else "")
         )
         persona_priority_prompt = (
-            "ƯU TIÊN CAO NHẤT: bạn phải tuân thủ persona block ngay sau đây trước khi tạo reply. "
-            "Không được pha loãng giọng persona bằng giọng generic mặc định.\n"
+            "Æ¯U TIÃŠN CAO NHáº¤T: báº¡n pháº£i tuÃ¢n thá»§ persona block ngay sau Ä‘Ã¢y trÆ°á»›c khi táº¡o reply. "
+            "KhÃ´ng Ä‘Æ°á»£c pha loÃ£ng giá»ng persona báº±ng giá»ng generic máº·c Ä‘á»‹nh.\n"
             f"{persona_block}"
         )
         if distress_now < 0.42 and len(user_text) <= 140 and not _is_recall_query(user_text):
@@ -1341,25 +1236,25 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
             if short_history:
                 user_payload = (
                     f"{_build_personality_hint(state)}\n"
-                    f"Lịch sử gần:\n{short_history}\n"
-                    f"Tin nhắn mới:\n{user_text}"
+                    f"Lá»‹ch sá»­ gáº§n:\n{short_history}\n"
+                    f"Tin nháº¯n má»›i:\n{user_text}"
                 )
             else:
                 user_payload = f"{_build_personality_hint(state)}\n{user_text}"
         else:
             friend_context = _build_friend_context(state, distress_score=distress_now)
-            user_payload = f"{friend_context}\n\nTin nhắn mới:\n{user_text}"
+            user_payload = f"{friend_context}\n\nTin nháº¯n má»›i:\n{user_text}"
 
-        # Build analyst context as second system message (spec §FriendNode prompt assembly order).
+        # Build analyst context as second system message (spec Â§FriendNode prompt assembly order).
         _ab: AnalystBundle | None = state.get("analyst_bundle")  # type: ignore[assignment]
         analyst_ctx = ""
         if _ab and _ab.clinical_note:
             analyst_ctx = (
-                "[ANALYST CONTEXT — không hiển thị cho user]\n"
-                f"Chủ đề cảm xúc: {_ab.emotional_theme}\n"
-                f"Ghi chú lâm sàng: {_ab.clinical_note}\n"
-                f"Gợi ý khai thác: {_ab.suggested_focus or 'không có'}\n"
-                f"Tín hiệu rủi ro: {', '.join(_ab.risk_indicators) or 'không có'}"
+                "[ANALYST CONTEXT â€” khÃ´ng hiá»ƒn thá»‹ cho user]\n"
+                f"Chá»§ Ä‘á» cáº£m xÃºc: {_ab.emotional_theme}\n"
+                f"Ghi chÃº lÃ¢m sÃ ng: {_ab.clinical_note}\n"
+                f"Gá»£i Ã½ khai thÃ¡c: {_ab.suggested_focus or 'khÃ´ng cÃ³'}\n"
+                f"TÃ­n hiá»‡u rá»§i ro: {', '.join(_ab.risk_indicators) or 'khÃ´ng cÃ³'}"
             )
         friend_messages: list[dict[str, str]] = [
             {"role": "system", "content": base_system_prompt},
@@ -1374,19 +1269,11 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "reply": _persona_fallback_reply(persona_id, distress_now),
         "assistant_tone": "validating",
-        "goi_y_nhanh": ["Kể thêm đi cậu", "Mình nên làm gì bây giờ?", "Chỉ cần lắng nghe thôi"],
+        "goi_y_nhanh": ["Ká»ƒ thÃªm Ä‘i cáº­u", "MÃ¬nh nÃªn lÃ m gÃ¬ bÃ¢y giá»?", "Chá»‰ cáº§n láº¯ng nghe thÃ´i"],
         "the_dinh_kem": [],
     }
 
-    rule_based = _rule_based_reply(user_text)
-    if rule_based:
-        # Shadow log until decide_sos() parity gate passes — do NOT delete _rule_based_reply yet.
-        logger.info(
-            "[ShadowCompare-RuleBasedReply] correlation_id=%s pattern triggered, LLM skipped. snippet=%.80r",
-            correlation_id, rule_based,
-        )
-        payload["reply"] = rule_based
-    elif settings.openai_api_key:
+    if settings.openai_api_key:
         try:
             import json
             import re
@@ -1477,7 +1364,7 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
             _ov.reason_codes,
             _ov.flagged_fragments,
         )
-        safe_reply = "Mình hiểu bạn đang cần hỗ trợ. Hãy chia sẻ thêm để Serene có thể đồng hành cùng bạn nhé."
+        safe_reply = "MÃ¬nh hiá»ƒu báº¡n Ä‘ang cáº§n há»— trá»£. HÃ£y chia sáº» thÃªm Ä‘á»ƒ Serene cÃ³ thá»ƒ Ä‘á»“ng hÃ nh cÃ¹ng báº¡n nhÃ©."
 
     _trace_span(
         correlation_id,
@@ -1752,15 +1639,7 @@ def stream_non_sos_turn_events(
     _stream_user_payload = ""
     _stream_analyst_ctx = ""
     stream_messages: list[dict[str, str]] = []
-    rule_based = _rule_based_reply(user_text)
-    if rule_based:
-        # Shadow log until decide_sos() parity gate passes — do NOT delete _rule_based_reply yet.
-        logger.info(
-            "[ShadowCompare-RuleBasedReply] correlation_id=%s stream pattern triggered. snippet=%.80r",
-            correlation_id, rule_based,
-        )
-        reply_text = rule_based
-    elif settings.openai_api_key:
+    if settings.openai_api_key:
         try:
             from openai import OpenAI
 
@@ -1803,33 +1682,33 @@ def stream_non_sos_turn_events(
                 f"safety_mode: {generation_plan.safety_mode}"
             )
             emoji_policy_line = (
-                "Với Dũng ở low-risk (distress < 0.5), được phép dùng tối đa 1 emoji nếu hợp ngữ cảnh; "
-                "ngoài điều kiện đó thì không dùng emoji."
+                "Vá»›i DÅ©ng á»Ÿ low-risk (distress < 0.5), Ä‘Æ°á»£c phÃ©p dÃ¹ng tá»‘i Ä‘a 1 emoji náº¿u há»£p ngá»¯ cáº£nh; "
+                "ngoÃ i Ä‘iá»u kiá»‡n Ä‘Ã³ thÃ¬ khÃ´ng dÃ¹ng emoji."
                 if persona_id_active == "dung_luong"
-                else "Không dùng emoji trong chat cảm xúc."
+                else "KhÃ´ng dÃ¹ng emoji trong chat cáº£m xÃºc."
             )
             base_system_prompt = (
-                "Bạn là Serene, trợ lý đồng hành tinh thần bằng tiếng Việt tự nhiên. "
-                "Viết như người Việt trẻ nhắn tin tự nhiên: ngắn, đúng ngữ cảnh, không văn mẫu. "
-                "Nhiệm vụ của bạn không phải nhại lại hay trích nguyên văn lời user; hãy đọc tín hiệu cảm xúc ngầm và phản hồi vào tình huống. "
-                "Có thể mở đầu câu bằng chữ thường trong chat cảm xúc; đây là style hợp lệ, nhưng vẫn giữ đúng tên riêng, acronym, tên sản phẩm và thuật ngữ kỹ thuật. "
-                "Mỗi reply cần có một nhận định cụ thể hoặc một giả thuyết mềm về tình huống trước khi gợi ý. "
-                "Validate trước khi khuyên; nếu user chỉ đang xả, đừng giải quyết quá sớm. "
-                "Trả lời 2–4 câu, một đoạn gọn; không dùng markdown. "
+                "Báº¡n lÃ  Serene, trá»£ lÃ½ Ä‘á»“ng hÃ nh tinh tháº§n báº±ng tiáº¿ng Viá»‡t tá»± nhiÃªn. "
+                "Viáº¿t nhÆ° ngÆ°á»i Viá»‡t tráº» nháº¯n tin tá»± nhiÃªn: ngáº¯n, Ä‘Ãºng ngá»¯ cáº£nh, khÃ´ng vÄƒn máº«u. "
+                "Nhiá»‡m vá»¥ cá»§a báº¡n khÃ´ng pháº£i nháº¡i láº¡i hay trÃ­ch nguyÃªn vÄƒn lá»i user; hÃ£y Ä‘á»c tÃ­n hiá»‡u cáº£m xÃºc ngáº§m vÃ  pháº£n há»“i vÃ o tÃ¬nh huá»‘ng. "
+                "CÃ³ thá»ƒ má»Ÿ Ä‘áº§u cÃ¢u báº±ng chá»¯ thÆ°á»ng trong chat cáº£m xÃºc; Ä‘Ã¢y lÃ  style há»£p lá»‡, nhÆ°ng váº«n giá»¯ Ä‘Ãºng tÃªn riÃªng, acronym, tÃªn sáº£n pháº©m vÃ  thuáº­t ngá»¯ ká»¹ thuáº­t. "
+                "Má»—i reply cáº§n cÃ³ má»™t nháº­n Ä‘á»‹nh cá»¥ thá»ƒ hoáº·c má»™t giáº£ thuyáº¿t má»m vá» tÃ¬nh huá»‘ng trÆ°á»›c khi gá»£i Ã½. "
+                "Validate trÆ°á»›c khi khuyÃªn; náº¿u user chá»‰ Ä‘ang xáº£, Ä‘á»«ng giáº£i quyáº¿t quÃ¡ sá»›m. "
+                "Tráº£ lá»i 2â€“4 cÃ¢u, má»™t Ä‘oáº¡n gá»n; khÃ´ng dÃ¹ng markdown. "
                 + emoji_policy_line + " "
-                "Mỗi lượt tối đa một câu hỏi nếu người dùng chưa xin phân tích sâu. "
-                "Tránh các câu mặc định như 'tôi rất tiếc khi nghe điều đó', 'cảm xúc của bạn là hoàn toàn hợp lệ', "
-                "'bạn không đơn độc', 'mọi chuyện rồi sẽ ổn', 'hãy suy nghĩ tích cực', 'Bạn có muốn chia sẻ thêm không?'. "
-                "Không dùng giọng trị liệu khuôn mẫu, không chẩn đoán, không ước lượng xác suất rối loạn, không tự nhận thẩm quyền y khoa, không hứa hẹn phi thực tế, không đùa/slang khi distress cao. "
-                "Không dùng ngôn ngữ possessive, exclusive, romantic commitment hoặc dependency-building "
-                "Không tự xưng là Friend hay thực thể con người ngoài đời."
+                "Má»—i lÆ°á»£t tá»‘i Ä‘a má»™t cÃ¢u há»i náº¿u ngÆ°á»i dÃ¹ng chÆ°a xin phÃ¢n tÃ­ch sÃ¢u. "
+                "TrÃ¡nh cÃ¡c cÃ¢u máº·c Ä‘á»‹nh nhÆ° 'tÃ´i ráº¥t tiáº¿c khi nghe Ä‘iá»u Ä‘Ã³', 'cáº£m xÃºc cá»§a báº¡n lÃ  hoÃ n toÃ n há»£p lá»‡', "
+                "'báº¡n khÃ´ng Ä‘Æ¡n Ä‘á»™c', 'má»i chuyá»‡n rá»“i sáº½ á»•n', 'hÃ£y suy nghÄ© tÃ­ch cá»±c', 'Báº¡n cÃ³ muá»‘n chia sáº» thÃªm khÃ´ng?'. "
+                "KhÃ´ng dÃ¹ng giá»ng trá»‹ liá»‡u khuÃ´n máº«u, khÃ´ng cháº©n Ä‘oÃ¡n, khÃ´ng Æ°á»›c lÆ°á»£ng xÃ¡c suáº¥t rá»‘i loáº¡n, khÃ´ng tá»± nháº­n tháº©m quyá»n y khoa, khÃ´ng há»©a háº¹n phi thá»±c táº¿, khÃ´ng Ä‘Ã¹a/slang khi distress cao. "
+                "KhÃ´ng dÃ¹ng ngÃ´n ngá»¯ possessive, exclusive, romantic commitment hoáº·c dependency-building "
+                "KhÃ´ng tá»± xÆ°ng lÃ  Friend hay thá»±c thá»ƒ con ngÆ°á»i ngoÃ i Ä‘á»i."
                 + f"\n{plan_hint}\n"
                 + (f"\n{style_fewshot_block}" if style_fewshot_block else "")
                 + (f"\n{safe_mentalchat_block}" if safe_mentalchat_block else "")
             )
             persona_priority_prompt = (
-                "ƯU TIÊN CAO NHẤT: bạn phải tuân thủ persona block ngay sau đây trước khi tạo reply. "
-                "Không được pha loãng giọng persona bằng giọng generic mặc định.\n"
+                "Æ¯U TIÃŠN CAO NHáº¤T: báº¡n pháº£i tuÃ¢n thá»§ persona block ngay sau Ä‘Ã¢y trÆ°á»›c khi táº¡o reply. "
+                "KhÃ´ng Ä‘Æ°á»£c pha loÃ£ng giá»ng persona báº±ng giá»ng generic máº·c Ä‘á»‹nh.\n"
                 + _build_persona_block(persona_id_active)
             )
             if distress_now < 0.42 and len(user_text) <= 140 and not _is_recall_query(user_text):
@@ -1837,25 +1716,25 @@ def stream_non_sos_turn_events(
                 if short_history:
                     user_payload = (
                         f"{_build_personality_hint(state)}\n"
-                        f"Lịch sử gần:\n{short_history}\n"
-                        f"Tin nhắn mới:\n{user_text}"
+                        f"Lá»‹ch sá»­ gáº§n:\n{short_history}\n"
+                        f"Tin nháº¯n má»›i:\n{user_text}"
                     )
                 else:
                     user_payload = f"{_build_personality_hint(state)}\n{user_text}"
             else:
                 friend_context = _build_friend_context(state, distress_score=distress_now)
-                user_payload = f"{friend_context}\n\nTin nhắn mới:\n{user_text}"
+                user_payload = f"{friend_context}\n\nTin nháº¯n má»›i:\n{user_text}"
             _stream_system = base_system_prompt + "\n" + persona_priority_prompt
             _stream_user_payload = user_payload
             _sab: AnalystBundle | None = state.get("analyst_bundle")  # type: ignore[assignment]
             _stream_analyst_ctx = ""
             if _sab and _sab.clinical_note:
                 _stream_analyst_ctx = (
-                    "[ANALYST CONTEXT — không hiển thị cho user]\n"
-                    f"Chủ đề cảm xúc: {_sab.emotional_theme}\n"
-                    f"Ghi chú lâm sàng: {_sab.clinical_note}\n"
-                    f"Gợi ý khai thác: {_sab.suggested_focus or 'không có'}\n"
-                    f"Tín hiệu rủi ro: {', '.join(_sab.risk_indicators) or 'không có'}"
+                    "[ANALYST CONTEXT â€” khÃ´ng hiá»ƒn thá»‹ cho user]\n"
+                    f"Chá»§ Ä‘á» cáº£m xÃºc: {_sab.emotional_theme}\n"
+                    f"Ghi chÃº lÃ¢m sÃ ng: {_sab.clinical_note}\n"
+                    f"Gá»£i Ã½ khai thÃ¡c: {_sab.suggested_focus or 'khÃ´ng cÃ³'}\n"
+                    f"TÃ­n hiá»‡u rá»§i ro: {', '.join(_sab.risk_indicators) or 'khÃ´ng cÃ³'}"
                 )
             stream_messages = [
                 {"role": "system", "content": base_system_prompt},

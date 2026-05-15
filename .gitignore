@@ -112,7 +112,9 @@ backend/tests/*
 !backend/tests/analyst/*.py
 !backend/tests/test_friend_naturalness_regression.py
 !backend/tests/test_memory_recall_turn.py
+!backend/tests/test_random_proactive_voice.py
 !backend/tests/test_session_lifecycle_memory_cards.py
+!backend/tests/test_analyst_threshold.py
 
 
 
