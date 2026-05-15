@@ -4,6 +4,17 @@
 
 ---
 
+## [Unreleased] — Advisor evidence provenance fix · 2026-05-15
+
+### Fixed
+- `backend/app/services/counseling_advisor_service.py` — `as_advisor_advice()` now propagates `guidance.case_refs` into `AdvisorAdvice.evidence_refs` (was hardcoded `[]`), restoring the JSONL provenance contract.
+
+### Added (tests)
+- `backend/tests/test_advisor_provenance.py` — 8 pure unit tests (no DB, no network): `EmpathyAdvisor` and `CBTPatternAdvisor` populate `evidence_refs` from JSONL; `AdvisorAdvice` schema has no `final_text`/`reply`/`message_to_user` field; `CounselingAdvisorService.as_advisor_advice()` propagates `case_refs`; empty `case_refs` yields empty `evidence_refs`; all `evidence_refs` items are strings.
+- `.gitignore` — added `!backend/tests/test_advisor_provenance.py` to allowlist.
+
+---
+
 ## [Unreleased] — Meme selector safety gate tests · 2026-05-15
 
 ### Added (tests)
