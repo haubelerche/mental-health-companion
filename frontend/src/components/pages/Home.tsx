@@ -30,7 +30,8 @@ import { CheckinHistoryModal } from '../dashboard/CheckinHistoryModal'
 import { MoodWordChips } from '../common/MoodWordChips'
 import { StreakBar } from '../common/StreakBar'
 import { useAuth } from '../../hooks/useAuth'
-import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
+import { dashboardService, adaptInsights, type NutritionDailyTip, type ReflectInsight } from '../../services/dashboardService'
+import { InsightCardList } from '../dashboard/InsightCardList'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import { REWARD_UPDATED_EVENT } from '../../utils/rewardProgress'
 import {
@@ -286,6 +287,7 @@ export default function Home() {
     const streak = backendStreakDays ?? 0
     const [nutritionTip, setNutritionTip] = useState<NutritionDailyTip | null>(null)
     const [homeMoodWords, setHomeMoodWords] = useState<string[]>([])
+    const [safeInsights, setSafeInsights] = useState<ReflectInsight[]>([])
     const [quoteIndex, setQuoteIndex] = useState(0)
     
     const [screeningResults, setScreeningResults] = useState<StoredScreeningResults>(() => readStoredScreeningResults())
@@ -358,6 +360,14 @@ export default function Home() {
                 setIsTodayCompleted(data.progress.is_today_completed ?? false)
                 setCompletedDays(data.progress.completed_days ?? [])
 
+            })
+            .catch(() => undefined)
+
+        dashboardService
+            .getSafeInsights()
+            .then((data) => {
+                if (!mounted) return
+                setSafeInsights(adaptInsights(data.insights ?? []))
             })
             .catch(() => undefined)
 
@@ -635,6 +645,11 @@ export default function Home() {
                         </div>
                     )}
                 </section>
+
+                {/* ── Insight của tuần ── */}
+                {safeInsights.length > 0 && (
+                    <InsightCardList insights={safeInsights} />
+                )}
 
                 {/* ── Gợi ý nhẹ nhàng ── */}
                 <section className="bg-theme-surface/60 p-6 rounded-4xl backdrop-blur-xl border border-theme-border/50 shadow-sm">

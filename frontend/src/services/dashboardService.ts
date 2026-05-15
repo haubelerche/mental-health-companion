@@ -345,7 +345,7 @@ function severityLabel(severity: InsightCard['severity_band'] | string): string 
     return 'Nhẹ, chỉ cần để ý'
 }
 
-function adaptInsights(insights: InsightCard[]): ReflectInsight[] {
+export function adaptInsights(insights: InsightCard[]): ReflectInsight[] {
     return insights.map((insight) => ({
         insight_id: insight.insight_id,
         hypothesis_type: insight.evidence_sources?.[0] || 'safe_dashboard_insight',

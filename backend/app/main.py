@@ -40,6 +40,19 @@ def _outbox_loop() -> None:
     run_outbox_worker_loop(poll_seconds=10)
 
 
+def _neo4j_graph_outbox_loop() -> None:
+    """Run the production Neo4j-wired outbox worker (app.core.outbox_worker).
+
+    Only started when NEO4J_GRAPH_OUTBOX_WORKER_ENABLED=true and
+    NEO4J_URI is configured. The notification stub in app.services.outbox_worker
+    handles non-graph outbox events; this loop handles the graph-sync events.
+    """
+    import asyncio
+    from app.core.outbox_worker import run_worker  # type: ignore[attr-defined]
+
+    asyncio.run(run_worker())
+
+
 def _voice_tts_loop() -> None:
     from app.core.voice_tts_worker import run_forever
 
@@ -60,6 +73,8 @@ async def lifespan(_: FastAPI):
             threading.Thread(target=_idle_loop, daemon=True).start()
         if settings.notification_outbox_worker_enabled:
             threading.Thread(target=_outbox_loop, daemon=True).start()
+        if settings.neo4j_graph_outbox_worker_enabled and settings.neo4j_uri:
+            threading.Thread(target=_neo4j_graph_outbox_loop, daemon=True).start()
         if settings.voice_tts_worker_enabled:
             threading.Thread(target=_voice_tts_loop, daemon=True).start()
     yield

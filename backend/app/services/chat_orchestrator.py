@@ -28,6 +28,10 @@ from app.services.observability import record_event, record_metric, start_span
 from app.services.schemas.contracts import AdvisorAdvice, WorkerJob
 
 
+def extract_tts_job(intervention: dict[str, Any] | None) -> dict[str, Any] | None:
+    return _extract_tts_job(intervention)
+
+
 def _extract_tts_job(intervention: dict[str, Any] | None) -> dict[str, Any] | None:
     if not isinstance(intervention, dict):
         return None

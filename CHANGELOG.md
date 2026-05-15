@@ -4,6 +4,25 @@
 
 ---
 
+## [Unreleased] — AutoCBT & Insight Pipeline audit gap closure · 2026-05-16
+
+### Added
+- **Analyst bundle per-turn persistence (Insight Pipeline P1):** `run_non_sos_turn()` nay expose `analyst_bundle` key trong return dict; `record_analyst_bundle_signal()` persist mỗi turn's AnalystBundle vào `analyst_signals` table (skip SOS, None, cold_start_screen). Gọi non-fatally trong chat router.
+- **Home.tsx insight section (Insight Pipeline P5):** Fetch `getSafeInsights()` trong Home page; render `InsightCardList` phía dưới screening section khi có ≥1 insight. `adaptInsights()` được export từ `dashboardService.ts`.
+- **Neo4j outbox worker flag (Insight Pipeline P4):** Config flag `NEO4J_GRAPH_OUTBOX_WORKER_ENABLED=false` (default) + conditional start trong `main.py` — chỉ start khi flag=true VÀ `neo4j_uri` non-empty. Documented trong `.env.example`.
+- **`extract_tts_job` public alias** trong `chat_orchestrator.py` để fix ImportError từ `chat.py`.
+- `.gitignore` whitelist cho 6 new test files.
+
+### Tests added
+- `backend/tests/test_analyst_bundle_persistence.py` — 8 tests: signal writes, SOS skip, None skip, cold_start skip, distress clamping, DB exception safety, analyst_bundle key in turn result.
+- `backend/tests/test_golden_routing_fixtures.py` — 18 routing fixture tests: small talk direct, memory recall, self-blame advisor, multi-intent cap, nutrition routing, safety boundary priority.
+- `backend/tests/test_dashboard_insight_pipeline.py` — 21 tests: AnalystAgent, AnalystPipeline, PHQ absent/present, multi-signal, InsightCard model shape.
+- `backend/tests/test_vietnamese_naturalness_expanded.py` — 16 tests: question count, therapy tone, fake human/doctor claims, diacritics, empathy loops, persona variation, high distress safety.
+- `backend/tests/test_route_trace_schema.py` — 13 tests: CHAT_LATENCY_INT_STAGES completeness, ensure_chat_latency_trace normalization, interaction_need in routing_decision, observability redaction.
+- `backend/tests/test_outbox_worker_wiring.py` — 5 tests: notification stub event types, NEO4J flag default, guard logic, core outbox importable, batch short-circuit.
+
+---
+
 ## [Unreleased] — AutoCBT gap closure · 2026-05-15
 
 ### Fixed

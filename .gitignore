@@ -119,6 +119,12 @@ backend/tests/*
 !backend/tests/test_counseling_advisor_evidence_refs.py
 !backend/tests/test_advisor_selector_context_fallback.py
 !backend/tests/test_friend_agent_response_plan.py
+!backend/tests/test_analyst_bundle_persistence.py
+!backend/tests/test_golden_routing_fixtures.py
+!backend/tests/test_dashboard_insight_pipeline.py
+!backend/tests/test_vietnamese_naturalness_expanded.py
+!backend/tests/test_route_trace_schema.py
+!backend/tests/test_outbox_worker_wiring.py
 
 
 

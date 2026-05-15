@@ -35,6 +35,7 @@ from app.services.guest_service import heartbeat as guest_heartbeat
 from app.services.guest_service import start_session as guest_start_session
 from app.services.langfuse_tracing import ChatTurnTracer, set_active_tracer
 from app.services.latency_metrics import ensure_chat_latency_trace
+from app.services.analyst_writer import record_analyst_bundle_signal
 from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn, stream_non_sos_turn_events
 from app.services.longterm_memory import (
     UserMemoryContext,
@@ -1378,6 +1379,20 @@ def send_message(
         except Exception as exc:
             logger.exception("langgraph chat failed")
             raise AppError("LLM_TIMEOUT", "Phản hồi quá lâu, vui lòng thử lại", 504) from exc
+
+    _ab = turn.get("analyst_bundle")
+    if _ab is not None:
+        try:
+            record_analyst_bundle_signal(
+                db,
+                user_id=current_user.user_id,
+                session_id=session.session_id,
+                analyst_bundle=_ab,
+                distress_score=float(distress),
+                sos_triggered=False,
+            )
+        except Exception:
+            logger.debug("analyst_bundle persist skipped (non-fatal)")
 
     snap = turn["session_fields"]
     assistant_content = turn["reply"]

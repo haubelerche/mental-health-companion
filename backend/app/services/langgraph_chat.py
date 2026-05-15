@@ -1514,6 +1514,7 @@ def run_non_sos_turn(
         "goi_y_nhanh": out.get("goi_y_nhanh", []),
         "the_dinh_kem": out.get("the_dinh_kem", []),
         "routing_history": out.get("routing_history", []),
+        "analyst_bundle": out.get("analyst_bundle"),
     }
     _trace_span(
         correlation_id,

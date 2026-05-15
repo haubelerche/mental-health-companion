@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     background_workers_enabled: bool = Field(default=True, validation_alias=AliasChoices("BACKGROUND_WORKERS_ENABLED"))
     idle_summarizer_enabled: bool = Field(default=True, validation_alias=AliasChoices("IDLE_SUMMARIZER_ENABLED"))
     notification_outbox_worker_enabled: bool = Field(default=True, validation_alias=AliasChoices("NOTIFICATION_OUTBOX_WORKER_ENABLED"))
+    neo4j_graph_outbox_worker_enabled: bool = Field(default=False, validation_alias=AliasChoices("NEO4J_GRAPH_OUTBOX_WORKER_ENABLED"))
     voice_tts_worker_enabled: bool = Field(default=True, validation_alias=AliasChoices("VOICE_TTS_WORKER_ENABLED"))
     random_proactive_voice_enabled: bool = Field(
         default=True,
