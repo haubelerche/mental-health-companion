@@ -32,8 +32,8 @@ jobs:
         env:
           PYTHONPATH: backend
           SERENE_BACKEND_TESTING: "1"
-          IS_FORK_PR: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
-          CI_REQUIRE_REAL_DB: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          CI_REQUIRE_REAL_DB: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
           CI_SUPABASE_DATABASE_URL: ${{ secrets.CI_SUPABASE_DATABASE_URL }}
         run: bash scripts/ci_backend_tests.sh
 
