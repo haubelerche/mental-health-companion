@@ -4,6 +4,27 @@
 
 ---
 
+## [Unreleased] — Voice & latency improvements · 2026-05-15
+
+### Performance
+- Raised AnalystNode distress threshold `0.72 → 0.82` (`langgraph_chat.py`): giảm ~30% số turn cần 2 LLM calls nối tiếp, text response nhanh hơn ~1–2s cho distress range 0.72–0.82.
+
+### Fixed
+- `_maybe_enqueue_voice` không còn pass nguyên `assistant_content` làm `voice_script` (vi phạm contract `visible_text ≠ voice_script`); nay dùng `build_voice_script()` deterministic làm fallback, distinct với text.
+
+### Added
+- `VOICE_LLM_SCRIPT_ENABLED` feature flag (default `false`): khi bật, gpt-4o-mini generate voice script context-aware trong background TTS worker trước khi gọi ElevenLabs — không block chat response.
+- `OPENAI_MODEL_VOICE_SCRIPT` và `VOICE_LLM_SCRIPT_MAX_CHARS` config fields.
+- Conversation context (`user_message` + last 6 messages, PII-masked) lưu vào voice outbox payload để worker có đủ ngữ cảnh.
+- `_generate_llm_voice_script()` trong `proactive_voice.py`: fallback graceful khi flag off / no API key / LLM error.
+- 4 test files mới: `test_analyst_threshold.py`, cộng thêm tests trong `test_proactive_voice.py` và `test_chat_voice_payload.py`.
+
+### Changed
+- `.gitignore` — thêm `test_analyst_threshold.py` và `test_chat_voice_payload.py` vào whitelist.
+- `.env.example` — thêm 3 env vars mới cho LLM voice script.
+
+---
+
 ## [Unreleased] — AutoCBT audit: 84-test runtime contract suite · 2026-05-15
 
 ### Added (tests)
