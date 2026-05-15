@@ -551,17 +551,14 @@ export default function Chat() {
         if (attempts > 20) {
             if (voiceMessageId) {
                 updateVoiceMessage(voiceMessageId, { status: 'failed', errorMessage: 'Voice job mất quá lâu.' })
-            } else {
-                setVoiceStatus('failed')
             }
+            // Silent polling exhausted — skip card entirely
             return
         }
         try {
             const job = await chatService.getVoiceJob(ttsJobId)
             if (voiceMessageId) {
                 updateVoiceMessage(voiceMessageId, { status: job.status })
-            } else {
-                setVoiceStatus(job.status)
             }
             // Stop polling on any terminal status
             if (TTS_TERMINAL_STATUSES.has(job.status as TtsStatus)) {
@@ -573,30 +570,33 @@ export default function Chat() {
                     if (voiceMessageId) {
                         updateVoiceMessage(voiceMessageId, { status: 'ready', audioUrl: playableAudio, errorMessage: null })
                     } else {
-                        playAudioUrl(playableAudio)
+                        // Silent poll succeeded — now add the card with audio ready
+                        const newMsg: UiMessage = {
+                            id: `voice_${ttsJobId}_${Date.now()}`,
+                            role: 'assistant',
+                            content: '',
+                            timestamp: Date.now(),
+                            voice: { ttsJobId, status: 'ready', audioUrl: playableAudio, errorMessage: null },
+                        }
+                        setMessages((prev) => [...prev, newMsg])
+                        setVoiceStatus('')
                     }
-                } else if (job.status === 'failed' && playableAudio) {
+                } else if ((job.status === 'failed') && playableAudio) {
                     if (voiceMessageId) {
                         updateVoiceMessage(voiceMessageId, { status: 'ready', audioUrl: playableAudio, errorMessage: null })
-                    } else {
-                        playAudioUrl(playableAudio)
                     }
                 } else if (job.status === 'failed') {
                     if (voiceMessageId) {
                         updateVoiceMessage(voiceMessageId, { status: 'failed', errorMessage: job.error_message || null })
-                    } else {
-                        setVoiceStatus(job.error_message ? `failed:${job.error_message}` : 'failed')
                     }
+                    // Silent poll failed — no card shown
                 }
-                // All other terminal statuses (cache_hit, skipped_duplicate, provider_disabled,
-                // cancelled, expired) are surfaced via VoiceStatusBadge; no extra text bubble.
+                // Other terminal statuses (provider_disabled, cancelled, expired): no card if silent.
                 return
             }
         } catch {
             if (voiceMessageId) {
                 updateVoiceMessage(voiceMessageId, { status: 'failed', errorMessage: 'Không tải được tin nhắn thoại.' })
-            } else {
-                setVoiceStatus('failed')
             }
             return
         }
@@ -615,24 +615,26 @@ export default function Chat() {
 
         const status = String(ttsJob?.status || 'queued')
         const audioUrl = typeof ttsJob?.audio_url === 'string' ? ttsJob.audio_url : null
-        const voiceMessage: UiMessage = {
-            id: `voice_${jobId}_${Date.now()}`,
-            role: 'assistant',
-            content: '',
-            timestamp: Date.now(),
-            voice: {
-                ttsJobId: jobId,
-                status: audioUrl ? 'ready' : status,
-                audioUrl,
-                errorMessage: null,
-            },
-        }
-        setMessages((prev) => [...prev, voiceMessage])
-        setVoiceStatus('')
-        if (!audioUrl && !TTS_TERMINAL_STATUSES.has(status as TtsStatus)) {
-            void pollVoiceJob(jobId, 0, voiceMessage.id)
-        } else if (!audioUrl && status !== 'cooldown') {
-            setVoiceStatus(status)
+
+        if (audioUrl || TTS_TERMINAL_STATUSES.has(status as TtsStatus)) {
+            // Audio already available (or terminal state) — show card immediately
+            const voiceMessage: UiMessage = {
+                id: `voice_${jobId}_${Date.now()}`,
+                role: 'assistant',
+                content: '',
+                timestamp: Date.now(),
+                voice: {
+                    ttsJobId: jobId,
+                    status: audioUrl ? 'ready' : status,
+                    audioUrl,
+                    errorMessage: null,
+                },
+            }
+            setMessages((prev) => [...prev, voiceMessage])
+            setVoiceStatus('')
+        } else {
+            // Audio not yet ready — poll silently and add card only when audio is available
+            void pollVoiceJob(jobId, 0)
         }
     }
 
