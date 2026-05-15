@@ -341,6 +341,106 @@ def test_message_suggests_proactive_voice_detects_intensity_cues():
     assert proactive_voice.message_suggests_proactive_voice("hôm nay trời đẹp") is False
 
 
+def test_generate_llm_voice_script_returns_none_when_disabled(monkeypatch):
+    from app.services.proactive_voice import _generate_llm_voice_script
+
+    settings = SimpleNamespace(
+        voice_llm_script_enabled=False,
+        openai_api_key="sk-test",
+        openai_model_voice_script="gpt-4o-mini",
+        llm_timeout_seconds=5.0,
+        voice_llm_script_max_chars=280,
+    )
+    result = _generate_llm_voice_script(
+        user_message="toi met",
+        conversation_context=[],
+        distress_score=0.7,
+        safety_tier="elevated",
+        settings=settings,
+    )
+    assert result is None
+
+
+def test_generate_llm_voice_script_returns_none_without_api_key(monkeypatch):
+    from app.services.proactive_voice import _generate_llm_voice_script
+
+    settings = SimpleNamespace(
+        voice_llm_script_enabled=True,
+        openai_api_key="",
+        openai_model_voice_script="gpt-4o-mini",
+        llm_timeout_seconds=5.0,
+        voice_llm_script_max_chars=280,
+    )
+    result = _generate_llm_voice_script(
+        user_message="toi met",
+        conversation_context=[],
+        distress_score=0.7,
+        safety_tier="elevated",
+        settings=settings,
+    )
+    assert result is None
+
+
+def test_generate_llm_voice_script_calls_openai_and_returns_script(monkeypatch):
+    from unittest.mock import MagicMock, patch
+    from app.services.proactive_voice import _generate_llm_voice_script
+
+    settings = SimpleNamespace(
+        voice_llm_script_enabled=True,
+        openai_api_key="sk-real",
+        openai_model_voice_script="gpt-4o-mini",
+        llm_timeout_seconds=5.0,
+        voice_llm_script_max_chars=280,
+    )
+
+    fake_choice = MagicMock()
+    fake_choice.message.content = "Mình ở đây với bạn. Hãy thử hít thở chậm một nhịp."
+    fake_resp = MagicMock()
+    fake_resp.choices = [fake_choice]
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.return_value = fake_resp
+
+    with patch("app.services.proactive_voice.OpenAI", return_value=fake_client):
+        result = _generate_llm_voice_script(
+            user_message="toi cam thay rat met va khong muon lam gi nua",
+            conversation_context=[
+                {"role": "user", "content": "hom nay kho qua"},
+                {"role": "assistant", "content": "Minh nghe ban"},
+            ],
+            distress_score=0.75,
+            safety_tier="elevated",
+            settings=settings,
+        )
+
+    assert result == "Mình ở đây với bạn. Hãy thử hít thở chậm một nhịp."
+    call_kwargs = fake_client.chat.completions.create.call_args[1]
+    assert call_kwargs["model"] == "gpt-4o-mini"
+    assert call_kwargs["max_tokens"] == 120
+
+
+def test_generate_llm_voice_script_returns_none_on_exception(monkeypatch):
+    from unittest.mock import patch
+    from app.services.proactive_voice import _generate_llm_voice_script
+
+    settings = SimpleNamespace(
+        voice_llm_script_enabled=True,
+        openai_api_key="sk-real",
+        openai_model_voice_script="gpt-4o-mini",
+        llm_timeout_seconds=5.0,
+        voice_llm_script_max_chars=280,
+    )
+
+    with patch("app.services.proactive_voice.OpenAI", side_effect=RuntimeError("timeout")):
+        result = _generate_llm_voice_script(
+            user_message="toi met",
+            conversation_context=[],
+            distress_score=0.7,
+            safety_tier="elevated",
+            settings=settings,
+        )
+    assert result is None
+
+
 def test_enqueue_voice_job_stores_conversation_context(monkeypatch):
     """enqueue_voice_job phải lưu user_message và conversation_context vào outbox payload."""
     from app.services.proactive_voice import enqueue_voice_job

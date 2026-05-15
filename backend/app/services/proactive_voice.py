@@ -31,6 +31,11 @@ from app.services.tts_renderer import (
 from app.voice.dedup import compute_event_signature, dedup_status_for, find_dedup_job
 from app.voice.style_mapping import resolve_active_style
 
+try:
+    from openai import OpenAI
+except ImportError:  # openai optional; falls back gracefully in _generate_llm_voice_script
+    OpenAI = None  # type: ignore[assignment,misc]
+
 logger = logging.getLogger(__name__)
 
 
@@ -151,6 +156,79 @@ def build_voice_script(
         "Mình mời bạn hít một nhịp chậm, ... "
         "và chia sẻ điều đang làm bạn nặng lòng nhất lúc này."
     )
+
+
+def _generate_llm_voice_script(
+    *,
+    user_message: str,
+    conversation_context: list[dict[str, Any]],
+    distress_score: float,
+    safety_tier: str,
+    settings: Any,
+) -> str | None:
+    """Generate a context-aware voice script via LLM. Runs inside TTS worker thread.
+
+    Returns None when flag is off, API key missing, or LLM fails — caller falls back to stored script.
+    """
+    if not getattr(settings, "voice_llm_script_enabled", False):
+        return None
+    api_key = str(getattr(settings, "openai_api_key", "") or "").strip()
+    if not api_key:
+        return None
+
+    recent_lines: list[str] = []
+    for msg in (conversation_context or [])[-6:]:
+        role = str(msg.get("role") or "")
+        content = str(msg.get("content") or "")[:200]
+        if role == "user":
+            recent_lines.append(f"Người dùng: {content}")
+        elif role == "assistant":
+            recent_lines.append(f"Serene: {content}")
+    context_block = "\n".join(recent_lines) if recent_lines else "(không có lịch sử)"
+    current = str(user_message or "")[:300]
+
+    system_prompt = (
+        "Bạn là Serene, AI hỗ trợ sức khỏe tinh thần người Việt.\n"
+        "Dựa trên nội dung cuộc trò chuyện, viết một đoạn voice message ngắn bằng tiếng Việt.\n\n"
+        "Quy tắc bắt buộc:\n"
+        "- Tối đa 60 từ, dạng nói chuyện tự nhiên (không markdown, không link, không số điện thoại).\n"
+        "- Nội dung KHÁC với tin nhắn text: voice là hướng dẫn hành động cụ thể, không phải đồng cảm chung.\n"
+        "- Không chẩn đoán rối loạn, không bịa số hotline hay tên cơ sở y tế.\n"
+        "- Kết thúc bằng một hành động cụ thể người dùng có thể làm ngay bây giờ."
+    )
+    user_prompt = (
+        f"Distress score: {distress_score:.2f} | Safety tier: {safety_tier}\n\n"
+        f"Lịch sử hội thoại gần đây:\n{context_block}\n\n"
+        f"Tin nhắn mới nhất của người dùng: {current}\n\n"
+        "Viết voice script (tối đa 60 từ, tiếng Việt, plain text):"
+    )
+
+    try:
+        if OpenAI is None:
+            logger.warning("voice_llm_script_generation_failed: openai package not installed")
+            return None
+        client = OpenAI(
+            api_key=api_key,
+            timeout=min(float(getattr(settings, "llm_timeout_seconds", 5.0)), 3.0),
+        )
+        resp = client.chat.completions.create(
+            model=str(getattr(settings, "openai_model_voice_script", "gpt-4o-mini")),
+            temperature=0.7,
+            max_tokens=120,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+        )
+        script = (resp.choices[0].message.content or "").strip()
+        max_chars = int(getattr(settings, "voice_llm_script_max_chars", 280))
+        if not script or len(script) > max_chars * 2:
+            logger.warning("voice_llm_script_invalid_length chars=%d", len(script))
+            return None
+        return script
+    except Exception as exc:
+        logger.warning("voice_llm_script_generation_failed: %s", exc)
+        return None
 
 
 def cooldown_active(*, user_id: str, session_id: str | None) -> tuple[bool, int]:
