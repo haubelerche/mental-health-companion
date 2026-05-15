@@ -4,6 +4,14 @@
 
 ---
 
+## [Unreleased] — Persona chat greetings + screening results actions · 2026-05-15
+
+### Changed
+- `backend/app/personas/greetings.py` — Cập nhật lời chào mở hội thoại cho Dũng (tớ/cậu), Đạt (tôi/bạn) và Hậu (giọng gần gũi).
+- `frontend/src/components/pages/ResultsPage.tsx` — Đồng bộ nút hành động sau screening (minimal/mild/moderate): về trang chủ và mở Nhìn lại; sửa thiếu `actions` ở mức trung bình.
+
+---
+
 ## [Unreleased] — AutoCBT compliance tests for ChatOrchestrator advisor pipeline · 2026-05-14
 
 ### Added (tests)
