@@ -22,14 +22,14 @@ export function MoodWordChips({ words = DEFAULT_WORDS, selected, onChange, class
     }
 
     return (
-        <div className={`flex flex-wrap justify-center gap-2 ${className ?? ''}`}>
+        <div className={`flex shrink-0 overflow-x-auto scrollbar-hide  gap-2 ${className ?? ''}`}>
             {words.map((word) => (
                 <button
                     key={word}
                     type="button"
                     onClick={() => toggle(word)}
                     className={[
-                        'rounded-full px-4 py-2 text-sm font-medium cursor-pointer hover:scale-105 hover:transition-all duration-200',
+                        'rounded-full px-4 py-2 text-xs font-medium cursor-pointer hover:underline',
                         selected.includes(word)
                             ? 'bg-theme-accent text-white'
                             : 'text-theme-text-primary border border-theme-border bg-theme-surface',
