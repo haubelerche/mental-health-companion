@@ -739,6 +739,8 @@ def distress_router(state: ChatGraphState) -> dict[str, Any]:
         route, reason = "friend", "crisis_route_finalized"
     elif distress >= _ANALYST_DISTRESS_THRESHOLD:
         route, reason = "analyst", "high_distress"
+    elif (state.get("mood_today") or {}).get("mood") in {"stressed", "restless", "melancholic"} and distress >= 0.58:
+        route, reason = "analyst", "mood_distress_combo"
     elif len(msg) <= 8 and _GREETING_RE.search(msg):
         route, reason = "friend", "short_greeting"
     elif _ANALYST_TRIGGER_RE.search(msg):
