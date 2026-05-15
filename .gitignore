@@ -114,6 +114,8 @@ backend/tests/*
 !backend/tests/test_memory_recall_turn.py
 !backend/tests/test_session_lifecycle_memory_cards.py
 !backend/tests/test_advisor_selector.py
+!backend/tests/test_chat_advisor_assisted_integration.py
+!backend/tests/test_friend_agent_contract.py
 
 
 
