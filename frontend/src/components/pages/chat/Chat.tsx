@@ -419,8 +419,11 @@ export default function Chat() {
                     const duration = Number(data.max_duration_sec) > 0 ? Number(data.max_duration_sec) : FALLBACK_GUEST_CHAT_DURATION_SECONDS
                     setSessionId(data.guest_session_id)
                     setGuestSecondsLeft(duration)
-                    guestDeadlineRef.current = Date.now() + duration * 1000
+                    const expiresAt = Date.now() + duration * 1000
+                    guestDeadlineRef.current = expiresAt
                     guestExpiredNotifiedRef.current = false
+                    // Persist expiration time for route protection
+                    localStorage.setItem('serene_guest_session_expires_at', expiresAt.toString())
                 })
                 .catch(() => {
                     if (cancelled) return
