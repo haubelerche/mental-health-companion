@@ -20,7 +20,7 @@ from app.services.utils import get_now
 
 router = APIRouter(prefix="/screenings", tags=["screenings"])
 
-_EXPECTED_ITEMS = {"phq9": 9, "gad7": 7}
+_EXPECTED_ITEMS = {"phq9": 9, "gad7": 7, "dass21": 21, "mdq": 15, "pcl5": 20}
 
 
 @router.get("/catalog")
@@ -29,8 +29,11 @@ def catalog(current_user: User = Depends(ensure_policy_acknowledged), db: Sessio
     return ok(
         {
             "instruments": [
-                {"id": "phq9", "title": "PHQ-9 (rút gọn demo)", "item_count": 9},
-                {"id": "gad7", "title": "GAD-7 (rút gọn demo)", "item_count": 7},
+                {"id": "phq9", "title": "PHQ-9 (Trầm cảm)", "item_count": 9},
+                {"id": "gad7", "title": "GAD-7 (Lo âu)", "item_count": 7},
+                {"id": "dass21", "title": "DASS-21 (Trầm cảm - Lo âu - Stress)", "item_count": 21},
+                {"id": "mdq", "title": "MDQ (Rối loạn lưỡng cực)", "item_count": 15},
+                {"id": "pcl5", "title": "PCL-5 (Hội chứng PTSD)", "item_count": 20},
             ]
         }
     )

@@ -211,6 +211,14 @@ class ClinicalProfile(Base):
     gad7_score: Mapped[int | None] = mapped_column(Integer)
     phq9_coverage: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     gad7_coverage: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    dass21_depression_score: Mapped[int | None] = mapped_column(Integer)
+    dass21_anxiety_score: Mapped[int | None] = mapped_column(Integer)
+    dass21_stress_score: Mapped[int | None] = mapped_column(Integer)
+    mdq_score: Mapped[int | None] = mapped_column(Integer)
+    pcl5_score: Mapped[int | None] = mapped_column(Integer)
+    dass21_coverage: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    mdq_coverage: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    pcl5_coverage: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     crisis_level: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     score_source: Mapped[Optional[str]] = mapped_column(
         String(30),
@@ -231,7 +239,7 @@ class ScreeningAnswer(Base):
     __tablename__ = "screening_answers"
     __table_args__ = (
         CheckConstraint(
-            "instrument_id IN ('phq9','gad7')",
+            "instrument_id IN ('phq9','gad7','dass21','mdq','pcl5')",
             name="ck_screening_answers_instrument",
         ),
         {"schema": "app"},

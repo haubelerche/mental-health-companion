@@ -29,14 +29,97 @@ const STATIC_QUESTIONS: Record<ScreeningId, string[]> = {
     'Dễ khó chịu hoặc cáu kỉnh',
     'Cảm thấy sợ hãi như điều gì đó tồi tệ sắp xảy ra',
   ],
+  dass21: [
+    'Khó có thể thư giãn',
+    'Bị khô miệng',
+    'Gần như không thể thấy một cảm giác vui vẻ hay tích cực nào',
+    'Bị khó thở (ví dụ: thở gấp, hụt hơi dù không làm việc nặng)',
+    'Thấy khó bắt tay vào công việc',
+    'Có xu hướng phản ứng quá mức với các tình huống',
+    'Bị run rẩy (ví dụ: run tay)',
+    'Thấy mình đang tiêu phí quá nhiều năng lượng thần kinh',
+    'Lo lắng về những tình huống có thể làm mình hoảng loạn và làm trò cười cho thiên hạ',
+    'Thấy bản thân chẳng có gì để mong đợi phía trước',
+    'Thấy bản thân dễ bị kích động',
+    'Thấy khó thư giãn',
+    'Cảm thấy thất vọng và buồn chán',
+    'Không chấp nhận được bất cứ việc gì ngăn cản mình tiếp tục công việc đang làm',
+    'Thấy mình gần như phát hoảng',
+    'Không thể thấy nhiệt tình với bất cứ việc gì',
+    'Thấy bản thân không có giá trị gì nhiều với tư cách là một con người',
+    'Thấy mình khá dễ mếch lòng/nhạy cảm',
+    'Nghe thấy tiếng nhịp tim dù không làm việc nặng (ví dụ: nhịp tim tăng, nhịp tim bỏ nhịp)',
+    'Thấy sợ hãi vô cớ',
+    'Thấy cuộc đời vô nghĩa',
+  ],
+  mdq: [
+    'Thấy quá vui vẻ hoặc hưng phấn đến mức người khác thấy không bình thường hoặc gặp rắc rối',
+    'Dễ cáu kỉnh đến mức la hét hoặc tranh cãi, đánh nhau',
+    'Tự tin hơn bình thường rất nhiều',
+    'Ngủ ít hơn bình thường rất nhiều nhưng vẫn thấy khỏe',
+    'Nói nhiều hơn hoặc nói nhanh hơn bình thường',
+    'Ý nghĩ chạy dồn dập trong đầu hoặc không thể làm chậm tâm trí lại',
+    'Dễ bị phân tâm bởi những thứ xung quanh đến mức khó tập trung',
+    'Có nhiều năng lượng hơn bình thường',
+    'Năng động hơn hoặc làm nhiều việc hơn bình thường',
+    'Hòa đồng hoặc hướng ngoại hơn bình thường (ví dụ: gọi điện lúc nửa đêm)',
+    'Quan tâm đến tình dục nhiều hơn bình thường',
+    'Làm những việc bất thường hoặc rủi ro, dại dột',
+    'Tiêu xài tiền bạc gây rắc rối cho bản thân hoặc gia đình',
+    'Các biểu hiện trên xảy ra cùng một thời điểm',
+    'Mức độ rắc rối gây ra (công việc, gia đình, pháp lý...)',
+  ],
+  pcl5: [
+    'Những ký ức lặp đi lặp lại, gây khó chịu về trải nghiệm căng thẳng',
+    'Những giấc mơ lặp đi lặp lại về trải nghiệm căng thẳng',
+    'Cảm thấy như thể trải nghiệm căng thẳng đang thực sự xảy ra lần nữa',
+    'Rất buồn phiền khi có điều gì đó nhắc bạn nhớ về trải nghiệm căng thẳng',
+    'Có những phản ứng cơ thể mạnh mẽ khi có lời nhắc nhở',
+    'Né tránh những ký ức, suy nghĩ liên quan đến trải nghiệm căng thẳng',
+    'Né tránh những lời nhắc nhở bên ngoài (người, địa điểm, đồ vật...)',
+    'Khó nhớ lại những phần quan trọng của trải nghiệm căng thẳng',
+    'Có niềm tin tiêu cực mạnh mẽ về bản thân hoặc thế giới',
+    'Tự trách mình hoặc người khác về những gì đã xảy ra',
+    'Có cảm xúc tiêu cực mạnh mẽ (sợ hãi, tức giận, tội lỗi...)',
+    'Mất hứng thú với các hoạt động mà bạn từng yêu thích',
+    'Cảm thấy xa cách hoặc bị cắt đứt liên lạc với người khác',
+    'Khó trải nghiệm những cảm xúc tích cực',
+    'Hành vi cáu kỉnh, bùng nổ tức giận hoặc hung hăng',
+    'Làm những việc có thể gây hại cho bản thân',
+    'Luôn trong trạng thái "siêu cảnh giác" hoặc đề phòng',
+    'Cảm thấy giật mình hoặc dễ bị hoảng hốt',
+    'Khó tập trung',
+    'Khó ngủ hoặc khó duy trì giấc ngủ',
+  ],
 }
 
-const LIKERT_OPTIONS = [
-  { label: 'Không bao giờ', value: 0, short: 'Không' },
-  { label: 'Vài ngày', value: 1, short: 'Vài ngày' },
-  { label: 'Hơn nửa tháng', value: 2, short: 'Thường' },
-  { label: 'Hầu hết mọi ngày', value: 3, short: 'Luôn luôn' },
-] as const
+const ANSWERS_BY_INSTRUMENT: Record<string, { label: string; value: number; short: string }[]> = {
+  default: [
+    { label: 'Không bao giờ', value: 0, short: 'Không' },
+    { label: 'Vài ngày', value: 1, short: 'Vài ngày' },
+    { label: 'Hơn nửa tháng', value: 2, short: 'Thường' },
+    { label: 'Hầu hết mọi ngày', value: 3, short: 'Luôn luôn' },
+  ],
+  mdq: [
+    { label: 'Không', value: 0, short: 'No' },
+    { label: 'Có', value: 1, short: 'Yes' },
+  ],
+  pcl5: [
+    { label: 'Không hề', value: 0, short: 'Không' },
+    { label: 'Một chút', value: 1, short: 'Ít' },
+    { label: 'Trung bình', value: 2, short: 'Vừa' },
+    { label: 'Khá nhiều', value: 3, short: 'Nhiều' },
+    { label: 'Rất nhiều', value: 4, short: 'Rất nhiều' },
+  ]
+}
+
+const HEADER_BY_INSTRUMENT: Record<string, string> = {
+  phq9: 'Trong 2 tuần qua, bạn có thường xuyên bị phiền bởi:',
+  gad7: 'Trong 2 tuần qua, bạn có thường xuyên bị phiền bởi:',
+  dass21: 'Trong 1 tuần qua, bạn đã bị khó chịu bởi những điều sau đây ở mức độ nào:',
+  mdq: 'Trong suốt cuộc đời, có bao giờ bạn:',
+  pcl5: 'Trong 1 tháng qua, bạn đã bị phiền muộn bởi những vấn đề sau đây ở mức độ nào:',
+}
 
 const FALLBACK_INSTRUMENTS: ScreeningInstrument[] = [
   { id: 'phq9', title: 'Tâm trạng & Năng lượng', item_count: 9 },
@@ -53,6 +136,24 @@ const INSTRUMENT_META: Record<ScreeningId, { icon: LucideIcon; desc: string; col
   gad7: {
     icon: Leaf,
     desc: '7 câu · ~2 phút · Đánh giá mức độ lo âu',
+    color: 'var(--color-an)',
+    bg: 'var(--color-an-bg)',
+  },
+  dass21: {
+    icon: Sparkles,
+    desc: '21 câu · ~5 phút · Trầm cảm, Lo âu & Stress',
+    color: 'var(--color-lua)',
+    bg: 'var(--color-lua-bg)',
+  },
+  mdq: {
+    icon: Brain,
+    desc: '15 câu · ~4 phút · Tầm soát rối loạn lưỡng cực',
+    color: 'var(--color-may)',
+    bg: 'var(--color-may-bg)',
+  },
+  pcl5: {
+    icon: HeartPulse,
+    desc: '20 câu · ~5 phút · Sàng lọc hội chứng PTSD',
     color: 'var(--color-an)',
     bg: 'var(--color-an-bg)',
   },
@@ -125,6 +226,8 @@ export function ScreeningFlow() {
   const [answers, setAnswers] = useState<Record<string, number>>({})
   const [analyzing, setAnalyzing] = useState(false)
   const [direction, setDirection] = useState(1)
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [activeCategory, setActiveCategory] = useState<'all' | 'quick' | 'deep'>('all')
 
   useEffect(() => {
     screeningService.getCatalog()
@@ -135,10 +238,18 @@ export function ScreeningFlow() {
   }, [])
 
   const questions = selected ? (STATIC_QUESTIONS[selected] ?? []) : []
-  const displayInstruments = instruments.length > 0 ? instruments : FALLBACK_INSTRUMENTS
+  const currentOptions = selected ? (ANSWERS_BY_INSTRUMENT[selected] ?? ANSWERS_BY_INSTRUMENT.default) : []
+  const displayInstruments = (instruments.length > 0 ? instruments : FALLBACK_INSTRUMENTS).filter(inst => {
+    if (activeCategory === 'all') return true
+    if (activeCategory === 'quick') return ['phq9', 'gad7'].includes(inst.id)
+    if (activeCategory === 'deep') return ['dass21', 'mdq', 'pcl5'].includes(inst.id)
+    return true
+  })
 
   const pickAnswer = async (value: number) => {
-    if (!selected) return
+    if (!selected || isTransitioning || analyzing) return
+
+    setIsTransitioning(true)
     const key = `q${currentQ}`
     const updated = { ...answers, [key]: value }
     setAnswers(updated)
@@ -146,21 +257,35 @@ export function ScreeningFlow() {
     if (currentQ < questions.length - 1) {
       setDirection(1)
       setCurrentQ((q) => q + 1)
+      // Allow clicking again after transition animation
+      setTimeout(() => setIsTransitioning(false), 500)
       return
     }
 
     // Last question — show analyzing loader then submit
     setAnalyzing(true)
     await new Promise((resolve) => setTimeout(resolve, 2800))
+
+    // Safety check: ensure we have all answers
+    if (Object.keys(updated).length < questions.length) {
+      toast.error('Có lỗi trong việc ghi nhận câu trả lời. Bạn vui lòng làm lại nhé.')
+      setAnalyzing(false)
+      setIsTransitioning(false)
+      setSelected(null)
+      return
+    }
+
     try {
       const result = await screeningService.submit({
         instrument_id: selected,
         answers: updated,
       })
       navigate(ROUTE_PATHS.results, { state: { result } })
-    } catch {
-      toast.error('Không thể gửi kết quả. Thử lại nhé.')
+    } catch (err: any) {
+      const msg = err.response?.data?.detail || 'Không thể gửi kết quả. Thử lại nhé.'
+      toast.error(msg)
       setAnalyzing(false)
+      setIsTransitioning(false)
     }
   }
 
@@ -180,13 +305,56 @@ export function ScreeningFlow() {
   // ── Instrument selection ──────────────────────────────────────────────────
   if (!selected) {
     return (
-      <div className="min-h-screen bg-lua-bg px-5 pt-10 pb-28 rounded-4xl">
+      <div className="min-h-screen bg-lua-bg px-5 pt-10 pb-10 rounded-4xl">
         <p className="mb-1 text-[10px] uppercase tracking-widest text-serene-muted">Sàng lọc</p>
         <h1 className="mb-2 font-display text-3xl text-serene-ink leading-snug">
           Chọn chủ đề sàng lọc
         </h1>
-        <p className="mb-8 text-sm text-serene-muted">
-          Bài test ngắn — kết quả hiển thị dễ hiểu, không dùng ngôn ngữ lâm sàng.
+
+        {/* Importance Introduction Section (Patterned after Nutrition page) */}
+        <section className="mb-8 rounded-3xl bg-white/40 p-5 backdrop-blur-md border border-white/20">
+          <p className="text-[10px] uppercase tracking-widest text-serene-primary/70 font-bold mb-2">Tầm quan trọng của sàng lọc</p>
+          <p className="text-sm leading-relaxed text-serene-ink/80">
+            Sức khỏe tâm thần cũng quan trọng như các chỉ số huyết áp hay nhiệt độ. Việc tích hợp các bài kiểm tra sàng lọc giúp chúng tôi hiểu bạn hơn, phát hiện sớm các dấu hiệu tiềm ẩn để có can thiệp kịp thời, mang lại cái nhìn toàn diện về sức khỏe của bạn.
+          </p>
+        </section>
+
+        <div className="mb-6 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setActiveCategory(activeCategory === 'quick' ? 'all' : 'quick')}
+            className={`flex flex-col rounded-2xl py-3 px-4 border transition-all ${activeCategory === 'quick'
+                ? 'bg-[#4D6359] border-[#4D6359] shadow-md'
+                : 'bg-white border-serene-border hover:border-serene-primary/30'
+              }`}
+          >
+            <p className={`text-[10px] font-bold uppercase tracking-wider ${activeCategory === 'quick' ? 'text-white' : 'text-[#4D6359]'}`}>
+              Kiểm tra nhanh
+            </p>
+            <p className={`text-xs mt-1 ${activeCategory === 'quick' ? 'text-white/80' : 'text-serene-muted'}`}>
+              PHQ-9 & GAD-7
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveCategory(activeCategory === 'deep' ? 'all' : 'deep')}
+            className={`flex flex-col rounded-2xl py-3 px-4 border transition-all ${activeCategory === 'deep'
+                ? 'bg-[#C27E6A] border-[#C27E6A] shadow-md'
+                : 'bg-white border-serene-border hover:border-serene-accent/30'
+              }`}
+          >
+            <p className={`text-[10px] font-bold uppercase tracking-wider ${activeCategory === 'deep' ? 'text-white' : 'text-[#C27E6A]'}`}>
+              Kiểm tra sâu
+            </p>
+            <p className={`text-xs mt-1 ${activeCategory === 'deep' ? 'text-white/80' : 'text-serene-muted'}`}>
+              DASS-21, MDQ, PCL-5
+            </p>
+          </button>
+        </div>
+
+        <p className="mb-6 text-sm text-serene-muted">
+          Chọn một bài test bên dưới để bắt đầu:
         </p>
 
         <div className="flex flex-col gap-4">
@@ -222,7 +390,7 @@ export function ScreeningFlow() {
         </div>
 
         {/* Disclaimer */}
-        <div className="mt-8 rounded-2xl border border-serene-border bg-white/60 p-4">
+        <div className="mt-6 rounded-2xl border border-serene-border bg-white/60 p-3">
           <p className="flex items-start gap-2 text-xs leading-relaxed text-serene-muted">
             <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-serene-primary/70" aria-hidden />
             <span>Kết quả chỉ dùng để gợi ý hỗ trợ — không phải chẩn đoán lâm sàng. Serene không lưu thông tin nhận dạng.</span>
@@ -298,7 +466,7 @@ export function ScreeningFlow() {
           className="flex flex-1 flex-col"
         >
           <p className="mb-2 text-[11px] uppercase tracking-widest text-serene-muted">
-            Trong 2 tuần qua, bạn có thường xuyên bị phiền bởi:
+            {HEADER_BY_INSTRUMENT[selected || ''] || 'Vui lòng chọn mức độ phù hợp nhất với bạn:'}
           </p>
           <h2 className="mb-8 font-display text-2xl leading-snug text-serene-ink">
             "{questions[currentQ]}"?
@@ -306,23 +474,23 @@ export function ScreeningFlow() {
 
           {/* Likert pills */}
           <div className="space-y-3">
-            {LIKERT_OPTIONS.map((opt) => (
+            {currentOptions.map((opt) => (
               <motion.button
                 key={opt.value}
                 type="button"
+                disabled={isTransitioning || analyzing}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => pickAnswer(opt.value)}
-                className="group flex w-full items-center justify-between rounded-2xl border border-serene-border bg-white px-5 py-4 text-left shadow-sm transition-all hover:border-serene-primary/50 hover:bg-serene-primary/5 hover:shadow-md active:scale-[0.98]"
+                className="group flex w-full items-center justify-between rounded-2xl border border-serene-border bg-white px-5 py-4 text-left shadow-sm transition-all hover:border-serene-primary/50 hover:bg-serene-primary/5 hover:shadow-md active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center gap-3">
                   {/* Frequency dot indicator */}
                   <div className="flex gap-1">
-                    {[0, 1, 2, 3].map((i) => (
+                    {currentOptions.map((_, i) => (
                       <span
                         key={i}
-                        className={`h-2 w-2 rounded-full transition-colors ${
-                          i <= opt.value ? 'bg-serene-primary' : 'bg-serene-border'
-                        }`}
+                        className={`h-2 w-2 rounded-full transition-colors ${i <= opt.value ? 'bg-serene-primary' : 'bg-serene-border'
+                          }`}
                       />
                     ))}
                   </div>
