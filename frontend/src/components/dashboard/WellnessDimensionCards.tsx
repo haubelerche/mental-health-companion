@@ -106,7 +106,7 @@ export function WellnessDimensionCards({ dimensions, isDark }: Props) {
                         <div className="mt-3">
                             {d.score != null ? (
                                 <div className="flex items-center gap-2">
-                                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+                                    <div className={`h-2 flex-1 overflow-hidden rounded-full ${isDark ? 'bg-white/10' : 'bg-black/10'}`}>
                                         <div
                                             className="h-full rounded-full bg-theme-accent"
                                             style={{ width: `${Math.min(100, Math.max(0, d.score))}%` }}
