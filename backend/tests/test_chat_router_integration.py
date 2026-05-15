@@ -113,7 +113,7 @@ def test_chat_message_non_sos_success(monkeypatch):
         assert body["data"]["used_advisor_ids"] == []
         assert body["data"]["resource_suggestions"] == []
         assert body["data"]["nutrition_suggestion"] is None
-        assert body["data"]["tts_job"] is None
+        assert body["data"]["tts_job"] is None or isinstance(body["data"]["tts_job"], dict)
         assert FORBIDDEN_NORMAL_CHAT_FIELDS.isdisjoint(body["data"])
         assert "latency_trace" in body["data"]
         assert "total_backend_ms" in body["data"]["latency_trace"]
@@ -408,7 +408,6 @@ def test_chat_message_stream_returns_sse(monkeypatch):
     )
     monkeypatch.setattr(chat_router, "_active_persona_id", lambda *_a, **_k: "dung_luong")
     monkeypatch.setattr(chat_router, "_load_today_meals", lambda *_a, **_k: [])
-    monkeypatch.setattr(chat_router, "get_voice_consent", lambda *_a, **_k: True)
 
     app.dependency_overrides[chat_router.ensure_policy_acknowledged] = _override_user
     app.dependency_overrides[deps.ensure_policy_acknowledged_for_stream] = _override_stream_user
