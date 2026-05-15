@@ -108,14 +108,7 @@ test-results/
 tests/
 !backend/tests/
 backend/tests/*
-!backend/tests/analyst/
-!backend/tests/analyst/*.py
-!backend/tests/test_friend_naturalness_regression.py
-!backend/tests/test_memory_recall_turn.py
-!backend/tests/test_session_lifecycle_memory_cards.py
-!backend/tests/test_memory_dedup.py
-!backend/tests/test_meme_selector.py
-!backend/tests/test_advisor_provenance.py
+
 
 
 
