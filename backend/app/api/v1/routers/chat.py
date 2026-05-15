@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import hashlib
 import json
 import mimetypes
 import threading
@@ -22,12 +23,12 @@ from app.api.deps import (
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.services.db.models import AdminAuditLog, Conversation, CrisisLog, Message, NutritionMealCheckin, User, UserProfile
+from app.services.db.models import AdminAuditLog, Conversation, CrisisLog, Message, NutritionMealCheckin, SyncOutbox, User, UserProfile
 from app.services.risk_writer import record_risk_inference, record_session_risk_snapshot
 from app.services.db.session import get_db, get_session_factory
 from app.services.schemas.payloads import ChatEndRequest, ChatMessageRequest, GuestChatMessageRequest
 from app.services.chat_context import load_chat_context_sync
-from app.services.chat_orchestrator import ChatOrchestrator
+from app.services.chat_orchestrator import ChatOrchestrator, extract_tts_job
 from app.services.chat_response_cache import get_cached_turn, hash_message, set_cached_turn
 from app.services.confidence_router import route_for_human_review
 from app.services.guest_service import heartbeat as guest_heartbeat
@@ -69,6 +70,7 @@ from app.services.safety_policy import evaluate_safety_policy
 from app.services.safety_scoring import SafetySnapshot, build_snapshot, compute_escalation_signal
 from app.services.schemas.contracts import ContextPack
 from app.services.proactive_voice import (
+    VOICE_JOB_EVENT_TYPE,
     cooldown_active,
     enqueue_voice_job,
     get_voice_audio_path,
@@ -76,7 +78,7 @@ from app.services.proactive_voice import (
     mark_cooldown,
     message_suggests_proactive_voice,
 )
-from app.services.voice_consent import get_voice_consent
+from app.services.tts_renderer import elevenlabs_route_allowed, resolve_elevenlabs_voice_id
 from app.memory.extractor import extract_memory_candidates
 from app.memory.llm_extractor import extract_memory_candidates_llm
 from app.memory.extractor import ExtractionResult
@@ -85,6 +87,7 @@ from app.services.voice_message_planner import intent_title
 from app.services.voice_policy import VoiceMessagePolicyEngine, VoicePolicyContext
 from app.services.utils import make_id, get_now
 from app.voice.types import TTS_TERMINAL_STATUSES
+from app.voice.style_mapping import resolve_active_style
 from app.personas.router import route_persona
 from app.personas.greetings import persona_chat_greeting_text
 from app.services.persona_unlock_persistence import is_persona_unlocked
@@ -241,6 +244,23 @@ def _active_persona_id(db: Session, user_id: str, *, distress: float = 0.0) -> s
         is_unlocked=unlocked,
     )
     return decision.target_persona_id
+
+
+def _voice_env_name_for_style(style_id: str) -> str:
+    if style_id == "warm_friend":
+        return "ELEVENLABS_VOICE_ID_CRUSH_MALE"
+    if style_id == "calm_mentor":
+        return "ELEVENLABS_VOICE_ID_MENTOR"
+    if style_id == "soft_quiet":
+        return "ELEVENLABS_VOICE_ID_CRUSH_FEMALE"
+    return "ELEVENLABS_VOICE_ID"
+
+
+def _voice_fingerprint(voice_id: str) -> str:
+    token = (voice_id or "").strip()
+    if not token:
+        return ""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()[:10]
 
 
 def _resolve_active_session(
@@ -559,6 +579,8 @@ def _build_voice_intervention(
     rolling_window_turns: int,
     delta_score: float,
     voice_scripts: list[str] | None = None,
+    user_message: str = "",
+    recent_messages: list[dict] | None = None,
 ) -> dict:
     """Build a voice intervention from an explicit TTS-only script."""
     tts_cfg = get_settings()
@@ -593,6 +615,8 @@ def _build_voice_intervention(
             voice_script=script,
             trigger_reason=trigger_reason,
             trigger_snapshot=_trigger_snapshot,
+            user_message=str(user_message or ""),
+            conversation_context=list(recent_messages or []),
         )
         voice_jobs.append(job)
 
@@ -789,15 +813,26 @@ def _maybe_enqueue_voice(
         trigger_reason = "distress_auto_voice"
     else:
         trigger_reason = "keyword_intensity_voice"
+    from app.services.proactive_voice import build_voice_script as _bvs
+    _voice_script = _bvs(
+        user_message=str(user_message or ""),
+        recent_messages=list(recent_messages or []),
+        distress_score=final_distress,
+        risk_level=int(snap.risk_level),
+        safety_tier=str(snap.safety_tier or "normal"),
+        conversation_mode="de_escalation" if final_distress >= 0.7 else "support",
+    )
     return _build_voice_intervention(
         db=db,
         user_id=user_id,
         session_id=session_id,
-        voice_script=assistant_content,
+        voice_script=_voice_script,
         snapshot=snap,
         trigger_reason=trigger_reason,
         rolling_window_turns=signal.rolling_window_turns,
         delta_score=signal.delta_score,
+        user_message=str(user_message or ""),
+        recent_messages=list(recent_messages or []),
     )
 
 
@@ -1090,7 +1125,6 @@ def send_message(
             data["used_advisor_ids"] = []
             data["resource_suggestions"] = []
             data["nutrition_suggestion"] = None
-            data["tts_job"] = None
             data["pending_human_review"] = True
             data["voice_script"] = crisis_plan.voice_script
             data["crisis_plan"] = crisis_plan.model_dump()
@@ -1104,7 +1138,6 @@ def send_message(
                 sos_triggered=True,
                 cooldown_active=cooldown_is_active,
                 cooldown_seconds_remaining=cooldown_seconds,
-                user_voice_enabled=get_voice_consent(db, current_user.user_id),
                 provider_enabled=True,
                 current_turn_has_emotional_weight=True,
                 purely_technical_turn=False,
@@ -1126,6 +1159,8 @@ def send_message(
             except Exception as exc:  # pragma: no cover - fail-open side-effect path
                 logger.warning("sos voice policy enqueue failed for %s: %s", current_user.user_id, exc)
                 voice_result = {"voice_policy": None, "intervention": None}
+            data["tts_job"] = extract_tts_job(voice_result.get("intervention"))
+            data["voice_messages"] = (voice_result.get("voice_policy") or {}).get("voice_messages") or []
             data["voice_policy"] = voice_result["voice_policy"]
             data["intervention"] = voice_result["intervention"]
             _mark_stage(latency_trace, "tts_enqueue_ms", stage_started)
@@ -1483,7 +1518,6 @@ def send_message(
         sos_triggered=False,
         cooldown_active=False if _dung_voice else cooldown_is_active,
         cooldown_seconds_remaining=0 if _dung_voice else cooldown_seconds,
-        user_voice_enabled=get_voice_consent(db, current_user.user_id),
         provider_enabled=True,
         current_turn_has_emotional_weight=True if _dung_voice else emotional_weight,
         purely_technical_turn=purely_technical,
@@ -1836,7 +1870,6 @@ def send_message_stream(
                         sos_triggered=True,
                         cooldown_active=cooldown_is_active,
                         cooldown_seconds_remaining=cooldown_seconds,
-                        user_voice_enabled=get_voice_consent(db, current_user.user_id),
                         provider_enabled=True,
                         current_turn_has_emotional_weight=True,
                         purely_technical_turn=False,
@@ -1854,8 +1887,10 @@ def send_message_stream(
                         rolling_window_turns=1,
                         delta_score=0.0,
                     )
-                    data["voice_policy"] = voice_result["voice_policy"]
-                    data["intervention"] = voice_result["intervention"]
+                    data["tts_job"] = extract_tts_job(voice_result.get("intervention"))
+                    data["voice_messages"] = (voice_result.get("voice_policy") or {}).get("voice_messages") or []
+                    for _sos_stream_key in ("voice_policy", "intervention"):
+                        data.pop(_sos_stream_key, None)
                     elapsed_ms = int((time.perf_counter() - started_at) * 1000)
                     safety_tracer.score("distress_score", distress0, comment="sos_gate_forced")
                     safety_tracer.update_output(
@@ -2093,7 +2128,6 @@ def send_message_stream(
                 sos_triggered=False,
                 cooldown_active=False if _dung_voice else cooldown_is_active,
                 cooldown_seconds_remaining=0 if _dung_voice else cooldown_seconds,
-                user_voice_enabled=get_voice_consent(db, current_user.user_id),
                 provider_enabled=True,
                 current_turn_has_emotional_weight=True if _dung_voice else emotional_weight,
                 purely_technical_turn=purely_technical,
@@ -2113,6 +2147,7 @@ def send_message_stream(
             )
             data["voice_policy"] = voice_result["voice_policy"]
             data["intervention"] = voice_result["intervention"]
+            data["tts_job"] = extract_tts_job(voice_result.get("intervention"))
 
             elapsed_ms = int((time.perf_counter() - started_at) * 1000)
             data["latency_trace"] = ensure_chat_latency_trace({}, total_backend_ms=elapsed_ms)
@@ -2282,6 +2317,81 @@ def send_guest_message(payload: GuestChatMessageRequest, _: None = Depends(requi
     except Exception as exc:
         logger.exception("guest message failed unexpectedly")
         raise AppError("SCHEMA_VALIDATION_FAILED", "Đã xảy ra lỗi nội bộ", 500) from exc
+
+
+@router.get("/debug/voice-tts")
+def debug_voice_tts(
+    session_id: str | None = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    settings = get_settings()
+    active_persona = _active_persona_id(db, current_user.user_id, distress=0.0)
+    style_id = resolve_active_style(active_persona, user_owns_voice_style=True)
+    voice_id = resolve_elevenlabs_voice_id(settings=settings, voice_style_id=style_id)
+    cooldown_is_active, cooldown_seconds = cooldown_active(user_id=current_user.user_id, session_id=session_id)
+    rows = db.scalars(
+        select(SyncOutbox)
+        .where(
+            SyncOutbox.user_id == current_user.user_id,
+            SyncOutbox.event_type == VOICE_JOB_EVENT_TYPE,
+        )
+        .order_by(SyncOutbox.created_at.desc())
+        .limit(20)
+    ).all()
+    voice_jobs: list[dict] = []
+    latest_reason_codes: list[str] = []
+    for row in rows:
+        payload = dict(row.payload or {})
+        if session_id and str(payload.get("session_id") or "") != session_id:
+            continue
+        voice = dict(payload.get("voice") or {})
+        trigger_snapshot = dict(payload.get("trigger_snapshot") or {})
+        if not latest_reason_codes:
+            raw_reasons = trigger_snapshot.get("reason_codes") or voice.get("reason_codes") or []
+            if isinstance(raw_reasons, list):
+                latest_reason_codes = [str(item) for item in raw_reasons]
+        tts_job_id = f"tts_{row.outbox_id}"
+        voice_jobs.append({
+            "tts_job_id": tts_job_id,
+            "session_id": payload.get("session_id"),
+            "trigger_reason": payload.get("trigger_reason"),
+            "status": voice.get("status") or row.status,
+            "db_status": row.status,
+            "error_code": voice.get("error_code"),
+            "audio_url_present": bool(voice.get("audio_url")),
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "voice_intent": voice.get("voice_intent"),
+            "voice_style_id": voice.get("voice_style_id") or style_id,
+        })
+        if len(voice_jobs) >= 5:
+            break
+    tiers = ["normal", "elevated", "voice_recommended", "critical"]
+    return ok({
+        "voice_allowed": True,
+        "persona_id": active_persona,
+        "voice_style_id": style_id,
+        "voice_env_name": _voice_env_name_for_style(style_id),
+        "voice_id_fingerprint": _voice_fingerprint(voice_id),
+        "provider": {
+            "name": "elevenlabs",
+            "feature_enabled": bool(settings.elevenlabs_feature_enabled),
+            "api_key_present": bool((settings.elevenlabs_api_key or "").strip()),
+            "model_id": settings.elevenlabs_model_id,
+            "timeout_seconds": settings.elevenlabs_timeout_seconds,
+        },
+        "route_allowance": {
+            tier: elevenlabs_route_allowed(safety_tier=tier, distress_score=0.0, settings=settings)
+            for tier in tiers
+        },
+        "cooldown": {
+            "active": cooldown_is_active,
+            "seconds_remaining": cooldown_seconds,
+            "session_id": session_id,
+        },
+        "latest_reason_codes": latest_reason_codes,
+        "last_voice_jobs": voice_jobs,
+    })
 
 
 @router.get("/voice-jobs/{tts_job_id}")

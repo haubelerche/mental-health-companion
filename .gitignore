@@ -115,6 +115,7 @@ backend/tests/*
 !backend/tests/test_random_proactive_voice.py
 !backend/tests/test_session_lifecycle_memory_cards.py
 !backend/tests/test_analyst_threshold.py
+!backend/tests/test_chat_voice_payload.py
 
 
 
