@@ -1035,8 +1035,8 @@ export default function Chat() {
                             <div>
                                 {!isGuestMode && (
                                     <p
-                                        className="mb-0.5 text-sm font-semibold uppercase tracking-[0.2em] text-[#f8c96b]/70"
-                                        style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}
+                                        className="font-bold  uppercase tracking-[0.2em] text-[#f8c96b]/70"
+                                        style={{ textShadow: '3px 3px 6px rgba(0,0,0,0.9)' }}
                                     >
                                         {personaLabel}
                                     </p>
@@ -1086,13 +1086,13 @@ export default function Chat() {
                                     type="button"
                                     onClick={() => void handleNewChat()}
                                     disabled={endingSession}
-                                    className="flex h-7 cursor-pointer items-center gap-1 px-2 text-[#fff4dc]/75 transition hover:text-[#fff4dc] disabled:cursor-wait disabled:opacity-60"
+                                    className="flex h-8 cursor-pointer items-center gap-1 px-2 text-[#fff4dc]/75 transition hover:text-[#fff4dc] disabled:cursor-wait disabled:opacity-60"
                                     style={{ background: 'rgba(4,10,6,0.65)', border: '1px solid rgba(255,244,220,0.14)', backdropFilter: 'blur(4px)' }}
                                     aria-label="Cuộc trò chuyện mới"
                                     title="Cuộc trò chuyện mới"
                                 >
                                     <Plus className="h-3.5 w-3.5" />
-                                    <span className="hidden text-[9px] font-semibold uppercase tracking-wide sm:inline">{endingSession ? 'Saving' : 'New'}</span>
+                                    <span className="hidden text-xs font-semibold uppercase tracking-wide sm:inline">{endingSession ? 'Đang lưu' : 'Tạo mới'}</span>
                                 </button>
                             </>
                             <button
@@ -1103,7 +1103,7 @@ export default function Chat() {
                                 aria-label="Lịch sử chat"
                             >
                                 <History className="h-3.5 w-3.5" />
-                                <span className="hidden text-xs font-semibold uppercase tracking-wide sm:inline">History</span>
+                                <span className="hidden text-xs font-semibold uppercase tracking-wide sm:inline">Lịch sử</span>
                             </button>
                             <div className="relative">
                                 <button
