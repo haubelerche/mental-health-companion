@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, Outlet } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import Login from '../components/auth/Login.tsx'
 import OAuthCallback from '../components/auth/OAuthCallback.tsx'
@@ -52,6 +52,17 @@ function RequireAuth({ children }: { children: ReactElement }) {
     return children
 }
 
+function RequireGuest({ children }: { children: ReactElement }) {
+    const { user, isLoading } = useAuth()
+    if (isLoading) {
+        return <Loading />
+    }
+    if (user) {
+        return <Navigate to={ROUTE_PATHS.home} replace />
+    }
+    return children
+}
+
 function RequireOnboarding({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()
     if (isLoading) {
@@ -60,6 +71,37 @@ function RequireOnboarding({ children }: { children: ReactElement }) {
     if (user && !user.onboardingCompleted) {
         return <Navigate to={ROUTE_PATHS.onboarding} replace />
     }
+    return children
+}
+
+function RequireUserOrGuest({ children }: { children: ReactElement }) {
+    const { user, guestSession, isLoading } = useAuth()
+    
+    if (isLoading) {
+        return <Loading />
+    }
+    
+    // If logged in user, allowed
+    if (user) {
+        return children
+    }
+    
+    // Check guest session from context first
+    if (guestSession && Date.now() >= guestSession.expiresAt) {
+        return <Navigate to={ROUTE_PATHS.login} replace />
+    }
+    
+    // Fallback to persisted expiration time in localStorage
+    const expiresAtStr = localStorage.getItem('serene_guest_session_expires_at')
+    if (expiresAtStr) {
+        const expiresAt = Number(expiresAtStr)
+        if (Date.now() >= expiresAt) {
+            return <Navigate to={ROUTE_PATHS.login} replace />
+        }
+    }
+    
+    // If no session or valid session, allow access
+    // This allows Chat.tsx to load and create the session!
     return children
 }
 
@@ -85,10 +127,10 @@ export default function AppRoutes() {
 
             {/* user */}
             <Route path={ROUTE_PATHS.root} element={<Navigate to={ROUTE_PATHS.landing} replace />} />
-            <Route path={ROUTE_PATHS.login} element={<Login />} />
+            <Route path={ROUTE_PATHS.login} element={<RequireGuest><Login /></RequireGuest>} />
             <Route path={ROUTE_PATHS.oauthCallback} element={<OAuthCallback />} />
-            <Route path={ROUTE_PATHS.register} element={<Register />} />
-            <Route path={ROUTE_PATHS.forget} element={<Forget />} />
+            <Route path={ROUTE_PATHS.register} element={<RequireGuest><Register /></RequireGuest>} />
+            <Route path={ROUTE_PATHS.forget} element={<RequireGuest><Forget /></RequireGuest>} />
             <Route path={ROUTE_PATHS.landing} element={<Landing />} />
             <Route path={ROUTE_PATHS.privacy} element={<PrivacyPolicy />} />
             <Route path={ROUTE_PATHS.deleteData} element={<DeleteDataInstructions />} />
@@ -107,103 +149,40 @@ export default function AppRoutes() {
             <Route
                 path={ROUTE_PATHS.home}
                 element={
-                    <RequireAuth>
+             
                         <RequireOnboarding>
                             <Main />
                         </RequireOnboarding>
-                    </RequireAuth>
+                
                 }
             >
-                <Route
-                    index
+                {/* Routes that require full authentication */}
+                <Route element={<RequireAuth><Outlet /></RequireAuth>}>
+                    <Route index element={<Home />} />
+                    <Route path={ROUTE_PATHS.reflect} element={<Reflect />} />
+                    <Route path={ROUTE_PATHS.resources} element={<Resources />} />
+                    <Route path={ROUTE_PATHS.nutrition} element={<Nutrition />} />
+                    <Route path={ROUTE_PATHS.support} element={<Support />} />
+                    <Route path={ROUTE_PATHS.profile} element={<Profile />} />
+                    <Route path={ROUTE_PATHS.setting} element={<Setting />} />
+                    <Route path={ROUTE_PATHS.safetyCheck} element={<SafetyCheck />} />
+                    <Route path={ROUTE_PATHS.checkin} element={<CheckinFlow />} />
+                    <Route path={ROUTE_PATHS.screening} element={<ScreeningFlow />} />
+                    <Route path={ROUTE_PATHS.results} element={<ResultsPage />} />
+                    <Route path={ROUTE_PATHS.exercises} element={<ExercisesPage />} />
+                    <Route path={ROUTE_PATHS.bamboo} element={<LetterPage />} />
+                    <Route path={ROUTE_PATHS.rewards} element={<RewardsPage />} />
+                    <Route path={ROUTE_PATHS.notifications} element={<NotificationsRouteBridge />} />
+                </Route>
+
+                {/* Routes that allow guests (or authenticated users) */}
+                <Route 
+                    path={ROUTE_PATHS.chat} 
                     element={
-                        <Home />
-                    }
-                />
-                <Route path={ROUTE_PATHS.chat} element={<Chat />} />
-                <Route
-                    path={ROUTE_PATHS.reflect}
-                    element={
-                        <Reflect />
-                    }
-                />
-                <Route
-                    path={ROUTE_PATHS.resources}
-                    element={
-                        <Resources />
-                    }
-                />
-                <Route
-                    path={ROUTE_PATHS.nutrition}
-                    element={
-                        <Nutrition />
-                    }
-                />
-                <Route
-                    path={ROUTE_PATHS.support}
-                    element={
-                        <Support />
-                    }
-                />
-                <Route
-                    path={ROUTE_PATHS.profile}
-                    element={
-                        <Profile />
-                    }
-                />
-                <Route
-                    path={ROUTE_PATHS.setting}
-                    element={
-                        <Setting />
-                    }
-                />
-                <Route
-                    path={ROUTE_PATHS.safetyCheck}
-                    element={
-                        <SafetyCheck />
-                    }
-                />
-                <Route
-                    path={ROUTE_PATHS.checkin}
-                    element={
-                        <CheckinFlow />
-                    }
-                />
-                <Route
-                    path={ROUTE_PATHS.screening}
-                    element={
-                        <ScreeningFlow />
-                    }
-                />
-                <Route
-                    path={ROUTE_PATHS.results}
-                    element={
-                        <ResultsPage />
-                    }
-                />
-                <Route
-                    path={ROUTE_PATHS.exercises}
-                    element={
-                        <ExercisesPage />
-                    }
-                />
-                <Route
-                    path={ROUTE_PATHS.bamboo}
-                    element={
-                        <LetterPage />
-                    }
-                />
-                <Route
-                    path={ROUTE_PATHS.rewards}
-                    element={
-                        <RewardsPage />
-                    }
-                />
-                <Route
-                    path={ROUTE_PATHS.notifications}
-                    element={
-                        <NotificationsRouteBridge />
-                    }
+                        <RequireUserOrGuest>
+                            <Chat />
+                        </RequireUserOrGuest>
+                    } 
                 />
             </Route>
 
