@@ -4,6 +4,14 @@
 
 ---
 
+## [Unreleased] — Memory dedup helpers · 2026-05-15
+
+### Added
+- `backend/app/services/mem0_service.py` — four new pure helpers: `get_mention_count`, `with_incremented_mention_count`, `is_likely_duplicate`, `record_memory_with_dedup`; exact-match dedup prevents duplicate `Mem0Memory` entries and tracks repeat counts via `metadata.mention_count`.
+- `backend/tests/test_memory_dedup.py` — 10 pure unit tests (no DB, no network) covering all four helpers; added allowlist entry to `.gitignore`.
+
+---
+
 ## [Unreleased] — AutoCBT audit: 84-test runtime contract suite · 2026-05-15
 
 ### Added (tests)
