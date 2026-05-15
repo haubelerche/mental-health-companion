@@ -16,7 +16,6 @@ import { MoodTrendChart } from '../../dashboard/MoodTrendChart'
 import { NextStepsPlan } from '../../dashboard/NextStepsPlan'
 import { PatternGroupCards } from '../../dashboard/PatternGroupCards'
 import { PixelMoodCalendar } from '../../dashboard/PixelMoodCalendar'
-import { ScreeningPanel } from '../../dashboard/ScreeningPanel'
 import { TriggerEmotionHeatmap } from '../../dashboard/TriggerEmotionHeatmap'
 import { Skeleton } from './Skeleton'
 
