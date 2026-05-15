@@ -11,6 +11,7 @@ import LogoGoogle from '../../assets/branding/icons8-google-logo-100.png'
 import LogoFacebook from '../../assets/branding/icons8-facebook-96.png'
 import bgLogin from '../../assets/motion/login-signup.gif'
 import '../pages/landing/landing.css'
+import Logo from '../ui/Logo'
 
 export default function Register() {
     type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
@@ -90,19 +91,12 @@ export default function Register() {
 
             <main className="auth-main">
                 <div className="mb-3 text-center">
-                    <Link to={ROUTE_PATHS.landing} className="pixel-headline" 
-                        style={{
-                            fontFamily: 'var(--font-pixel)',
-                            fontSize: 'clamp(5.5rem, 2vw, 4.5rem)',
-                            color: 'var(--yellow)',
-                            textDecoration: 'none',
-                            textShadow: '3px 3px 0 #020812, -1px -1px 0 #020812, 1px -1px 0 #020812, -1px 1px 0 #020812, 1px 1px 0 #020812',
-                            flexShrink: 0,
-                            fontWeight: '800',
-                            letterSpacing: '2px',
-                        }}>
-                        Serene.AI
-                    </Link>
+                    <Logo 
+                        path={ROUTE_PATHS.landing} 
+                        className="pixel-headline"
+                        fontSize="clamp(5.5rem, 2vw, 4.5rem)"
+                        textShadow="3px 3px 0 #020812, -1px -1px 0 #020812, 1px -1px 0 #020812, -1px 1px 0 #020812, 1px 1px 0 #020812"
+                    />
                 </div>
                 <div className="auth-card max-w-lg p-8 sm:p-10">
                     <header className="mb-8 text-center">
