@@ -666,7 +666,7 @@ export default function Home() {
                         </div>
                     </Link>
 
-                    <div className="flex justify-evenly gap-4 mt-5 overflow-x-auto scrollbar-hide">
+                    <div className="flex justify-around gap-4 mt-5 overflow-x-auto scrollbar-hide">
                         {recoCards.map((card) => {
                             const RecoIcon = card.icon
                             return (
