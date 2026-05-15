@@ -468,9 +468,22 @@ def _process_job(job_id: int, owner_token: str | None = None) -> None:
         except (TypeError, ValueError):
             distress_f = None
 
+        settings = get_settings()
+
+        # LLM-enhanced voice script — runs here in the background thread, never blocks chat.
+        llm_script = _generate_llm_voice_script(
+            user_message=str(payload.get("user_message") or ""),
+            conversation_context=list(payload.get("conversation_context") or []),
+            distress_score=float(distress_f or 0.0),
+            safety_tier=str(tier_s or "normal"),
+            settings=settings,
+        )
+        if llm_script:
+            logger.info("voice_job_llm_script_used job_id=%s chars=%d", job_id, len(llm_script))
+            voice_script = llm_script
+
         # Mask PII before any external TTS.
         safe_script = mask_pii(voice_script)
-        settings = get_settings()
         provider = _normalize_voice_provider(getattr(settings, "tts_provider", "elevenlabs"))
         user_id = str(payload.get("user_id") or "")
 
