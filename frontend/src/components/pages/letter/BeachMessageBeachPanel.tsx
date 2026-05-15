@@ -36,7 +36,7 @@ export function BeachMessageBeachPanel({
             ) : hasBottle ? (
                 <div className="flex flex-col items-center gap-6" style={{ animation: 'fadeUp 1s ease 0.3s both' }}>
                     <FloatingBottle dark={dark} onClick={onBottleClick} isClicked={ripple} />
-                    <p className="text-white font-display font-semibold tracking-widest uppercase mt-2 animate-pulse">Chạm để xem</p>
+                    <p className="text-theme-primary text-shadow-2xl font-display font-semibold tracking-widest uppercase mt-2 animate-pulse">Chạm để xem</p>
                 </div>
             ) : (
                 <div className="text-center" style={{ animation: 'fadeUp 1s ease 0.3s both' }}>
