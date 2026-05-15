@@ -11,6 +11,7 @@ import {
 } from 'recharts'
 import PixelEmptyState from '../pixel/PixelEmptyState'
 import type { ReflectMoodSeriesPoint } from '../../services/dashboardService'
+import { useThemeContext } from '../../contexts/ThemeContext'
 
 type Props = {
     series: ReflectMoodSeriesPoint[]
@@ -45,6 +46,9 @@ function MoodTooltip({ active, payload }: { active?: boolean; payload?: Array<{ 
 }
 
 export function MoodTrendChart({ series, enoughForTrend }: Props) {
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
+
     const chartData: ChartPoint[] = series.map((point) => ({
         ...point,
         day_label: formatDay(point.date),
@@ -56,6 +60,10 @@ export function MoodTrendChart({ series, enoughForTrend }: Props) {
     const average = hasData ? Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 10) / 10 : null
     const min = hasData ? Math.min(...scores) : null
     const max = hasData ? Math.max(...scores) : null
+
+    const trendLabelClass = isDark
+        ? 'bg-amber-400/10 text-amber-100'
+        : 'bg-amber-50 text-amber-800'
 
     return (
         <section className="rounded-2xl border border-theme-border/70 bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
@@ -92,7 +100,7 @@ export function MoodTrendChart({ series, enoughForTrend }: Props) {
                         <span className="rounded-full bg-theme-bg-secondary/80 px-3 py-1">Thấp nhất {min}/10</span>
                         <span className="rounded-full bg-theme-bg-secondary/80 px-3 py-1">Cao nhất {max}/10</span>
                         {!enoughForTrend && (
-                            <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-800 dark:bg-amber-400/10 dark:text-amber-100">
+                            <span className={`rounded-full px-3 py-1 ${trendLabelClass}`}>
                                 Xu hướng sơ bộ
                             </span>
                         )}
