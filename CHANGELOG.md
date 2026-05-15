@@ -4,6 +4,88 @@
 
 ---
 
+## [Unreleased] — Fix 28 SQLite schema failures; full suite 360 pass · 2026-05-15
+
+### Fixed
+- `backend/app/services/db/init_db.py` — `init_db()` now filters out schema-qualified tables (`schema="app"`) before calling `create_all()` when running on SQLite (tests). PostgreSQL is unaffected. Fixes 28 integration tests that crashed with `unknown database app` on every TestClient startup.
+
+---
+
+## [Unreleased] — Advisor evidence provenance fix · 2026-05-15
+
+### Fixed
+- `backend/app/services/counseling_advisor_service.py` — `as_advisor_advice()` now propagates `guidance.case_refs` into `AdvisorAdvice.evidence_refs` (was hardcoded `[]`), restoring the JSONL provenance contract.
+
+### Added (tests)
+- `backend/tests/test_advisor_provenance.py` — 8 pure unit tests (no DB, no network): `EmpathyAdvisor` and `CBTPatternAdvisor` populate `evidence_refs` from JSONL; `AdvisorAdvice` schema has no `final_text`/`reply`/`message_to_user` field; `CounselingAdvisorService.as_advisor_advice()` propagates `case_refs`; empty `case_refs` yields empty `evidence_refs`; all `evidence_refs` items are strings.
+- `.gitignore` — added `!backend/tests/test_advisor_provenance.py` to allowlist.
+
+---
+
+## [Unreleased] — Meme selector safety gate tests · 2026-05-15
+
+### Added (tests)
+- `backend/tests/test_meme_selector.py` — 12 unit tests covering all safety gates and selection logic for `maybe_select_meme_suggestion()`: persona gate (only `dung_luong`), safety-tier gate, distress threshold (boundary 0.5), crisis-hint suppression (tokens from `_HOLD_MEME_HINTS`), required `MemeSuggestion` fields, and deterministic selection for same inputs. No DB or network required.
+- `.gitignore` — added `!backend/tests/test_meme_selector.py` to allowlist.
+
+---
+
+## [Unreleased] — Memory dedup helpers · 2026-05-15
+
+### Added
+- `backend/app/services/mem0_service.py` — four new pure helpers: `get_mention_count`, `with_incremented_mention_count`, `is_likely_duplicate`, `record_memory_with_dedup`; exact-match dedup prevents duplicate `Mem0Memory` entries and tracks repeat counts via `metadata.mention_count`.
+- `backend/tests/test_memory_dedup.py` — 10 pure unit tests (no DB, no network) covering all four helpers; added allowlist entry to `.gitignore`.
+
+---
+
+## [Unreleased] — AutoCBT audit: 84-test runtime contract suite · 2026-05-15
+
+### Added (tests)
+- `backend/tests/test_advisor_selector.py` — 7 golden routing tests: small talk → direct, self-blame story → `cbt_pattern_advisor`+`empathy_advisor`, deadline → `strategy_resource_advisor`, nutrition → `nutrition_support_advisor`, multi-intent → ≤ 2 advisors, "no questions" → direct.
+- `backend/tests/test_chat_advisor_assisted_integration.py` — 5 tests proving both direct and advisor-assisted paths call the same `FriendAgent.compose()` interface; `should_use=False` advice is ignored; internal field names never leak to user.
+- `backend/tests/test_friend_agent_contract.py` — 6 tests: `AdvisorAdvice` schema has no `final_text` field; diagnosis labels blocked by `must_avoid`; `used_advisor_ids` only includes `should_use=True` advisors; max 1 question in default response.
+- `backend/tests/test_context_pack_builder.py` — 7 tests: PHQ9/GAD7 compacted; failing provider → `None` + reason in `last_fallback_reasons`; empty screening → `None` not `{}`; resources capped at 5.
+- `backend/tests/test_analyst_agent_contract.py` — 4 tests: `AnalystBundle` has no `final_text`/`reply`/chat-prose field; `confidence` is a Literal enum; `display_allowed` enforced on insight hypotheses.
+- `backend/tests/test_dashboard_safe_insights.py` — 5 tests: no PHQ/GAD data → no screening insight; mood check-ins → `AnalystSignal` produced; low-signal → low confidence or empty candidates; no clinical labels ("trầm cảm", "rối loạn", "diagnosis") in user-safe text.
+- `backend/tests/test_latency_observability.py` — 7 tests: `latency_trace` key always present; `route_tier` normalized to valid enum; `used_advisor_ids` capped at 2; async side effects enqueue `memory_extraction`, `dashboard_insight`, `analyst_event`.
+
+### Changed
+- `.gitignore` — thêm `.worktrees/` vào ignore list; thêm allowlist entries cho 7 test files mới.
+
+---
+
+## [Unreleased] — Resource library: guest-safe reads · 2026-05-15
+
+### Fixed
+- `backend/app/api/v1/routers/resources.py` — `GET /v1/resources`, `/featured`, `/exercises`, `/{resource_id}` use optional auth so guests do not hit 401/403; bookmarks still require `ensure_policy_acknowledged`.
+- `backend/app/services/resource_library_service.py` — tolerant DB reads when the `resources`/bookmark tables are unavailable; wrap list/featured assembly to fall back to bundled exercises instead of surfacing opaque 500s.
+- `backend/app/api/deps.py` — `get_optional_current_user` resolves cookie without failing the request when missing/expired.
+- `frontend/src/components/layout/Sidebar.tsx`, `frontend/src/services/authService.ts` — bỏ import TypeScript không dùng (`tsc -b`).
+- `frontend/src/services/resourceService.ts` — khôi phục export `ResourceItem` cho `ResourceGrid` cũ.
+
+### Changed
+- `frontend/src/components/pages/resource/Resources.tsx` — bookmark tap when logged out prompts sign-in (`/login`); play-event tracking runs only for authenticated users; dedicated retry UI when catalog requests fail with no rails to render.
+- `frontend/src/components/resources/ResourceEmptyState.tsx` — add `retry` variant with reload action.
+
+### Added (tests)
+- `backend/tests/test_resources_guest_reads.py` — unauthenticated reads return 200 (with monkeypatched payload); bookmark POST rejects without auth.
+- `backend/tests/test_database_boundary_regression.py` — owner check cho `resources.py`: thư viện tài nguyên đang hoạt động (models/`featured_bundle`), không còn kỳ vọng chuỗi `FEATURE_RETIRED`.
+
+---
+
+## [Unreleased] — Dat Le notification deep links · 2026-05-15
+
+### Fixed
+- `frontend/src/utils/resolveNotificationRoute.ts` — Nút **Xem** trên popup Đạt điều hướng theo `notification_type` (Tim → Cửa hàng thưởng, thư → Bến thư/Kho thư, …) thay vì luôn mở kho thông báo.
+- `frontend/src/components/assistants/RealtimeNotificationAssistantBridge.tsx` — Dùng deep-link resolver cho API + WebSocket.
+- `frontend/src/components/pages/BeachMessage.tsx` — Hỗ trợ `?tab=beach|community` khi mở từ thông báo thư.
+- `backend/app/services/notification_dispatcher.py`, `notification_service.py` — Gắn `route` vào payload lưu DB/WS cho thông báo mới.
+
+### Changed
+- `frontend/src/components/assistants/RealtimeNotificationAssistant.tsx` — Đổi callback `onOpenNotificationCenter` → `onViewNotification`.
+
+---
+
 ## [Unreleased] — Persona chat greetings + screening results actions · 2026-05-15
 
 ### Changed

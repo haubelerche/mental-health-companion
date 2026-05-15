@@ -1,3 +1,6 @@
+# Worktrees
+.worktrees/
+
 # Environment
 .env
 
@@ -20,8 +23,7 @@ package-lock.json
 CLAUDE.md
 
 
-COMMIT_PLAYBOOK.md
-*/.md
+
 .codex/
 .github/
 .claude/
@@ -40,7 +42,7 @@ scripts/supabase/
 .ai-log/*.jsonl
 .ai-log/*.md
 backend/.ai-log/
-*.md
+
 !docs/
 !docs/*.md
 !docs/**/*.md
@@ -111,6 +113,9 @@ backend/tests/*
 !backend/tests/test_friend_naturalness_regression.py
 !backend/tests/test_memory_recall_turn.py
 !backend/tests/test_session_lifecycle_memory_cards.py
+!backend/tests/test_memory_dedup.py
+!backend/tests/test_meme_selector.py
+!backend/tests/test_advisor_provenance.py
 
 
 
