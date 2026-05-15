@@ -119,6 +119,7 @@ backend/tests/*
 !backend/tests/test_context_pack_builder.py
 !backend/tests/test_analyst_agent_contract.py
 !backend/tests/test_dashboard_safe_insights.py
+!backend/tests/test_latency_observability.py
 
 
 
