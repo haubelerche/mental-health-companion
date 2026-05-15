@@ -1,4 +1,4 @@
-﻿"""
+"""
 LangGraph non-SOS flow: DistressRouter -> AnalystNode (optional) -> FriendNode.
 High-risk SOS is handled outside this graph via deterministic safety handling.
 Naming reference: docs/PRD.md + docs/GLOSSARY_RUNTIME.md.
@@ -29,6 +29,7 @@ from app.safety.output_validator import validate_output as _safety_validate_outp
 from app.services.output_grounding import sanitize_grounded_reply
 from app.services.response_planner import build_response_plan
 from app.services.safety_scoring import build_snapshot
+from app.services.sos_handler import _normalize_text
 from app.services.neo4j_client import get_user_patterns_async
 
 logger = logging.getLogger(__name__)
@@ -140,13 +141,13 @@ def _persona_temperature(persona_id: str, *, use_fast_model: bool, distress_scor
             return 0.42
         return 0.50
     if canonical == "hau_luong":
-        # Safety gate deactivates Háº­u at distress >= 0.60; this branch is the
+        # Safety gate deactivates Hậu at distress >= 0.60; this branch is the
         # belt-and-suspenders for any caller that bypassed the gate.
         if distress_score >= 0.60:
             return 0.30
         if distress_score >= 0.45:
             return 0.48
-        # Effective low-risk Háº­u temperature is locked at 0.70 to keep her
+        # Effective low-risk Hậu temperature is locked at 0.70 to keep her
         # voice-message vibe playful but grounded. Clamp into [0.1, 0.9] so a
         # future base-temperature change cannot drift the resolved value out
         # of the persona's safety band.
@@ -167,15 +168,15 @@ def _persona_fallback_reply(persona_id: str, distress_score: float) -> str:
     persona_id = normalize_persona_id(persona_id)
     if persona_id == "hau_luong":
         return (
-            "MÃ¬nh vá»«a bá»‹ ngáº¯t má»™t chÃºt, nhÆ°ng váº«n á»Ÿ Ä‘Ã¢y. Báº¡n cá»© nÃ³i tiáº¿p tá»«ng Ã½ ngáº¯n thÃ´i, mÃ¬nh nghe cÃ¹ng báº¡n."
+            "Mình vừa bị ngắt một chút, nhưng vẫn ở đây. Bạn cứ nói tiếp từng ý ngắn thôi, mình nghe cùng bạn."
         )
     if persona_id == "dat_le":
-        return "TÃ´i váº«n á»Ÿ Ä‘Ã¢y cÃ¹ng báº¡n. Náº¿u báº¡n muá»‘n, tÃ´i sáº½ cÃ¹ng báº¡n Ä‘i tá»«ng bÆ°á»›c Ä‘á»ƒ nhÃ¬n rÃµ Ä‘iá»u Ä‘ang lÃ m báº¡n náº·ng nháº¥t."
+        return "Tôi vẫn ở đây cùng bạn. Nếu bạn muốn, tôi sẽ cùng bạn đi từng bước để nhìn rõ điều đang làm bạn nặng nhất."
     if persona_id == "dung_luong":
-        return "Tá»› váº«n á»Ÿ Ä‘Ã¢y vá»›i cáº­u nÃ¨. Náº¿u cáº­u muá»‘n, mÃ¬nh gá»¡ tá»«ng chÃºt má»™t tá»« Ä‘iá»u Ä‘ang lÃ m cáº­u náº·ng lÃ²ng nháº¥t nhÃ©."
+        return "Tớ vẫn ở đây với cậu nè. Nếu cậu muốn, mình gỡ từng chút một từ điều đang làm cậu nặng lòng nhất nhé."
     if distress_score >= 0.6:
-        return "MÃ¬nh bá»‹ ngáº¯t quÃ£ng má»™t chÃºt nhÆ°ng váº«n á»Ÿ Ä‘Ã¢y cÃ¹ng báº¡n. Báº¡n cÃ³ thá»ƒ nÃ³i tiáº¿p Ä‘iá»u Ä‘ang lÃ m báº¡n náº·ng nháº¥t lÃºc nÃ y nhÃ©?"
-    return "MÃ¬nh vá»«a bá»‹ ngáº¯t quÃ£ng má»™t chÃºt, nhÆ°ng mÃ¬nh váº«n á»Ÿ Ä‘Ã¢y Ä‘á»ƒ láº¯ng nghe báº¡n."
+        return "Mình bị ngắt quãng một chút nhưng vẫn ở đây cùng bạn. Bạn có thể nói tiếp điều đang làm bạn nặng nhất lúc này nhé?"
+    return "Mình vừa bị ngắt quãng một chút, nhưng mình vẫn ở đây để lắng nghe bạn."
 def _trace_span(correlation_id: str, span: str, *, duration_ms: float, token_count: int = 0, extra: dict[str, Any] | None = None) -> None:
     payload = {
         "correlation_id": correlation_id,
@@ -188,9 +189,9 @@ def _trace_span(correlation_id: str, span: str, *, duration_ms: float, token_cou
     logger.info("[Trace] %s", payload)
 
 
-# Routing thresholds â€” single source of truth for distress_router decisions.
-_ANALYST_DISTRESS_THRESHOLD: float = 0.82   # distress >= this â†’ route to analyst
-_FAST_MODEL_DISTRESS_THRESHOLD: float = 0.55 # distress < this (+ short msg) â†’ fast model
+# Routing thresholds — single source of truth for distress_router decisions.
+_ANALYST_DISTRESS_THRESHOLD: float = 0.82   # distress >= this → route to analyst
+_FAST_MODEL_DISTRESS_THRESHOLD: float = 0.55 # distress < this (+ short msg) → fast model
 _FAST_MODEL_MSG_LEN_MAX: int = 220           # max message length for fast-model eligibility
 
 _GREETING_RE = re.compile(r"\b(chao|hi|hello|helo|xin chao|yo|hey)\b", re.IGNORECASE)
@@ -223,7 +224,7 @@ _MAX_PROMPT_BLOCK_LEN = 1200
 def _normalize_guard_text(text: str) -> str:
     lowered = (text or "").lower().strip()
     decomposed = unicodedata.normalize("NFKD", lowered)
-    no_accent = "".join(ch for ch in decomposed if not unicodedata.combining(ch)).replace("Ä‘", "d")
+    no_accent = "".join(ch for ch in decomposed if not unicodedata.combining(ch)).replace("đ", "d")
     compact = re.sub(r"[^a-z0-9\s@$]", " ", no_accent)
     leet_normalized = _LEET_RE.sub(lambda m: _LEET_MAP.get(m.group(), m.group()), compact)
     return re.sub(r"\s+", " ", leet_normalized).strip()
@@ -319,8 +320,8 @@ def _recommended_attachments(user_message: str, distress_score: float) -> list[d
             {
                 "type": "nutrition_tip",
                 "id": "daily_nutrition",
-                "title": "Gá»£i Ã½ dinh dÆ°á»¡ng cho tÃ¢m tráº¡ng",
-                "description": "Xem mÃ³n Äƒn hÃ´m nay vÃ  lÃ½ do giÃºp á»•n Ä‘á»‹nh cáº£m xÃºc.",
+                "title": "Gợi ý dinh dưỡng cho tâm trạng",
+                "description": "Xem món ăn hôm nay và lý do giúp ổn định cảm xúc.",
                 "action": "open_resource",
                 "route": "/serene/nutrition",
             }
@@ -346,7 +347,7 @@ def _normalize_attachments(items: list[dict[str, Any]], user_message: str, distr
         normalized = {
             "type": str(item.get("type") or "resource"),
             "id": str(item.get("id") or "suggestion"),
-            "title": str(item.get("title") or "Gá»£i Ã½ tá»« Serene")[:120],
+            "title": str(item.get("title") or "Gợi ý từ Serene")[:120],
             "description": str(item.get("description") or "")[:240],
             "duration_sec": item.get("duration_sec") if isinstance(item.get("duration_sec"), int) else None,
             "action": action or "open_resource",
@@ -367,20 +368,20 @@ def _default_user_quick_replies(user_message: str, distress_score: float) -> lis
     lowered = user_message.lower()
     if distress_score >= 0.55:
         return [
-            "MÃ¬nh Ä‘ang ráº¥t quÃ¡ táº£i, cáº­u giÃºp mÃ¬nh tá»«ng bÆ°á»›c nhÃ©.",
-            "MÃ¬nh muá»‘n nÃ³i thÃªm Ä‘iá»u lÃ m mÃ¬nh sá»£ nháº¥t lÃºc nÃ y.",
-            "Cáº­u hÆ°á»›ng dáº«n mÃ¬nh má»™t bÃ i thá»Ÿ ngáº¯n ngay bÃ¢y giá» nhÃ©.",
+            "Mình đang rất quá tải, cậu giúp mình từng bước nhé.",
+            "Mình muốn nói thêm điều làm mình sợ nhất lúc này.",
+            "Cậu hướng dẫn mình một bài thở ngắn ngay bây giờ nhé.",
         ]
     if any(k in lowered for k in ("khong ngu", "mat ngu", "ngu")):
         return [
-            "MÃ¬nh khÃ³ ngá»§ máº¥y hÃ´m nay, cáº­u giÃºp mÃ¬nh á»•n Ä‘á»‹nh láº¡i nhÃ©.",
-            "MÃ¬nh muá»‘n thá»­ má»™t cÃ¡ch thÆ° giÃ£n trÆ°á»›c khi ngá»§.",
-            "MÃ¬nh cáº§n má»™t káº¿ hoáº¡ch nháº¹ cho tá»‘i nay.",
+            "Mình khó ngủ mấy hôm nay, cậu giúp mình ổn định lại nhé.",
+            "Mình muốn thử một cách thư giãn trước khi ngủ.",
+            "Mình cần một kế hoạch nhẹ cho tối nay.",
         ]
     return [
-        "MÃ¬nh muá»‘n ká»ƒ thÃªm vá» chuyá»‡n nÃ y.",
-        "MÃ¬nh Ä‘ang tháº¥y khÃ³ chá»‹u vÃ  cáº§n cáº­u láº¯ng nghe.",
-        "Cáº­u gá»£i Ã½ cho mÃ¬nh má»™t bÆ°á»›c nhá» lÃºc nÃ y nhÃ©.",
+        "Mình muốn kể thêm về chuyện này.",
+        "Mình đang thấy khó chịu và cần cậu lắng nghe.",
+        "Cậu gợi ý cho mình một bước nhỏ lúc này nhé.",
     ]
 
 
@@ -461,13 +462,13 @@ def _build_mentalchat_examples(
 
         if not examples:
             return ""
-        lines = ["--- VÃ­ dá»¥ tham kháº£o tá»« chuyÃªn gia tÃ¢m lÃ½ ---"]
+        lines = ["--- Ví dụ tham khảo từ chuyên gia tâm lý ---"]
         for i, ex in enumerate(examples, 1):
             instr = str(ex.get("instruction") or "").strip()[:300]
             resp = str(ex.get("response") or "").strip()[:400]
             if instr and resp:
-                lines.append(f"[{i}] TÃ¬nh huá»‘ng: {instr}")
-                lines.append(f"    CÃ¡ch tiáº¿p cáº­n: {resp}")
+                lines.append(f"[{i}] Tình huống: {instr}")
+                lines.append(f"    Cách tiếp cận: {resp}")
         return "\n".join(lines) if len(lines) > 1 else ""
     except Exception as exc:
         logger.debug("mentalchat examples skipped: %s", exc)
@@ -477,10 +478,10 @@ def _build_mentalchat_examples(
 def _build_friend_context(state: ChatGraphState, distress_score: float | None = None) -> str:
     """Build Friend context in 3 tiers based on distress to minimise token spend.
 
-    Tier 1 â€” low  (distress < 0.42, short msg): handled by caller via _build_personality_hint.
-    Tier 2 â€” mid  (0.42 â‰¤ distress < 0.65): transcript (3 turns) + mood + traits + analyst note.
+    Tier 1 — low  (distress < 0.42, short msg): handled by caller via _build_personality_hint.
+    Tier 2 — mid  (0.42 ≤ distress < 0.65): transcript (3 turns) + mood + traits + analyst note.
     Recall turns are memory-sensitive even when distress is low, so they include a small memory slice.
-    Tier 3 â€” high (distress â‰¥ 0.65): full context (6 turns + mem0 + long-term + profile).
+    Tier 3 — high (distress ≥ 0.65): full context (6 turns + mem0 + long-term + profile).
     """
     d = distress_score if distress_score is not None else float(state.get("distress_score") or 0.0)
 
@@ -496,7 +497,7 @@ def _build_friend_context(state: ChatGraphState, distress_score: float | None = 
     mem0_facts = [str(item or "").strip() for item in (state.get("mem0_facts") or []) if str(item or "").strip()]
     mem0_blob = "\n".join(f"- {item}" for item in mem0_facts[:5]) if mem0_facts else ""
 
-    # â”€â”€ Tier 2: medium distress â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Tier 2: medium distress ──────────────────────────────────────────────
     if d < 0.65:
         transcript_lines: list[str] = []
         for turn in (state.get("recent_messages") or [])[-3:]:
@@ -505,36 +506,36 @@ def _build_friend_context(state: ChatGraphState, distress_score: float | None = 
             if content:
                 # Truncate long turns to keep context tight
                 transcript_lines.append(f"{role}: {content[:200]}")
-        transcript = "\n".join(transcript_lines) if transcript_lines else "(chÆ°a cÃ³ lá»‹ch sá»­)"
+        transcript = "\n".join(transcript_lines) if transcript_lines else "(chưa có lịch sử)"
         traits = dict(state.get("user_traits") or {})
-        tone_hint = str(traits.get("preferred_tone") or "").strip() or "dá»‹u dÃ ng"
+        tone_hint = str(traits.get("preferred_tone") or "").strip() or "dịu dàng"
         parts = [f"Distress: {d:.2f}"]
         if mood_line:
             parts.append(mood_line)
         parts.append(f"Tone: {tone_hint}")
         if is_recall_turn and mem0_blob:
-            parts.append(f"KÃ½ á»©c liÃªn quan:\n{mem0_blob}")
+            parts.append(f"Ký ức liên quan:\n{mem0_blob}")
         if is_recall_turn and memory_blob:
-            parts.append(f"TÃ³m táº¯t session gáº§n:\n{memory_blob}")
-        parts.append(f"Lá»‹ch sá»­ (3 lÆ°á»£t):\n{transcript}")
+            parts.append(f"Tóm tắt session gần:\n{memory_blob}")
+        parts.append(f"Lịch sử (3 lượt):\n{transcript}")
         if analyst_hint:
             parts.append(f"Analyst: {analyst_hint[:400]}")
         return "\n".join(parts)
 
-    # â”€â”€ Tier 3: high distress â€” full context â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Tier 3: high distress — full context ─────────────────────────────────
     transcript_lines_full: list[str] = []
     for turn in (state.get("recent_messages") or [])[-6:]:
         role = str(turn.get("role", "")).strip() or "unknown"
         content = str(turn.get("content", "")).strip()
         if content:
             transcript_lines_full.append(f"{role}: {content}")
-    transcript_full = "\n".join(transcript_lines_full) if transcript_lines_full else "(chÆ°a cÃ³ lá»‹ch sá»­)"
+    transcript_full = "\n".join(transcript_lines_full) if transcript_lines_full else "(chưa có lịch sử)"
 
     top_triggers = [str(item or "").strip() for item in (state.get("top_triggers") or []) if str(item or "").strip()]
     coping = [str(item or "").strip() for item in (state.get("effective_coping") or []) if str(item or "").strip()]
     goals = [str(item or "").strip() for item in (state.get("active_goals") or []) if str(item or "").strip()]
     traits_full = dict(state.get("user_traits") or {})
-    preferred_tone = str(traits_full.get("preferred_tone") or "").strip() or "(chÆ°a rÃµ)"
+    preferred_tone = str(traits_full.get("preferred_tone") or "").strip() or "(chưa rõ)"
     communication_style = str(traits_full.get("communication_style") or "").strip() or ""
     trajectory = str(state.get("clinical_trajectory") or "").strip()
 
@@ -543,21 +544,21 @@ def _build_friend_context(state: ChatGraphState, distress_score: float | None = 
         sections.append(mood_line)
     profile_parts = [f"Tone: {preferred_tone}"]
     if communication_style:
-        profile_parts.append(f"Phong cÃ¡ch: {communication_style}")
+        profile_parts.append(f"Phong cách: {communication_style}")
     if top_triggers:
         profile_parts.append(f"Trigger: {', '.join(top_triggers[:3])}")
     if coping:
         profile_parts.append(f"Coping: {', '.join(coping[:3])}")
     if goals:
-        profile_parts.append(f"Má»¥c tiÃªu: {'; '.join(goals[:2])}")
+        profile_parts.append(f"Mục tiêu: {'; '.join(goals[:2])}")
     if trajectory:
-        profile_parts.append(f"HÃ nh trÃ¬nh: {trajectory}")
+        profile_parts.append(f"Hành trình: {trajectory}")
     sections.append(" | ".join(profile_parts))
     if mem0_blob:
-        sections.append(f"KÃ½ á»©c liÃªn quan:\n{mem0_blob}")
+        sections.append(f"Ký ức liên quan:\n{mem0_blob}")
     if memory_blob:
-        sections.append(f"TÃ³m táº¯t session gáº§n:\n{memory_blob}")
-    sections.append(f"Lá»‹ch sá»­:\n{transcript_full}")
+        sections.append(f"Tóm tắt session gần:\n{memory_blob}")
+    sections.append(f"Lịch sử:\n{transcript_full}")
     if analyst_hint:
         sections.append(f"Analyst: {analyst_hint[:800]}")
     return "\n".join(sections)
@@ -567,9 +568,9 @@ def _build_personality_hint(state: ChatGraphState) -> str:
     traits = dict(state.get("user_traits") or {})
     preferred_tone = str(traits.get("preferred_tone") or "").strip()
     top_triggers = [str(item or "").strip() for item in (state.get("top_triggers") or []) if str(item or "").strip()]
-    trigger_hint = ", ".join(top_triggers[:2]) if top_triggers else "chÆ°a rÃµ trigger"
-    tone_hint = preferred_tone or "dá»‹u dÃ ng"
-    return f"[User profile: tone={tone_hint}; hay gáº·p={trigger_hint}]"
+    trigger_hint = ", ".join(top_triggers[:2]) if top_triggers else "chưa rõ trigger"
+    tone_hint = preferred_tone or "dịu dàng"
+    return f"[User profile: tone={tone_hint}; hay gặp={trigger_hint}]"
 
 
 def _recent_transcript_hint(state: ChatGraphState, *, max_turns: int = 3, max_chars_per_turn: int = 220) -> str:
@@ -667,7 +668,7 @@ def _apply_cold_start_profile(
         )
         merged_traits = dict(user_traits or {})
         merged_traits.update(profile.warm_traits or {})
-        # distress_score is frozen after middleware â€” do not apply cold-start delta (Phase 4).
+        # distress_score is frozen after middleware — do not apply cold-start delta (Phase 4).
         return distress_score, merged_traits, str(profile.screening_note or "").strip()
     except Exception as exc:
         logger.debug("cold-start profile skipped: %s", exc)
@@ -720,10 +721,10 @@ def _legacy_supervisor_route(
 def distress_router(state: ChatGraphState) -> dict[str, Any]:
     """Route each non-SOS turn to analyst or friend using 3 priority-ordered rules.
 
-    Priority 1 â€” crisis_route_finalized override (belt-and-suspenders)
-    Priority 2 â€” distress_score >= _ANALYST_DISTRESS_THRESHOLD
-    Priority 3 â€” message matches _ANALYST_TRIGGER_RE (explicit analysis intent)
-    Default    â€” friend
+    Priority 1 — crisis_route_finalized override (belt-and-suspenders)
+    Priority 2 — distress_score >= _ANALYST_DISTRESS_THRESHOLD
+    Priority 3 — message matches _ANALYST_TRIGGER_RE (explicit analysis intent)
+    Default    — friend
     """
     span_start = time.perf_counter()
     correlation_id = str(state.get("correlation_id") or "")
@@ -837,7 +838,7 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
     mood_note = ""
     m = state.get("mood_today")
     if m:
-        mood_note = f"Mood hÃ´m nay: {m.get('mood', '')} {m.get('emoji', '')}."
+        mood_note = f"Mood hôm nay: {m.get('mood', '')} {m.get('emoji', '')}."
 
     ctx_lines = []
     for turn in (state.get("recent_messages") or [])[-6:]:
@@ -845,44 +846,44 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
     transcript = "\n".join(ctx_lines)
 
     instruction = (
-        "Báº¡n lÃ  Analyst áº©n danh. Vai trÃ²: phÃ¢n tÃ­ch ná»™i bá»™, khÃ´ng nÃ³i chuyá»‡n vá»›i user. "
-        "Tráº£ lá»i JSON má»™t dÃ²ng há»£p lá»‡ vá»›i 4 khÃ³a báº¯t buá»™c: "
-        '`clinical_note` (str â‰¤200 chars, tiáº¿ng Viá»‡t, khÃ´ng cháº©n Ä‘oÃ¡n), '
-        '`emotional_theme` (str snake_case tiáº¿ng Anh, vÃ­ dá»¥: "academic_pressure"), '
-        "`suggested_focus` (str hoáº·c null â€” gá»£i Ã½ chá»§ Ä‘á» Friend cÃ³ thá»ƒ khai thÃ¡c), "
-        "`risk_indicators` (list[str] â‰¤3 tÃ­n hiá»‡u quan sÃ¡t Ä‘Æ°á»£c, khÃ´ng cháº©n Ä‘oÃ¡n). "
-        "KhÃ´ng táº¡o reply cho user. KhÃ´ng nháº¯c PII. KhÃ´ng dÃ¹ng 'tráº§m cáº£m/rá»‘i loáº¡n' nhÆ° cháº©n Ä‘oÃ¡n. "
-        'Náº¿u khÃ´ng Ä‘á»§ context â†’ {"clinical_note":"","emotional_theme":"unclear","suggested_focus":null,"risk_indicators":[]}'
+        "Bạn là Analyst ẩn danh. Vai trò: phân tích nội bộ, không nói chuyện với user. "
+        "Trả lời JSON một dòng hợp lệ với 4 khóa bắt buộc: "
+        '`clinical_note` (str ≤200 chars, tiếng Việt, không chẩn đoán), '
+        '`emotional_theme` (str snake_case tiếng Anh, ví dụ: "academic_pressure"), '
+        "`suggested_focus` (str hoặc null — gợi ý chủ đề Friend có thể khai thác), "
+        "`risk_indicators` (list[str] ≤3 tín hiệu quan sát được, không chẩn đoán). "
+        "Không tạo reply cho user. Không nhắc PII. Không dùng 'trầm cảm/rối loạn' như chẩn đoán. "
+        'Nếu không đủ context → {"clinical_note":"","emotional_theme":"unclear","suggested_focus":null,"risk_indicators":[]}'
     )
     mem0_facts = [str(item or "").strip() for item in (state.get("mem0_facts") or []) if str(item or "").strip()]
     top_triggers = [str(item or "").strip() for item in (state.get("top_triggers") or []) if str(item or "").strip()]
     effective_coping = [str(item or "").strip() for item in (state.get("effective_coping") or []) if str(item or "").strip()]
     context_lines = []
     if mem0_facts:
-        context_lines.append(f"KÃ½ á»©c liÃªn quan: {'; '.join(mem0_facts[:3])}")
+        context_lines.append(f"Ký ức liên quan: {'; '.join(mem0_facts[:3])}")
     if top_triggers:
-        context_lines.append(f"Trigger láº·p láº¡i: {', '.join(top_triggers[:3])}")
+        context_lines.append(f"Trigger lặp lại: {', '.join(top_triggers[:3])}")
     if effective_coping:
-        context_lines.append(f"Coping tá»«ng giÃºp: {', '.join(effective_coping[:3])}")
+        context_lines.append(f"Coping từng giúp: {', '.join(effective_coping[:3])}")
     trajectory = str(state.get("clinical_trajectory") or "").strip()
     if trajectory:
-        context_lines.append(f"HÃ nh trÃ¬nh tÃ¢m lÃ½: {trajectory}")
-    profile_context = "\n".join(context_lines) if context_lines else "(chÆ°a cÃ³ profile context)"
+        context_lines.append(f"Hành trình tâm lý: {trajectory}")
+    profile_context = "\n".join(context_lines) if context_lines else "(chưa có profile context)"
     nutrition_meals = state.get("nutrition_meals") or []
     if nutrition_meals:
         meal_lines = "\n".join(
-            f"- {m.get('slot', '?')}: {m.get('items') or '(chÆ°a ghi)'}"
+            f"- {m.get('slot', '?')}: {m.get('items') or '(chưa ghi)'}"
             for m in nutrition_meals
         )
-        nutrition_block = f"Bá»¯a Äƒn hÃ´m nay:\n{meal_lines}\n"
+        nutrition_block = f"Bữa ăn hôm nay:\n{meal_lines}\n"
     else:
         nutrition_block = ""
     user_payload = (
         f"{profile_context}\n"
         f"{mood_note}\n"
         f"{nutrition_block}"
-        f"Lá»‹ch sá»­ gáº§n Ä‘Ã¢y:\n{transcript}\n"
-        f"Tin má»›i: {state.get('user_message', '')}"
+        f"Lịch sử gần đây:\n{transcript}\n"
+        f"Tin mới: {state.get('user_message', '')}"
     )
 
     # Read Neo4j patterns pre-fetched by the async caller
@@ -893,21 +894,21 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
     _graph_context_block = ""
     if _graph_context_used:
         _t = ", ".join(
-            f"{x['name']} (Ã—{x['count']})"
+            f"{x['name']} (×{x['count']})"
             for x in _graph_raw.get("triggers", [])
             if x.get("count")
-        ) or "chÆ°a ghi nháº­n"
-        _e = ", ".join(x["name"] for x in _graph_raw.get("emotions", [])) or "chÆ°a ghi nháº­n"
+        ) or "chưa ghi nhận"
+        _e = ", ".join(x["name"] for x in _graph_raw.get("emotions", [])) or "chưa ghi nhận"
         _c = ", ".join(
-            f"{x['name']} (hiá»‡u quáº£={x['effectiveness']:.2f})"
+            f"{x['name']} (hiệu quả={x['effectiveness']:.2f})"
             for x in _graph_raw.get("coping", [])
             if x.get("effectiveness") is not None
-        ) or "chÆ°a ghi nháº­n"
+        ) or "chưa ghi nhận"
         _graph_context_block = (
-            f"\n\n[Lá»‹ch sá»­ hÃ nh vi tá»« Neo4j â€” derived context]\n"
-            f"TÃ¡c nhÃ¢n hay gáº·p: {_t}\n"
-            f"Cáº£m xÃºc hay gáº·p: {_e}\n"
-            f"Chiáº¿n lÆ°á»£c Ä‘á»‘i phÃ³ Ä‘Ã£ thá»­: {_c}"
+            f"\n\n[Lịch sử hành vi từ Neo4j — derived context]\n"
+            f"Tác nhân hay gặp: {_t}\n"
+            f"Cảm xúc hay gặp: {_e}\n"
+            f"Chiến lược đối phó đã thử: {_c}"
         )
     logger.debug("analyst_node graph_context_used=%s", _graph_context_used)
     instruction = instruction + _sanitize_prompt_block(_graph_context_block)
@@ -1054,11 +1055,86 @@ def _enforce_persona_identity(reply: str, persona_id: str) -> str:
 # Distress/length thresholds for the ultra-fast prompt path.
 _ULTRAFAST_DISTRESS_MAX: float = 0.20
 _ULTRAFAST_MSG_LEN_MAX: int = 50
+_INSTANT_SMALL_TALK_DISTRESS_MAX: float = 0.35
+_INSTANT_SMALL_TALK_MSG_LEN_MAX: int = 90
+
+_SMALL_TALK_ADDRESS_HINTS = (
+    "dung oi",
+    "dat oi",
+    "hau oi",
+    "serene oi",
+    "oi",
+    "alo",
+    "hello",
+    "hi",
+    "ê",
+)
+_SMALL_TALK_SUPPORT_HINTS = (
+    "buon",
+    "chan",
+    "met",
+    "stress",
+    "ap luc",
+    "qua tai",
+    "overthinking",
+    "lo",
+    "so",
+    "khoc",
+    "dau",
+    "mat ngu",
+    "khong an",
+    "vo dung",
+    "tu trach",
+)
 
 
 def _is_ultrafast_eligible(*, distress_score: float, user_message: str) -> bool:
     """True when the turn is low-risk casual chat that needs no planning/fewshot overhead."""
     return distress_score < _ULTRAFAST_DISTRESS_MAX and len(user_message.strip()) < _ULTRAFAST_MSG_LEN_MAX
+
+
+def _is_instant_small_talk(*, distress_score: float, user_message: str) -> bool:
+    """Very short low-risk turns should not pay the full planning/LLM cost."""
+    raw = str(user_message or "").strip()
+    if not raw or distress_score >= _INSTANT_SMALL_TALK_DISTRESS_MAX or len(raw) > _INSTANT_SMALL_TALK_MSG_LEN_MAX:
+        return False
+    normalized = _normalize_text(raw)
+    words = normalized.split()
+    if any(hint in normalized for hint in _SMALL_TALK_ADDRESS_HINTS) and len(words) <= 5:
+        return True
+    if any(hint in normalized for hint in _SMALL_TALK_SUPPORT_HINTS):
+        return False
+    return len(words) <= 7
+
+
+def _instant_small_talk_reply(user_message: str, *, persona_id: str) -> str:
+    normalized = _normalize_text(user_message)
+    if persona_id == "dung_luong":
+        if any(hint in normalized for hint in ("dung oi", "oi", "alo", "hello", "hi", "ê")):
+            return "ơi tớ đây, cậu nói đi."
+        variants = [
+            "ừ đúng kiểu chuyện nhỏ mà vẫn muốn than một câu ấy. tớ nghe nè.",
+            "nghe hơi đời thường nhưng tớ hiểu ý cậu đó. kể tiếp đi.",
+            "ừ, câu này không cần phân tích sâu đâu. tớ đang nghe cậu.",
+        ]
+    elif persona_id == "dat_le":
+        if any(hint in normalized for hint in ("dat oi", "oi", "alo", "hello", "hi")):
+            return "mình đây, bạn nói đi."
+        variants = [
+            "mình hiểu ý bạn. đoạn này chỉ cần nói gọn thôi, mình đang nghe.",
+            "ừ, chuyện nhỏ nhưng vẫn đáng để nói ra. bạn cứ tiếp tục.",
+            "mình nghe được. chưa cần phân tích sâu ở đây đâu.",
+        ]
+    else:
+        if any(hint in normalized for hint in ("hau oi", "oi", "alo", "hello", "hi")):
+            return "mình đây, bạn nói mình nghe."
+        variants = [
+            "mình nghe nè. cứ nói tiếp theo nhịp của bạn thôi.",
+            "ừ, mình hiểu ý đó. chưa cần làm nó nặng lên đâu.",
+            "mình ở đây, bạn cứ kể tiếp nhẹ nhàng thôi.",
+        ]
+    idx = sum(ord(ch) for ch in normalized) % len(variants)
+    return variants[idx]
 
 
 def _build_ultrafast_messages(
@@ -1131,6 +1207,23 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
     preferred_friend_model = (
         settings.openai_model_friend_fast if use_fast_model and settings.openai_model_friend_fast else settings.openai_model_friend
     )
+
+    if _is_instant_small_talk(distress_score=distress_now, user_message=user_text):
+        reply = _instant_small_talk_reply(user_text, persona_id=persona_id)
+        _trace_span(
+            correlation_id,
+            "friend_generate",
+            duration_ms=(time.perf_counter() - span_start) * 1000,
+            token_count=_estimate_tokens_fast(reply),
+            extra={"grounded": True, "route": "instant_small_talk"},
+        )
+        return {
+            "routing_history": hist,
+            "reply": reply,
+            "assistant_tone": "cheerful" if persona_id == "dung_luong" else "neutral",
+            "goi_y_nhanh": [],
+            "the_dinh_kem": [],
+        }
 
     # â”€â”€ Ultra-fast path: minimal prompt for casual low-distress turns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     _ultrafast = _is_ultrafast_eligible(distress_score=distress_now, user_message=user_text)
