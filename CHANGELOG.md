@@ -4,6 +4,13 @@
 
 ---
 
+## [Unreleased] — Fix 28 SQLite schema failures; full suite 360 pass · 2026-05-15
+
+### Fixed
+- `backend/app/services/db/init_db.py` — `init_db()` now filters out schema-qualified tables (`schema="app"`) before calling `create_all()` when running on SQLite (tests). PostgreSQL is unaffected. Fixes 28 integration tests that crashed with `unknown database app` on every TestClient startup.
+
+---
+
 ## [Unreleased] — Advisor evidence provenance fix · 2026-05-15
 
 ### Fixed
