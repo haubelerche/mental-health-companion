@@ -16,6 +16,7 @@
 ### Added
 - `evals/rubrics/serene_judge_rubric_v1.md`: added the AutoCBT LLM-as-Judge rubric covering empathy, cognitive-distortion identification, reflection, strategy, encouragement, and relevance.
 - `evals/scripts/run_golden_eval.py`: added a CLI runner for scoring golden responses with the judge rubric and writing JSON reports.
+- `Chat.tsx`: voice card now deferred until audio is ready — no more "TIN NHẮN THOẠI" loading placeholder in chat; card appears only when playable.
 - **Analyst bundle per-turn persistence (Insight Pipeline P1):** `run_non_sos_turn()` nay expose `analyst_bundle` key trong return dict; `record_analyst_bundle_signal()` persist mỗi turn's AnalystBundle vào `analyst_signals` table (skip SOS, None, cold_start_screen). Gọi non-fatally trong chat router.
 - **Home.tsx insight section (Insight Pipeline P5):** Fetch `getSafeInsights()` trong Home page; render `InsightCardList` phía dưới screening section khi có ≥1 insight. `adaptInsights()` được export từ `dashboardService.ts`.
 - **Neo4j outbox worker flag (Insight Pipeline P4):** Config flag `NEO4J_GRAPH_OUTBOX_WORKER_ENABLED=false` (default) + conditional start trong `main.py` — chỉ start khi flag=true VÀ `neo4j_uri` non-empty. Documented trong `.env.example`.
