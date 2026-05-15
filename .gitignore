@@ -1,3 +1,6 @@
+# Worktrees
+.worktrees/
+
 # Environment
 .env
 
@@ -20,8 +23,7 @@ package-lock.json
 CLAUDE.md
 
 
-COMMIT_PLAYBOOK.md
-*/.md
+
 .codex/
 .github/
 .claude/
@@ -40,7 +42,7 @@ scripts/supabase/
 .ai-log/*.jsonl
 .ai-log/*.md
 backend/.ai-log/
-*.md
+
 !docs/
 !docs/*.md
 !docs/**/*.md
