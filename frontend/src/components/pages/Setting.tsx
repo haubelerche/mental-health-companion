@@ -186,7 +186,7 @@ export default function Setting() {
           <div className="w-full mb-6 flex justify-start">
             <button
               onClick={() => setActiveTab('main')}
-              className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-theme-text-secondary cursor-pointer bg-theme-surface/50 hover:text-theme-text-primary"
+              className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-theme-text-secondary cursor-pointer bg-theme-surface hover:text-theme-text-primary"
             >
               <ArrowLeft className="h-4 w-4" />
               Quay lại danh mục
