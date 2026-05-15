@@ -1,5 +1,6 @@
 import { Activity, Heart, Moon, Sprout, TrendingDown, TrendingUp, Users, Wind } from 'lucide-react'
 import type { ReflectWellnessDimension, WellnessDimension } from '../../services/dashboardService'
+import { useThemeContext } from '../../contexts/ThemeContext'
 
 type Props = {
     dimension: ReflectWellnessDimension
@@ -17,19 +18,6 @@ function statusLabel(status: WellnessDimension['status']): string {
             return 'Dữ liệu còn ít'
         default:
             return 'Chưa rõ'
-    }
-}
-
-function statusClass(status: WellnessDimension['status']): string {
-    switch (status) {
-        case 'steady':
-            return 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100'
-        case 'improving':
-            return 'border-cyan-200 bg-cyan-50 text-cyan-800 dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-100'
-        case 'needs_attention':
-            return 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100'
-        default:
-            return 'border-neutral-200 bg-neutral-100 text-neutral-700 dark:border-white/10 dark:bg-white/5 dark:text-theme-text-secondary'
     }
 }
 
@@ -53,12 +41,15 @@ function DimensionIcon({ dimension }: { dimension: WellnessDimension['dimension'
 }
 
 function TrendCopy({ delta }: { delta?: number | null }) {
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
+
     if (typeof delta !== 'number') {
         return <span className="text-theme-text-tertiary">Chưa đủ dữ liệu so sánh</span>
     }
     if (delta > 0) {
         return (
-            <span className="inline-flex items-center gap-1 text-cyan-700 dark:text-cyan-200">
+            <span className={`inline-flex items-center gap-1 ${isDark ? 'text-cyan-200' : 'text-cyan-700'}`}>
                 <TrendingUp className="h-3.5 w-3.5" aria-hidden />
                 +{delta} so với trước
             </span>
@@ -66,7 +57,7 @@ function TrendCopy({ delta }: { delta?: number | null }) {
     }
     if (delta < 0) {
         return (
-            <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-200">
+            <span className={`inline-flex items-center gap-1 ${isDark ? 'text-amber-200' : 'text-amber-700'}`}>
                 <TrendingDown className="h-3.5 w-3.5" aria-hidden />
                 {delta} so với trước
             </span>
@@ -76,6 +67,30 @@ function TrendCopy({ delta }: { delta?: number | null }) {
 }
 
 export function WellnessDimensionCard({ dimension }: Props) {
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
+
+    const statusClass = (status: WellnessDimension['status']) => {
+        switch (status) {
+            case 'steady':
+                return isDark
+                    ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+                    : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+            case 'improving':
+                return isDark
+                    ? 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100'
+                    : 'border-cyan-200 bg-cyan-50 text-cyan-800'
+            case 'needs_attention':
+                return isDark
+                    ? 'border-amber-400/20 bg-amber-400/10 text-amber-100'
+                    : 'border-amber-200 bg-amber-50 text-amber-900'
+            default:
+                return isDark
+                    ? 'border-white/10 bg-white/5 text-theme-text-secondary'
+                    : 'border-neutral-200 bg-neutral-100 text-neutral-700'
+        }
+    }
+
     return (
         <article className="min-h-[18rem] rounded-3xl border border-theme-border/70 bg-theme-surface/86 p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md md:p-5">
             <div className="flex items-start justify-between gap-3">
