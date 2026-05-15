@@ -1,6 +1,6 @@
-import { type MouseEvent, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Bell, HelpCircle, HomeIcon, Library, MessageSquare, Sailboat, Settings, Sparkles, Utensils, Gift, ChevronLeft, ChevronRight } from 'lucide-react'
-import { Link, NavLink } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { ROUTE_PATHS } from '../../routes/paths'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import NotificationModal from '../pages/notifications/NotificationModal'

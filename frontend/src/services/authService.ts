@@ -1,4 +1,4 @@
-import { getApiBaseUrl, httpClient } from '../api/httpClient'
+import { httpClient } from '../api/httpClient'
 
 export type OAuthProvider = 'google' | 'facebook'
 
