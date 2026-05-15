@@ -84,7 +84,13 @@ def get_engine():
             pool_use_lifo=True,
             connect_args={"options": "-c search_path=app,extensions"},
         )
-    return create_engine(database_url, future=True)
+    engine = create_engine(database_url, future=True)
+    if engine.dialect.name == "sqlite":
+        # SQLite has no PostgreSQL-style schemas. Some production models are
+        # schema-qualified as `app.*`; translate that schema away for local
+        # auto-created SQLite databases so dev startup can still create tables.
+        return engine.execution_options(schema_translate_map={"app": None})
+    return engine
 
 
 @lru_cache(maxsize=1)
