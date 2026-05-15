@@ -122,7 +122,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
         try {
             await authService.logout()
             setUser(null)
-            localStorage.removeItem('serene_chat_session_id')
+            
+            // Clear all chat session IDs from local storage
+            const keysToRemove: string[] = []
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i)
+                if (key && (key === 'serene_chat_session_id' || key.startsWith('serene_chat_session_id:'))) {
+                    keysToRemove.push(key)
+                }
+            }
+            keysToRemove.forEach((key) => localStorage.removeItem(key))
+            
         } catch (error) {
             console.error('Error occurred while logging out:', error)
         } finally {
