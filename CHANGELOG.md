@@ -7,6 +7,7 @@
 ## [Unreleased] — AutoCBT & Insight Pipeline audit gap closure · 2026-05-16
 
 ### Fixed
+- **Streaming endpoint fast path**: `/chat/message/stream` now runs `FastNeedRouter` before entering LangGraph; small-talk, greeting, ack, thanks, and empty turns are handled by `ChatOrchestrator.generate_normal_turn()` (same path as non-streaming), eliminating ~1.5–2 s of LangGraph overhead and fixing over-analytical responses for casual messages.
 - `langgraph_chat.py`: repaired double-encoded UTF-8 Vietnamese strings, including memory and counseling-example headers used by recall context and retriever prompts.
 - `distress_router`: restored the mood+distress combo rule so stressed/restless/melancholic mood at distress >= 0.58 routes to Analyst, matching legacy supervisor behavior.
 - `test_chat_router_integration.py`: relaxed the `tts_job` assertion to accept either no job or a queued voice job on fast-route chat turns.

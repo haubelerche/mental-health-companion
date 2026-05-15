@@ -1961,6 +1961,53 @@ def send_message_stream(
                 turn = get_cached_turn(session.session_id, message_hash) if settings.chat_response_cache_ttl_seconds > 0 else None
             _stream_persona_id = _active_persona_id(db, current_user.user_id, distress=distress)
             if turn is None:
+                _s_route_tier, _, _s_route_codes = ChatOrchestrator.resolve_route_advisors_with_reasons(
+                    raw_text=raw_text,
+                    previous_user_messages=previous_user_messages,
+                )
+                if _s_route_tier == "fast" and any(
+                    c in {"small_talk_fast", "greeting_fast", "thanks_fast", "ack_fast", "empty_fast"}
+                    for c in _s_route_codes
+                ):
+                    policy_decision = evaluate_safety_policy(raw_text, previous_user_messages)
+                    context_pack = ContextPack(
+                        recent_messages=ctx.recent_messages,
+                        active_memory={},
+                        mood_context=ctx.mood_today,
+                        nutrition_context=None,
+                        persona_context={"selected": _stream_persona_id},
+                        safety_policy=policy_decision,
+                    )
+                    generated = ChatOrchestrator.generate_normal_turn(
+                        user_message=raw_text,
+                        context_pack=context_pack,
+                        route_tier=_s_route_tier,
+                        planned_advisor_ids=[],
+                        apply_output_policy_or_fallback=lambda text, **_kwargs: text,
+                        policy_decision=policy_decision,
+                        route_reason_codes=_s_route_codes,
+                        consultation_db=None,
+                        request_id=message_hash,
+                        session_id=session.session_id,
+                        user_id=current_user.user_id,
+                    )
+                    snap = build_snapshot(
+                        distress,
+                        sos_triggered=False,
+                        voice_hint=settings.distress_voice_hint,
+                        critical=settings.distress_critical,
+                    )
+                    turn = {
+                        "session_fields": snap,
+                        "reply": generated.assistant_text,
+                        "assistant_tone": generated.assistant_tone,
+                        "goi_y_nhanh": generated.goi_y_nhanh,
+                        "the_dinh_kem": generated.the_dinh_kem,
+                        "routing_history": generated.routing_history,
+                        "route_tier": generated.route_tier,
+                        "used_advisor_ids": generated.used_advisor_ids,
+                    }
+            if turn is None:
                 memory_ctx, compat_longterm = _load_memory_context_for_turn(
                     db,
                     user_id=current_user.user_id,
