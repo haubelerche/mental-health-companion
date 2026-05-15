@@ -4,6 +4,14 @@
 
 ---
 
+## [Unreleased] — Meme selector safety gate tests · 2026-05-15
+
+### Added (tests)
+- `backend/tests/test_meme_selector.py` — 12 unit tests covering all safety gates and selection logic for `maybe_select_meme_suggestion()`: persona gate (only `dung_luong`), safety-tier gate, distress threshold (boundary 0.5), crisis-hint suppression (tokens from `_HOLD_MEME_HINTS`), required `MemeSuggestion` fields, and deterministic selection for same inputs. No DB or network required.
+- `.gitignore` — added `!backend/tests/test_meme_selector.py` to allowlist.
+
+---
+
 ## [Unreleased] — Memory dedup helpers · 2026-05-15
 
 ### Added
