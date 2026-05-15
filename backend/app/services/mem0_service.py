@@ -262,6 +262,41 @@ class MemoryManager:
             db.close()
 
 
+def get_mention_count(memory: "Mem0Memory") -> int:
+    """Return the mention_count stored in memory metadata, defaulting to 1."""
+    from app.services.mem0_repository import Mem0Memory as _Mem0Memory  # noqa: F401
+    return int(memory.metadata.get("mention_count", 1))
+
+
+def with_incremented_mention_count(memory: "Mem0Memory") -> dict[str, Any]:
+    """Return updated metadata dict with mention_count incremented by 1."""
+    updated = dict(memory.metadata)
+    updated["mention_count"] = get_mention_count(memory) + 1
+    return updated
+
+
+def is_likely_duplicate(existing_content: str, new_content: str) -> bool:
+    """Return True if the two content strings are exact duplicates after normalization."""
+    return existing_content.strip().lower() == new_content.strip().lower()
+
+
+def record_memory_with_dedup(
+    *,
+    existing_memories: "list[Any]",
+    new_content: str,
+) -> "tuple[str, int]":
+    """Check if new_content duplicates any existing memory.
+
+    Returns (action, mention_count) where:
+      action = "duplicate_skipped" | "new_memory"
+      mention_count = count of times this fact has been seen
+    """
+    for existing in existing_memories:
+        if is_likely_duplicate(existing.content, new_content):
+            return ("duplicate_skipped", get_mention_count(existing) + 1)
+    return ("new_memory", 1)
+
+
 def _is_mem0_contract_error(exc: Exception) -> bool:
     msg = str(exc).lower()
     return isinstance(exc, ValueError) and (

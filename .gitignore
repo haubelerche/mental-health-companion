@@ -108,18 +108,7 @@ test-results/
 tests/
 !backend/tests/
 backend/tests/*
-!backend/tests/analyst/
-!backend/tests/analyst/*.py
-!backend/tests/test_friend_naturalness_regression.py
-!backend/tests/test_memory_recall_turn.py
-!backend/tests/test_session_lifecycle_memory_cards.py
-!backend/tests/test_advisor_selector.py
-!backend/tests/test_chat_advisor_assisted_integration.py
-!backend/tests/test_friend_agent_contract.py
-!backend/tests/test_context_pack_builder.py
-!backend/tests/test_analyst_agent_contract.py
-!backend/tests/test_dashboard_safe_insights.py
-!backend/tests/test_latency_observability.py
+
 
 
 
