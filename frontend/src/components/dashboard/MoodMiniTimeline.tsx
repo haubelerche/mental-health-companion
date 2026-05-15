@@ -1,5 +1,6 @@
 import { Clock3 } from 'lucide-react'
 import type { ReflectRecentCheckin } from '../../services/dashboardService'
+import { useThemeContext } from '../../contexts/ThemeContext'
 
 type Props = {
     checkins: ReflectRecentCheckin[]
@@ -17,6 +18,17 @@ function compact(values: string[]): string {
 }
 
 export function MoodMiniTimeline({ checkins, missingData }: Props) {
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
+
+    const moodBadgeClass = isDark
+        ? 'bg-cyan-400/15 text-cyan-100'
+        : 'bg-cyan-100 text-cyan-800'
+
+    const missingBadgeClass = isDark
+        ? 'border-amber-400/20 bg-amber-400/10 text-amber-100'
+        : 'border-amber-200 bg-amber-50 text-amber-800'
+
     return (
         <section className="rounded-2xl border border-theme-border/70 bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -40,7 +52,7 @@ export function MoodMiniTimeline({ checkins, missingData }: Props) {
                         <article key={checkin.id} className="rounded-xl border border-theme-border/70 bg-theme-bg-secondary/70 p-3">
                             <div className="flex items-center justify-between gap-3">
                                 <p className="text-sm font-semibold text-theme-text-primary">{formatDate(checkin.date)}</p>
-                                <span className="rounded-full bg-cyan-100 px-2 py-1 text-xs font-semibold text-cyan-800 dark:bg-cyan-400/15 dark:text-cyan-100">
+                                <span className={`rounded-full px-2 py-1 text-xs font-semibold ${moodBadgeClass}`}>
                                     Mood {checkin.mood_score != null ? `${checkin.mood_score}/10` : 'chưa ghi'}
                                 </span>
                             </div>
@@ -55,7 +67,7 @@ export function MoodMiniTimeline({ checkins, missingData }: Props) {
                 {missingData.map((item) => (
                     <span
                         key={item}
-                        className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100"
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold ${missingBadgeClass}`}
                     >
                         {item}
                     </span>

@@ -153,7 +153,7 @@ function formatVi(iso: string): string {
 
 function DayDetail({ date, point, onClose }: DayDetailProps) {
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-2 mt-3 rounded-2xl border border-[#ddecd6] bg-white/95 p-4 shadow-lg backdrop-blur duration-150">
+        <div className="animate-in fade-in slide-in-from-bottom-2 mt-3 rounded-2xl border border-theme-border/70 bg-theme-surface/80 p-4 shadow-lg backdrop-blur duration-150">
             <div className="mb-3 flex items-center justify-between">
                 <p className="text-sm font-semibold text-[#17352f]">{formatVi(date)}</p>
                 <button
@@ -248,7 +248,7 @@ export function PixelMoodCalendar({ series, range }: Props) {
                             key={cell.date}
                             type="button"
                             onClick={() => setSelected(isSelected ? null : cell.date)}
-                            className={`flex aspect-square flex-col items-center justify-center rounded-xl transition duration-150 hover:scale-105 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
+                            className={`flex border border-theme-secondary/10 aspect-square flex-col items-center justify-center rounded-xl transition duration-150 hover:scale-105 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
                                 isSelected
                                     ? 'bg-emerald-100 ring-2 ring-emerald-400 shadow-sm'
                                     : isToday

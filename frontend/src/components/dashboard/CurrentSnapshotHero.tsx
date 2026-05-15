@@ -84,19 +84,19 @@ export function CurrentSnapshotHero({ dashboard }: Props) {
                 }}
             />
 
-            <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start">
+            <div className="relative flex flex-col gap-5 lg:items-start">
                 {/* mascot column */}
-                <div className="shrink-0 self-start">
+                <div className="self-start">
                     <Mascot
                         variant={MASCOT_VARIANT[state]}
-                        size="xl"
+                        size="lg"
                         decorative
                         className="drop-shadow-sm"
                     />
                 </div>
 
                 {/* main content */}
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0">
                     <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#5f776f]">
                         Tình hình hiện tại
                     </div>
@@ -106,15 +106,16 @@ export function CurrentSnapshotHero({ dashboard }: Props) {
                     <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#31554d]">
                         {overview.summary}
                     </p>
-
+                </div>
+                <div>
                     {/* 4 status chips */}
                     <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                         <Chip label="Tình hình" value={overview.state_label} />
                         <Chip label="Khó khăn nổi bật" value={topTrigger ?? 'Chưa rõ'} />
                         <Chip label="Điểm tựa" value={supportive ?? topEmotion ?? 'Cần thêm dữ liệu'} />
                         {overview.suggested_action ? (
-                            <div className="rounded-2xl border border-white/60 bg-white/55 p-3 shadow-sm">
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#5f776f]">
+                            <div className="rounded-2xl border border-theme-secondary/30 bg-theme-surface/92 p-3 shadow-sm">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-theme-accent">
                                     Bước hôm nay
                                 </p>
                                 <Link
@@ -139,9 +140,9 @@ export function CurrentSnapshotHero({ dashboard }: Props) {
 
 function Chip({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-2xl border border-white/60 bg-white/55 p-3 shadow-sm">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#5f776f]">{label}</p>
-            <p className="mt-1.5 text-sm font-semibold text-[#17352f]">{value}</p>
+        <div className="rounded-2xl border border-white/60 bg-theme-surface/92 p-3 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-theme-accent">{label}</p>
+            <p className="mt-1.5 text-sm font-semibold text-theme-secondary">{value}</p>
         </div>
     )
 }

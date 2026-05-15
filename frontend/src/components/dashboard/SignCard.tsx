@@ -109,7 +109,7 @@ export function SignCard({ sufficiency, insights, isDark }: Props) {
                         {(level === 'weekly_trend' || level === 'stable_pattern') &&
                             sufficiency.evidence_window_start &&
                             sufficiency.evidence_window_end && (
-                                <span className="rounded-full bg-black/5 px-2 py-0.5 dark:bg-white/10">
+                                <span className={`rounded-full px-2 py-0.5 ${isDark ? 'bg-white/10' : 'bg-black/5'}`}>
                                     {sufficiency.evidence_window_start} - {sufficiency.evidence_window_end}
                                 </span>
                             )}

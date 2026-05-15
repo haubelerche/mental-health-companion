@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import type { ReflectInsight } from '../../services/dashboardService'
 import { ROUTE_PATHS } from '../../routes/paths'
 import PixelEmptyState from '../pixel/PixelEmptyState'
+import { useThemeContext } from '../../contexts/ThemeContext'
 
 type Props = {
     insights: ReflectInsight[]
@@ -32,7 +33,16 @@ function buildCopingEntries(insights: ReflectInsight[]): CopingEntry[] {
 }
 
 export function CopingEffectivenessPanel({ insights }: Props) {
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
+
     const entries = buildCopingEntries(insights)
+
+    const cardBgClass = isDark ? 'bg-emerald-400/5' : 'bg-emerald-50/50'
+    const badgeBgClass = isDark ? 'bg-white/10' : 'bg-white/70'
+    const linkClass = isDark
+        ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200'
+        : 'border-emerald-300/70 bg-white/70 text-emerald-700 hover:bg-emerald-50'
 
     return (
         <section className="rounded-2xl border border-theme-border/70 bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
@@ -64,7 +74,7 @@ export function CopingEffectivenessPanel({ insights }: Props) {
                     {entries.map((entry) => (
                         <div
                             key={entry.id}
-                            className="flex flex-col gap-2 rounded-2xl border border-theme-border/60 bg-emerald-50/50 p-4 sm:flex-row sm:items-center sm:justify-between dark:bg-emerald-400/5"
+                            className={`flex flex-col gap-2 rounded-2xl border border-theme-border/60 p-4 sm:flex-row sm:items-center sm:justify-between ${cardBgClass}`}
                         >
                             <div className="min-w-0">
                                 <div className="mb-1 flex items-center gap-2">
@@ -78,13 +88,13 @@ export function CopingEffectivenessPanel({ insights }: Props) {
                                         {entry.suggestedActionText}
                                     </p>
                                 )}
-                                <span className="mt-1 inline-block rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-medium text-theme-text-tertiary dark:bg-white/10">
+                                <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium text-theme-text-tertiary ${badgeBgClass}`}>
                                     {entry.confidenceLabel}
                                 </span>
                             </div>
                             <Link
                                 to={entry.route}
-                                className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-emerald-300/70 bg-white/70 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-200"
+                                className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${linkClass}`}
                             >
                                 Thử lại
                                 <ArrowRight className="h-3.5 w-3.5" aria-hidden />

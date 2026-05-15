@@ -82,10 +82,10 @@ export default function Reflect() {
                 }}
             />
 
-            <main className="relative mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 pb-16 pt-3 md:px-6">
+            <main className="relative mx-auto flex flex-col gap-4 px-4 pb-16 pt-3 md:px-6">
 
                 {/* ── Header ── */}
-                <header className="rounded-2xl border border-theme-border/70 bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
+                <header className="rounded-2xl border border-theme-border bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-3">
@@ -136,47 +136,57 @@ export default function Reflect() {
 
                 {/* ── Dashboard sections ── */}
                 {dashboard && (
-                    <>
-                        {/* 1. Tình hình hiện tại */}
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        {/* 1. Tình hình hiện tại (Text) */}
                         <CurrentSnapshotHero dashboard={dashboard} />
 
-                        {/* 2. Mood calendar */}
-                        <PixelMoodCalendar series={dashboard.mood_series} range={dashboard.range} />
-
-                        {/* 3. Nhịp cảm xúc & năng lượng */}
-                        <MoodTrendChart
-                            series={dashboard.mood_series}
-                            enoughForTrend={dashboard.data_quality.enough_for_trend}
-                        />
-
-                        {/* 4. Ngủ / ăn / năng lượng / kết nối */}
+                        {/* 4. Ngủ / ăn / năng lượng / kết nối (Text) */}
                         <LifestyleRhythmPanel dimensions={dashboard.dimensions} />
 
-                        {/* 5. Trigger × Emotion heatmap */}
-                        <TriggerEmotionHeatmap matrix={dashboard.trigger_emotion_matrix} />
+                        {/* 3. Nhịp cảm xúc & năng lượng (Chart) */}
+                        <div className="md:col-span-2">
+                            <MoodTrendChart
+                                series={dashboard.mood_series}
+                                enoughForTrend={dashboard.data_quality.enough_for_trend}
+                            />
+                        </div>
 
-                        {/* 6. Khó khăn nổi bật */}
+                        {/* 6. Khó khăn nổi bật (Text) */}
                         <ChallengeCards
                             summary={dashboard.summary}
                             checkins={dashboard.recent_checkins}
                             matrix={dashboard.trigger_emotion_matrix}
                         />
 
-                        {/* 7. Dấu hiệu nên theo dõi thêm */}
+                        {/* 7. Dấu hiệu nên theo dõi thêm (Text) */}
                         <PatternGroupCards insights={dashboard.insights} />
 
-                        {/* 8. PHQ-9 / GAD-7 screening */}
-                        <ScreeningPanel />
+                        {/* 2. Mood calendar (Chart) */}
+                        <div className="md:col-span-2">
+                            <PixelMoodCalendar series={dashboard.mood_series} range={dashboard.range} />
+                        </div>
 
-                        {/* 9. Điều từng giúp */}
+                        {/* 8. Sàng lọc (Full width) */}
+                        {/* <div className="md:col-span-2">
+                            <ScreeningPanel />
+                        </div> */}
+
+                        {/* 5. Trigger × Emotion heatmap (Chart) */}
+                        <div className="md:col-span-2">
+                            <TriggerEmotionHeatmap matrix={dashboard.trigger_emotion_matrix} />
+                        </div>
+
+                        {/* 9. Điều từng giúp (Text) */}
                         <CopingEffectivenessPanel insights={dashboard.insights} />
 
-                        {/* 10. Một bước nhỏ hôm nay */}
+                        {/* 10. Một bước nhỏ hôm nay (Text) */}
                         <NextStepsPlan summary={dashboard.summary} />
 
                         {/* 11. Data quality notice */}
-                        <DataQualityNotice dataQuality={dashboard.data_quality} />
-                    </>
+                        <div className="md:col-span-2">
+                            <DataQualityNotice dataQuality={dashboard.data_quality} />
+                        </div>
+                    </div>
                 )}
             </main>
         </div>

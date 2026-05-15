@@ -186,7 +186,7 @@ function MemoryRow({
     }
 
     return (
-        <div className="border border-theme-primary/20 bg-theme-surface/85 px-3 py-2">
+        <div className="border border-theme-primary/20 bg-theme-surface/85 px-3 py-2 rounded-lg">
             <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                     {editing ? (
@@ -361,7 +361,7 @@ export default function UserMemoriesTab({ refreshKey = 0 }: UserMemoriesTabProps
                         key={item}
                         type="button"
                         onClick={() => setActiveCategory(item)}
-                        className={`shrink-0 border px-3 py-1.5 text-xs font-semibold ${activeCategory === item ? 'border-theme-accent text-theme-accent' : 'border-theme-primary/25 text-theme-text-secondary hover:bg-theme-primary/10'}`}
+                        className={`shrink-0 border rounded-lg px-3 py-1.5 text-xs font-semibold ${activeCategory === item ? 'border-theme-accent text-theme-accent' : 'border-theme-primary/25 text-theme-text-secondary hover:bg-theme-primary/10'}`}
                     >
                         {item}
                     </button>
