@@ -5,6 +5,7 @@ import { ROUTE_PATHS } from '../../routes/paths'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import NotificationModal from '../pages/notifications/NotificationModal'
 import { OPEN_NOTIFICATION_MODAL_EVENT } from '../pages/notifications/events'
+import Logo from '../ui/Logo'
 type SidebarProps = {
     isOpen: boolean
     onHide: () => void
@@ -66,8 +67,13 @@ export default function Sidebar({ isOpen, onHide, onReveal }: SidebarProps) {
                 ].join(' ')}
             >
                 {/* Brand */}
-                <div className="mb-7">
-                    <Link to={ROUTE_PATHS.home} className="font-display text-4xl italic">Serene</Link>
+                <div className="mb-7 serene-landing bg-transparent!">
+                    <Logo 
+                        path={ROUTE_PATHS.home} 
+                        fontSize="2.5rem" 
+                        className='pixel-headline' 
+                        textShadow="2px 2px 0 #020812, -1px -1px 0 #020812, 1px -1px 0 #020812, -1px 1px 0 #020812, 1px 1px 0 #020812"
+                    />
                 </div>
 
                 {/* Primary nav */}
