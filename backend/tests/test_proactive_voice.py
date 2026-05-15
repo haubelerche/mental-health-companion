@@ -339,3 +339,69 @@ def test_message_suggests_proactive_voice_detects_intensity_cues():
     assert proactive_voice.message_suggests_proactive_voice("mấy thằng đó cực đoan quá") is True
     assert proactive_voice.message_suggests_proactive_voice("tôi muốn trả thù") is True
     assert proactive_voice.message_suggests_proactive_voice("hôm nay trời đẹp") is False
+
+
+def test_enqueue_voice_job_stores_conversation_context(monkeypatch):
+    """enqueue_voice_job phải lưu user_message và conversation_context vào outbox payload."""
+    from app.services.proactive_voice import enqueue_voice_job
+    from app.services.db.models import SyncOutbox
+
+    captured_payload = {}
+
+    class FakeRow:
+        outbox_id = 42
+        event_type = proactive_voice.VOICE_JOB_EVENT_TYPE
+        payload = None
+        status = "pending"
+
+    fake_row = FakeRow()
+
+    class FakeDb:
+        def add(self, obj):
+            pass
+        def flush(self):
+            fake_row.payload = fake_row.payload  # no-op; row is set externally
+        def commit(self):
+            if fake_row.payload:
+                captured_payload.update(dict(fake_row.payload or {}))
+
+    monkeypatch.setattr(
+        proactive_voice,
+        "get_settings",
+        lambda: SimpleNamespace(
+            tts_provider="elevenlabs",
+            voice_tts_auto_process_on_enqueue=False,
+            elevenlabs_model_id="eleven_flash_v2_5",
+        ),
+    )
+    monkeypatch.setattr(proactive_voice, "_VOICE_PROVIDER_BLOCKED_CODE", None)
+    monkeypatch.setattr(proactive_voice, "resolve_active_style", lambda *a, **kw: "default")
+    monkeypatch.setattr(proactive_voice, "resolve_elevenlabs_voice_id", lambda **kw: "v123")
+    monkeypatch.setattr(proactive_voice, "compute_event_signature", lambda **kw: "sig_abc")
+    monkeypatch.setattr(proactive_voice, "find_dedup_job", lambda db, sig: None)
+
+    created_rows = []
+
+    def fake_syncoutbox(**kwargs):
+        fake_row.payload = kwargs.get("payload")
+        fake_row.status = kwargs.get("status", "pending")
+        created_rows.append(fake_row)
+        return fake_row
+
+    monkeypatch.setattr(proactive_voice, "SyncOutbox", fake_syncoutbox)
+
+    enqueue_voice_job(
+        FakeDb(),
+        user_id="u1",
+        session_id="s1",
+        voice_script="Mình ở đây với bạn",
+        trigger_reason="test",
+        trigger_snapshot={"distress_score": 0.7},
+        user_message="Tôi đang rất mệt",
+        conversation_context=[{"role": "user", "content": "Hôm nay buồn lắm"}],
+    )
+
+    assert captured_payload.get("user_message") == "Tôi đang rất mệt"
+    assert isinstance(captured_payload.get("conversation_context"), list)
+    assert len(captured_payload["conversation_context"]) == 1
+    assert captured_payload["conversation_context"][0]["role"] == "user"

@@ -174,7 +174,7 @@ def mark_cooldown(*, user_id: str, session_id: str | None) -> None:
 
 
 def _model_hint_for_queue(settings: Any) -> str:
-    return str(getattr(settings, "elevenlabs_model_id", "") or "eleven_multilingual_v2")
+    return str(getattr(settings, "elevenlabs_model_id", "") or "eleven_flash_v2_5")
 
 
 def _is_provider_level_block(code: str | None) -> bool:
@@ -195,6 +195,8 @@ def enqueue_voice_job(
     voice_intent: str = "unspecified",
     priority: str = "normal",
     template_version: str = "voice_policy_v1",
+    user_message: str = "",
+    conversation_context: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     global _VOICE_PROVIDER_BLOCKED_CODE
     settings = get_settings()
@@ -273,18 +275,27 @@ def enqueue_voice_job(
             "voice_script": voice_script,
             "trigger_reason": trigger_reason,
             "trigger_snapshot": trigger_snapshot,
-                "voice": {
-                    "status": "queued",
-                    "requested_tts_provider": provider,
-                    "event_signature": signature,
-                    "voice_script_hash": signature,
-                    "voice_style_id": voice_style_id,
-                    "risk_mode": risk_mode,
-                    "voice_intent": voice_intent,
-                    "priority": priority,
-                    "template_version": template_version,
-                },
+            "user_message": mask_pii(str(user_message or ""))[:400],
+            "conversation_context": [
+                {
+                    "role": str(m.get("role") or ""),
+                    "content": mask_pii(str(m.get("content") or ""))[:300],
+                }
+                for m in (conversation_context or [])[-6:]
+                if m.get("role") in {"user", "assistant"}
+            ],
+            "voice": {
+                "status": "queued",
+                "requested_tts_provider": provider,
+                "event_signature": signature,
+                "voice_script_hash": signature,
+                "voice_style_id": voice_style_id,
+                "risk_mode": risk_mode,
+                "voice_intent": voice_intent,
+                "priority": priority,
+                "template_version": template_version,
             },
+        },
         status="pending",
     )
     db.add(outbox)
