@@ -116,6 +116,9 @@ backend/tests/*
 !backend/tests/test_session_lifecycle_memory_cards.py
 !backend/tests/test_analyst_threshold.py
 !backend/tests/test_chat_voice_payload.py
+!backend/tests/test_counseling_advisor_evidence_refs.py
+!backend/tests/test_advisor_selector_context_fallback.py
+!backend/tests/test_friend_agent_response_plan.py
 
 
 

@@ -127,7 +127,7 @@ class CounselingAdvisorService:
         return AdvisorAdvice(
             advisor_id=self.advisor_id,
             confidence=0.82 if guidance.case_refs else 0.68,
-            evidence_refs=[],
+            evidence_refs=guidance.case_refs,
             advice_to_friend=[
                 guidance.case_understanding,
                 guidance.response_goal,

@@ -64,6 +64,7 @@ class FriendAgentOutput(StrictSchema):
     suggested_next_action: dict[str, Any] | None = None
     memory_write_candidates: list[dict[str, Any]] = Field(default_factory=list)
     tts_candidate: dict[str, Any] | None = None
+    meme_candidate: str | None = None
     confidence: float = Field(ge=0.0, le=1.0)
 
 

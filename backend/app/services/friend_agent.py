@@ -494,6 +494,25 @@ class FriendAgent:
             else:
                 final_text = "tớ nghe nè. cậu nói phần đang mắc nhất trước thôi, tớ bám theo chuyện đó với cậu."
 
+        risk_level = context_pack.safety_policy.risk_level if context_pack.safety_policy else 0
+        distress_score = context_pack.safety_policy.distress_score if context_pack.safety_policy else 0.0
+
+        # tts_candidate: short voice script derived from final_text.
+        # Suppressed for high-risk turns; only emit when text is substantive.
+        tts_candidate: dict | None = None
+        if risk_level < 3 and distress_score < 0.70 and len(final_text) >= 20:
+            sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", final_text) if s.strip()]
+            voice_text = " ".join(sentences[:2]) if sentences else final_text[:160]
+            tts_candidate = {"voice_text": voice_text, "source": "friend_finalizer"}
+
+        # meme_candidate: reason code hint for meme selection.
+        # Suppressed for any elevated/high-risk distress. Only for lighthearted low-risk context.
+        meme_candidate: str | None = None
+        if risk_level < 2 and distress_score < 0.45:
+            user_lower = user_message.lower()
+            if any(k in user_lower for k in ("meme", "vui", "cuoi", "cười", "hai", "funny", "mood")):
+                meme_candidate = "playful_low_risk"
+
         return FriendAgentOutput(
             final_text=final_text,
             response_intent="reflect",
@@ -501,6 +520,7 @@ class FriendAgent:
             used_resource_ids=[],
             suggested_next_action=None,
             memory_write_candidates=[],
-            tts_candidate=None,
+            tts_candidate=tts_candidate,
+            meme_candidate=meme_candidate,
             confidence=0.78 if advice else 0.7,
         )

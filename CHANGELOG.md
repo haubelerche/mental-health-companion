@@ -4,6 +4,27 @@
 
 ---
 
+## [Unreleased] — AutoCBT gap closure · 2026-05-15
+
+### Fixed
+- `CounselingAdvisorService.as_advisor_advice()`: `evidence_refs` nay forward `case_refs` từ JSONL retrieval thay vì hardcoded `[]` — P0 bug vi phạm AutoCBT §18 evidence provenance contract.
+
+### Improved
+- `AdvisorSelector.select()`: fallback không còn hardcode `reflection_advisor`; nay dùng recent message context (self-blame → `cbt_pattern_advisor`, emotional load → `empathy_advisor`) trước khi fall về `reflection_advisor`.
+- `FriendAgentOutput`: thêm field `meme_candidate: str | None` — reason code cho meme selection. High-risk turns (`risk_level >= 2` hoặc `distress >= 0.45`) tự động set `None`.
+- `FriendAgent.compose()`: nay populate `tts_candidate` từ response plan (`voice_text` = 2 câu đầu của `final_text`) cho low/medium-risk turns; suppress khi `risk_level >= 3`.
+
+### Verified
+- Memory dedup (`mention_count` increment vs duplicate card): đã có 12 test trong `test_memory_atomic_dedupe.py`, tất cả pass.
+- AutoCBT §18 compliance: 12 test trong `test_autocbt_compliance.py` — tất cả pass.
+
+### Tests added
+- `backend/tests/test_counseling_advisor_evidence_refs.py` — 3 tests: evidence_refs forwarding, fallback empty, confidence levels.
+- `backend/tests/test_advisor_selector_context_fallback.py` — 4 tests: emotional context fallback, no-context default, self-blame recent, max-2 cap.
+- `backend/tests/test_friend_agent_response_plan.py` — 7 tests: tts_candidate/meme_candidate field presence, high-risk suppression, low-risk playful emission.
+
+---
+
 ## [Unreleased] — Voice & latency improvements · 2026-05-15
 
 ### Performance
