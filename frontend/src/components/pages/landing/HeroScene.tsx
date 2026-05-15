@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import landingSunny from '../../../assets/motion/landing-sunny.gif'
 import landingRain from '../../../assets/motion/landing-rain.gif'
 import birdGif from '../../../assets/motion/bird.gif'
+import { ROUTE_PATHS } from '@/routes/paths'
 
 // Preload rain GIF so it's ready when user scrolls
 const preloadRain = new Image()
@@ -148,7 +149,7 @@ export default function HeroScene() {
                             fontWeight: '600',
                         }}
                     >
-                        <Link to="/serene" className="pixel-btn">
+                        <Link to={ROUTE_PATHS.chat} className="pixel-btn">
                             Bắt đầu ngay →
                         </Link>
 
