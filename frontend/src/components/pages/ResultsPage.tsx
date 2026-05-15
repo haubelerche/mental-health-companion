@@ -51,8 +51,8 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
       { icon: NotebookPen, label: 'Check-in buổi sáng', desc: 'Ghi nhận cảm xúc' },
     ],
     actions: [
-      { label: 'Thở cùng Lửa', path: ROUTE_PATHS.exercises, primary: true, icon: Wind },
-      { label: 'Về trang chính', path: ROUTE_PATHS.home },
+      { label: 'Quay về trang chủ', path: ROUTE_PATHS.home },
+      { label: 'Mở Nhìn Lại', path: ROUTE_PATHS.reflect },
     ],
   },
   mild: {
@@ -95,8 +95,8 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
       { icon: Activity, label: 'Bài thở grounding', desc: '5 phút · Ổn định cơ thể' },
     ],
     actions: [
-      { label: 'Trò chuyện với Mây ngay', path: ROUTE_PATHS.chat, primary: true, icon: MessageSquareText },
-      { label: 'Tập thở với Lửa', path: ROUTE_PATHS.exercises, icon: Wind },
+      { label: 'Quay về trang chủ', path: ROUTE_PATHS.home },
+      { label: 'Mở Nhìn Lại', path: ROUTE_PATHS.reflect },
     ],
   },
   moderately_severe: {
