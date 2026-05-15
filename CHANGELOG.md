@@ -6,7 +6,16 @@
 
 ## [Unreleased] — AutoCBT & Insight Pipeline audit gap closure · 2026-05-16
 
+### Fixed
+- `langgraph_chat.py`: repaired double-encoded UTF-8 Vietnamese strings, including memory and counseling-example headers used by recall context and retriever prompts.
+- `distress_router`: restored the mood+distress combo rule so stressed/restless/melancholic mood at distress >= 0.58 routes to Analyst, matching legacy supervisor behavior.
+- `test_chat_router_integration.py`: relaxed the `tts_job` assertion to accept either no job or a queued voice job on fast-route chat turns.
+- `test_chat_router_integration.py`: removed the stale `get_voice_consent` monkeypatch after the router symbol was removed.
+- `test_db_integration.py`: removed retired `risk_inference_log` from the required core table list.
+
 ### Added
+- `evals/rubrics/serene_judge_rubric_v1.md`: added the AutoCBT LLM-as-Judge rubric covering empathy, cognitive-distortion identification, reflection, strategy, encouragement, and relevance.
+- `evals/scripts/run_golden_eval.py`: added a CLI runner for scoring golden responses with the judge rubric and writing JSON reports.
 - **Analyst bundle per-turn persistence (Insight Pipeline P1):** `run_non_sos_turn()` nay expose `analyst_bundle` key trong return dict; `record_analyst_bundle_signal()` persist mỗi turn's AnalystBundle vào `analyst_signals` table (skip SOS, None, cold_start_screen). Gọi non-fatally trong chat router.
 - **Home.tsx insight section (Insight Pipeline P5):** Fetch `getSafeInsights()` trong Home page; render `InsightCardList` phía dưới screening section khi có ≥1 insight. `adaptInsights()` được export từ `dashboardService.ts`.
 - **Neo4j outbox worker flag (Insight Pipeline P4):** Config flag `NEO4J_GRAPH_OUTBOX_WORKER_ENABLED=false` (default) + conditional start trong `main.py` — chỉ start khi flag=true VÀ `neo4j_uri` non-empty. Documented trong `.env.example`.
