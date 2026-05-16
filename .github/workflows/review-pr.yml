@@ -37,6 +37,27 @@ jobs:
           CI_SUPABASE_DATABASE_URL: ${{ secrets.CI_SUPABASE_DATABASE_URL }}
         run: bash scripts/ci_backend_tests.sh
 
+  frontend-build:
+    name: Frontend Build & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Lint frontend
+        run: npm --prefix frontend run lint
+
+      - name: Build frontend (includes tsc -b)
+        run: npm --prefix frontend run build
+
   review:
     name: Code Review
     needs: backend-tests
