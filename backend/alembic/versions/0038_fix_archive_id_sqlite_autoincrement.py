@@ -15,7 +15,7 @@ This migration:
                 already exists.
 
 Revision ID: 0038_fix_archive_id_sqlite_autoincrement
-Revises: 0037_ext_screening_legacy_cleanup
+Revises: 0037_ext_screening_cleanup
 Create Date: 2026-05-16
 """
 
@@ -25,7 +25,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "0038_fix_archive_id_sqlite_autoincrement"
-down_revision = "0037_ext_screening_legacy_cleanup"
+down_revision = "0037_ext_screening_cleanup"
 branch_labels = None
 depends_on = None
 
@@ -33,11 +33,17 @@ _SEQ = "session_summaries_archive_archive_id_seq"
 _TABLE = "session_summaries_archive"
 
 
-def _pg_column_has_default(bind: sa.engine.Connection) -> bool:
+def _pg_archive_id_auto(bind: sa.engine.Connection) -> bool:
+    """Return True if archive_id already auto-generates values.
+
+    Covers two cases:
+    - GENERATED ALWAYS/BY DEFAULT AS IDENTITY  (is_identity = 'YES')
+    - DEFAULT nextval(...)                     (column_default is not null)
+    """
     row = bind.execute(
         sa.text(
             """
-            SELECT column_default
+            SELECT column_default, is_identity
             FROM information_schema.columns
             WHERE table_name = :tbl
               AND column_name = 'archive_id'
@@ -48,7 +54,8 @@ def _pg_column_has_default(bind: sa.engine.Connection) -> bool:
     ).fetchone()
     if row is None:
         return False
-    return row[0] is not None
+    column_default, is_identity = row
+    return (column_default is not None) or (is_identity == "YES")
 
 
 def upgrade() -> None:
@@ -83,8 +90,8 @@ def upgrade() -> None:
         return
 
     # PostgreSQL / Supabase — add sequence + DEFAULT if missing.
-    if _pg_column_has_default(bind):
-        return  # Already has BIGSERIAL/nextval default; nothing to do.
+    if _pg_archive_id_auto(bind):
+        return  # Already IDENTITY or nextval default — nothing to do.
 
     op.execute(sa.text(f"CREATE SEQUENCE IF NOT EXISTS {_SEQ}"))
     op.execute(
