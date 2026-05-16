@@ -90,6 +90,10 @@ def upgrade() -> None:
         return
 
     # PostgreSQL / Supabase — add sequence + DEFAULT if missing.
+    # Older environments created Alembic's version table with VARCHAR(32),
+    # but this branch uses descriptive revision IDs longer than 32 chars.
+    op.execute(sa.text("ALTER TABLE app.alembic_version ALTER COLUMN version_num TYPE VARCHAR(128)"))
+
     if _pg_archive_id_auto(bind):
         return  # Already IDENTITY or nextval default — nothing to do.
 

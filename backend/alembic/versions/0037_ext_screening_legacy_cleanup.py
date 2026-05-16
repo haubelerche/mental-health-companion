@@ -7,6 +7,7 @@ Create Date: 2026-05-16
 
 from __future__ import annotations
 
+import sqlalchemy as sa
 from alembic import op
 
 
@@ -39,7 +40,11 @@ def _drop_if_empty(table_name: str) -> None:
 
 
 def upgrade() -> None:
-    op.execute("SET search_path TO app, extensions")
+    bind = op.get_bind()
+    if bind.dialect.name == "sqlite":
+        # PostgreSQL-only: DO blocks, app schema, to_regclass.
+        return
+    bind.execute(sa.text("SET search_path TO app, extensions"))
     for table_name in (
         "journal_entries",
         "journal_prompts",
