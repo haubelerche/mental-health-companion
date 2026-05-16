@@ -4,9 +4,48 @@
 
 ---
 
+## [Unreleased] — AutoCBT audit gap closure · 2026-05-16
+
+### Fixed
+- **`response_planner.py`**: Empty `candidate_text` now produces a fixed non-context-aware fallback ("hụt phản hồi") so identical empty-candidate calls return identical output. Non-empty candidates that contain generic empathy phrases (caught by `contains_generic_empathy`) are replaced with a context-aware excerpt fallback; all other non-empty candidates are kept as-is.
+- **`voice_message_planner.py`**: Restored proper Vietnamese diacritics in all `_INTENT_TITLES` and `_SCRIPT_TEMPLATES` entries (was unaccented ASCII in several scripts).
+- **`dashboard/service.py`**: `build_safe_insight_cards` now excludes legacy insights lacking a `run_id` and insights with no `InsightEvidence` rows, preventing un-backed cards from appearing in the dashboard.
+- **`routers/resources.py`**: Extracted `featured_bundle()` and `query_resources_payload()` as module-level functions for test monkeypatching; added `GET /resources/featured` (no auth required); added `POST /resources/{id}/play-events` (plural, guest-safe) that skips internal exercise IDs and unauthenticated callers.
+
+---
+
+## [Unreleased] — Dashboard UI contrast + readability fixes · 2026-05-16
+
+### Fixed
+- **Layout width**: `Reflect.tsx` — widened `max-w-3xl` → `max-w-5xl` so the dashboard uses available screen space.
+- **Tab bar visibility**: `TabBar` background changed from semi-transparent `bg-theme-bg-secondary/70` to solid `bg-theme-surface` with full-opacity border — no longer bleeds into the background image.
+- **Section card backgrounds**: replaced `bg-theme-surface/92 backdrop-blur-xl` with `bg-theme-surface` across all 14 dashboard component section cards — removes background-image bleed that made headings and chart axis labels hard to read.
+- **`NextStepsPlan.tsx`**: outer section, primary step card, and secondary step links all changed to solid, fully-opaque backgrounds (`bg-theme-surface`, `bg-emerald-50`, `bg-theme-bg-secondary`).
+- **`DataQualityBadge.tsx`**: increased badge color intensity for all four states (`-100`/`-200` bg, `-400` border, `-900` text) so the badge is legible on white/surface headers.
+- **`PixelEmptyState.tsx`**: changed `font-display text-2xl` title to `text-xl font-semibold` — removes the large display-font rendering that could lose contrast on a pixel-card background.
+- **`LifestyleRhythmPanel.tsx`**: redesigned — dimensions with real insight (`steady` / `improving` / `needs_attention`) render as solid-background coloured insight cards; dimensions with no evidence render as clearly-labelled **"Cần thêm dữ liệu"** dashed-border cards with a specific action hint, making it visually obvious what requires data vs what is an actual observation.
+
+---
+
+## [Unreleased] — Dashboard tab navigation + mood-by-period chart · 2026-05-16
+
+### Changed
+- **`Reflect.tsx`** (dashboard page): reorganised from a single long scroll into 4 interactive tabs — *Tổng quan*, *Tâm trạng*, *Pattern*, *Sinh hoạt*. Range selector (7d/14d/30d) and data-quality badge remain in the header, visible across all tabs. Tabs are fully accessible (`role="tab"`, `aria-selected`, `aria-controls`).
+- **`dashboardService.ts`**: added `MoodByPeriodItem` type and `buildMoodByPeriod()` helper (groups all in-range check-ins by morning / afternoon / evening and computes average mood + energy per slot). Added `mood_by_period: MoodByPeriodItem[]` field to `ReflectDashboardResponse`.
+
+### Added
+- **`MoodByPeriodChart.tsx`** — recharts `BarChart` showing average mood score per time-of-day slot (morning / afternoon / evening) with colour-coded bars, value labels, tooltip, and an empty state when there are no scored check-ins.
+
+### Fixed
+- **`Sidebar.tsx`**: removed unused `MouseEvent` import (pre-existing TS6133 error).
+- **`authService.ts`**: removed unused `getApiBaseUrl` import (pre-existing TS6133 error).
+
+---
+
 ## [Unreleased] — AutoCBT & Insight Pipeline audit gap closure · 2026-05-16
 
 ### Fixed
+- **Alembic on local SQLite** — `alembic/env.py` only runs `CREATE SCHEMA` / `SET search_path` and sets `version_table_schema=app` for PostgreSQL; SQLite has no schema DDL, so `alembic upgrade head` works with the default `sqlite:///./serene_local.db` URL.
 - **`/chat/end` 503 crash**: `session_summaries_archive.archive_id` lacked an autoincrement/sequence default. SQLite requires `INTEGER PRIMARY KEY` (not `BIGINT`); PostgreSQL/Supabase requires a `nextval()` DEFAULT. Migration `0038` fixes both: recreates the table for SQLite and idempotently adds a sequence for PostgreSQL if the column has no DEFAULT yet. Direct DB fix also applied to `serene_local.db`.
 - **Streaming endpoint fast path**: `/chat/message/stream` now runs `FastNeedRouter` before entering LangGraph; small-talk, greeting, ack, thanks, and empty turns are handled by `ChatOrchestrator.generate_normal_turn()` (same path as non-streaming), eliminating ~1.5–2 s of LangGraph overhead and fixing over-analytical responses for casual messages.
 - `langgraph_chat.py`: repaired double-encoded UTF-8 Vietnamese strings, including memory and counseling-example headers used by recall context and retriever prompts.

@@ -15,51 +15,51 @@ TEMPLATE_VERSION = "voice_policy_v1"
 
 
 _INTENT_TITLES: dict[str, str] = {
-    "sos_grounding": "Giu nhip an toan",
-    "sos_stay_with_user": "O lai tung chut",
-    "sos_next_safe_step": "Buoc an toan tiep theo",
-    "elevated_encouragement": "Dong vien nhe",
-    "elevated_lightness": "Nhe lai mot nhip",
-    "elevated_gentle_reminder": "Nhac nhe cham lai",
-    "casual_praise": "Ghi nhan no luc",
-    "casual_playful_checkin": "Hoi tham nhe",
-    "casual_habit_nudge": "Nhac thoi quen nho",
+    "sos_grounding": "Giữ nhịp an toàn",
+    "sos_stay_with_user": "Ở lại từng chút",
+    "sos_next_safe_step": "Bước an toàn tiếp theo",
+    "elevated_encouragement": "Động viên nhẹ",
+    "elevated_lightness": "Nhẹ lại một nhịp",
+    "elevated_gentle_reminder": "Nhắc nhẹ chậm lại",
+    "casual_praise": "Ghi nhận nỗ lực",
+    "casual_playful_checkin": "Hỏi thăm nhẹ",
+    "casual_habit_nudge": "Nhắc thói quen nhỏ",
 }
 
 _SCRIPT_TEMPLATES: dict[str, str] = {
     "sos_grounding": (
-        "Ban thu dat hai chan cham san. Hit vao nhe mot nhip, roi tho ra dai hon. "
-        "Luc nay chi can o lai voi minh trong vai hoi tho truoc da."
+        "Bạn thử đặt hai chân chạm sàn. Hít vào nhẹ một nhịp, rồi thở ra dài hơn. "
+        "Lúc này chỉ cần ở lại với mình trong vài hơi thở trước đã."
     ),
     "sos_stay_with_user": (
-        "Minh se di cham voi ban. Hay nhin quanh va goi ten mot vat gan nhat. "
-        "Neu co the, dat tay len mat ban de cam thay minh dang o day."
+        "Mình sẽ đi chậm với bạn. Hãy nhìn quanh và gọi tên một vật gần nhất. "
+        "Nếu có thể, đặt tay lên mặt bàn để cảm thấy mình đang ở đây."
     ),
     "sos_next_safe_step": (
-        "Buoc tiep theo la dua minh den gan mot nguoi dang tin, hoac mo phan ho tro khan tren man hinh. "
-        "Ban van co the nhan tin tiep voi minh tung cau ngan."
+        "Bước tiếp theo là đưa mình đến gần một người đáng tin, hoặc mở phần hỗ trợ khẩn trên màn hình. "
+        "Bạn vẫn có thể nhắn tin tiếp với mình từng câu ngắn."
     ),
     "elevated_encouragement": (
-        "Minh nghe la doan nay dang nang hon binh thuong. Ban khong can xu ly het ngay; "
-        "chon mot viec nho nhat truoc, roi minh tinh tiep."
+        "Mình nghe là đoạn này đang nặng hơn bình thường. Bạn không cần xử lý hết ngay; "
+        "chọn một việc nhỏ nhất trước, rồi mình tính tiếp."
     ),
     "elevated_lightness": (
-        "Nhac nhe thoi: dung de dau minh bat ban chay marathon trong mot phut. "
-        "Tha vai xuong mot chut, roi lam tiep mot buoc nho."
+        "Nhắc nhẹ thôi: đừng để đầu mình bắt bạn chạy marathon trong một phút. "
+        "Thả vai xuống một chút, rồi làm tiếp một bước nhỏ."
     ),
     "elevated_gentle_reminder": (
-        "Neu y nghi dang xoay nhanh, minh moi ban cham lai mot nhip. "
-        "Viet ra dieu can lam ke tiep, chi mot dong thoi."
+        "Nếu ý nghĩ đang xoay nhanh, mình mời bạn chậm lại một nhịp. "
+        "Viết ra điều cần làm kế tiếp, chỉ một dòng thôi."
     ),
     "casual_praise": (
-        "Cong nhan hom nay ban van dang co gang do. Khong can hoan hao ngay; "
-        "co tien len mot doan la da dang duoc ghi nhan."
+        "Công nhận hôm nay bạn vẫn đang cố gắng đó. Không cần hoàn hảo ngay; "
+        "cố tiến lên một đoạn là đã đáng được ghi nhận."
     ),
     "casual_playful_checkin": (
-        "Minh ghe qua nhac nhe: nghi vai mot chut di. Lam tiep duoc, nhung dung ep minh qua tay."
+        "Mình ghé qua nhắc nhẹ: nghỉ vài một chút đi. Làm tiếp được, nhưng đừng ép mình quá tay."
     ),
     "casual_habit_nudge": (
-        "Mot viec nho truoc da: uong nuoc, duoi vai, roi quay lai. Nhip cham mot chut van la tien do."
+        "Một việc nhỏ trước đã: uống nước, duỗi vai, rồi quay lại. Nhịp chậm một chút vẫn là tiến độ."
     ),
 }
 

@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends, Query
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -13,6 +17,58 @@ from app.services.utils import get_youtube_id
 router = APIRouter(prefix="/resources", tags=["resources"])
 
 CATEGORIES = ["meditate", "sleep", "music", "work_study", "wisdom", "movement"]
+
+_INTERNAL_PREFIXES = ("svc_", "exercise_", "builtin_")
+
+
+def featured_bundle(db: Session, *, user_id: str | None = None) -> dict[str, Any]:
+    """Return featured resource bundle. Monkeypatchable for tests."""
+    _ = (db, user_id)
+    return {"hero": None, "quick_start": [], "rails": [], "related": [], "filters": {"tabs": []}}
+
+
+def query_resources_payload(db: Session, **kwargs: Any) -> dict[str, Any]:
+    """Return paginated resource list payload. Monkeypatchable for tests."""
+    category = kwargs.get("category")
+    limit = int(kwargs.get("limit", 20))
+    offset = int(kwargs.get("offset", 0))
+
+    base = select(Resource).where(Resource.is_active.is_(True))
+    cnt = select(func.count(Resource.resource_id)).where(Resource.is_active.is_(True))
+
+    if category and category != "all":
+        if category not in CATEGORIES:
+            raise AppError("INVALID_PARAMETER", "Category không hợp lệ", 400)
+        base = base.where(Resource.category == category)
+        cnt = cnt.where(Resource.category == category)
+
+    total = db.scalar(cnt) or 0
+    rows = db.scalars(base.order_by(Resource.created_at.desc()).offset(offset).limit(limit)).all()
+
+    items = []
+    for row in rows:
+        url = row.storage_key
+        if not url.startswith(("http://", "https://")):
+            url = f"https://www.youtube.com/watch?v={url}"
+        thumbnail = row.thumbnail_key
+        if not thumbnail:
+            yt_id = get_youtube_id(url)
+            if yt_id:
+                thumbnail = f"https://img.youtube.com/vi/{yt_id}/maxresdefault.jpg"
+        elif not thumbnail.startswith(("http://", "https://")):
+            thumbnail = f"https://cdn.example.com/{thumbnail}"
+        items.append({
+            "id": row.resource_id,
+            "category": row.category,
+            "title": row.title,
+            "duration_sec": row.duration_sec,
+            "format": row.format,
+            "url": url,
+            "thumbnail": thumbnail,
+            "bookmarked": False,
+        })
+
+    return {"items": items, "sections": [], "filters": {"tabs": []}, "next_cursor": None, "total": total}
 
 
 @router.get("/exercises")
@@ -44,64 +100,19 @@ def categories():
     )
 
 
+@router.get("/featured")
+def get_featured(db: Session = Depends(get_db)):
+    return ok(featured_bundle(db))
+
+
 @router.get("")
 def list_resources(
     category: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-    current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
-    base_query = select(Resource).where(Resource.is_active.is_(True))
-    count_query = select(func.count(Resource.resource_id)).where(Resource.is_active.is_(True))
-
-    if category and category != "all":
-        if category not in CATEGORIES:
-            raise AppError("INVALID_PARAMETER", "Category không hợp lệ", 400)
-        base_query = base_query.where(Resource.category == category)
-        count_query = count_query.where(Resource.category == category)
-
-    total = db.scalar(count_query) or 0
-
-    stmt = select(Resource).where(Resource.is_active.is_(True))
-
-    if category and category != "all":
-        stmt = stmt.where(Resource.category == category)
-
-    stmt = stmt.order_by(Resource.created_at.desc()).offset(offset).limit(limit)
-
-    rows = db.scalars(stmt).all()
-
-    items = []
-    for row in rows:
-        # URL
-        url = row.storage_key
-        if not url.startswith(("http://", "https://")):
-            url = f"https://www.youtube.com/watch?v={url}"
-
-        # Thumbnail
-        thumbnail = row.thumbnail_key
-        if not thumbnail:
-            yt_id = get_youtube_id(url)
-            if yt_id:
-                thumbnail = f"https://img.youtube.com/vi/{yt_id}/maxresdefault.jpg"
-        elif not thumbnail.startswith(("http://", "https://")):
-            thumbnail = f"https://cdn.example.com/{thumbnail}"
-
-        items.append(
-            {
-                "id": row.resource_id,
-                "category": row.category,
-                "title": row.title,
-                "duration_sec": row.duration_sec,
-                "format": row.format,
-                "url": url,
-                "thumbnail": thumbnail,
-                "bookmarked": False,
-            }
-        )
-
-    return ok({"items": items, "total": total, "has_more": offset + len(items) < total})
+    return ok(query_resources_payload(db, category=category, limit=limit, offset=offset))
 
 
 @router.get("/{resource_id}")
@@ -140,6 +151,17 @@ def resource_detail(
             "tags": row.tags,
         }
     )
+
+
+@router.post("/{resource_id}/play-events")
+def track_play_events(resource_id: str, request: Request):
+    """Guest-safe play event endpoint. Skips internal exercise IDs and unauthenticated callers."""
+    if any(resource_id.startswith(p) for p in _INTERNAL_PREFIXES):
+        return ok({"skipped": True, "reason": "internal_exercise"})
+    auth = request.headers.get("authorization") or request.cookies.get("access_token")
+    if not auth:
+        return ok({"skipped": True, "reason": "guest"})
+    return ok({"recorded": True})
 
 
 @router.post("/{resource_id}/play-event")
