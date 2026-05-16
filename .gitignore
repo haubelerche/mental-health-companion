@@ -125,6 +125,7 @@ backend/tests/*
 !backend/tests/test_vietnamese_naturalness_expanded.py
 !backend/tests/test_route_trace_schema.py
 !backend/tests/test_outbox_worker_wiring.py
+!backend/tests/test_memory_dedup_mention_count.py
 
 
 
