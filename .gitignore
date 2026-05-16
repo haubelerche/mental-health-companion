@@ -63,6 +63,11 @@ backend/.ai-log/
 *.sql
 *.pkl
 
+# Eval datasets and rubrics — tracked in git (curated, versioned)
+!evals/datasets/*.jsonl
+!evals/datasets/*.csv
+!evals/rubrics/*.md
+
 # Pytest temp workspace (local only)
 .pytest_tmp/
 
