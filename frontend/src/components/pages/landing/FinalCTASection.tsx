@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import starGif from '../../../assets/motion/star.gif'
 import plan from '../../../assets/motion/plan.png'
+import { ROUTE_PATHS } from '@/routes/paths'
 
 
 export default function FinalCTASection() {
@@ -89,7 +90,7 @@ export default function FinalCTASection() {
 
                     {/* CTA Buttons */}
                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center', marginTop: '0.5rem' }}>
-                        <Link to="/serene" className="pixel-btn">
+                        <Link to={ROUTE_PATHS.chat} className="pixel-btn">
                             <span>Bắt đầu miễn phí</span>
                             <span aria-hidden="true">→</span>
                         </Link>

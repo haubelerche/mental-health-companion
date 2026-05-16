@@ -1,15 +1,10 @@
 import { Grid3X3 } from 'lucide-react'
 import PixelEmptyState from '../pixel/PixelEmptyState'
 import type { TriggerEmotionMatrixCell } from '../../services/dashboardService'
+import { useThemeContext } from '../../contexts/ThemeContext'
 
 type Props = {
     matrix: TriggerEmotionMatrixCell[]
-}
-
-const STRENGTH_CLASS: Record<TriggerEmotionMatrixCell['strength'], string> = {
-    low: 'bg-emerald-200/35 text-emerald-900 dark:bg-emerald-300/15 dark:text-emerald-100',
-    medium: 'bg-cyan-300/55 text-cyan-950 dark:bg-cyan-300/25 dark:text-cyan-50',
-    high: 'bg-amber-300/75 text-amber-950 dark:bg-amber-300/35 dark:text-amber-50',
 }
 
 function uniqueTop(values: string[], limit: number): string[] {
@@ -17,6 +12,15 @@ function uniqueTop(values: string[], limit: number): string[] {
 }
 
 export function TriggerEmotionHeatmap({ matrix }: Props) {
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
+
+    const STRENGTH_CLASS: Record<TriggerEmotionMatrixCell['strength'], string> = {
+        low: isDark ? 'bg-emerald-300/15 text-emerald-100' : 'bg-emerald-200/35 text-emerald-900',
+        medium: isDark ? 'bg-cyan-300/25 text-cyan-50' : 'bg-cyan-300/55 text-cyan-950',
+        high: isDark ? 'bg-amber-300/35 text-amber-50' : 'bg-amber-300/75 text-amber-950',
+    }
+
     const triggers = uniqueTop(matrix.map((cell) => cell.trigger), 7)
     const emotions = uniqueTop(matrix.map((cell) => cell.emotion), 6)
     const lookup = new Map(matrix.map((cell) => [`${cell.trigger}:::${cell.emotion}`, cell]))
@@ -57,7 +61,7 @@ export function TriggerEmotionHeatmap({ matrix }: Props) {
                         ))}
                         {triggers.map((trigger) => (
                             <div key={trigger} className="contents">
-                                <div className="flex items-center rounded-xl bg-theme-bg-secondary/70 px-3 py-2 text-xs font-semibold text-theme-text-primary">
+                                <div className="flex items-center rounded-xl bg-theme-bg-secondary/70 px-3 py-2 text-xs font-semibold text-theme-text-primary wrap-break-words">
                                     {trigger}
                                 </div>
                                 {emotions.map((emotion) => {
@@ -65,10 +69,12 @@ export function TriggerEmotionHeatmap({ matrix }: Props) {
                                     return (
                                         <div
                                             key={`${trigger}-${emotion}`}
-                                            className={`flex h-12 items-center justify-center rounded-xl border border-white/50 text-xs font-semibold transition duration-200 ${
+                                            className={`flex h-12 items-center justify-center rounded-xl border border-theme-secondary/15 text-xs font-semibold transition duration-200 ${
                                                 cell
                                                     ? STRENGTH_CLASS[cell.strength]
-                                                    : 'bg-theme-bg-secondary/45 text-theme-text-tertiary dark:bg-white/5'
+                                                    : isDark
+                                                        ? 'bg-white/5 text-theme-text-tertiary'
+                                                        : 'bg-theme-bg-secondary/45 text-theme-text-tertiary'
                                             }`}
                                             title={cell ? `${trigger} + ${emotion}: ${cell.count} lần` : `${trigger} + ${emotion}: chưa thấy`}
                                         >

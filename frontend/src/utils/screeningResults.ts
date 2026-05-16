@@ -18,6 +18,9 @@ export const SCREENING_INSTRUMENT_META: Record<
 > = {
     phq9: { title: 'PHQ-9', domain: 'Tâm trạng', maxScore: 27 },
     gad7: { title: 'GAD-7', domain: 'Lo âu', maxScore: 21 },
+    dass21: { title: 'DASS-21', domain: 'Trầm cảm-Lo âu-Stress', maxScore: 63 },
+    mdq: { title: 'MDQ', domain: 'Lưỡng cực', maxScore: 15 },
+    pcl5: { title: 'PCL-5', domain: 'PTSD', maxScore: 80 },
 }
 
 export const SCREENING_SEVERITY_LABELS: Record<ScreeningResult['severity_label'], string> = {
@@ -26,6 +29,11 @@ export const SCREENING_SEVERITY_LABELS: Record<ScreeningResult['severity_label']
     moderate: 'Trung bình',
     moderately_severe: 'Khá cao',
     severe: 'Cao',
+    assessed: 'Đã đánh giá',
+    positive: 'Dương tính',
+    negative: 'Âm tính',
+    high_risk: 'Nguy cơ cao',
+    low_risk: 'Nguy cơ thấp',
 }
 
 export const SCREENING_SEVERITY_COLORS: Record<ScreeningResult['severity_label'], string> = {
@@ -34,9 +42,14 @@ export const SCREENING_SEVERITY_COLORS: Record<ScreeningResult['severity_label']
     moderate: '#ff9800',
     moderately_severe: '#e57373',
     severe: '#c62828',
+    assessed: '#2196f3',
+    positive: '#f44336',
+    negative: '#4caf50',
+    high_risk: '#f44336',
+    low_risk: '#4caf50',
 }
 
-const SCREENING_IDS: ScreeningId[] = ['phq9', 'gad7']
+const SCREENING_IDS: ScreeningId[] = ['phq9', 'gad7', 'dass21', 'mdq', 'pcl5']
 const STORAGE_KEY_PREFIX = 'serene_screening_'
 const VALID_SEVERITIES = new Set<ScreeningResult['severity_label']>([
     'minimal',
@@ -44,6 +57,11 @@ const VALID_SEVERITIES = new Set<ScreeningResult['severity_label']>([
     'moderate',
     'moderately_severe',
     'severe',
+    'assessed',
+    'positive',
+    'negative',
+    'high_risk',
+    'low_risk',
 ])
 
 function storageKey(instrumentId: ScreeningId): string {
@@ -92,7 +110,7 @@ export function readStoredScreeningResults(): StoredScreeningResults {
             ...results,
             [instrumentId]: readStoredScreeningResult(instrumentId),
         }),
-        { phq9: null, gad7: null },
+        { phq9: null, gad7: null, dass21: null, mdq: null, pcl5: null },
     )
 }
 

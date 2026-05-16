@@ -93,7 +93,7 @@ export function CheckinHistoryModal({ open, onClose, isDark = false }: Props) {
 
                 {!loading && !err && (
                     <>
-                        <MiniCompletionCalendar completedDates={completedSet} />
+                        <MiniCompletionCalendar completedDates={completedSet} isDark={isDark} />
 
                         <div className="mt-6 space-y-6">
                             {history.length === 0 && (
@@ -108,7 +108,9 @@ export function CheckinHistoryModal({ open, onClose, isDark = false }: Props) {
                                             {new Date(day.date).toLocaleDateString('vi-VN')}
                                         </p>
                                         {day.completed && (
-                                            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary dark:bg-theme-accent/15 dark:text-theme-accent">
+                                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                                isDark ? 'bg-theme-accent/15 text-theme-accent' : 'bg-primary/15 text-primary'
+                                            }`}>
                                                 Đã check-in
                                             </span>
                                         )}
@@ -141,7 +143,9 @@ function CheckinCard({ c, isDark }: { c: CheckinHistoryItem; isDark: boolean }) 
     return (
         <div className="rounded-2xl border border-theme-primary/30 bg-theme-surface p-3 text-sm">
             <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="rounded-full bg-primary/15 px-2 py-0.5 font-semibold text-primary dark:bg-theme-accent/15 dark:text-theme-accent">
+                <span className={`rounded-full px-2 py-0.5 font-semibold ${
+                    isDark ? 'bg-theme-accent/15 text-theme-accent' : 'bg-primary/15 text-primary'
+                }`}>
                     {BUCKET_VI[c.time_bucket]}
                 </span>
                 {time && <span className="text-theme-text-secondary">{time}</span>}
@@ -178,8 +182,10 @@ const DAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
 
 function MiniCompletionCalendar({
     completedDates,
+    isDark,
 }: {
     completedDates: Set<string>
+    isDark: boolean
 }) {
     const today = new Date()
     const dayOfWeek = today.getDay()
@@ -222,7 +228,9 @@ function MiniCompletionCalendar({
                                     className={[
                                         'flex aspect-square items-center justify-center rounded-lg border text-[9px]',
                                         done
-                                            ? 'border-primary bg-primary text-white dark:border-theme-accent dark:bg-theme-accent'
+                                            ? isDark
+                                                ? 'border-theme-accent bg-theme-accent text-white'
+                                                : 'border-primary bg-primary text-white'
                                             : isFuture
                                               ? 'border-transparent bg-transparent'
                                               : 'border-theme-primary/30 bg-theme-surface',

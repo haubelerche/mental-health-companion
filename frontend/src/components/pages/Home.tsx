@@ -33,6 +33,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { dashboardService, adaptInsights, type NutritionDailyTip, type ReflectInsight } from '../../services/dashboardService'
 import { InsightCardList } from '../dashboard/InsightCardList'
 import { useThemeContext } from '../../contexts/ThemeContext'
+import type { ScreeningId } from '../../services/screeningService'
 import { REWARD_UPDATED_EVENT } from '../../utils/rewardProgress'
 import {
     getCombinedScreeningInsight,
@@ -41,6 +42,7 @@ import {
     SCREENING_SEVERITY_LABELS,
     subscribeToScreeningResults,
     type StoredScreeningResults,
+    SCREENING_INSTRUMENT_META,
 } from '../../utils/screeningResults'
 import Mascot from '../pixel/Mascot'
 
@@ -57,59 +59,59 @@ const getRecoCards = (hour: number, isDark: boolean): RecoCard[] => {
     const isMorning = hour >= 5 && hour < 16
 
     return [
-    {
-        icon: Wind,
-        label: 'Bài hít thở 4-4-4',
-        desc: '3 phút · Giảm lo âu',
-        route: `${ROUTE_PATHS.exercises}?exercise=box_breath`,
-        accentClass: isDark
-            ? 'bg-emerald-500/12 text-emerald-200 border border-emerald-200'
-            : 'bg-emerald-100 text-emerald-800 border border-emerald-500',
-        cardClass: isDark
-            ? 'bg-emerald-950/18 border border-emerald-800/20'
-            : 'bg-emerald-50/90 border border-emerald-500/60',
-    },
-    {
-        icon: isMorning ? Leaf : Moon,
-        label: isMorning ? 'Thiền buổi sáng' : 'Thiền trước ngủ',
-        desc: isMorning
-            ? '5 phút · Bắt đầu ngày mới'
-            : '10 phút · Dễ đi vào giấc ngủ',
-        route: ROUTE_PATHS.exercises,
-        accentClass: isDark
-            ? 'bg-violet-500/12 text-violet-200 border border-violet-200'
-            : 'bg-violet-100 text-violet-800 border border-violet-500',
-        cardClass: isDark
-            ? 'bg-violet-950/18 border border-violet-800/20'
-            : 'bg-violet-50/90 border border-violet-500/60',
-    },
-    {
-        icon: CalendarCheck,
-        label: isMorning ? 'Check-in buổi sáng' : 'Check-in buổi tối',
-        desc: isMorning
-            ? 'Khởi đầu ngày tỉnh thức'
-            : 'Nhìn lại ngày hôm nay',
-        route: `${ROUTE_PATHS.checkin}?variant=${isMorning ? 'morning' : 'evening'}`,
-        accentClass: isDark
-            ? 'bg-amber-500/12 text-amber-100 border border-amber-200'
-            : 'bg-amber-100 text-amber-900 border border-amber-500',
-        cardClass: isDark
-            ? 'bg-amber-950/18 border border-amber-800/20'
-            : 'bg-amber-50/90 border border-amber-500/60',
-    },
-      {
-        icon: Gift,
-        label: "Cửa hàng vật phẩm",
-        desc: 'Đổi quà bằng điểm nỗ lực',
-        route: `${ROUTE_PATHS.rewards}`,
-        accentClass: isDark
-            ? 'bg-pink-500/12 text-pink-100 border border-pink-200'
-            : 'bg-pink-100 text-pink-900 border border-pink-500',
-        cardClass: isDark
-            ? 'bg-pink-950/18 border border-pink-800/20'
-            : 'bg-pink-50/90 border border-pink-500/60',
-    },
-]
+        {
+            icon: Wind,
+            label: 'Bài hít thở 4-4-4',
+            desc: '3 phút · Giảm lo âu',
+            route: `${ROUTE_PATHS.exercises}?exercise=box_breath`,
+            accentClass: isDark
+                ? 'bg-emerald-500/12 text-emerald-200 border border-emerald-200'
+                : 'bg-emerald-100 text-emerald-800 border border-emerald-500',
+            cardClass: isDark
+                ? 'bg-emerald-950/18 border border-emerald-800/20'
+                : 'bg-emerald-50/90 border border-emerald-500/60',
+        },
+        {
+            icon: isMorning ? Leaf : Moon,
+            label: isMorning ? 'Thiền buổi sáng' : 'Thiền trước ngủ',
+            desc: isMorning
+                ? '5 phút · Bắt đầu ngày mới'
+                : '10 phút · Dễ đi vào giấc ngủ',
+            route: ROUTE_PATHS.exercises,
+            accentClass: isDark
+                ? 'bg-violet-500/12 text-violet-200 border border-violet-200'
+                : 'bg-violet-100 text-violet-800 border border-violet-500',
+            cardClass: isDark
+                ? 'bg-violet-950/18 border border-violet-800/20'
+                : 'bg-violet-50/90 border border-violet-500/60',
+        },
+        {
+            icon: CalendarCheck,
+            label: isMorning ? 'Check-in buổi sáng' : 'Check-in buổi tối',
+            desc: isMorning
+                ? 'Khởi đầu ngày tỉnh thức'
+                : 'Nhìn lại ngày hôm nay',
+            route: `${ROUTE_PATHS.checkin}?variant=${isMorning ? 'morning' : 'evening'}`,
+            accentClass: isDark
+                ? 'bg-amber-500/12 text-amber-100 border border-amber-200'
+                : 'bg-amber-100 text-amber-900 border border-amber-500',
+            cardClass: isDark
+                ? 'bg-amber-950/18 border border-amber-800/20'
+                : 'bg-amber-50/90 border border-amber-500/60',
+        },
+        {
+            icon: Gift,
+            label: "Cửa hàng vật phẩm",
+            desc: 'Đổi quà bằng điểm nỗ lực',
+            route: `${ROUTE_PATHS.rewards}`,
+            accentClass: isDark
+                ? 'bg-pink-500/12 text-pink-100 border border-pink-200'
+                : 'bg-pink-100 text-pink-900 border border-pink-500',
+            cardClass: isDark
+                ? 'bg-pink-950/18 border border-pink-800/20'
+                : 'bg-pink-50/90 border border-pink-500/60',
+        },
+    ]
 
 }
 
@@ -289,7 +291,7 @@ export default function Home() {
     const [homeMoodWords, setHomeMoodWords] = useState<string[]>([])
     const [safeInsights, setSafeInsights] = useState<ReflectInsight[]>([])
     const [quoteIndex, setQuoteIndex] = useState(0)
-    
+
     const [screeningResults, setScreeningResults] = useState<StoredScreeningResults>(() => readStoredScreeningResults())
     const phq9Result = screeningResults.phq9
     const gad7Result = screeningResults.gad7
@@ -423,7 +425,7 @@ export default function Home() {
                         </h1>
                     </div>
                     <div data-tour-id="heart-balance" className="flex items-center gap-3 rounded-full bg-theme-surface/80 px-4 py-2 backdrop-blur-sm border border-theme-border/50 shadow-sm">
-                        <span className="flex items-center gap-1 text-sm font-bold text-rose-500 dark:text-rose-400">
+                        <span className="flex items-center gap-1 text-sm font-bold text-rose-400">
                             <Heart className="h-4 w-4 fill-current" />
                             {hearts === null ? (
                                 <span className="h-3 w-6 bg-theme-accent/50 animate-pulse rounded-full" />
@@ -432,7 +434,7 @@ export default function Home() {
                             )}
                         </span>
                         <span className="h-4 w-px bg-theme-secondary" />
-                        <span className="flex items-center gap-1 text-sm font-bold text-amber-600 dark:text-amber-400">
+                        <span className="flex items-center gap-1 text-sm font-bold text-amber-500">
                             <Flame className="h-4 w-4 fill-current" />
                             {backendStreakDays === null ? (
                                 <span className="h-3 w-6 bg-theme-accent/50 animate-pulse rounded-full" />
@@ -444,10 +446,10 @@ export default function Home() {
                 </header>
 
                 {/* ── Today's plan + streak ── */}
-                <section data-tour-id="home-today-card" className="rounded-[2.5rem] bg-theme-surface/60 p-6 backdrop-blur-3xl border border-theme-border/50 shadow-sm">
+                <section data-tour-id="home-today-card" className="rounded-[2.5rem] bg-theme-surface/80 p-6 backdrop-blur-3xl border border-theme-border/50 shadow-sm">
                     <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
                         <div>
-                            <div className="mb-5 flex items-center justify-between gap-4">
+                            <div className="mb-5 flex sm:flex-row flex-col items-center justify-between gap-4">
                                 <h2 className="font-display text-3xl text-theme-text-primary">Nhịp sống hôm nay</h2>
                                 <span className="rounded-full bg-theme-accent px-3 py-1 text-sm font-semibold text-white/90">
                                     {TIME_SLOT_META[currentSlot].label} · {TIME_SLOT_META[currentSlot].range}
@@ -470,7 +472,7 @@ export default function Home() {
                                                 'flex w-full items-center gap-3 rounded-2xl p-4 text-left transition active:scale-[0.98] cursor-pointer border',
                                                 active
                                                     ? 'bg-theme-accent/20 border-theme-accent/30'
-                                                    : 'bg-theme-surface/60 hover:bg-theme-accent/10 border-theme-border/30',
+                                                    : 'bg-theme-surface hover:bg-theme-accent/10 border-theme-border',
                                             ].join(' ')}
                                         >
                                             <Info className={`h-5 w-5 shrink-0 ${active ? 'text-theme-accent' : 'text-theme-text-secondary'}`} />
@@ -524,8 +526,52 @@ export default function Home() {
                     </div>
                 </section>
 
+                {/* ── Tầm quan trọng của sàng lọc (Header Style) ── */}
+                <section className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
+                    <div className="flex flex-col justify-center rounded-[32px] bg-theme-surface/80 p-7 backdrop-blur-xl lg:p-9 border border-theme-border/30">
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-theme-text-secondary/60">TẦM QUAN TRỌNG CỦA SÀNG LỌC</p>
+                        <h1 className="mt-3 font-display text-4xl italic leading-tight text-theme-text-primary sm:text-5xl">
+                            Vì sao sức khỏe tâm thần<br />là một "Chỉ số sinh tồn"?
+                        </h1>
+                        <p className="mt-5 text-sm leading-relaxed text-theme-text-secondary">
+                            Sức khỏe tâm thần của bạn cũng quan trọng như huyết áp, cân nặng hay nhiệt độ cơ thể.
+                            Việc sàng lọc định kỳ không chỉ giúp phát hiện sớm các vấn đề tiềm ẩn mà còn là chìa khóa để duy trì một cuộc sống cân bằng và hạnh phúc.
+                        </p>
+
+                        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                            <div className="rounded-2xl bg-theme-accent/10 p-4 border border-theme-accent/20">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-theme-accent mb-2">Kiểm tra nhanh</h3>
+                                <p className="text-[11px] text-theme-text-secondary">
+                                    <strong>PHQ-9 & GAD-7:</strong> Đánh giá mức độ trầm cảm và lo âu cơ bản chỉ trong vài phút. Phù hợp để theo dõi trạng thái tinh thần hàng tuần.
+                                </p>
+                            </div>
+                            <div className="rounded-2xl bg-theme-secondary/20 p-4 border border-theme-secondary/30">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-theme-text-primary mb-2">Kiểm tra sâu</h3>
+                                <p className="text-[11px] text-theme-text-secondary">
+                                    <strong>DASS-21, MDQ, PCL-5:</strong> Phân tích chuyên sâu về Stress, Rối loạn lưỡng cực và PTSD để có cái nhìn đa chiều về sức khỏe tâm lý.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="relative min-h-72 overflow-hidden rounded-[32px] shadow-sm lg:min-h-0">
+                        <img
+                            src={healingImg}
+                            alt="Không gian tĩnh lặng cho sàng lọc"
+                            className={`h-full w-full object-cover ${isDark ? 'brightness-75' : ''}`}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                        <blockquote className="absolute bottom-6 left-6 right-6 text-white">
+                            <p className="font-display text-2xl italic leading-snug">
+                                "Lắng nghe tâm trí —<br />bắt đầu hành trình chữa lành"
+                            </p>
+                            <p className="mt-1.5 text-xs text-white/60">Tiêu chuẩn chăm sóc sức khỏe toàn diện tại QHSLab</p>
+                        </blockquote>
+                    </div>
+                </section>
+
                 {/* ── Monitor Bài Test ── */}
-                <section className="bg-theme-surface/60 p-6 rounded-4xl backdrop-blur-xl border border-theme-border/50 shadow-sm">
+                <section className="bg-theme-surface/80 p-6 rounded-4xl backdrop-blur-xl border border-theme-border/50 shadow-sm">
                     <div className="flex items-center justify-between gap-4 mb-5">
                         <div>
                             <h2 className="font-display text-3xl text-theme-primary">Giám sát sức khỏe</h2>
@@ -536,112 +582,68 @@ export default function Home() {
                         <Activity className="h-6 w-6 text-theme-accent" />
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        {/* PHQ-9 */}
-                        <div className="bg-theme-surface/40 p-5 rounded-xl border-2  border-theme-secondary  flex flex-col justify-between min-h-[160px] relative">
-                            <div>
-                                <div className="flex justify-between items-center mb-2">
-                                    <h3 className="text-sm uppercase tracking-wider text-theme-text-primary flex items-center gap-2 font-bold">
-                                        MÔ-ĐUN: PHQ-9
-                                    </h3>
-                                    <span className="text-xs text-theme-text-secondary">TÂM TRẠNG</span>
-                                </div>
-                                {phq9Result ? (
-                                    <div className="mt-2">
-                                        <div className="flex items-baseline gap-1">
-                                            <span className="text-4xl font-bold text-theme-accent">
-                                                {phq9Result.raw_score.toString().padStart(2, '0')}
-                                            </span>
-                                            <span className="text-lg text-theme-text-secondary">/27</span>
-                                        </div>
-                                        <p className="text-xs uppercase mt-2 font-semibold" style={{ color: SCREENING_SEVERITY_COLORS[phq9Result.severity_label] }}>
-                                            TRẠNG THÁI: {SCREENING_SEVERITY_LABELS[phq9Result.severity_label].toUpperCase()}
-                                        </p>
-                                        <div className="w-full bg-theme-border/20 h-1.5 mt-2 rounded-full overflow-hidden">
-                                            <div 
-                                                className="h-full" 
-                                                style={{ 
-                                                    width: `${(phq9Result.raw_score / 27) * 100}%`,
-                                                    backgroundColor: SCREENING_SEVERITY_COLORS[phq9Result.severity_label]
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="mt-4 text-sm text-theme-text-secondary">
-                                        &gt; KHÔNG CÓ DỮ LIỆU
-                                        <br />
-                                        &gt; HỆ THỐNG YÊU CẦU KIỂM TRA
-                                    </div>
-                                )}
-                            </div>
-                            {!phq9Result && (
-                                <Link to={ROUTE_PATHS.screening} className="text-xs text-theme-accent hover:underline mt-2 inline-block">
-                                    &gt; BẮT ĐẦU ĐÁNH GIÁ
-                                </Link>
-                            )}
-                            {phq9Result && (
-                                <Link to={ROUTE_PATHS.screening} className="text-sm text-theme-accent hover:underline mt-2 inline-block absolute bottom-2 right-2">
-                                    Thử làm lại
-                                </Link>
-                            )}
-                        </div>
+                    <div className="flex gap-4 overflow-x-auto pb-4 sm:scrollbar-hide">
+                        {Object.entries(SCREENING_INSTRUMENT_META).map(([id, meta]) => {
+                            const result = screeningResults[id as ScreeningId]
+                            const severityLabel = result?.severity_label
+                            const color = severityLabel ? SCREENING_SEVERITY_COLORS[severityLabel] : 'var(--theme-text-secondary)'
+                            const label = severityLabel ? (SCREENING_SEVERITY_LABELS[severityLabel] || severityLabel) : 'KHÔNG CÓ DỮ LIỆU'
 
-                        {/* GAD-7 */}
-                        <div className="bg-theme-surface/40 p-5 rounded-xl border-2  border-theme-secondary  flex flex-col justify-between min-h-[160px] relative">
-                            <div>
-                                <div className="flex justify-between items-center mb-2">
-                                    <h3 className="text-sm uppercase tracking-wider text-theme-text-primary flex items-center gap-2 font-bold">
-                                        MÔ-ĐUN: GAD-7
-                                    </h3>
-                                    <span className="text-xs text-theme-text-secondary">LO ÂU</span>
+                            return (
+                                <div key={id} className="bg-theme-surface/40 p-5 rounded-xl border-2 border-theme-secondary flex flex-col justify-between min-h-[160px] min-w-[280px] shrink-0 relative">
+                                    <div>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <h3 className="text-[10px] uppercase tracking-wider text-theme-text-primary flex items-center gap-2 font-bold">
+                                                {meta.title}
+                                            </h3>
+                                            <span className="text-[9px] text-theme-text-secondary uppercase">{meta.domain}</span>
+                                        </div>
+                                        {result ? (
+                                            <div className="mt-2">
+                                                <div className="flex items-baseline gap-1">
+                                                    <span className="text-3xl font-bold text-theme-accent">
+                                                        {result.raw_score.toString().padStart(2, '0')}
+                                                    </span>
+                                                    <span className="text-sm text-theme-text-secondary">/{meta.maxScore}</span>
+                                                </div>
+                                                <p className="text-[10px] uppercase mt-2 font-semibold" style={{ color }}>
+                                                    TRẠNG THÁI: {label.toUpperCase()}
+                                                </p>
+                                                <div className="w-full bg-theme-border/20 h-1.5 mt-2 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full"
+                                                        style={{
+                                                            width: `${Math.min(100, (result.raw_score / meta.maxScore) * 100)}%`,
+                                                            backgroundColor: color
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="mt-4 text-[11px] text-theme-text-secondary">
+                                                &gt; CHƯA CÓ DỮ LIỆU
+                                                <br />
+                                                &gt; CẦN ĐÁNH GIÁ
+                                            </div>
+                                        )}
+                                    </div>
+                                    <Link
+                                        to={ROUTE_PATHS.screening}
+                                        className="text-[11px] text-theme-accent hover:underline mt-2 inline-block absolute bottom-3 right-4"
+                                    >
+                                        {result ? 'Làm lại' : 'Bắt đầu >'}
+                                    </Link>
                                 </div>
-                                {gad7Result ? (
-                                    <div className="mt-2">
-                                        <div className="flex items-baseline gap-1">
-                                            <span className="text-4xl font-bold text-theme-accent">
-                                                {gad7Result.raw_score.toString().padStart(2, '0')}
-                                            </span>
-                                            <span className="text-lg text-theme-text-secondary">/21</span>
-                                        </div>
-                                        <p className="text-xs uppercase mt-2 font-semibold" style={{ color: SCREENING_SEVERITY_COLORS[gad7Result.severity_label] }}>
-                                            TRẠNG THÁI: {SCREENING_SEVERITY_LABELS[gad7Result.severity_label].toUpperCase()}
-                                        </p>
-                                        <div className="w-full bg-theme-border/20 h-1.5 mt-2 rounded-full overflow-hidden">
-                                            <div 
-                                                className="h-full" 
-                                                style={{ 
-                                                    width: `${(gad7Result.raw_score / 21) * 100}%`,
-                                                    backgroundColor: SCREENING_SEVERITY_COLORS[gad7Result.severity_label]
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="mt-4 text-sm text-theme-text-secondary">
-                                        &gt; KHÔNG CÓ DỮ LIỆU
-                                        <br />
-                                        &gt; HỆ THỐNG YÊU CẦU KIỂM TRA
-                                    </div>
-                                )}
-                            </div>
-                            {!gad7Result && (
-                                <Link to={ROUTE_PATHS.screening} className="text-sm text-theme-accent hover:underline mt-2 inline-block">
-                                    Làm test ngay
-                                </Link>
-                            )}
-                            {gad7Result && (
-                                <Link to={ROUTE_PATHS.screening} className="text-sm text-theme-accent hover:underline mt-2 inline-block absolute bottom-2 right-2">
-                                    Thử làm lại
-                                </Link>
-                            )}
-                        </div>
+                            )
+                        })}
                     </div>
 
-                    {(phq9Result || gad7Result) && (
+                    {Object.values(screeningResults).some(r => r !== null) && (
                         <div className="mt-4 p-4 bg-theme-surface/30 rounded-xl border border-theme-border/20 text-sm text-theme-text-secondary">
                             <span className="font-bold text-theme-accent">Insight:</span>{' '}
-                            {getCombinedScreeningInsight(phq9Result?.severity_label, gad7Result?.severity_label)}
+                            {phq9Result || gad7Result
+                                ? getCombinedScreeningInsight(phq9Result?.severity_label, gad7Result?.severity_label)
+                                : "Hệ thống đã ghi nhận kết quả sàng lọc mới của bạn. Hãy theo dõi các chỉ số thường xuyên để hiểu rõ hơn về sức khỏe tâm thần của mình."}
                         </div>
                     )}
                 </section>
@@ -652,7 +654,7 @@ export default function Home() {
                 )}
 
                 {/* ── Gợi ý nhẹ nhàng ── */}
-                <section className="bg-theme-surface/60 p-6 rounded-4xl backdrop-blur-xl border border-theme-border/50 shadow-sm">
+                <section className="bg-theme-surface/80 p-6 rounded-4xl backdrop-blur-xl border border-theme-border/50 shadow-sm">
 
                     <div className="flex items-center justify-between gap-4">
                         <div>
@@ -679,7 +681,7 @@ export default function Home() {
                         </div>
                     </Link>
 
-                    <div className="flex gap-4 mt-5 flex-wrap">
+                    <div className="flex justify-around gap-4 mt-5 overflow-x-auto scrollbar-hide">
                         {recoCards.map((card) => {
                             const RecoIcon = card.icon
                             return (
@@ -702,7 +704,7 @@ export default function Home() {
                     </div>
                 </section>
 
-                <section data-tour-id="mood-checkin-card" className="rounded-4xl bg-theme-surface/60 p-6 backdrop-blur-xl border border-theme-border/50 shadow-sm">
+                <section data-tour-id="mood-checkin-card" className="rounded-4xl bg-theme-surface/80 p-6 backdrop-blur-xl border border-theme-border/50 shadow-sm">
                     <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
                         <div>
                             <p className="font-semibold uppercase tracking-[0.2em] text-theme-text-primary">Bạn đang cảm thấy thế nào?</p>
@@ -805,7 +807,7 @@ export default function Home() {
                                 onClick={() =>
                                     navigate(ROUTE_PATHS.checkin, { state: { moodWords: homeMoodWords } })
                                 }
-                                className="mt-4 inline-flex items-center gap-2 rounded-full bg-theme-accent text-white px-5 py-2.5 text-sm font-semibold transition duration-200 ease-in-out hover:bg-theme-accent/80 cursor-pointer"
+                                className="mt-4 inline-flex items-center gap-2 rounded-full bg-theme-accent text-white px-5 py-2.5 text-sm font-semibold hover:underline cursor-pointer"
                             >
                                 Ghi chép thêm
                                 <motion.div animate={{ x: [0, 3, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
@@ -816,12 +818,11 @@ export default function Home() {
                     </div>
                 </section>
 
-                <motion.button
+                <button
                     type="button"
                     onClick={() => navigate(ROUTE_PATHS.nutrition)}
-                    whileHover={{ y: -4 }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                    className="group w-full rounded-[2.5rem] bg-theme-surface/60 p-7 text-left backdrop-blur-xl shadow-sm border border-theme-border/50 transition-all active:scale-[0.98]"
+
+                    className="group w-full rounded-[2.5rem] bg-theme-surface/90 p-7 text-left backdrop-blur-xl shadow-sm border border-theme-border/50 transition-all active:scale-[0.98] cursor-pointer"
                 >
                     <div className="grid gap-5 lg:grid-cols-[220px_1fr_auto] lg:items-center cursor-pointer">
                         <div className="relative overflow-hidden rounded-[24px] min-h-[170px] shadow-sm">
@@ -831,27 +832,27 @@ export default function Home() {
                                 alt="Serene đang ăn nhẹ"
                                 className="absolute inset-0 m-auto h-32 w-32"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
                             <div className="absolute inset-x-0 bottom-0 p-4 text-white">
                                 <p className="text-xs uppercase tracking-[0.19em] text-theme-text-secondary">Nuôi dưỡng cơ thể</p>
                                 <p className="mt-1 text-xs font-semibold">Ăn đủ để mood cũng được nâng lên</p>
                             </div>
                         </div>
 
-                        <div className="flex-1">
+                        <div className="flex-1 px-2">
                             <p className="text-xs uppercase tracking-[0.2em] font-bold text-theme-text-secondary">Món ăn hôm nay</p>
-                            <h2 className="mt-2.5 font-display text-2xl text-theme-text-primary group-hover:text-theme-accent transition-colors">
+                            <h2 className="mt-2.5 font-display text-lg sm:text-2xl text-theme-text-primary group-hover:text-theme-accent transition-colors">
                                 {nutritionTip?.dish || 'Yến mạch + trái cây + hạt'}
                             </h2>
-                            <p className="mt-3 leading-relaxed text-theme-text-secondary">
+                            <p className="mt-3 leading-relaxed text-sm sm:text-base text-theme-text-secondary">
                                 {nutritionTip?.benefit || 'Bữa ăn đủ đạm và chất xơ giúp ổn định mood, giảm cảm giác tụt năng lượng.'}
                             </p>
                         </div>
                         <ArrowRight className="h-5 w-5 text-theme-text-secondary transition group-hover:translate-x-1" />
                     </div>
-                </motion.button>
+                </button>
 
-             
+
                 {detailReminder && (
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -888,6 +889,11 @@ export default function Home() {
                         </article>
                     </motion.div>
                 )}
+            </div>
+
+            {/* Mascot decoration */}
+            <div className="fixed bottom-0 left-4 z-0 pointer-events-none opacity-20 sm:opacity-40">
+                <Mascot variant="main" size="xl" decorative />
             </div>
         </div>
     )

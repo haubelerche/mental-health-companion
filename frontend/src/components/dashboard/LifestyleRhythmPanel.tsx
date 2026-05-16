@@ -1,5 +1,6 @@
 import { BedDouble, Salad, Zap, Users } from 'lucide-react'
 import type { ReflectWellnessDimension } from '../../services/dashboardService'
+import { useThemeContext } from '../../contexts/ThemeContext'
 
 type Props = {
     dimensions: ReflectWellnessDimension[]
@@ -21,14 +22,6 @@ const STATUS_LABEL: Record<StatusType, string> = {
     steady: 'Ổn định',
     needs_attention: 'Cần chú ý thêm',
     improving: 'Đang cải thiện',
-}
-
-const STATUS_CARD_BG: Record<StatusType, string> = {
-    unknown: 'bg-gray-50/80 dark:bg-gray-400/8',
-    limited_data: 'bg-gray-50/80 dark:bg-gray-400/8',
-    steady: 'bg-emerald-50/80 dark:bg-emerald-400/8',
-    needs_attention: 'bg-amber-50/80 dark:bg-amber-400/8',
-    improving: 'bg-cyan-50/80 dark:bg-cyan-400/8',
 }
 
 const DIMENSION_CONFIG = {
@@ -102,30 +95,43 @@ function buildCards(dimensions: ReflectWellnessDimension[]): LifestyleCard[] {
 }
 
 function LifestyleCard({ card }: { card: LifestyleCard }) {
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
+
+    const statusCardBg = {
+        unknown: isDark ? 'bg-gray-400/8' : 'bg-gray-50/80',
+        limited_data: isDark ? 'bg-gray-400/8' : 'bg-gray-50/80',
+        steady: isDark ? 'bg-emerald-400/8' : 'bg-emerald-50/80',
+        needs_attention: isDark ? 'bg-amber-400/8' : 'bg-amber-50/80',
+        improving: isDark ? 'bg-cyan-400/8' : 'bg-cyan-50/80',
+    }
+
+    const actionClass = isDark ? 'text-emerald-300' : 'text-emerald-700'
     const Icon = card.icon
+
     return (
         <div
-            className={`rounded-2xl border border-theme-border/60 p-4 ${STATUS_CARD_BG[card.status]} transition duration-200`}
+            className={`rounded-2xl border border-theme-secondary/30 p-4 ${statusCardBg[card.status]} transition duration-200`}
         >
             <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2">
                     <Icon className={`h-4 w-4 shrink-0 ${card.iconColor}`} aria-hidden />
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-theme-text-tertiary">
+                    <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-theme-text-tertiary">
                         {card.label}
                     </p>
                 </div>
                 <span
-                    className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold text-theme-text-secondary`}
+                    className={`inline-flex  items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold text-theme-text-secondary`}
                 >
                     <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[card.status]}`} />
                     {STATUS_LABEL[card.status]}
                 </span>
             </div>
-            <p className="text-sm leading-relaxed text-theme-text-secondary line-clamp-3">
+            <p className="text-sm leading-relaxed text-theme-text-secondary">
                 {card.explanation}
             </p>
             {card.suggestedAction && (
-                <p className="mt-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                <p className={`mt-2 text-xs font-medium ${actionClass}`}>
                     → {card.suggestedAction}
                 </p>
             )}
@@ -137,7 +143,7 @@ export function LifestyleRhythmPanel({ dimensions }: Props) {
     const cards = buildCards(dimensions)
 
     return (
-        <section className="rounded-2xl border border-theme-border/70 bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
+        <section className="rounded-2xl border border-theme-border bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
             <div className="mb-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-theme-text-tertiary">Nhịp sinh hoạt</p>
                 <h2 className="mt-1 text-xl font-semibold text-theme-text-primary">Ngủ, ăn, năng lượng & kết nối</h2>

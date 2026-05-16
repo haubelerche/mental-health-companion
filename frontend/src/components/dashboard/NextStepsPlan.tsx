@@ -2,6 +2,7 @@ import { ArrowRight, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { ReflectDashboardSummary, ReflectSuggestedAction } from '../../services/dashboardService'
 import { ROUTE_PATHS } from '../../routes/paths'
+import { useThemeContext } from '../../contexts/ThemeContext'
 
 type Props = {
     summary: ReflectDashboardSummary
@@ -61,11 +62,28 @@ function buildSteps(summary: ReflectDashboardSummary): StepItem[] {
 }
 
 export function NextStepsPlan({ summary }: Props) {
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
+
     const steps = buildSteps(summary)
     const [primary, ...secondary] = steps
 
+    const primaryClass = isDark
+        ? 'border-emerald-400/25 bg-white/10'
+        : 'border-emerald-200/80 bg-white/90'
+
+    const priorityLabelClass = isDark ? 'text-emerald-300' : 'text-emerald-700'
+
+    const secondaryCardClass = isDark
+        ? 'bg-white/5 hover:bg-white/10'
+        : 'bg-white/70 hover:bg-white/90'
+
+    const secondaryLabelHoverClass = isDark
+        ? 'group-hover:text-emerald-300'
+        : 'group-hover:text-emerald-700'
+
     return (
-        <section className="rounded-2xl border border-cyan-200/70 bg-gradient-to-br from-cyan-50/90 via-white/90 to-emerald-50/85 p-4 shadow-sm dark:border-cyan-400/15 dark:from-cyan-400/10 dark:via-theme-surface dark:to-emerald-400/10 md:p-5">
+        <section className="rounded-2xl border border-theme-border/50 bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
             <div className="mb-4">
                 <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-emerald-500" aria-hidden />
@@ -80,8 +98,8 @@ export function NextStepsPlan({ summary }: Props) {
             </div>
 
             {/* primary */}
-            <div className="rounded-2xl border border-emerald-200/80 bg-white/70 p-4 shadow-sm dark:border-emerald-400/25 dark:bg-white/5">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300 mb-1">
+            <div className={`rounded-2xl border p-4 shadow-sm ${primaryClass}`}>
+                <p className={`text-[10px] font-semibold uppercase tracking-[0.18em] mb-1 ${priorityLabelClass}`}>
                     Ưu tiên
                 </p>
                 <p className="text-base font-semibold text-theme-text-primary">{primary.label}</p>
@@ -102,12 +120,12 @@ export function NextStepsPlan({ summary }: Props) {
                         <Link
                             key={step.route}
                             to={step.route}
-                            className="flex flex-col rounded-2xl border border-theme-border/60 bg-white/50 p-3 transition hover:bg-white/80 dark:bg-white/5 dark:hover:bg-white/10 group"
+                            className={`flex flex-col rounded-2xl border border-theme-border p-3 transition group ${secondaryCardClass}`}
                         >
-                            <p className="text-sm font-semibold text-theme-text-primary group-hover:text-emerald-700 transition dark:group-hover:text-emerald-300">
+                            <p className={`text-sm font-semibold text-theme-text-primary transition ${secondaryLabelHoverClass}`}>
                                 {step.label}
                             </p>
-                            <p className="mt-1 text-xs leading-relaxed text-theme-text-secondary line-clamp-2">
+                            <p className="mt-1 text-xs leading-relaxed text-theme-text-secondary">
                                 {step.reason}
                             </p>
                         </Link>

@@ -2,37 +2,41 @@ import { ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
 import type { ReflectInsight } from '../../services/dashboardService'
 import PixelEmptyState from '../pixel/PixelEmptyState'
+import { useThemeContext } from '../../contexts/ThemeContext'
 
 type Props = {
     insights: ReflectInsight[]
 }
 
-const CONFIDENCE_STYLE: Record<string, { badge: string; border: string }> = {
-    'Dữ liệu còn ít': {
-        badge: 'bg-gray-100 text-gray-600 dark:bg-gray-400/15 dark:text-gray-300',
-        border: 'border-gray-200/60',
-    },
-    'Có vài dấu hiệu': {
-        badge: 'bg-amber-50 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200',
-        border: 'border-amber-200/60',
-    },
-    'Khá rõ': {
-        badge: 'bg-cyan-50 text-cyan-800 dark:bg-cyan-400/10 dark:text-cyan-200',
-        border: 'border-cyan-200/60',
-    },
-    'Rất nhất quán': {
-        badge: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200',
-        border: 'border-emerald-200/60',
-    },
-}
-
-function confidenceStyle(label: string) {
-    return CONFIDENCE_STYLE[label] ?? CONFIDENCE_STYLE['Dữ liệu còn ít']
-}
-
 function PatternCard({ insight }: { insight: ReflectInsight }) {
     const [expanded, setExpanded] = useState(false)
-    const style = confidenceStyle(insight.confidence_label)
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
+
+    const CONFIDENCE_STYLE: Record<string, { badge: string; border: string }> = {
+        'Dữ liệu còn ít': {
+            badge: isDark ? 'bg-gray-400/15 text-gray-300' : 'bg-gray-100 text-gray-600',
+            border: 'border-gray-200/60',
+        },
+        'Có vài dấu hiệu': {
+            badge: isDark ? 'bg-amber-400/10 text-amber-200' : 'bg-amber-50 text-amber-800',
+            border: 'border-amber-200/60',
+        },
+        'Khá rõ': {
+            badge: isDark ? 'bg-cyan-400/10 text-cyan-200' : 'bg-cyan-50 text-cyan-800',
+            border: 'border-cyan-200/60',
+        },
+        'Rất nhất quán': {
+            badge: isDark ? 'bg-emerald-400/10 text-emerald-200' : 'bg-emerald-50 text-emerald-800',
+            border: 'border-emerald-200/60',
+        },
+    }
+
+    const style = CONFIDENCE_STYLE[insight.confidence_label] ?? CONFIDENCE_STYLE['Dữ liệu còn ít']
+
+    const suggestedActionClass = isDark
+        ? 'bg-emerald-400/8 text-emerald-200'
+        : 'bg-emerald-50/70 text-emerald-800'
 
     return (
         <article className={`rounded-2xl border ${style.border} bg-theme-surface/94 p-4 shadow-sm`}>
@@ -72,7 +76,7 @@ function PatternCard({ insight }: { insight: ReflectInsight }) {
                         </span>
                     </div>
                     {insight.suggested_action && (
-                        <p className="rounded-xl bg-emerald-50/70 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-400/8 dark:text-emerald-200">
+                        <p className={`rounded-xl px-3 py-2 text-sm ${suggestedActionClass}`}>
                             <span className="font-semibold">Bước tiếp theo: </span>
                             {insight.suggested_action}
                         </p>

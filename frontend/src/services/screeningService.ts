@@ -1,6 +1,6 @@
 import { httpClient } from '../api/httpClient'
 
-export type ScreeningId = 'phq9' | 'gad7'
+export type ScreeningId = 'phq9' | 'gad7' | 'dass21' | 'mdq' | 'pcl5'
 
 export type ScreeningInstrument = {
   id: ScreeningId
@@ -11,7 +11,7 @@ export type ScreeningInstrument = {
 export type ScreeningResult = {
   instrument_id: ScreeningId
   raw_score: number
-  severity_label: 'minimal' | 'mild' | 'moderate' | 'moderately_severe' | 'severe'
+  severity_label: 'minimal' | 'mild' | 'moderate' | 'moderately_severe' | 'severe' | 'assessed' | 'positive' | 'negative' | 'high_risk' | 'low_risk'
   saved: boolean
   assessment_updated_at: string
 }

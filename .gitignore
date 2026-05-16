@@ -126,6 +126,16 @@ backend/tests/*
 !backend/tests/test_route_trace_schema.py
 !backend/tests/test_outbox_worker_wiring.py
 !backend/tests/test_memory_dedup_mention_count.py
+!backend/tests/test_advisor_provenance.py
+!backend/tests/test_meme_selector.py
+!backend/tests/test_memory_dedup.py
+!backend/tests/test_advisor_selector.py
+!backend/tests/test_chat_advisor_assisted_integration.py
+!backend/tests/test_friend_agent_contract.py
+!backend/tests/test_context_pack_builder.py
+!backend/tests/test_analyst_agent_contract.py
+!backend/tests/test_dashboard_safe_insights.py
+!backend/tests/test_latency_observability.py
 
 
 

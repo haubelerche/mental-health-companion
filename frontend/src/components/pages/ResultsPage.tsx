@@ -143,6 +143,114 @@ const SEVERITY_MAP: Record<ScreeningResult['severity_label'], SeverityMeta> = {
       { label: 'Hotline 1800-599-920', path: 'tel', icon: Phone },
     ],
   },
+  assessed: {
+    label: 'Đã hoàn thành',
+    headlineIcon: Activity,
+    color: 'var(--color-an)',
+    bgColor: 'var(--color-an-bg)',
+    barColor: '#4caf50',
+    scorePercent: 100,
+    interpretation: 'Cảm ơn bạn đã dành thời gian làm bài test chuyên sâu này.',
+    insights: [
+      'Bài test DASS-21 cung cấp cái nhìn chi tiết về Trầm cảm, Lo âu và Stress',
+      'Kết quả thô đã được ghi lại trong hồ sơ sức khỏe của bạn',
+      'Serene sẽ sử dụng dữ liệu này để đưa ra những lời khuyên phù hợp hơn trong tương lai',
+    ],
+    exercises: [
+      { icon: Wind, label: 'Thở cân bằng', desc: '3 phút · Ổn định' },
+      { icon: NotebookPen, label: 'Check-in cảm xúc', desc: 'Ghi lại suy nghĩ' },
+    ],
+    actions: [
+      { label: 'Quay về trang chủ', path: ROUTE_PATHS.home },
+      { label: 'Xem hồ sơ', path: ROUTE_PATHS.profile },
+    ],
+  },
+  positive: {
+    label: 'Có dấu hiệu',
+    headlineIcon: Cloud,
+    color: '#ff9800',
+    bgColor: 'rgba(255, 152, 0, 0.1)',
+    barColor: '#ff9800',
+    scorePercent: 75,
+    interpretation: 'Kết quả cho thấy có những biểu hiện tương đồng với triệu chứng sàng lọc.',
+    insights: [
+      'Có những dấu hiệu thay đổi tâm trạng hoặc hành vi cần được lưu tâm',
+      'Kết quả này chỉ mang tính chất sàng lọc, không phải chẩn đoán cuối cùng',
+      'Bạn nên thảo luận kết quả này với chuyên gia y tế',
+    ],
+    exercises: [
+      { icon: MessageSquareText, label: 'Nói chuyện với Serene', desc: 'Chia sẻ ngay' },
+      { icon: Activity, label: 'Thư giãn cơ bắp', desc: '5 phút' },
+    ],
+    actions: [
+      { label: 'Tìm hỗ trợ', path: ROUTE_PATHS.support, primary: true },
+      { label: 'Quay về trang chủ', path: ROUTE_PATHS.home },
+    ],
+  },
+  negative: {
+    label: 'Bình thường',
+    headlineIcon: Sprout,
+    color: '#4caf50',
+    bgColor: 'rgba(76, 175, 80, 0.1)',
+    barColor: '#4caf50',
+    scorePercent: 15,
+    interpretation: 'Kết quả hiện tại không cho thấy dấu hiệu của các triệu chứng sàng lọc.',
+    insights: [
+      'Tâm trạng và hành vi của bạn đang ở ngưỡng an toàn theo bài test này',
+      'Duy trì lối sống lành mạnh và theo dõi cảm xúc thường xuyên',
+      'Đừng quên check-in với Serene mỗi ngày nhé!',
+    ],
+    exercises: [
+      { icon: Wind, label: 'Thở bụng', desc: '2 phút' },
+      { icon: NotebookPen, label: 'Viết nhật ký', desc: 'Ghi lại niềm vui' },
+    ],
+    actions: [
+      { label: 'Quay về trang chủ', path: ROUTE_PATHS.home },
+    ],
+  },
+  high_risk: {
+    label: 'Nguy cơ cao',
+    headlineIcon: CloudRain,
+    color: '#f44336',
+    bgColor: 'rgba(244, 67, 54, 0.1)',
+    barColor: '#f44336',
+    scorePercent: 85,
+    interpretation: 'Bạn đang có những dấu hiệu căng thẳng tâm lý mạnh mẽ cần được hỗ trợ chuyên nghiệp.',
+    insights: [
+      'Các triệu chứng liên quan đến sang chấn đang ảnh hưởng đến cuộc sống của bạn',
+      'Đây là lúc bạn cần sự lắng nghe và thấu hiểu từ các chuyên gia',
+      'Đừng cố gắng tự giải quyết một mình, hãy tìm kiếm sự giúp đỡ',
+    ],
+    exercises: [
+      { icon: Phone, label: 'Hotline hỗ trợ', desc: '24/7 · Miễn phí' },
+      { icon: HeartHandshake, label: 'Kết nối chuyên gia', desc: 'Hỗ trợ ngay' },
+    ],
+    actions: [
+      { label: 'Liên hệ Hỗ trợ', path: ROUTE_PATHS.support, primary: true },
+      { label: 'Trò chuyện với Mây', path: ROUTE_PATHS.chat },
+    ],
+  },
+  low_risk: {
+    label: 'Nguy cơ thấp',
+    headlineIcon: CloudSun,
+    color: '#8bc34a',
+    bgColor: 'rgba(139, 195, 74, 0.1)',
+    barColor: '#8bc34a',
+    scorePercent: 20,
+    interpretation: 'Mức độ ảnh hưởng tâm lý của bạn hiện đang ở ngưỡng thấp.',
+    insights: [
+      'Bạn đang kiểm soát tốt các áp lực tinh thần',
+      'Tiếp tục duy trì các thói quen chăm sóc bản thân hiện tại',
+      'Nếu cảm thấy có thay đổi tiêu cực, hãy quay lại làm bài test nhé',
+    ],
+    exercises: [
+      { icon: Wind, label: 'Thở hộp', desc: '2 phút' },
+      { icon: NotebookPen, label: 'Check-in sáng', desc: 'Bắt đầu ngày mới' },
+    ],
+    actions: [
+      { label: 'Quay về trang chủ', path: ROUTE_PATHS.home },
+    ],
+  },
 }
 
 // ── Score Bar component ────────────────────────────────────────────────────────
@@ -213,8 +321,15 @@ export function ResultsPage() {
     }
   }
 
-  // Max score for the instrument (PHQ-9: 27, GAD-7: 21)
-  const maxScore = result?.instrument_id === 'gad7' ? 21 : 27
+  // Max score for the instrument
+  const maxScores: Record<string, number> = {
+    phq9: 27,
+    gad7: 21,
+    dass21: 63,
+    mdq: 15,
+    pcl5: 80,
+  }
+  const maxScore = maxScores[result?.instrument_id || 'phq9'] || 27
   const rawScore = result?.raw_score ?? 0
   const rawPercent = Math.round((rawScore / maxScore) * 100)
 

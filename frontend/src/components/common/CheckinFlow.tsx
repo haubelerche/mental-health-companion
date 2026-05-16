@@ -186,8 +186,7 @@ export function CheckinFlow() {
           heartsEarned={checkinReward?.amount ?? 0}
           onClose={() => setShowStreak(false)}
           onClaim={() => {
-            setShowStreak(false)
-            navigate(ROUTE_PATHS.home)
+            setShowStreak(false)  
           }}
         />
 

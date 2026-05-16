@@ -141,7 +141,7 @@ export default function Main() {
             />
 
             <main
-                className={`min-h-screen transition-all duration-300 ${isFullBleedPage ? '' : isSidebarOpen ? 'lg:ml-60' : 'lg:ml-0'}`}
+                className={`min-h-screen transition-all duration-300 ${location.pathname === ROUTE_PATHS.bamboo ? '' : isSidebarOpen ? 'lg:ml-60' : 'lg:ml-0'}`}
             >
                 <div
                     className={

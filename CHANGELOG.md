@@ -113,6 +113,39 @@
 ### Changed
 - `.gitignore` — thêm `test_analyst_threshold.py` và `test_chat_voice_payload.py` vào whitelist.
 - `.env.example` — thêm 3 env vars mới cho LLM voice script.
+---
+
+## [Unreleased] — Fix 28 SQLite schema failures; full suite 360 pass · 2026-05-15
+
+### Fixed
+- `backend/app/services/db/init_db.py` — `init_db()` now filters out schema-qualified tables (`schema="app"`) before calling `create_all()` when running on SQLite (tests). PostgreSQL is unaffected. Fixes 28 integration tests that crashed with `unknown database app` on every TestClient startup.
+
+---
+
+## [Unreleased] — Advisor evidence provenance fix · 2026-05-15
+
+### Fixed
+- `backend/app/services/counseling_advisor_service.py` — `as_advisor_advice()` now propagates `guidance.case_refs` into `AdvisorAdvice.evidence_refs` (was hardcoded `[]`), restoring the JSONL provenance contract.
+
+### Added (tests)
+- `backend/tests/test_advisor_provenance.py` — 8 pure unit tests (no DB, no network): `EmpathyAdvisor` and `CBTPatternAdvisor` populate `evidence_refs` from JSONL; `AdvisorAdvice` schema has no `final_text`/`reply`/`message_to_user` field; `CounselingAdvisorService.as_advisor_advice()` propagates `case_refs`; empty `case_refs` yields empty `evidence_refs`; all `evidence_refs` items are strings.
+- `.gitignore` — added `!backend/tests/test_advisor_provenance.py` to allowlist.
+
+---
+
+## [Unreleased] — Meme selector safety gate tests · 2026-05-15
+
+### Added (tests)
+- `backend/tests/test_meme_selector.py` — 12 unit tests covering all safety gates and selection logic for `maybe_select_meme_suggestion()`: persona gate (only `dung_luong`), safety-tier gate, distress threshold (boundary 0.5), crisis-hint suppression (tokens from `_HOLD_MEME_HINTS`), required `MemeSuggestion` fields, and deterministic selection for same inputs. No DB or network required.
+- `.gitignore` — added `!backend/tests/test_meme_selector.py` to allowlist.
+
+---
+
+## [Unreleased] — Memory dedup helpers · 2026-05-15
+
+### Added
+- `backend/app/services/mem0_service.py` — four new pure helpers: `get_mention_count`, `with_incremented_mention_count`, `is_likely_duplicate`, `record_memory_with_dedup`; exact-match dedup prevents duplicate `Mem0Memory` entries and tracks repeat counts via `metadata.mention_count`.
+- `backend/tests/test_memory_dedup.py` — 10 pure unit tests (no DB, no network) covering all four helpers; added allowlist entry to `.gitignore`.
 
 ---
 

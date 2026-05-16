@@ -15,7 +15,7 @@ export function PixelEmptyState({
     action,
 }: PixelEmptyStateProps) {
     return (
-        <div className="pixel-card flex min-h-48 flex-col items-center justify-center px-5 py-8 text-center">
+        <div className="flex min-h-48 flex-col items-center justify-center px-5 py-8 text-center">
             <Mascot
                 variant={mascot}
                 size="xl"

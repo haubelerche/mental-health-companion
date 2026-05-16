@@ -356,3 +356,15 @@
     100% { opacity: 1; transform: translateY(0); }
 }
 
+
+/* Ẩn thanh cuộn cho Chrome, Safari và Edge */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Ẩn thanh cuộn cho Firefox và IE */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE và Edge cũ */
+  scrollbar-width: none; /* Firefox */
+}
+

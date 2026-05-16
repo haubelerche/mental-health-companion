@@ -1,5 +1,6 @@
 import { CalendarDays, Lightbulb, ShieldCheck } from 'lucide-react'
 import type { ReflectInsight } from '../../services/dashboardService'
+import { useThemeContext } from '../../contexts/ThemeContext'
 
 type Props = {
     insight: ReflectInsight
@@ -17,11 +18,18 @@ function typeLabel(type: string): string {
 }
 
 export function InsightCard({ insight }: Props) {
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
+
+    const badgeClass = isDark
+        ? 'bg-cyan-400/10 text-cyan-100'
+        : 'bg-cyan-50 text-cyan-800'
+
     return (
         <article className="rounded-2xl border border-theme-border/70 bg-theme-surface/94 p-4 shadow-sm md:p-5">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <p className="inline-flex items-center gap-1.5 rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 dark:bg-cyan-400/10 dark:text-cyan-100">
+                    <p className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${badgeClass}`}>
                         <Lightbulb className="h-3.5 w-3.5" aria-hidden />
                         {typeLabel(insight.hypothesis_type)}
                     </p>

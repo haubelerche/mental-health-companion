@@ -2,6 +2,7 @@ import { ClipboardList, ArrowRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ROUTE_PATHS } from '../../routes/paths'
+import { useThemeContext } from '../../contexts/ThemeContext'
 import type { ScreeningId } from '../../services/screeningService'
 import {
     readStoredScreeningResults,
@@ -80,8 +81,10 @@ function ScreeningResultCard({
 }
 
 export function ScreeningPanel() {
+    const { effectiveTheme } = useThemeContext()
+    const isDark = effectiveTheme === 'dark'
     const [results, setResults] = useState(() => readStoredScreeningResults())
-    const hasResults = Boolean(results.phq9 || results.gad7)
+    const hasResults = Object.values(results).some((val) => val !== null)
 
     useEffect(() => subscribeToScreeningResults(setResults), [])
 
@@ -89,7 +92,7 @@ export function ScreeningPanel() {
         <section className="rounded-2xl border border-theme-border/70 bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
             <div className="mb-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-theme-text-tertiary">Sàng lọc</p>
-                <h2 className="mt-1 text-xl font-semibold text-theme-text-primary">PHQ-9 / GAD-7</h2>
+                <h2 className="mt-1 text-xl font-semibold text-theme-text-primary">Kết quả sàng lọc</h2>
                 <p className="mt-1 text-sm leading-relaxed text-theme-text-secondary">
                     Kết quả bài sàng lọc giúp Serene hiểu rõ hơn về tình hình của bạn. Đây là dữ liệu sàng lọc, không phải chẩn đoán.
                 </p>
@@ -97,7 +100,7 @@ export function ScreeningPanel() {
 
             {hasResults ? (
                 <div className="grid gap-3 sm:grid-cols-2">
-                    {(['phq9', 'gad7'] as const).map((instrumentId) => (
+                    {(['phq9', 'gad7', 'dass21', 'mdq', 'pcl5'] as const).map((instrumentId) => (
                         <ScreeningResultCard key={instrumentId} instrumentId={instrumentId} result={results[instrumentId]} />
                     ))}
                 </div>
@@ -111,9 +114,13 @@ export function ScreeningPanel() {
                     <div className="mt-4 flex flex-wrap justify-center gap-3">
                         <Link
                             to={ROUTE_PATHS.screening}
-                            className="inline-flex items-center gap-2 rounded-full border border-emerald-300/80 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-200"
+                            className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                                isDark
+                                    ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200'
+                                    : 'border-emerald-300/80 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                            }`}
                         >
-                            Làm PHQ-9 / GAD-7
+                            Làm bài test sàng lọc
                             <ArrowRight className="h-4 w-4" aria-hidden />
                         </Link>
                     </div>
