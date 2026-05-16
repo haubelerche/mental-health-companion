@@ -126,3 +126,29 @@ def test_consistent_selection_same_inputs():
     result_b = _call(session_id="stable-session", assistant_turn_index=4)
     assert result_a is not None and result_b is not None
     assert result_a == result_b, "Same inputs must deterministically return the same meme"
+
+
+def test_previous_meme_image_is_not_repeated_when_assets_remain():
+    first = _call(session_id="no-repeat-session", assistant_turn_index=3, user_message="hello", assistant_text="")
+    assert first is not None
+
+    second = _call(
+        session_id="no-repeat-session",
+        assistant_turn_index=3,
+        user_message="hello",
+        assistant_text="",
+        previous_meme_image_paths=[first["image_path"]],
+    )
+
+    assert second is not None
+    assert second["image_path"] != first["image_path"]
+
+
+def test_contextual_repeat_uses_alternate_when_already_used():
+    result = _call(
+        user_message="met qua",
+        previous_meme_image_paths=["user-is-tired.jpg"],
+    )
+
+    assert result is not None
+    assert result["image_path"] != "user-is-tired.jpg"

@@ -149,3 +149,23 @@ def test_maybe_enqueue_voice_passes_user_message_to_build_intervention(monkeypat
     assert captured.get("user_message") == "toi dang rat met"
     assert isinstance(captured.get("recent_messages"), list)
     assert len(captured["recent_messages"]) == 1
+
+
+def test_assistant_client_payload_persists_meme_and_tts_metadata():
+    assistant = SimpleNamespace(metadata_json={})
+    data = {
+        "session_id": "s1",
+        "message_id": "m1",
+        "reply": "Meme nhe.",
+        "assistant_text": "Meme nhe.",
+        "tts_job": {"tts_job_id": "tts_1", "status": "queued"},
+        "meme_suggestion": {"id": "emotion_1", "image_path": "happy.jpg"},
+        "voice_policy": {"internal": True},
+    }
+
+    chat._persist_assistant_client_payload(SimpleNamespace(add=lambda _obj: None), assistant, data)
+
+    payload = assistant.metadata_json["client_payload"]
+    assert payload["tts_job"]["tts_job_id"] == "tts_1"
+    assert payload["meme_suggestion"]["image_path"] == "happy.jpg"
+    assert "voice_policy" not in payload
