@@ -1895,6 +1895,14 @@ def stream_non_sos_turn_events(
         sos_triggered=False,
     )
     safe_reply = _enforce_persona_identity(response_plan.visible_text, persona_id_active)
+    _ov_stream = _safety_validate_output(safe_reply, surface="chat")
+    if _ov_stream.is_blocked:
+        logger.warning(
+            "SafetyOutputValidator blocked stream reply: %s | fragments=%s",
+            _ov_stream.reason_codes,
+            _ov_stream.flagged_fragments,
+        )
+        safe_reply = "Mình hiểu bạn đang cần hỗ trợ. Hãy chia sẻ thêm để Serene có thể đồng hành cùng bạn nhé."
     _trace_span(
         correlation_id,
         "stream_friend_generate",

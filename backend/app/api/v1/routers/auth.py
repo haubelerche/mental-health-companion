@@ -606,6 +606,8 @@ def update_persona(
 
 @router.delete("/me/data", dependencies=[Depends(require_csrf)])
 def erase_my_data(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.services.db.models import SyncOutbox
+
     user_id = current_user.user_id
     now = get_now().replace(tzinfo=None)
     db.execute(delete(Message).where(Message.user_id == user_id))
@@ -617,6 +619,18 @@ def erase_my_data(current_user: User = Depends(get_current_user), db: Session = 
     db.execute(delete(EmailVerificationToken).where(EmailVerificationToken.user_id == user_id))
     db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user_id))
     db.execute(delete(User).where(User.user_id == user_id))
+    # Enqueue Neo4j graph purge — DETACH DELETE User node and all relationships.
+    # user_id on the outbox row is set to None because the User row is deleted in
+    # the same transaction; the actual id is preserved in the payload.
+    db.add(
+        SyncOutbox(
+            user_id=None,
+            event_type="user.deleted",
+            payload={"user_id": user_id},
+            status="pending",
+            retry_count=0,
+        )
+    )
     db.commit()
     cache_delete(profile_cache_key(user_id))
     MemoryManager.instance().delete_user(user_id)

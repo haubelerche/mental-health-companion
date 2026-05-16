@@ -1476,12 +1476,18 @@ def send_message(
                     persona_context={"selected": selected_persona_id},
                     safety_policy=policy_decision,
                 )
+                def _fast_output_policy(text: str, **_kwargs: object) -> str:
+                    _v = _validate_tts_output(text, surface="chat")
+                    if _v.is_blocked:
+                        logger.warning("output_validator blocked fast-path reply: %s", _v.reason_codes)
+                        return "Mình hiểu bạn đang cần hỗ trợ. Hãy chia sẻ thêm để Serene có thể đồng hành cùng bạn nhé."
+                    return text
                 generated = ChatOrchestrator.generate_normal_turn(
                     user_message=raw_text,
                     context_pack=context_pack,
                     route_tier=route_tier,
                     planned_advisor_ids=[],
-                    apply_output_policy_or_fallback=lambda text, **_kwargs: text,
+                    apply_output_policy_or_fallback=_fast_output_policy,
                     policy_decision=policy_decision,
                     route_reason_codes=route_reason_codes,
                     consultation_db=None,
@@ -1545,7 +1551,7 @@ def send_message(
                         context_pack=context_pack,
                         route_tier=route_tier,
                         planned_advisor_ids=planned_advisor_ids,
-                        apply_output_policy_or_fallback=lambda text, **_kwargs: text,
+                        apply_output_policy_or_fallback=_fast_output_policy,
                         policy_decision=policy_decision,
                         route_reason_codes=route_reason_codes,
                         consultation_db=db,
@@ -1826,7 +1832,7 @@ def send_message(
     )
     _persist_assistant_client_payload(db, assistant_msg, data)
     db.commit()
-    logger.info("chat.latency_trace user_id=%s session_id=%s trace=%s", current_user.user_id, session.session_id, latency_trace)
+    logger.info("chat.latency_trace user_id=%s session_id=%s trace=%s", hash_identifier(str(current_user.user_id)), hash_identifier(str(session.session_id)), latency_trace)
     return ok(data)
 
 
@@ -2209,12 +2215,18 @@ def send_message_stream(
                         persona_context={"selected": _stream_persona_id},
                         safety_policy=policy_decision,
                     )
+                    def _stream_fast_output_policy(text: str, **_kwargs: object) -> str:
+                        _v = _validate_tts_output(text, surface="chat")
+                        if _v.is_blocked:
+                            logger.warning("output_validator blocked stream fast-path reply: %s", _v.reason_codes)
+                            return "Mình hiểu bạn đang cần hỗ trợ. Hãy chia sẻ thêm để Serene có thể đồng hành cùng bạn nhé."
+                        return text
                     generated = ChatOrchestrator.generate_normal_turn(
                         user_message=raw_text,
                         context_pack=context_pack,
                         route_tier=_s_route_tier,
                         planned_advisor_ids=[],
-                        apply_output_policy_or_fallback=lambda text, **_kwargs: text,
+                        apply_output_policy_or_fallback=_stream_fast_output_policy,
                         policy_decision=policy_decision,
                         route_reason_codes=_s_route_codes,
                         consultation_db=None,
