@@ -11,7 +11,9 @@ from fastapi import APIRouter, Depends, Query, Request, BackgroundTasks
 from fastapi.responses import FileResponse
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.api.deps import (
     ensure_policy_acknowledged,
@@ -101,6 +103,223 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 SYSTEM_AUDIT_ADMIN = "sys_auto"
 DEFAULT_PERSONA_ID = "dung_luong"
+
+_MESSAGE_CLIENT_PAYLOAD_KEYS = {
+    "session_id",
+    "message_id",
+    "persona_id",
+    "reply",
+    "assistant_text",
+    "sos_triggered",
+    "route_tier",
+    "used_advisor_ids",
+    "resource_suggestions",
+    "nutrition_suggestion",
+    "optional_support",
+    "tts_job",
+    "voice_messages",
+    "meme_suggestion",
+    "pending_human_review",
+    "review_reason",
+    "crisis_plan",
+    "distress_ui",
+    "hotline_cards",
+    "grounding_actions",
+    "micro_actions",
+    "referral_options",
+}
+
+
+def _public_client_payload(data: dict) -> dict:
+    payload = {key: data.get(key) for key in _MESSAGE_CLIENT_PAYLOAD_KEYS if key in data}
+    if "assistant_text" not in payload and isinstance(payload.get("reply"), str):
+        payload["assistant_text"] = payload["reply"]
+    if "reply" not in payload and isinstance(payload.get("assistant_text"), str):
+        payload["reply"] = payload["assistant_text"]
+    return payload
+
+
+def _persist_assistant_client_payload(db: Session, assistant_msg: Message, data: dict) -> None:
+    metadata = dict(getattr(assistant_msg, "metadata_json", None) or {})
+    metadata["client_payload"] = _public_client_payload(data)
+    assistant_msg.metadata_json = metadata
+    try:
+        flag_modified(assistant_msg, "metadata_json")
+    except Exception:
+        pass
+    db.add(assistant_msg)
+
+
+def _refresh_tts_payload(db: Session, tts_job: dict | None) -> dict | None:
+    if not isinstance(tts_job, dict):
+        return None
+    job_id = str(tts_job.get("tts_job_id") or "").strip()
+    if not job_id:
+        return dict(tts_job)
+    try:
+        current = get_voice_job(db, job_id)
+    except SQLAlchemyError as exc:
+        logger.warning("history_tts_refresh_failed job_id=%s: %s", job_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return dict(tts_job)
+    if not current:
+        return dict(tts_job)
+    refreshed = dict(tts_job)
+    for key in ("status", "audio_url", "audio_data_uri", "error_code", "error_message"):
+        if current.get(key) is not None:
+            refreshed[key] = current.get(key)
+    return refreshed
+
+
+def _history_client_payload(db: Session, message: Message) -> dict | None:
+    metadata = dict(getattr(message, "metadata_json", None) or {})
+    payload = metadata.get("client_payload")
+    if not isinstance(payload, dict):
+        return None
+    payload = dict(payload)
+    payload["tts_job"] = _refresh_tts_payload(db, payload.get("tts_job"))
+    voice_messages = payload.get("voice_messages")
+    if isinstance(voice_messages, list):
+        refreshed_messages = []
+        for item in voice_messages:
+            if not isinstance(item, dict):
+                continue
+            refreshed = dict(item)
+            current = _refresh_tts_payload(db, refreshed)
+            if current:
+                refreshed.update(current)
+            refreshed_messages.append(refreshed)
+        payload["voice_messages"] = refreshed_messages
+    return payload
+
+
+def _legacy_voice_payloads_for_history(db: Session, *, session_id: str) -> dict[str, dict]:
+    try:
+        rows = db.scalars(
+            select(SyncOutbox)
+            .where(SyncOutbox.event_type == VOICE_JOB_EVENT_TYPE)
+            .order_by(SyncOutbox.created_at.asc())
+            .limit(500)
+        ).all()
+    except SQLAlchemyError as exc:
+        logger.warning("history_legacy_voice_scan_failed session_id=%s: %s", session_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return {}
+    session_jobs: list[dict] = []
+    for row in rows:
+        payload = dict(row.payload or {})
+        if str(payload.get("session_id") or "") != session_id:
+            continue
+        try:
+            job = get_voice_job(db, f"tts_{row.outbox_id}")
+        except SQLAlchemyError as exc:
+            logger.warning("history_legacy_voice_job_failed outbox_id=%s: %s", row.outbox_id, exc)
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            continue
+        if not job:
+            continue
+        session_jobs.append({"created_at": row.created_at, "job": job})
+    if not session_jobs:
+        return {}
+
+    messages = db.scalars(
+        select(Message)
+        .where(Message.session_id == session_id, Message.role == "assistant")
+        .order_by(Message.created_at.asc())
+    ).all()
+    by_message_id: dict[str, dict] = {}
+    for item in session_jobs:
+        created_at = item["created_at"]
+        candidates = [m for m in messages if m.created_at <= created_at]
+        if not candidates:
+            continue
+        target = candidates[-1]
+        payload = by_message_id.setdefault(
+            target.message_id,
+            {
+                "session_id": session_id,
+                "message_id": target.message_id,
+                "assistant_text": target.content,
+                "reply": target.content,
+                "sos_triggered": bool(target.sos_triggered),
+                "voice_messages": [],
+            },
+        )
+        voice_job = {
+            "tts_job_id": item["job"].get("tts_job_id"),
+            "status": item["job"].get("status"),
+            "audio_url": item["job"].get("audio_url"),
+            "audio_data_uri": item["job"].get("audio_data_uri"),
+            "error_code": item["job"].get("error_code"),
+            "error_message": item["job"].get("error_message"),
+        }
+        if not payload.get("tts_job"):
+            payload["tts_job"] = voice_job
+        payload["voice_messages"].append(voice_job)
+    return by_message_id
+
+
+def _meme_cadence_for_session(db: Session, *, session_id: str) -> dict:
+    rows = db.scalars(
+        select(Message)
+        .where(Message.session_id == session_id, Message.role == "assistant")
+        .order_by(Message.created_at.asc(), Message.message_id.asc())
+    ).all()
+    used_images: list[str] = []
+    text_turns_since_last_meme = 0
+    assistant_text_turns = 0
+    for row in rows:
+        if str(row.content or "").strip():
+            assistant_text_turns += 1
+            text_turns_since_last_meme += 1
+        payload = dict((dict(row.metadata_json or {})).get("client_payload") or {})
+        meme = payload.get("meme_suggestion")
+        if isinstance(meme, dict):
+            image_path = str(meme.get("image_path") or "").strip()
+            if image_path:
+                used_images.append(image_path)
+                text_turns_since_last_meme = 0
+    return {
+        "assistant_text_turns": assistant_text_turns,
+        "text_turns_since_last_meme": text_turns_since_last_meme,
+        "used_images": used_images,
+    }
+
+
+def _maybe_select_session_meme(
+    db: Session,
+    *,
+    session_id: str,
+    persona_id: str,
+    safety_tier: str,
+    distress_score: float,
+    user_message: str,
+    assistant_text: str,
+    min_text_turns_between_memes: int = 3,
+) -> dict | None:
+    cadence = _meme_cadence_for_session(db, session_id=session_id)
+    if int(cadence["text_turns_since_last_meme"]) < min_text_turns_between_memes:
+        return None
+    return maybe_select_meme_suggestion(
+        persona_id=persona_id,
+        safety_tier=safety_tier,
+        distress_score=distress_score,
+        session_id=session_id,
+        assistant_turn_index=int(cadence["assistant_text_turns"]),
+        cooldown_turns=1,
+        user_message=user_message,
+        assistant_text=assistant_text,
+        previous_meme_image_paths=list(cadence["used_images"]),
+    )
 
 
 def _trace_memory_recall_turn(
@@ -1187,6 +1406,8 @@ def send_message(
                 "safety_tier",
             ):
                 data.pop(internal_key, None)
+            _persist_assistant_client_payload(db, assistant_msg, data)
+            db.commit()
             safety_tracer.score("distress_score", distress0, comment="sos_gate_forced")
             safety_tracer.update_output(
                 distress_plan.visible_text,
@@ -1539,12 +1760,12 @@ def send_message(
         visible_text=assistant_content,
         reason_codes=tuple([signal_for_voice.trigger_reason] if signal_for_voice.escalate else []),
     ))
-    meme_suggestion = maybe_select_meme_suggestion(
+    meme_suggestion = _maybe_select_session_meme(
+        db,
+        session_id=session.session_id,
         persona_id=selected_persona_id,
         safety_tier=str(snap.safety_tier),
         distress_score=float(snap.distress_score),
-        session_id=session.session_id,
-        assistant_turn_index=int(session.message_count),
         user_message=str(raw_text or ""),
         assistant_text=str(assistant_content or ""),
     )
@@ -1603,6 +1824,8 @@ def send_message(
         pending_human_review=review_decision.requires_human_review if review_decision.requires_human_review else None,
         review_reason=review_decision.reason if review_decision.requires_human_review else None,
     )
+    _persist_assistant_client_payload(db, assistant_msg, data)
+    db.commit()
     logger.info("chat.latency_trace user_id=%s session_id=%s trace=%s", current_user.user_id, session.session_id, latency_trace)
     return ok(data)
 
@@ -1873,6 +2096,11 @@ def send_message_stream(
                         assistant_text=distress_plan.visible_text,
                         distress_ui=distress_ui,
                     )
+                    data["message_id"] = assistant_msg.message_id
+                    data["route_tier"] = "fast"
+                    data["used_advisor_ids"] = []
+                    data["resource_suggestions"] = []
+                    data["nutrition_suggestion"] = None
                     data["voice_script"] = crisis_plan.voice_script
                     data["crisis_plan"] = crisis_plan.model_dump()
                     if settings.chat_expose_scoring_debug:
@@ -1907,6 +2135,9 @@ def send_message_stream(
                     for _sos_stream_key in ("voice_policy", "intervention"):
                         data.pop(_sos_stream_key, None)
                     elapsed_ms = int((time.perf_counter() - started_at) * 1000)
+                    data["latency_trace"] = ensure_chat_latency_trace({}, total_backend_ms=elapsed_ms)
+                    _persist_assistant_client_payload(db, assistant_msg, data)
+                    db.commit()
                     safety_tracer.score("distress_score", distress0, comment="sos_gate_forced")
                     safety_tracer.update_output(
                         distress_plan.visible_text,
@@ -2159,6 +2390,12 @@ def send_message_stream(
                 voice_hint=vhint,
                 routing_history=routing_hist,
             )
+            data["message_id"] = assistant_msg.message_id
+            data["route_tier"] = turn.get("route_tier") or data.get("route_tier") or "fast"
+            if isinstance(turn.get("used_advisor_ids"), list):
+                data["used_advisor_ids"] = turn.get("used_advisor_ids")
+            data["resource_suggestions"] = _compact_recommendation_attachments(the_dinh)
+            data["nutrition_suggestion"] = None
             data["intervention"] = None
             if review_decision.requires_human_review:
                 data["pending_human_review"] = True
@@ -2196,6 +2433,17 @@ def send_message_stream(
                 visible_text=assistant_content,
                 reason_codes=tuple([signal_for_voice.trigger_reason] if signal_for_voice.escalate else []),
             ))
+            meme_suggestion = _maybe_select_session_meme(
+                db,
+                session_id=session.session_id,
+                persona_id=_stream_persona_id,
+                safety_tier=str(snap.safety_tier),
+                distress_score=float(snap.distress_score),
+                user_message=str(raw_text or ""),
+                assistant_text=str(assistant_content or ""),
+            )
+            if meme_suggestion:
+                data["meme_suggestion"] = meme_suggestion
             voice_result = _enqueue_voice_policy(
                 db=db,
                 user_id=current_user.user_id,
@@ -2210,6 +2458,7 @@ def send_message_stream(
             data["voice_policy"] = voice_result["voice_policy"]
             data["intervention"] = voice_result["intervention"]
             data["tts_job"] = extract_tts_job(voice_result.get("intervention"))
+            data["voice_messages"] = (voice_result.get("voice_policy") or {}).get("voice_messages") or []
 
             elapsed_ms = int((time.perf_counter() - started_at) * 1000)
             data["latency_trace"] = ensure_chat_latency_trace({}, total_backend_ms=elapsed_ms)
@@ -2222,6 +2471,8 @@ def send_message_stream(
                 "intervention",
             ):
                 data.pop(internal_key, None)
+            _persist_assistant_client_payload(db, assistant_msg, data)
+            db.commit()
             yield "event: status\ndata: " + json.dumps({"stage": "ready", "latency_ms": elapsed_ms}, ensure_ascii=False) + "\n\n"
             yield "event: final\ndata: " + json.dumps(data, ensure_ascii=False) + "\n\n"
         except AppError as exc:
@@ -2603,6 +2854,7 @@ def get_session_messages(
         .offset(offset)
         .limit(limit)
     ).all()
+    legacy_voice_payloads = _legacy_voice_payloads_for_history(db, session_id=session_id)
 
     messages = [
         {
@@ -2612,6 +2864,7 @@ def get_session_messages(
             "assistant_tone": m.assistant_tone,
             "the_dinh_kem": [],
             "created_at": m.created_at.isoformat() + "Z",
+            "client_payload": _history_client_payload(db, m) or legacy_voice_payloads.get(m.message_id),
         }
         for m in rows
     ]

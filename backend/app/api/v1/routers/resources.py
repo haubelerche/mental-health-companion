@@ -4,6 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.deps import ensure_policy_acknowledged
@@ -19,6 +20,91 @@ router = APIRouter(prefix="/resources", tags=["resources"])
 CATEGORIES = ["meditate", "sleep", "music", "work_study", "wisdom", "movement"]
 
 _INTERNAL_PREFIXES = ("svc_", "exercise_", "builtin_")
+
+_FALLBACK_RESOURCES: list[dict[str, Any]] = [
+    {
+        "id": "builtin_youtube_meditate_001",
+        "category": "meditate",
+        "title": "10 minute guided mindfulness meditation",
+        "description": "A short guided practice for grounding attention and slowing down.",
+        "duration_sec": 600,
+        "format": "video",
+        "url": "https://www.youtube.com/watch?v=ZToicYcHIOU",
+        "thumbnail": "https://img.youtube.com/vi/ZToicYcHIOU/hqdefault.jpg",
+        "bookmarked": False,
+        "tags": ["meditate", "mindfulness"],
+    },
+    {
+        "id": "builtin_youtube_sleep_001",
+        "category": "sleep",
+        "title": "Sleep meditation for a calm night",
+        "description": "Gentle sleep support when the mind is still busy at night.",
+        "duration_sec": 1200,
+        "format": "video",
+        "url": "https://www.youtube.com/watch?v=aEqlQvczMJQ",
+        "thumbnail": "https://img.youtube.com/vi/aEqlQvczMJQ/hqdefault.jpg",
+        "bookmarked": False,
+        "tags": ["sleep", "meditation"],
+    },
+    {
+        "id": "builtin_youtube_music_001",
+        "category": "music",
+        "title": "Relaxing music for stress relief",
+        "description": "Soft background music for decompression and focused breathing.",
+        "duration_sec": 1800,
+        "format": "video",
+        "url": "https://www.youtube.com/watch?v=lFcSrYw-ARY",
+        "thumbnail": "https://img.youtube.com/vi/lFcSrYw-ARY/hqdefault.jpg",
+        "bookmarked": False,
+        "tags": ["music", "relax"],
+    },
+    {
+        "id": "builtin_youtube_work_study_001",
+        "category": "work_study",
+        "title": "Focus music for deep work",
+        "description": "Low-distraction focus audio for studying or light work.",
+        "duration_sec": 1800,
+        "format": "video",
+        "url": "https://www.youtube.com/watch?v=jfKfPfyJRdk",
+        "thumbnail": "https://img.youtube.com/vi/jfKfPfyJRdk/hqdefault.jpg",
+        "bookmarked": False,
+        "tags": ["focus", "work_study"],
+    },
+    {
+        "id": "builtin_youtube_movement_001",
+        "category": "movement",
+        "title": "Gentle yoga for stress relief",
+        "description": "A light movement session for releasing tension.",
+        "duration_sec": 900,
+        "format": "video",
+        "url": "https://www.youtube.com/watch?v=hJbRpHZr_d0",
+        "thumbnail": "https://img.youtube.com/vi/hJbRpHZr_d0/hqdefault.jpg",
+        "bookmarked": False,
+        "tags": ["movement", "yoga"],
+    },
+    {
+        "id": "builtin_youtube_wisdom_001",
+        "category": "wisdom",
+        "title": "Understanding anxiety and stress",
+        "description": "Psychoeducation-style content for understanding stress patterns.",
+        "duration_sec": 900,
+        "format": "video",
+        "url": "https://www.youtube.com/watch?v=WWloIAQpMcQ",
+        "thumbnail": "https://img.youtube.com/vi/WWloIAQpMcQ/hqdefault.jpg",
+        "bookmarked": False,
+        "tags": ["wisdom", "stress"],
+    },
+]
+
+
+def _fallback_resources_payload(category: str | None, limit: int, offset: int) -> dict[str, Any]:
+    items = [
+        item
+        for item in _FALLBACK_RESOURCES
+        if not category or category == "all" or item["category"] == category
+    ]
+    page = items[offset : offset + limit]
+    return {"items": page, "sections": [], "filters": {"tabs": []}, "next_cursor": None, "total": len(items), "has_more": offset + len(page) < len(items)}
 
 
 def featured_bundle(db: Session, *, user_id: str | None = None) -> dict[str, Any]:
@@ -42,8 +128,15 @@ def query_resources_payload(db: Session, **kwargs: Any) -> dict[str, Any]:
         base = base.where(Resource.category == category)
         cnt = cnt.where(Resource.category == category)
 
-    total = db.scalar(cnt) or 0
-    rows = db.scalars(base.order_by(Resource.created_at.desc()).offset(offset).limit(limit)).all()
+    try:
+        total = db.scalar(cnt) or 0
+        rows = db.scalars(base.order_by(Resource.created_at.desc()).offset(offset).limit(limit)).all()
+    except SQLAlchemyError:
+        db.rollback()
+        return _fallback_resources_payload(category, limit, offset)
+
+    if total == 0:
+        return _fallback_resources_payload(category, limit, offset)
 
     items = []
     for row in rows:
@@ -68,7 +161,7 @@ def query_resources_payload(db: Session, **kwargs: Any) -> dict[str, Any]:
             "bookmarked": False,
         })
 
-    return {"items": items, "sections": [], "filters": {"tabs": []}, "next_cursor": None, "total": total}
+    return {"items": items, "sections": [], "filters": {"tabs": []}, "next_cursor": None, "total": total, "has_more": offset + len(items) < total}
 
 
 @router.get("/exercises")
