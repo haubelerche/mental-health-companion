@@ -38,6 +38,13 @@ class FakeDB:
         self.items: list[object] = []
         self.committed = False
 
+    def scalars(self, *_args, **_kwargs):  # SQLAlchemy 2 compat for router helpers (meme cadence)
+        class _ScalarResult:
+            def all(_self_inner) -> list:
+                return []
+
+        return _ScalarResult()
+
     def add(self, item: object) -> None:
         self.items.append(item)
 

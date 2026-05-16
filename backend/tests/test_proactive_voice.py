@@ -98,7 +98,10 @@ def test_get_voice_job_processing_uses_processing_started_at(monkeypatch):
     assert db.committed is False
 
 
-def test_get_voice_job_done_ready_clears_stale_error():
+def test_get_voice_job_done_ready_clears_stale_error(tmp_path):
+    audio_file = tmp_path / "tts_10_dummy.mp3"
+    audio_file.write_bytes(b"x")
+
     class Row:
         outbox_id = 10
         event_type = proactive_voice.VOICE_JOB_EVENT_TYPE
@@ -110,6 +113,7 @@ def test_get_voice_job_done_ready_clears_stale_error():
             "user_id": "usr_1",
             "voice": {
                 "status": "ready",
+                "audio_path": str(audio_file),
                 "audio_url": "/v1/chat/voice-jobs/tts_10/audio",
                 "error_code": "stale_lock",
                 "error_message": "Voice job xử lý quá lâu; hệ thống đã đánh dấu thất bại.",
