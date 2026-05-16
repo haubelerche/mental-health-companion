@@ -7,7 +7,7 @@
 ## [Unreleased] — AutoCBT & Insight Pipeline audit gap closure · 2026-05-16
 
 ### Fixed
-- **`/chat/end` 503 crash**: `session_summaries_archive.archive_id` is `BIGINT PRIMARY KEY` in the alembic-generated SQLite schema — SQLite only gives autoincrement semantics to `INTEGER PRIMARY KEY`. Migration `0038` recreates the table with `INTEGER PRIMARY KEY AUTOINCREMENT`; PostgreSQL (production) is unaffected. Direct DB fix applied to `serene_local.db`.
+- **`/chat/end` 503 crash**: `session_summaries_archive.archive_id` lacked an autoincrement/sequence default. SQLite requires `INTEGER PRIMARY KEY` (not `BIGINT`); PostgreSQL/Supabase requires a `nextval()` DEFAULT. Migration `0038` fixes both: recreates the table for SQLite and idempotently adds a sequence for PostgreSQL if the column has no DEFAULT yet. Direct DB fix also applied to `serene_local.db`.
 - **Streaming endpoint fast path**: `/chat/message/stream` now runs `FastNeedRouter` before entering LangGraph; small-talk, greeting, ack, thanks, and empty turns are handled by `ChatOrchestrator.generate_normal_turn()` (same path as non-streaming), eliminating ~1.5–2 s of LangGraph overhead and fixing over-analytical responses for casual messages.
 - `langgraph_chat.py`: repaired double-encoded UTF-8 Vietnamese strings, including memory and counseling-example headers used by recall context and retriever prompts.
 - `distress_router`: restored the mood+distress combo rule so stressed/restless/melancholic mood at distress >= 0.58 routes to Analyst, matching legacy supervisor behavior.

@@ -1,11 +1,18 @@
-"""Fix session_summaries_archive.archive_id for SQLite autoincrement.
+"""Fix session_summaries_archive.archive_id autoincrement.
 
-SQLite only gives autoincrement semantics to INTEGER PRIMARY KEY (not
-BIGINT PRIMARY KEY). When the column is BIGINT, the NOT NULL constraint
-fires on insert because no value is generated.
+SQLite only gives autoincrement to INTEGER PRIMARY KEY (not BIGINT), so
+every INSERT without an explicit archive_id raised NOT NULL constraint.
 
-This migration recreates the table with the correct type in SQLite only;
-PostgreSQL uses a server-side BIGSERIAL/sequence and is unaffected.
+On PostgreSQL/Supabase the same symptom appears when the column has no
+DEFAULT nextval(...) — which can happen if the table was created by a
+raw CREATE TABLE (e.g. schema consolidation) instead of SQLAlchemy's
+create_all() that would have emitted BIGSERIAL/sequence automatically.
+
+This migration:
+  - SQLite   : recreates the table with INTEGER PRIMARY KEY AUTOINCREMENT.
+  - PostgreSQL: idempotently adds a sequence + DEFAULT if the column has
+                no server default yet. Safe to run even if the sequence
+                already exists.
 
 Revision ID: 0038_fix_archive_id_sqlite_autoincrement
 Revises: 0037_ext_screening_legacy_cleanup
@@ -14,6 +21,7 @@ Create Date: 2026-05-16
 
 from __future__ import annotations
 
+import sqlalchemy as sa
 from alembic import op
 
 revision = "0038_fix_archive_id_sqlite_autoincrement"
@@ -21,38 +29,79 @@ down_revision = "0037_ext_screening_legacy_cleanup"
 branch_labels = None
 depends_on = None
 
+_SEQ = "session_summaries_archive_archive_id_seq"
+_TABLE = "session_summaries_archive"
+
+
+def _pg_column_has_default(bind: sa.engine.Connection) -> bool:
+    row = bind.execute(
+        sa.text(
+            """
+            SELECT column_default
+            FROM information_schema.columns
+            WHERE table_name = :tbl
+              AND column_name = 'archive_id'
+            LIMIT 1
+            """
+        ),
+        {"tbl": _TABLE},
+    ).fetchone()
+    if row is None:
+        return False
+    return row[0] is not None
+
 
 def upgrade() -> None:
     bind = op.get_bind()
-    if bind.dialect.name != "sqlite":
-        return  # PostgreSQL BIGSERIAL handles autoincrement correctly
 
-    op.execute("""
-        CREATE TABLE session_summaries_archive_new (
-            archive_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id VARCHAR NOT NULL,
-            session_id VARCHAR,
-            summary JSON NOT NULL,
-            session_started_at DATETIME,
-            dominant_emotion VARCHAR,
-            sos_triggered BOOLEAN NOT NULL DEFAULT 0,
-            archived_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-            FOREIGN KEY(user_id) REFERENCES users (user_id) ON DELETE CASCADE,
-            FOREIGN KEY(session_id) REFERENCES conversations (session_id) ON DELETE SET NULL
-        )
-    """)
-    op.execute("""
-        INSERT INTO session_summaries_archive_new
-            (archive_id, user_id, session_id, summary,
-             session_started_at, dominant_emotion, sos_triggered, archived_at)
-        SELECT
-            rowid, user_id, session_id, summary,
-            session_started_at, dominant_emotion, sos_triggered, archived_at
-        FROM session_summaries_archive
-    """)
-    op.execute("DROP TABLE session_summaries_archive")
+    if bind.dialect.name == "sqlite":
+        op.execute(f"""
+            CREATE TABLE {_TABLE}_new (
+                archive_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id VARCHAR NOT NULL,
+                session_id VARCHAR,
+                summary JSON NOT NULL,
+                session_started_at DATETIME,
+                dominant_emotion VARCHAR,
+                sos_triggered BOOLEAN NOT NULL DEFAULT 0,
+                archived_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users (user_id) ON DELETE CASCADE,
+                FOREIGN KEY(session_id) REFERENCES conversations (session_id) ON DELETE SET NULL
+            )
+        """)
+        op.execute(f"""
+            INSERT INTO {_TABLE}_new
+                (archive_id, user_id, session_id, summary,
+                 session_started_at, dominant_emotion, sos_triggered, archived_at)
+            SELECT
+                rowid, user_id, session_id, summary,
+                session_started_at, dominant_emotion, sos_triggered, archived_at
+            FROM {_TABLE}
+        """)
+        op.execute(f"DROP TABLE {_TABLE}")
+        op.execute(f"ALTER TABLE {_TABLE}_new RENAME TO {_TABLE}")
+        return
+
+    # PostgreSQL / Supabase — add sequence + DEFAULT if missing.
+    if _pg_column_has_default(bind):
+        return  # Already has BIGSERIAL/nextval default; nothing to do.
+
+    op.execute(sa.text(f"CREATE SEQUENCE IF NOT EXISTS {_SEQ}"))
     op.execute(
-        "ALTER TABLE session_summaries_archive_new RENAME TO session_summaries_archive"
+        sa.text(
+            f"ALTER TABLE {_TABLE} "
+            f"ALTER COLUMN archive_id SET DEFAULT nextval('{_SEQ}')"
+        )
+    )
+    op.execute(
+        sa.text(f"ALTER SEQUENCE {_SEQ} OWNED BY {_TABLE}.archive_id")
+    )
+    # Advance the sequence past any existing rows so the next INSERT gets a
+    # fresh value and does not collide with manually-inserted rows.
+    op.execute(
+        sa.text(
+            f"SELECT setval('{_SEQ}', COALESCE((SELECT MAX(archive_id) FROM {_TABLE}), 0) + 1, false)"
+        )
     )
 
 
