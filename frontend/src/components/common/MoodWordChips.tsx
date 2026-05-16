@@ -22,7 +22,7 @@ export function MoodWordChips({ words = DEFAULT_WORDS, selected, onChange, class
     }
 
     return (
-        <div className={`flex shrink-0 overflow-x-auto scrollbar-hide  gap-2 ${className ?? ''}`}>
+        <div className={`${className ?? ''}`}>
             {words.map((word) => (
                 <button
                     key={word}

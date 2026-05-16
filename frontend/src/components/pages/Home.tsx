@@ -806,7 +806,7 @@ export default function Home() {
 
                     <div className="mt-4">
                         <div className="mb-4">
-                            <MoodWordChips selected={homeMoodWords} onChange={setHomeMoodWords} />
+                            <MoodWordChips selected={homeMoodWords} onChange={setHomeMoodWords} className='flex gap-2 overflow-x-auto hide-scrollbar '/>
                         </div>
                         {homeMoodWords.length > 0 && (
                             <motion.button
