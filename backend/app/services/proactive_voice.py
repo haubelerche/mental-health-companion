@@ -639,15 +639,14 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
     )
 
     audio_path_from_payload = Path(str(voice.get("audio_path"))) if voice.get("audio_path") else None
-    has_ready_audio = bool(
-        voice.get("audio_url")
-        or (audio_path_from_payload and audio_path_from_payload.exists())
-        or _voice_audio_file(outbox_id).exists()
-    )
+    payload_audio_exists = bool(audio_path_from_payload and audio_path_from_payload.exists())
+    fallback_audio_path = _voice_audio_file(outbox_id)
+    fallback_audio_exists = fallback_audio_path.exists()
+    has_ready_audio = payload_audio_exists or fallback_audio_exists
 
     if row.status == "done" and (voice_status != "ready" or has_ready_audio):
         if has_ready_audio:
-            audio_path = audio_path_from_payload if audio_path_from_payload and audio_path_from_payload.exists() else _voice_audio_file(outbox_id)
+            audio_path = audio_path_from_payload if payload_audio_exists else fallback_audio_path
             voice["status"] = "ready"
             if audio_path.exists():
                 voice["audio_path"] = str(audio_path)
@@ -666,7 +665,7 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
             voice_status = "ready"
 
     if row.status == "done" and voice_status in {"queued", "processing", "pending"}:
-        audio_path = _voice_audio_file(outbox_id)
+        audio_path = fallback_audio_path
         if audio_path.exists():
             voice["status"] = "ready"
             voice["audio_path"] = str(audio_path)
@@ -690,6 +689,18 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
             db.commit()
             logger.warning("voice_job_done_missing_audio job_id=%s", outbox_id)
             voice_status = "failed"
+
+    if row.status == "done" and voice_status == "ready" and not has_ready_audio:
+        voice["status"] = "failed"
+        voice["error_code"] = "voice_ready_missing_audio"
+        voice["error_message"] = "Voice job marked ready but generated audio file was missing on this server."
+        voice.pop("audio_url", None)
+        payload["voice"] = voice
+        _assign_payload(row, payload)
+        row.status = "failed"
+        db.commit()
+        logger.warning("voice_job_ready_missing_audio job_id=%s", outbox_id)
+        voice_status = "failed"
 
     if row.status == "processing" and processing_age_seconds >= VOICE_JOB_PROCESSING_STALE_SECONDS:
         voice["status"] = "failed"
@@ -762,12 +773,20 @@ def get_voice_audio_path(db: Session, tts_job_id: str) -> Path | None:
     payload = dict(row.payload or {})
     voice = dict(payload.get("voice") or {})
     p = voice.get("audio_path")
-    if not p:
-        return None
-    path = Path(str(p))
-    if not path.exists():
-        return None
-    return path
+    if p:
+        path = Path(str(p))
+        if path.exists():
+            return path
+    fallback = _voice_audio_file(outbox_id)
+    if fallback.exists():
+        voice["audio_path"] = str(fallback)
+        voice["audio_url"] = f"/v1/chat/voice-jobs/tts_{outbox_id}/audio"
+        voice["status"] = "ready"
+        payload["voice"] = voice
+        _assign_payload(row, payload)
+        db.commit()
+        return fallback
+    return None
 
 
 def reclaim_stale_processing_jobs(db: Session, *, stale_after_seconds: int = 180) -> int:

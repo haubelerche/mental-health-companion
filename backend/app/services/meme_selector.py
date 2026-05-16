@@ -88,6 +88,14 @@ def _pick_contextual_filename(text: str) -> tuple[str, str] | None:
     return None
 
 
+def _next_unused_filename(seed: str, used_filenames: set[str]) -> str | None:
+    available = [filename for filename in _EMOTION_MEMES if filename not in used_filenames]
+    if not available:
+        return None
+    pick = int(hashlib.sha1(seed.encode("utf-8")).hexdigest()[:8], 16) % len(available)
+    return available[pick]
+
+
 def _meme_id_for(filename: str) -> str:
     try:
         idx = _EMOTION_MEMES.index(filename)
@@ -106,13 +114,14 @@ def maybe_select_meme_suggestion(
     cooldown_turns: int = 1,
     user_message: str = "",
     assistant_text: str = "",
+    previous_meme_image_paths: list[str] | tuple[str, ...] | None = None,
 ) -> MemeSuggestion | None:
     """
     Context-aware playful meme policy for `dung_luong` only.
 
     - Scope: normal chat, low distress, persona `dung_luong`.
-    - Cooldown: every turn (cooldown_turns=1 default for dung_luong's frequent style).
-    - Frequency: contextual matches always fire; generic fallback fires on every eligible turn.
+    - Cadence is controlled by the router via cooldown_turns / turn index.
+    - Does not repeat an image already used in the same conversation while unused assets remain.
     """
     if persona_id != "dung_luong":
         return None
@@ -129,9 +138,23 @@ def maybe_select_meme_suggestion(
     if assistant_turn_index % cooldown_turns != 0:
         return None
 
+    used_filenames = {
+        str(item or "").rsplit("/", 1)[-1].strip()
+        for item in (previous_meme_image_paths or [])
+        if str(item or "").strip()
+    }
+
     contextual = _pick_contextual_filename(combined)
     if contextual:
         filename, reason = contextual
+        if filename in used_filenames:
+            filename = _next_unused_filename(
+                f"{session_id}:{assistant_turn_index}:{reason}:alternate",
+                used_filenames,
+            )
+            reason = "context_alternate"
+        if not filename:
+            return None
         return {
             "id": _meme_id_for(filename),
             "image_path": filename,
@@ -140,10 +163,11 @@ def maybe_select_meme_suggestion(
         }
 
     pick_seed = f"{session_id}:{assistant_turn_index}:asset"
-    pick = int(hashlib.sha1(pick_seed.encode("utf-8")).hexdigest()[:8], 16) % len(_EMOTION_MEMES)
-    filename = _EMOTION_MEMES[pick]
+    filename = _next_unused_filename(pick_seed, used_filenames)
+    if not filename:
+        return None
     return {
-        "id": f"emotion_{pick}",
+        "id": _meme_id_for(filename),
         "image_path": filename,
         "alt": "Emotion meme",
         "trigger_reason": "dung_luong_emotion_meme",
