@@ -12,10 +12,12 @@ import { CurrentSnapshotHero } from '../../dashboard/CurrentSnapshotHero'
 import { DataQualityBadge } from '../../dashboard/DataQualityBadge'
 import { DataQualityNotice } from '../../dashboard/DataQualityNotice'
 import { LifestyleRhythmPanel } from '../../dashboard/LifestyleRhythmPanel'
+import { MoodByPeriodChart } from '../../dashboard/MoodByPeriodChart'
 import { MoodTrendChart } from '../../dashboard/MoodTrendChart'
 import { NextStepsPlan } from '../../dashboard/NextStepsPlan'
 import { PatternGroupCards } from '../../dashboard/PatternGroupCards'
 import { PixelMoodCalendar } from '../../dashboard/PixelMoodCalendar'
+import { ScreeningPanel } from '../../dashboard/ScreeningPanel'
 import { TriggerEmotionHeatmap } from '../../dashboard/TriggerEmotionHeatmap'
 import { Skeleton } from './Skeleton'
 
@@ -23,6 +25,15 @@ const RANGE_OPTIONS: Array<{ value: ReflectRange; label: string }> = [
     { value: '7d', label: '7 ngày' },
     { value: '14d', label: '14 ngày' },
     { value: '30d', label: '30 ngày' },
+]
+
+type DashboardTab = 'overview' | 'mood' | 'pattern' | 'lifestyle'
+
+const TABS: Array<{ id: DashboardTab; label: string }> = [
+    { id: 'overview', label: 'Tổng quan' },
+    { id: 'mood', label: 'Tâm trạng' },
+    { id: 'pattern', label: 'Pattern' },
+    { id: 'lifestyle', label: 'Sinh hoạt' },
 ]
 
 function formatUpdatedAt(value: string): string {
@@ -36,9 +47,112 @@ function formatUpdatedAt(value: string): string {
     })
 }
 
+function TabBar({
+    active,
+    onChange,
+}: {
+    active: DashboardTab
+    onChange: (tab: DashboardTab) => void
+}) {
+    return (
+        <nav
+            className="flex gap-1 rounded-2xl border border-theme-border bg-theme-surface p-1 shadow-md"
+            role="tablist"
+            aria-label="Dashboard sections"
+        >
+            {TABS.map((tab) => (
+                <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active === tab.id}
+                    aria-controls={`tab-panel-${tab.id}`}
+                    id={`tab-${tab.id}`}
+                    onClick={() => onChange(tab.id)}
+                    className={`flex flex-1 items-center justify-center rounded-xl px-3 py-2 text-sm font-semibold transition-all duration-200 ${
+                        active === tab.id
+                            ? 'bg-theme-surface text-theme-accent shadow-sm ring-1 ring-theme-border/40'
+                            : 'text-theme-text-secondary hover:bg-theme-surface/50 hover:text-theme-text-primary'
+                    }`}
+                >
+                    {tab.label}
+                </button>
+            ))}
+        </nav>
+    )
+}
+
+function OverviewTab({ dashboard }: { dashboard: ReflectDashboardResponse }) {
+    return (
+        <div
+            id="tab-panel-overview"
+            role="tabpanel"
+            aria-labelledby="tab-overview"
+            className="flex flex-col gap-4"
+        >
+            <CurrentSnapshotHero dashboard={dashboard} />
+            <DataQualityNotice dataQuality={dashboard.data_quality} />
+        </div>
+    )
+}
+
+function MoodTab({ dashboard }: { dashboard: ReflectDashboardResponse }) {
+    return (
+        <div
+            id="tab-panel-mood"
+            role="tabpanel"
+            aria-labelledby="tab-mood"
+            className="flex flex-col gap-4"
+        >
+            <PixelMoodCalendar series={dashboard.mood_series} range={dashboard.range} />
+            <MoodTrendChart
+                series={dashboard.mood_series}
+                enoughForTrend={dashboard.data_quality.enough_for_trend}
+            />
+            <MoodByPeriodChart data={dashboard.mood_by_period} />
+        </div>
+    )
+}
+
+function PatternTab({ dashboard }: { dashboard: ReflectDashboardResponse }) {
+    return (
+        <div
+            id="tab-panel-pattern"
+            role="tabpanel"
+            aria-labelledby="tab-pattern"
+            className="flex flex-col gap-4"
+        >
+            <TriggerEmotionHeatmap matrix={dashboard.trigger_emotion_matrix} />
+            <PatternGroupCards insights={dashboard.insights} />
+            <ChallengeCards
+                summary={dashboard.summary}
+                checkins={dashboard.recent_checkins}
+                matrix={dashboard.trigger_emotion_matrix}
+            />
+            <CopingEffectivenessPanel insights={dashboard.insights} />
+        </div>
+    )
+}
+
+function LifestyleTab({ dashboard }: { dashboard: ReflectDashboardResponse }) {
+    return (
+        <div
+            id="tab-panel-lifestyle"
+            role="tabpanel"
+            aria-labelledby="tab-lifestyle"
+            className="flex flex-col gap-4"
+        >
+            <LifestyleRhythmPanel dimensions={dashboard.dimensions} />
+            <ScreeningPanel />
+            <NextStepsPlan summary={dashboard.summary} />
+        </div>
+    )
+}
+
 export default function Reflect() {
     const { user } = useAuth()
     const [range, setRange] = useState<ReflectRange>('7d')
+    const [activeTab, setActiveTab] = useState<DashboardTab>('overview')
     const [dashboard, setDashboard] = useState<ReflectDashboardResponse | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -71,7 +185,6 @@ export default function Reflect() {
 
     return (
         <div className="relative min-h-screen overflow-x-hidden text-theme-text-primary">
-            {/* subtle pixel grid background */}
             <div
                 className="pointer-events-none fixed inset-0 opacity-[0.04]"
                 style={{
@@ -81,10 +194,8 @@ export default function Reflect() {
                 }}
             />
 
-            <main className="relative mx-auto flex flex-col gap-4 px-4 pb-16 pt-3 md:px-6">
-
-                {/* ── Header ── */}
-                <header className="rounded-2xl border border-theme-border bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
+            <main className="relative mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 pb-16 pt-3 md:px-6">
+                <header className="rounded-2xl border border-theme-border bg-theme-surface p-4 shadow-sm backdrop-blur-xl md:p-5">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-3">
@@ -123,69 +234,23 @@ export default function Reflect() {
                     </div>
                 </header>
 
-                {/* ── Error ── */}
                 {error && (
                     <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
                         {error}
                     </section>
                 )}
 
-                {/* ── Loading skeleton ── */}
                 {loading && !dashboard && <Skeleton />}
 
-                {/* ── Dashboard sections ── */}
                 {dashboard && (
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        {/* 1. Tình hình hiện tại (Text) */}
-                        <CurrentSnapshotHero dashboard={dashboard} />
+                    <>
+                        <TabBar active={activeTab} onChange={setActiveTab} />
 
-                        {/* 4. Ngủ / ăn / năng lượng / kết nối (Text) */}
-                        <LifestyleRhythmPanel dimensions={dashboard.dimensions} />
-
-                        {/* 3. Nhịp cảm xúc & năng lượng (Chart) */}
-                        <div className="md:col-span-2">
-                            <MoodTrendChart
-                                series={dashboard.mood_series}
-                                enoughForTrend={dashboard.data_quality.enough_for_trend}
-                            />
-                        </div>
-
-                        {/* 6. Khó khăn nổi bật (Text) */}
-                        <ChallengeCards
-                            summary={dashboard.summary}
-                            checkins={dashboard.recent_checkins}
-                            matrix={dashboard.trigger_emotion_matrix}
-                        />
-
-                        {/* 7. Dấu hiệu nên theo dõi thêm (Text) */}
-                        <PatternGroupCards insights={dashboard.insights} />
-
-                        {/* 2. Mood calendar (Chart) */}
-                        <div className="md:col-span-2">
-                            <PixelMoodCalendar series={dashboard.mood_series} range={dashboard.range} />
-                        </div>
-
-                        {/* 8. Sàng lọc (Full width) */}
-                        {/* <div className="md:col-span-2">
-                            <ScreeningPanel />
-                        </div> */}
-
-                        {/* 5. Trigger × Emotion heatmap (Chart) */}
-                        <div className="md:col-span-2">
-                            <TriggerEmotionHeatmap matrix={dashboard.trigger_emotion_matrix} />
-                        </div>
-
-                        {/* 9. Điều từng giúp (Text) */}
-                        <CopingEffectivenessPanel insights={dashboard.insights} />
-
-                        {/* 10. Một bước nhỏ hôm nay (Text) */}
-                        <NextStepsPlan summary={dashboard.summary} />
-
-                        {/* 11. Data quality notice */}
-                        <div className="md:col-span-2">
-                            <DataQualityNotice dataQuality={dashboard.data_quality} />
-                        </div>
-                    </div>
+                        {activeTab === 'overview' && <OverviewTab dashboard={dashboard} />}
+                        {activeTab === 'mood' && <MoodTab dashboard={dashboard} />}
+                        {activeTab === 'pattern' && <PatternTab dashboard={dashboard} />}
+                        {activeTab === 'lifestyle' && <LifestyleTab dashboard={dashboard} />}
+                    </>
                 )}
             </main>
         </div>

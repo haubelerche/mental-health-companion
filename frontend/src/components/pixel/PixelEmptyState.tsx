@@ -22,7 +22,7 @@ export function PixelEmptyState({
                 alt="Serene mascot"
                 className="mb-4 max-sm:h-20 max-sm:w-20"
             />
-            <h2 className="font-display text-2xl text-theme-text-primary">{title}</h2>
+            <h2 className="font-display text-xl font-semibold text-theme-text-primary">{title}</h2>
             {description && (
                 <p className="mt-2 max-w-md text-sm leading-relaxed text-theme-text-secondary">
                     {description}

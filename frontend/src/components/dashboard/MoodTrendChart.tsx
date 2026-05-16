@@ -66,7 +66,7 @@ export function MoodTrendChart({ series, enoughForTrend }: Props) {
         : 'bg-amber-50 text-amber-800'
 
     return (
-        <section className="rounded-2xl border border-theme-border/70 bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
+        <section className="rounded-2xl border border-theme-border/70 bg-theme-surface p-4 shadow-sm md:p-5">
             <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-theme-text-tertiary">Nhịp cảm xúc</p>

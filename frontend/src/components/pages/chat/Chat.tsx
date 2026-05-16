@@ -60,7 +60,14 @@ type ResourceSuggestion = {
     route?: string
     thumbnail?: string | null
 }
-type TtsJob = { tts_job_id?: string | number | null; status?: string | null; audio_url?: string | null }
+type TtsJob = {
+    tts_job_id?: string | number | null
+    status?: string | null
+    audio_url?: string | null
+    audio_data_uri?: string | null
+    error_code?: string | null
+    error_message?: string | null
+}
 type MemeSuggestion = { id: string; image_path: string; alt?: string; trigger_reason?: string }
 
 type ChatApiData = {
@@ -76,6 +83,7 @@ type ChatApiData = {
     nutrition_suggestion?: Record<string, unknown> | null
     optional_support?: Record<string, unknown> | null
     tts_job?: TtsJob | null
+    voice_messages?: TtsJob[] | null
     latency_trace?: Record<string, unknown>
     risk_level?: number
     assistant_strategy?: AssistantStrategy
@@ -256,14 +264,12 @@ function MemeCard({ item }: { item: MemeSuggestion }) {
     const imageUrl = resolveEmotionMemeUrl(item.image_path)
     if (!imageUrl) return null
     return (
-        <article className="mt-2 inline-flex max-w-[260px] overflow-hidden border border-[#8a6a3f]/50 bg-[#17130e]/88 shadow-[4px_4px_0_rgba(0,0,0,0.24)] sm:max-w-[320px]">
-            <img
-                src={imageUrl}
-                alt={item.alt || 'Emotion meme'}
-                className="max-h-[220px] w-auto max-w-full object-contain"
-                loading="lazy"
-            />
-        </article>
+        <img
+            src={imageUrl}
+            alt={item.alt || 'Emotion meme'}
+            className="mt-2 block h-auto max-h-[260px] max-w-[min(320px,78vw)] object-contain"
+            loading="lazy"
+        />
     )
 }
 
@@ -278,6 +284,16 @@ function readStoredChatSession(personaId: string) {
     const stored = localStorage.getItem(key)
     if (stored) return stored
     return personaId === DEFAULT_PERSONA_ID ? localStorage.getItem(LEGACY_CHAT_SESSION_KEY) : null
+}
+
+function clearStoredChatSession(personaId: string) {
+    localStorage.removeItem(chatSessionStorageKey(personaId))
+    localStorage.removeItem(LEGACY_CHAT_SESSION_KEY)
+}
+
+function isSessionNotFoundError(err: unknown) {
+    if (!(err instanceof ApiRequestError)) return false
+    return err.code === 'SESSION_NOT_FOUND' || err.status === 404
 }
 
 export default function Chat() {
@@ -499,7 +515,7 @@ export default function Chat() {
         return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
     }, [guestSecondsLeft])
 
-    const playAudioUrl = (audioUrl: string) => {
+    const playAudioUrl = (audioUrl: string, voiceMessageId?: string) => {
         // Data/blob URLs play directly without a network request.
         if (audioUrl.startsWith('data:') || audioUrl.startsWith('blob:')) {
             const audio = new Audio(audioUrl)
@@ -513,6 +529,7 @@ export default function Chat() {
             }).catch(() => {
                 setPendingAudioUrl(audioUrl)
                 setVoiceStatus('')
+                if (voiceMessageId) updateVoiceMessage(voiceMessageId, { errorMessage: 'Trình duyệt chưa phát được audio.' })
             })
             return
         }
@@ -537,6 +554,7 @@ export default function Chat() {
             .catch(() => {
                 setPendingAudioUrl(null)
                 setVoiceStatus('failed')
+                if (voiceMessageId) updateVoiceMessage(voiceMessageId, { status: 'failed', errorMessage: 'Không tải được file voice.' })
             })
     }
 
@@ -617,7 +635,12 @@ export default function Chat() {
         playedVoiceJobsRef.current.add(jobId)
 
         const status = String(ttsJob?.status || 'queued')
-        const audioUrl = typeof ttsJob?.audio_url === 'string' ? ttsJob.audio_url : null
+        const audioUrl =
+            typeof ttsJob?.audio_data_uri === 'string'
+                ? ttsJob.audio_data_uri
+                : typeof ttsJob?.audio_url === 'string'
+                    ? ttsJob.audio_url
+                    : null
 
         if (audioUrl || TTS_TERMINAL_STATUSES.has(status as TtsStatus)) {
             // Audio already available (or terminal state) — show card immediately
@@ -639,6 +662,45 @@ export default function Chat() {
             // Audio not yet ready — poll silently and add card only when audio is available
             void pollVoiceJob(jobId, 0)
         }
+    }
+
+    const buildVoiceHistoryMessages = (data: ChatApiData | undefined, sourceMessageId: string, timestamp?: number): UiMessage[] => {
+        if (!data) return []
+        const jobs: TtsJob[] = []
+        if (data.tts_job?.tts_job_id) jobs.push(data.tts_job)
+        if (Array.isArray(data.voice_messages)) {
+            for (const job of data.voice_messages) {
+                if (job?.tts_job_id) jobs.push(job)
+            }
+        }
+
+        const seen = new Set<string>()
+        return jobs.flatMap((job, index) => {
+            const jobId = job.tts_job_id ? String(job.tts_job_id) : ''
+            if (!jobId || seen.has(jobId)) return []
+            if (playedVoiceJobsRef.current.has(jobId)) return []
+            seen.add(jobId)
+            playedVoiceJobsRef.current.add(jobId)
+            const status = String(job.status || 'queued')
+            const audioUrl =
+                typeof job.audio_data_uri === 'string'
+                    ? job.audio_data_uri
+                    : typeof job.audio_url === 'string'
+                        ? job.audio_url
+                        : null
+            return [{
+                id: `voice_${sourceMessageId}_${jobId}_${index}`,
+                role: 'assistant' as const,
+                content: '',
+                timestamp,
+                voice: {
+                    ttsJobId: jobId,
+                    status: audioUrl ? 'ready' : status,
+                    audioUrl,
+                    errorMessage: typeof job.error_message === 'string' ? job.error_message : null,
+                },
+            }]
+        })
     }
 
     const isActiveChatRequest = (requestId: number, requestSessionId: string | null, requestPersonaId: string) => {
@@ -806,6 +868,15 @@ export default function Chat() {
                     await consumeChatSse(streamResponse, pendingId, requestId, requestSessionId, requestPersonaId)
                 } catch (err) {
                     if (!isActiveChatRequest(requestId, requestSessionId, requestPersonaId)) return
+                    if (requestSessionId && isSessionNotFoundError(err)) {
+                        clearStoredChatSession(requestPersonaId)
+                        activeSessionRef.current = null
+                        setSessionId(null)
+                        const freshPayload = { ...requestPayload, session_id: null }
+                        const streamResponse = await chatService.sendMessageStream(freshPayload)
+                        await consumeChatSse(streamResponse, pendingId, requestId, null, requestPersonaId)
+                        return
+                    }
                     const status = err instanceof ApiRequestError ? (err.status ?? 0) : 0
                     if (!(err instanceof ApiRequestError) || (status !== 0 && status < 500)) throw err
                     const rawData = await chatService.sendMessage(requestPayload)
@@ -908,17 +979,37 @@ export default function Chat() {
         setHotlineSheetOpen(false)
         try {
             const data = await chatService.getSessionMessages(targetSessionId, 100, 0)
-            setSessionId(targetSessionId)
-            setMessages(
-                data.messages.map((msg) => ({
+            playedVoiceJobsRef.current.clear()
+            const hydratedMessages = data.messages.flatMap((msg) => {
+                const parsedTimestamp = msg.created_at ? new Date(msg.created_at).getTime() : undefined
+                const timestamp = typeof parsedTimestamp === 'number' && Number.isFinite(parsedTimestamp) ? parsedTimestamp : undefined
+                const apiData = msg.client_payload as ChatApiData | undefined
+                const textMessage: UiMessage = {
                     id: msg.message_id,
                     role: msg.role,
                     content: msg.content,
-                    timestamp: msg.created_at ? new Date(msg.created_at).getTime() : undefined,
-                })),
-            )
+                    timestamp,
+                    apiData: msg.role === 'assistant' ? apiData : undefined,
+                }
+                return [textMessage, ...buildVoiceHistoryMessages(apiData, msg.message_id, timestamp)]
+            })
+            setSessionId(targetSessionId)
+            setMessages(hydratedMessages)
+            hydratedMessages.forEach((msg) => {
+                if (!msg.voice?.ttsJobId || msg.voice.audioUrl) return
+                if (TTS_TERMINAL_STATUSES.has(msg.voice.status as TtsStatus)) return
+                void pollVoiceJob(msg.voice.ttsJobId, 0, msg.id)
+            })
             setShowHistory(false)
         } catch (err) {
+            if (isSessionNotFoundError(err)) {
+                clearStoredChatSession(activePersonaId)
+                activeSessionRef.current = null
+                setSessionId(null)
+                setMessages([])
+                setShowHistory(false)
+                return
+            }
             toast.error(err instanceof Error ? err.message : 'Không tải được lịch sử hội thoại')
         }
     }
@@ -1274,7 +1365,7 @@ export default function Chat() {
                                                         {isAI && m.isPending ? (
                                                             <TypingIndicator visible />
                                                         ) : m.voice ? (
-                                                            <VoiceMessageBubble voice={m.voice} onPlay={playAudioUrl} />
+                                                            <VoiceMessageBubble voice={m.voice} onPlay={(audioUrl) => playAudioUrl(audioUrl, m.id)} />
                                                         ) : (
                                                             <article
                                                                 className={[

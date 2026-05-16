@@ -30,7 +30,7 @@ export function MoodMiniTimeline({ checkins, missingData }: Props) {
         : 'border-amber-200 bg-amber-50 text-amber-800'
 
     return (
-        <section className="rounded-2xl border border-theme-border/70 bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
+        <section className="rounded-2xl border border-theme-border/70 bg-theme-surface p-4 shadow-sm md:p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-theme-text-tertiary">

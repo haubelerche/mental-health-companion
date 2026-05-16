@@ -38,6 +38,7 @@ export type SessionMessage = {
     role: 'user' | 'assistant'
     content: string
     created_at: string
+    client_payload?: Record<string, unknown> | null
 }
 
 export const chatService = {

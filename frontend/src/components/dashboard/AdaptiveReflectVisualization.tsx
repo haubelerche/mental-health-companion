@@ -20,7 +20,7 @@ export function AdaptiveReflectVisualization({ dashboard }: Props) {
             {pairCount >= 3 ? (
                 <TriggerEmotionHeatmap matrix={dashboard.trigger_emotion_matrix} />
             ) : (
-                <section className="rounded-2xl border border-theme-border/70 bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
+                <section className="rounded-2xl border border-theme-border/70 bg-theme-surface p-4 shadow-sm md:p-5">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-theme-text-tertiary">Pattern map</p>
                     <h2 className="mt-1 text-xl font-semibold text-theme-text-primary">Cặp trigger-cảm xúc</h2>
                     <p className="mt-2 text-sm leading-relaxed text-theme-text-secondary">

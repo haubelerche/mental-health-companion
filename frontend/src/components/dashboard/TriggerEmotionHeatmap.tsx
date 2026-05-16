@@ -26,7 +26,7 @@ export function TriggerEmotionHeatmap({ matrix }: Props) {
     const lookup = new Map(matrix.map((cell) => [`${cell.trigger}:::${cell.emotion}`, cell]))
 
     return (
-        <section className="rounded-2xl border border-theme-border/70 bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
+        <section className="rounded-2xl border border-theme-border/70 bg-theme-surface p-4 shadow-sm md:p-5">
             <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-theme-text-tertiary">Pattern map</p>

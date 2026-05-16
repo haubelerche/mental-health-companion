@@ -1,29 +1,17 @@
 import type { ReflectDataQuality } from '../../services/dashboardService'
-import { useThemeContext } from '../../contexts/ThemeContext'
 
 type Props = {
     dataQuality: ReflectDataQuality
 }
 
+const TONE: Record<string, string> = {
+    no_data: 'border-slate-400 bg-slate-200 text-slate-800 dark:border-slate-400/40 dark:bg-slate-500/20 dark:text-slate-100',
+    low_data: 'border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/15 dark:text-amber-100',
+    early_signal: 'border-cyan-400 bg-cyan-100 text-cyan-900 dark:border-cyan-400/30 dark:bg-cyan-400/15 dark:text-cyan-100',
+    clear_signal: 'border-emerald-400 bg-emerald-100 text-emerald-900 dark:border-emerald-400/30 dark:bg-emerald-400/15 dark:text-emerald-100',
+}
+
 export function DataQualityBadge({ dataQuality }: Props) {
-    const { effectiveTheme } = useThemeContext()
-    const isDark = effectiveTheme === 'dark'
-
-    const TONE: Record<string, string> = {
-        no_data: isDark
-            ? 'border-slate-500/30 bg-slate-400/10 text-slate-200'
-            : 'border-slate-300 bg-slate-100 text-slate-700',
-        low_data: isDark
-            ? 'border-amber-400/25 bg-amber-400/10 text-amber-100'
-            : 'border-amber-300 bg-amber-50 text-amber-800',
-        early_signal: isDark
-            ? 'border-cyan-400/25 bg-cyan-400/10 text-cyan-100'
-            : 'border-cyan-300 bg-cyan-50 text-cyan-800',
-        clear_signal: isDark
-            ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-100'
-            : 'border-emerald-300 bg-emerald-50 text-emerald-800',
-    }
-
     return (
         <span
             className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${

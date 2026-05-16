@@ -8,7 +8,7 @@ type Props = {
 
 export function ReflectMetricCard({ label, value, detail }: Props) {
     return (
-        <article className="rounded-2xl border border-theme-border/70 bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl">
+        <article className="rounded-2xl border border-theme-border/70 bg-theme-surface p-4 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-theme-text-tertiary">{label}</p>
             <div className="mt-2 text-2xl font-semibold text-theme-text-primary">{value}</div>
             {detail && <div className="mt-2 text-sm leading-relaxed text-theme-text-secondary">{detail}</div>}
