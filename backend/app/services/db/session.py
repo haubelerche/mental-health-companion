@@ -82,7 +82,12 @@ def get_engine():
             pool_recycle=settings.db_pool_recycle_seconds,
             pool_pre_ping=settings.db_pool_pre_ping,
             pool_use_lifo=True,
-            connect_args={"options": "-c search_path=app,extensions"},
+            connect_args={
+                "options": "-c search_path=app,extensions",
+                # PgBouncer transaction pooling can reuse server-side prepared
+                # statement names across clients, causing DuplicatePreparedStatement.
+                "prepare_threshold": None,
+            },
         )
     engine = create_engine(database_url, future=True)
     if engine.dialect.name == "sqlite":
