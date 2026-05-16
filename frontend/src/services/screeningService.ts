@@ -16,10 +16,21 @@ export type ScreeningResult = {
   assessment_updated_at: string
 }
 
+/** Safe result from GET /screenings/latest — no raw_score exposed. */
+export type ScreeningLatestEntry = {
+  instrument_id: ScreeningId
+  severity_label: ScreeningResult['severity_label']
+  assessment_updated_at: string | null
+}
+
 export const screeningService = {
   getCatalog: () =>
     httpClient.get<{ instruments: ScreeningInstrument[] }>('/screenings/catalog'),
 
   submit: (payload: { instrument_id: ScreeningId; answers: Record<string, number> }) =>
     httpClient.postWithCsrf<ScreeningResult>('/screenings/submit', payload),
+
+  /** Fetch latest screening results for all instruments from backend DB. */
+  getLatest: () =>
+    httpClient.get<{ results: Record<ScreeningId, ScreeningLatestEntry | null> }>('/screenings/latest'),
 }

@@ -142,6 +142,11 @@ backend/tests/*
 !backend/tests/test_dashboard_safe_insights.py
 !backend/tests/test_latency_observability.py
 !backend/tests/test_screening_contract.py
+!backend/tests/test_analyst_sanitizer.py
+!backend/tests/test_regression_no_internal_leaks.py
+!backend/tests/test_safety_and_sos.py
+!backend/tests/test_distress_router.py
+!backend/tests/test_safety_escalate_integration.py
 
 
 

@@ -13,7 +13,7 @@ from app.services.clinical_profile import (
     compute_screening_severity,
     get_or_create_clinical_profile,
 )
-from app.services.db.models import ScreeningAnswer, User
+from app.services.db.models import ClinicalProfile, ScreeningAnswer, User
 from app.services.db.session import get_db
 from app.services.schemas.payloads import ScreeningSubmitRequest
 from app.services.utils import get_now
@@ -99,3 +99,49 @@ def submit(
             "assessment_updated_at": now.isoformat() + "Z",
         }
     )
+
+
+_SCORE_FIELDS: dict[str, str] = {
+    "phq9": "phq9_score",
+    "gad7": "gad7_score",
+    "dass21": "dass21_depression_score",
+    "mdq": "mdq_score",
+    "pcl5": "pcl5_score",
+}
+
+
+@router.get("/latest")
+def get_latest(
+    current_user: User = Depends(ensure_policy_acknowledged),
+    db: Session = Depends(get_db),
+):
+    """
+    Return the latest screening result for each instrument from the backend DB.
+    Frontend uses this to hydrate state on login / page load, removing the
+    dependency on localStorage as the authoritative source.
+
+    Response: safe severity_label only — raw score is NOT exposed.
+    """
+    from sqlalchemy import select as sa_select
+
+    profile: ClinicalProfile | None = db.scalar(
+        sa_select(ClinicalProfile).where(ClinicalProfile.user_id == current_user.user_id)
+    )
+    if not profile:
+        return ok({"results": {}})
+
+    results: dict[str, dict | None] = {}
+    for instrument_id, score_field in _SCORE_FIELDS.items():
+        raw = getattr(profile, score_field, None)
+        if raw is None:
+            results[instrument_id] = None
+            continue
+        label = compute_screening_severity(instrument_id=instrument_id, raw_score=raw)
+        scored_at = profile.last_scored_at
+        results[instrument_id] = {
+            "instrument_id": instrument_id,
+            "severity_label": label,
+            "assessment_updated_at": scored_at.isoformat() + "Z" if scored_at else None,
+        }
+
+    return ok({"results": results})
