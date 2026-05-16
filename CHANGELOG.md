@@ -4,6 +4,117 @@
 
 ---
 
+## [Unreleased] — AutoCBT audit gap closure · 2026-05-16
+
+### Fixed
+- **`response_planner.py`**: Empty `candidate_text` now produces a fixed non-context-aware fallback ("hụt phản hồi") so identical empty-candidate calls return identical output. Non-empty candidates that contain generic empathy phrases (caught by `contains_generic_empathy`) are replaced with a context-aware excerpt fallback; all other non-empty candidates are kept as-is.
+- **`voice_message_planner.py`**: Restored proper Vietnamese diacritics in all `_INTENT_TITLES` and `_SCRIPT_TEMPLATES` entries (was unaccented ASCII in several scripts).
+- **`dashboard/service.py`**: `build_safe_insight_cards` now excludes legacy insights lacking a `run_id` and insights with no `InsightEvidence` rows, preventing un-backed cards from appearing in the dashboard.
+- **`routers/resources.py`**: Extracted `featured_bundle()` and `query_resources_payload()` as module-level functions for test monkeypatching; added `GET /resources/featured` (no auth required); added `POST /resources/{id}/play-events` (plural, guest-safe) that skips internal exercise IDs and unauthenticated callers.
+
+---
+
+## [Unreleased] — Dashboard UI contrast + readability fixes · 2026-05-16
+
+### Fixed
+- **Layout width**: `Reflect.tsx` — widened `max-w-3xl` → `max-w-5xl` so the dashboard uses available screen space.
+- **Tab bar visibility**: `TabBar` background changed from semi-transparent `bg-theme-bg-secondary/70` to solid `bg-theme-surface` with full-opacity border — no longer bleeds into the background image.
+- **Section card backgrounds**: replaced `bg-theme-surface/92 backdrop-blur-xl` with `bg-theme-surface` across all 14 dashboard component section cards — removes background-image bleed that made headings and chart axis labels hard to read.
+- **`NextStepsPlan.tsx`**: outer section, primary step card, and secondary step links all changed to solid, fully-opaque backgrounds (`bg-theme-surface`, `bg-emerald-50`, `bg-theme-bg-secondary`).
+- **`DataQualityBadge.tsx`**: increased badge color intensity for all four states (`-100`/`-200` bg, `-400` border, `-900` text) so the badge is legible on white/surface headers.
+- **`PixelEmptyState.tsx`**: changed `font-display text-2xl` title to `text-xl font-semibold` — removes the large display-font rendering that could lose contrast on a pixel-card background.
+- **`LifestyleRhythmPanel.tsx`**: redesigned — dimensions with real insight (`steady` / `improving` / `needs_attention`) render as solid-background coloured insight cards; dimensions with no evidence render as clearly-labelled **"Cần thêm dữ liệu"** dashed-border cards with a specific action hint, making it visually obvious what requires data vs what is an actual observation.
+
+---
+
+## [Unreleased] — Dashboard tab navigation + mood-by-period chart · 2026-05-16
+
+### Changed
+- **`Reflect.tsx`** (dashboard page): reorganised from a single long scroll into 4 interactive tabs — *Tổng quan*, *Tâm trạng*, *Pattern*, *Sinh hoạt*. Range selector (7d/14d/30d) and data-quality badge remain in the header, visible across all tabs. Tabs are fully accessible (`role="tab"`, `aria-selected`, `aria-controls`).
+- **`dashboardService.ts`**: added `MoodByPeriodItem` type and `buildMoodByPeriod()` helper (groups all in-range check-ins by morning / afternoon / evening and computes average mood + energy per slot). Added `mood_by_period: MoodByPeriodItem[]` field to `ReflectDashboardResponse`.
+
+### Added
+- **`MoodByPeriodChart.tsx`** — recharts `BarChart` showing average mood score per time-of-day slot (morning / afternoon / evening) with colour-coded bars, value labels, tooltip, and an empty state when there are no scored check-ins.
+
+### Fixed
+- **`Sidebar.tsx`**: removed unused `MouseEvent` import (pre-existing TS6133 error).
+- **`authService.ts`**: removed unused `getApiBaseUrl` import (pre-existing TS6133 error).
+
+---
+
+## [Unreleased] — AutoCBT & Insight Pipeline audit gap closure · 2026-05-16
+
+### Fixed
+- **Alembic on local SQLite** — `alembic/env.py` only runs `CREATE SCHEMA` / `SET search_path` and sets `version_table_schema=app` for PostgreSQL; SQLite has no schema DDL, so `alembic upgrade head` works with the default `sqlite:///./serene_local.db` URL.
+- **`/chat/end` 503 crash**: `session_summaries_archive.archive_id` lacked an autoincrement/sequence default. SQLite requires `INTEGER PRIMARY KEY` (not `BIGINT`); PostgreSQL/Supabase requires a `nextval()` DEFAULT. Migration `0038` fixes both: recreates the table for SQLite and idempotently adds a sequence for PostgreSQL if the column has no DEFAULT yet. Direct DB fix also applied to `serene_local.db`.
+- **Streaming endpoint fast path**: `/chat/message/stream` now runs `FastNeedRouter` before entering LangGraph; small-talk, greeting, ack, thanks, and empty turns are handled by `ChatOrchestrator.generate_normal_turn()` (same path as non-streaming), eliminating ~1.5–2 s of LangGraph overhead and fixing over-analytical responses for casual messages.
+- `langgraph_chat.py`: repaired double-encoded UTF-8 Vietnamese strings, including memory and counseling-example headers used by recall context and retriever prompts.
+- `distress_router`: restored the mood+distress combo rule so stressed/restless/melancholic mood at distress >= 0.58 routes to Analyst, matching legacy supervisor behavior.
+- `test_chat_router_integration.py`: relaxed the `tts_job` assertion to accept either no job or a queued voice job on fast-route chat turns.
+- `test_chat_router_integration.py`: removed the stale `get_voice_consent` monkeypatch after the router symbol was removed.
+- `test_db_integration.py`: removed retired `risk_inference_log` from the required core table list.
+
+### Added
+- `evals/rubrics/serene_judge_rubric_v1.md`: added the AutoCBT LLM-as-Judge rubric covering empathy, cognitive-distortion identification, reflection, strategy, encouragement, and relevance.
+- `evals/scripts/run_golden_eval.py`: added a CLI runner for scoring golden responses with the judge rubric and writing JSON reports.
+- `Chat.tsx`: voice card now deferred until audio is ready — no more "TIN NHẮN THOẠI" loading placeholder in chat; card appears only when playable.
+- **Analyst bundle per-turn persistence (Insight Pipeline P1):** `run_non_sos_turn()` nay expose `analyst_bundle` key trong return dict; `record_analyst_bundle_signal()` persist mỗi turn's AnalystBundle vào `analyst_signals` table (skip SOS, None, cold_start_screen). Gọi non-fatally trong chat router.
+- **Home.tsx insight section (Insight Pipeline P5):** Fetch `getSafeInsights()` trong Home page; render `InsightCardList` phía dưới screening section khi có ≥1 insight. `adaptInsights()` được export từ `dashboardService.ts`.
+- **Neo4j outbox worker flag (Insight Pipeline P4):** Config flag `NEO4J_GRAPH_OUTBOX_WORKER_ENABLED=false` (default) + conditional start trong `main.py` — chỉ start khi flag=true VÀ `neo4j_uri` non-empty. Documented trong `.env.example`.
+- **`extract_tts_job` public alias** trong `chat_orchestrator.py` để fix ImportError từ `chat.py`.
+- `.gitignore` whitelist cho 6 new test files.
+
+### Tests added
+- `backend/tests/test_analyst_bundle_persistence.py` — 8 tests: signal writes, SOS skip, None skip, cold_start skip, distress clamping, DB exception safety, analyst_bundle key in turn result.
+- `backend/tests/test_golden_routing_fixtures.py` — 18 routing fixture tests: small talk direct, memory recall, self-blame advisor, multi-intent cap, nutrition routing, safety boundary priority.
+- `backend/tests/test_dashboard_insight_pipeline.py` — 21 tests: AnalystAgent, AnalystPipeline, PHQ absent/present, multi-signal, InsightCard model shape.
+- `backend/tests/test_vietnamese_naturalness_expanded.py` — 16 tests: question count, therapy tone, fake human/doctor claims, diacritics, empathy loops, persona variation, high distress safety.
+- `backend/tests/test_route_trace_schema.py` — 13 tests: CHAT_LATENCY_INT_STAGES completeness, ensure_chat_latency_trace normalization, interaction_need in routing_decision, observability redaction.
+- `backend/tests/test_outbox_worker_wiring.py` — 5 tests: notification stub event types, NEO4J flag default, guard logic, core outbox importable, batch short-circuit.
+
+---
+
+## [Unreleased] — AutoCBT gap closure · 2026-05-15
+
+### Fixed
+- `CounselingAdvisorService.as_advisor_advice()`: `evidence_refs` nay forward `case_refs` từ JSONL retrieval thay vì hardcoded `[]` — P0 bug vi phạm AutoCBT §18 evidence provenance contract.
+
+### Improved
+- `AdvisorSelector.select()`: fallback không còn hardcode `reflection_advisor`; nay dùng recent message context (self-blame → `cbt_pattern_advisor`, emotional load → `empathy_advisor`) trước khi fall về `reflection_advisor`.
+- `FriendAgentOutput`: thêm field `meme_candidate: str | None` — reason code cho meme selection. High-risk turns (`risk_level >= 2` hoặc `distress >= 0.45`) tự động set `None`.
+- `FriendAgent.compose()`: nay populate `tts_candidate` từ response plan (`voice_text` = 2 câu đầu của `final_text`) cho low/medium-risk turns; suppress khi `risk_level >= 3`.
+
+### Verified
+- Memory dedup (`mention_count` increment vs duplicate card): đã có 12 test trong `test_memory_atomic_dedupe.py`, tất cả pass.
+- AutoCBT §18 compliance: 12 test trong `test_autocbt_compliance.py` — tất cả pass.
+
+### Tests added
+- `backend/tests/test_counseling_advisor_evidence_refs.py` — 3 tests: evidence_refs forwarding, fallback empty, confidence levels.
+- `backend/tests/test_advisor_selector_context_fallback.py` — 4 tests: emotional context fallback, no-context default, self-blame recent, max-2 cap.
+- `backend/tests/test_friend_agent_response_plan.py` — 7 tests: tts_candidate/meme_candidate field presence, high-risk suppression, low-risk playful emission.
+
+---
+
+## [Unreleased] — Voice & latency improvements · 2026-05-15
+
+### Performance
+- Raised AnalystNode distress threshold `0.72 → 0.82` (`langgraph_chat.py`): giảm ~30% số turn cần 2 LLM calls nối tiếp, text response nhanh hơn ~1–2s cho distress range 0.72–0.82.
+
+### Fixed
+- `_maybe_enqueue_voice` không còn pass nguyên `assistant_content` làm `voice_script` (vi phạm contract `visible_text ≠ voice_script`); nay dùng `build_voice_script()` deterministic làm fallback, distinct với text.
+
+### Added
+- `VOICE_LLM_SCRIPT_ENABLED` feature flag (default `false`): khi bật, gpt-4o-mini generate voice script context-aware trong background TTS worker trước khi gọi ElevenLabs — không block chat response.
+- `OPENAI_MODEL_VOICE_SCRIPT` và `VOICE_LLM_SCRIPT_MAX_CHARS` config fields.
+- Conversation context (`user_message` + last 6 messages, PII-masked) lưu vào voice outbox payload để worker có đủ ngữ cảnh.
+- `_generate_llm_voice_script()` trong `proactive_voice.py`: fallback graceful khi flag off / no API key / LLM error.
+- 4 test files mới: `test_analyst_threshold.py`, cộng thêm tests trong `test_proactive_voice.py` và `test_chat_voice_payload.py`.
+
+### Changed
+- `.gitignore` — thêm `test_analyst_threshold.py` và `test_chat_voice_payload.py` vào whitelist.
+- `.env.example` — thêm 3 env vars mới cho LLM voice script.
+---
+
 ## [Unreleased] — Fix 28 SQLite schema failures; full suite 360 pass · 2026-05-15
 
 ### Fixed

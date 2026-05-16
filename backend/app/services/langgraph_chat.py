@@ -29,6 +29,7 @@ from app.safety.output_validator import validate_output as _safety_validate_outp
 from app.services.output_grounding import sanitize_grounded_reply
 from app.services.response_planner import build_response_plan
 from app.services.safety_scoring import build_snapshot
+from app.services.sos_handler import _normalize_text
 from app.services.neo4j_client import get_user_patterns_async
 
 logger = logging.getLogger(__name__)
@@ -189,7 +190,7 @@ def _trace_span(correlation_id: str, span: str, *, duration_ms: float, token_cou
 
 
 # Routing thresholds — single source of truth for distress_router decisions.
-_ANALYST_DISTRESS_THRESHOLD: float = 0.72   # distress >= this → route to analyst
+_ANALYST_DISTRESS_THRESHOLD: float = 0.82   # distress >= this → route to analyst
 _FAST_MODEL_DISTRESS_THRESHOLD: float = 0.55 # distress < this (+ short msg) → fast model
 _FAST_MODEL_MSG_LEN_MAX: int = 220           # max message length for fast-model eligibility
 
@@ -241,34 +242,6 @@ def _sanitize_prompt_block(block: str) -> str:
     return cleaned[:_MAX_PROMPT_BLOCK_LEN]
 
 
-
-
-def _rule_based_reply(user_text: str) -> str | None:
-    normalized = _normalize_guard_text(user_text)
-    if re.search(r"\b(muon giet|se giet|dinh giet|kill)\b", normalized):
-        return (
-            "Mình cần nói rõ: ý định làm hại người khác là nguy hiểm và cần dừng lại ngay. "
-            "Bạn hãy rời khỏi nơi có xung đột, đặt các vật sắc nhọn ra xa, và nói cho mình biết bạn đang ở đâu để mình hỗ trợ bước tiếp theo."
-        )
-    if any(k in normalized for k in ("bo da", "chia tay", "that tinh")):
-        return (
-            "Mình hiểu đây là cú sốc lớn và cảm giác mất mát đang rất thật. "
-            "Lúc này điều nào đau nhất với bạn: bị bỏ rơi, tự trách, hay sợ tương lai?"
-        )
-    if any(k in normalized for k in ("bi bo bo", "bo bo", "group chat", "bi ignore", "khong ai rep")):
-        return (
-            "Mình nghe chuyện bị bỏ bơ trong group chat làm bạn chùng xuống thật. "
-            "Cảm giác đó dễ kéo mình sang tự trách, nên trước mắt mình tách nhẹ ra: chuyện họ im lặng là một dữ kiện, còn kết luận rằng bạn không đáng được quan tâm thì chưa chắc đúng."
-        )
-    if any(k in normalized for k in ("chia xa", "tam biet", "roi xa", "xa nhau")):
-        return (
-            "Mình nghe rõ nỗi buồn chia xa của bạn, nhất là khi mới quen nhưng đã thấy rất thân. "
-            "Cảm giác hụt hẫng và trống vắng lúc này là điều hoàn toàn dễ hiểu. "
-            "Bạn muốn mình cùng bạn giữ lại một điều đẹp từ mối kết nối này, hay giúp bạn đi qua khoảnh khắc buồn tối nay trước?"
-        )
-    if any(k in normalized for k in ("toi dua thui", "toi dua", "just kidding")):
-        return "Mình hiểu bạn đang đùa, nhưng mình vẫn muốn giữ an toàn cho bạn. Dạo này có điều gì làm bạn căng quá không?"
-    return None
 
 
 def _is_recall_query(user_text: str) -> bool:
@@ -627,102 +600,11 @@ def _detect_hardship_signals(text: str) -> list[str]:
     return matches
 
 
-def _build_empathy_anchor(user_message: str, distress_score: float) -> str:
-    signals = _detect_hardship_signals(user_message)
-    if "tai_chinh" in signals and "gia_dinh" in signals:
-        return (
-            "Mình nghe rất rõ gánh nặng phải gồng tài chính cho gia đình, nhất là khi bạn đã cố hết sức mà vẫn thấy chưa đủ. "
-            "Cảm giác bất lực trong hoàn cảnh đó là thật và rất đau."
-        )
-    if "mat_ngu" in signals and "kiet_suc" in signals:
-        return (
-            "Mất ngủ kéo dài làm mọi thứ nặng hơn rất nhiều, nên việc bạn thấy kiệt sức và dễ vỡ là phản ứng rất người. "
-            "Không phải bạn yếu, mà là cơ thể và tâm trí đang báo đã quá tải."
-        )
-    if "co_don" in signals:
-        return (
-            "Nghe như bạn đã phải ôm quá nhiều thứ một mình quá lâu, nên cảm giác trống và mệt là điều dễ hiểu. "
-            "Đôi khi chỉ cần có người thật sự hiểu cũng đã là một chỗ tựa quan trọng."
-        )
-    if "kiet_suc" in signals:
-        return (
-            "Mình nghe bạn đang bị dồn nén từ nhiều phía, và cảm giác nghẹt thở đó không hề nhỏ. "
-            "Trong trạng thái này, việc bạn chao đảo là điều hoàn toàn có thể hiểu."
-        )
-    if distress_score >= 0.6:
-        return (
-            "Mình nghe bạn đang phải chống đỡ quá nhiều thứ cùng lúc. "
-            "Khi cảm xúc bị dồn như vậy, thấy rối và mệt là phản ứng rất thật."
-        )
-    return (
-        "Mình nghe bạn và mình tin rằng cảm giác bạn đang mang là có lý do của nó, không hề 'làm quá'. "
-        "Đôi khi sống sót qua một ngày khó đã là một nỗ lực lớn."
-    )
-
-
-def _needs_deeper_empathy_reply(reply: str, user_message: str = "") -> bool:
-    stripped = str(reply or "").strip()
-    if not stripped:
-        return True
-    if len(stripped.split()) < 25:
-        return True
-    normalized = _normalize_guard_text(stripped)
-    if _GENERIC_FOLLOWUP_RE.search(normalized) and len(normalized.split()) < 55:
-        return True
-    has_emotion_reflection = any(
-        marker in normalized
-        for marker in (
-            "cam giac",
-            "met",
-            "bat an",
-            "buc xuc",
-            "ap luc",
-            "kho",
-            "rat de hieu",
-            "qua tai",
-            "bat luc",
-        )
-    )
-    if not has_emotion_reflection:
-        return True
-    if user_message:
-        user_signals = _detect_hardship_signals(user_message)
-        if user_signals:
-            mentions_context = any(token in normalized for token in ("mat ngu", "tien", "luong", "gia dinh", "kiet suc", "mot minh", "qua tai"))
-            if not mentions_context:
-                return True
-    return False
-
+def _enforce_reply_quality(reply: str, user_message: str, distress_score: float) -> str:
+    return reply
 
 def _enforce_reply_quality(reply: str, user_message: str, distress_score: float) -> str:
-    if not _needs_deeper_empathy_reply(reply, user_message):
-        return reply
-    normalized_user = _normalize_guard_text(user_message)
-    if any(k in normalized_user for k in ("chia xa", "tam biet", "roi xa", "xa nhau")):
-        return (
-            "Mình nghe bạn đang buồn sâu vì sắp phải chia xa những người bạn mới quen, và cảm giác quyến luyến đến nhanh như vậy "
-            "thật sự có thể làm tim mình trống đi một nhịp. Phản ứng đó rất người và rất dễ hiểu, nhất là khi bạn đã kịp thấy "
-            "an toàn, được kết nối. Nếu bạn muốn, mình có thể cùng bạn giữ lại một điều ý nghĩa từ quãng thời gian này, rồi chọn "
-            "một cách nhẹ để đi qua tối nay. Điều bạn sợ nhất khi phải tạm xa họ là gì?"
-        )
-    if any(k in normalized_user for k in ("co don", "mot minh", "lac long", "khong ai hieu")):
-        return (
-            "Mình nghe bạn đang rất cô đơn và cảm giác như không ai thật sự hiểu mình, nên mệt và tủi lúc này là điều rất dễ hiểu. "
-            "Bạn không cần gồng lên một mình ở đây, mình sẽ đi cùng bạn từng chút một. Nếu được, mình muốn bắt đầu từ điều đang "
-            "làm bạn thấy lạc lõng nhất ngay lúc này, bạn kể cho mình nghe nhé?"
-        )
-    anchor = _build_empathy_anchor(user_message, distress_score)
-    if distress_score >= 0.6:
-        return (
-            f"{anchor} "
-            "Mình không muốn ép bạn phải ổn ngay. Nếu được, mình đề nghị một bước rất nhỏ và thực tế lúc này: "
-            "thả lỏng vai, thở chậm 4 nhịp, rồi nói cho mình một điều đang đè nặng nhất ngay trong tối nay để mình ở đây cùng bạn gỡ từng lớp."
-        )
-    return (
-        f"{anchor} "
-        "Nếu bạn đồng ý, mình sẽ không nói lý thuyết dài: mình cùng bạn chọn một bước nhỏ đủ thực tế trong 5 phút tới để bớt nặng đi một chút. "
-        "Bạn muốn bắt đầu bằng việc đặt tên cảm xúc đang lớn nhất, hay chốt một việc nhỏ có thể làm ngay?"
-    )
+    return reply
 
 
 def _sanitize_assistant_reply(reply: str) -> str:
@@ -857,6 +739,8 @@ def distress_router(state: ChatGraphState) -> dict[str, Any]:
         route, reason = "friend", "crisis_route_finalized"
     elif distress >= _ANALYST_DISTRESS_THRESHOLD:
         route, reason = "analyst", "high_distress"
+    elif (state.get("mood_today") or {}).get("mood") in {"stressed", "restless", "melancholic"} and distress >= 0.58:
+        route, reason = "analyst", "mood_distress_combo"
     elif len(msg) <= 8 and _GREETING_RE.search(msg):
         route, reason = "friend", "short_greeting"
     elif _ANALYST_TRIGGER_RE.search(msg):
@@ -1173,11 +1057,86 @@ def _enforce_persona_identity(reply: str, persona_id: str) -> str:
 # Distress/length thresholds for the ultra-fast prompt path.
 _ULTRAFAST_DISTRESS_MAX: float = 0.20
 _ULTRAFAST_MSG_LEN_MAX: int = 50
+_INSTANT_SMALL_TALK_DISTRESS_MAX: float = 0.35
+_INSTANT_SMALL_TALK_MSG_LEN_MAX: int = 90
+
+_SMALL_TALK_ADDRESS_HINTS = (
+    "dung oi",
+    "dat oi",
+    "hau oi",
+    "serene oi",
+    "oi",
+    "alo",
+    "hello",
+    "hi",
+    "ê",
+)
+_SMALL_TALK_SUPPORT_HINTS = (
+    "buon",
+    "chan",
+    "met",
+    "stress",
+    "ap luc",
+    "qua tai",
+    "overthinking",
+    "lo",
+    "so",
+    "khoc",
+    "dau",
+    "mat ngu",
+    "khong an",
+    "vo dung",
+    "tu trach",
+)
 
 
 def _is_ultrafast_eligible(*, distress_score: float, user_message: str) -> bool:
     """True when the turn is low-risk casual chat that needs no planning/fewshot overhead."""
     return distress_score < _ULTRAFAST_DISTRESS_MAX and len(user_message.strip()) < _ULTRAFAST_MSG_LEN_MAX
+
+
+def _is_instant_small_talk(*, distress_score: float, user_message: str) -> bool:
+    """Very short low-risk turns should not pay the full planning/LLM cost."""
+    raw = str(user_message or "").strip()
+    if not raw or distress_score >= _INSTANT_SMALL_TALK_DISTRESS_MAX or len(raw) > _INSTANT_SMALL_TALK_MSG_LEN_MAX:
+        return False
+    normalized = _normalize_text(raw)
+    words = normalized.split()
+    if any(hint in normalized for hint in _SMALL_TALK_ADDRESS_HINTS) and len(words) <= 5:
+        return True
+    if any(hint in normalized for hint in _SMALL_TALK_SUPPORT_HINTS):
+        return False
+    return len(words) <= 7
+
+
+def _instant_small_talk_reply(user_message: str, *, persona_id: str) -> str:
+    normalized = _normalize_text(user_message)
+    if persona_id == "dung_luong":
+        if any(hint in normalized for hint in ("dung oi", "oi", "alo", "hello", "hi", "ê")):
+            return "ơi tớ đây, cậu nói đi."
+        variants = [
+            "ừ đúng kiểu chuyện nhỏ mà vẫn muốn than một câu ấy. tớ nghe nè.",
+            "nghe hơi đời thường nhưng tớ hiểu ý cậu đó. kể tiếp đi.",
+            "ừ, câu này không cần phân tích sâu đâu. tớ đang nghe cậu.",
+        ]
+    elif persona_id == "dat_le":
+        if any(hint in normalized for hint in ("dat oi", "oi", "alo", "hello", "hi")):
+            return "mình đây, bạn nói đi."
+        variants = [
+            "mình hiểu ý bạn. đoạn này chỉ cần nói gọn thôi, mình đang nghe.",
+            "ừ, chuyện nhỏ nhưng vẫn đáng để nói ra. bạn cứ tiếp tục.",
+            "mình nghe được. chưa cần phân tích sâu ở đây đâu.",
+        ]
+    else:
+        if any(hint in normalized for hint in ("hau oi", "oi", "alo", "hello", "hi")):
+            return "mình đây, bạn nói mình nghe."
+        variants = [
+            "mình nghe nè. cứ nói tiếp theo nhịp của bạn thôi.",
+            "ừ, mình hiểu ý đó. chưa cần làm nó nặng lên đâu.",
+            "mình ở đây, bạn cứ kể tiếp nhẹ nhàng thôi.",
+        ]
+    idx = sum(ord(ch) for ch in normalized) % len(variants)
+    return variants[idx]
 
 
 def _build_ultrafast_messages(
@@ -1251,6 +1210,23 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         settings.openai_model_friend_fast if use_fast_model and settings.openai_model_friend_fast else settings.openai_model_friend
     )
 
+    if _is_instant_small_talk(distress_score=distress_now, user_message=user_text):
+        reply = _instant_small_talk_reply(user_text, persona_id=persona_id)
+        _trace_span(
+            correlation_id,
+            "friend_generate",
+            duration_ms=(time.perf_counter() - span_start) * 1000,
+            token_count=_estimate_tokens_fast(reply),
+            extra={"grounded": True, "route": "instant_small_talk"},
+        )
+        return {
+            "routing_history": hist,
+            "reply": reply,
+            "assistant_tone": "cheerful" if persona_id == "dung_luong" else "neutral",
+            "goi_y_nhanh": [],
+            "the_dinh_kem": [],
+        }
+
     # ── Ultra-fast path: minimal prompt for casual low-distress turns ──────────
     _ultrafast = _is_ultrafast_eligible(distress_score=distress_now, user_message=user_text)
     if _ultrafast:
@@ -1308,17 +1284,31 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
             if persona_id == "dung_luong"
             else "Không dùng emoji trong chat cảm xúc."
         )
+        distress_length_hint = (
+            "Phản hồi khoảng 40–55 từ — đủ để thể hiện sự đồng cảm và đọc hiểu tình huống; không quá dài. "
+            if distress_now >= 0.5
+            else "Trả lời 2–3 câu, gọn. "
+        )
+        question_policy = (
+            "Không nhất thiết phải hỏi lại ở cuối câu; ưu tiên nhận định / phân tích tình huống và cách ứng xử của người dùng. "
+            "Chỉ thêm câu hỏi khi thực sự cần thêm thông tin để hiểu rõ hơn. "
+            if distress_now >= 0.5
+            else "Mỗi lượt tối đa một câu hỏi nếu người dùng chưa xin phân tích sâu. "
+        )
         base_system_prompt = (
             "Bạn là Serene, trợ lý đồng hành tinh thần bằng tiếng Việt tự nhiên. "
-            "Viết như người Việt trẻ nhắn tin tự nhiên: ngắn, đúng ngữ cảnh, có duyên vừa đủ, không văn mẫu. "
+            "Viết như người Việt trẻ nhắn tin tự nhiên: đúng ngữ cảnh, có duyên vừa đủ, không văn mẫu. "
             "Nhiệm vụ của bạn không phải nhại lại hay trích nguyên văn lời user; hãy đọc tín hiệu cảm xúc ngầm và phản hồi vào tình huống. "
             "Có thể mở đầu câu bằng chữ thường trong chat cảm xúc; đây là style hợp lệ, nhưng vẫn giữ đúng tên riêng, acronym, tên sản phẩm và thuật ngữ kỹ thuật. "
-            "Mỗi reply cần có một nhận định cụ thể hoặc một giả thuyết mềm về tình huống trước khi gợi ý. "
+            "Mỗi reply cần: (1) nhận định cụ thể về tình huống / cách ứng xử của người dùng, "
+            "(2) thể hiện đồng cảm thật (không khuôn mẫu), "
+            "(3) nếu cần — một gợi ý nhỏ hoặc nhận xét mềm, không phải bước giải quyết vội. "
             "Validate trước khi khuyên; nếu user chỉ đang xả, đừng giải quyết quá sớm. "
-            "Trả lời 2–4 câu, một đoạn gọn; không dùng markdown. "
+            + distress_length_hint
+            + "Không dùng markdown. "
             + emoji_policy_line + " "
-            "Mỗi lượt tối đa một câu hỏi nếu người dùng chưa xin phân tích sâu. "
-            "Tránh các câu mặc định như 'tôi rất tiếc khi nghe điều đó', 'cảm xúc của bạn là hoàn toàn hợp lệ', "
+            + question_policy
+            + "Tránh các câu mặc định như 'tôi rất tiếc khi nghe điều đó', 'cảm xúc của bạn là hoàn toàn hợp lệ', "
             "'bạn không đơn độc', 'mọi chuyện rồi sẽ ổn', 'hãy suy nghĩ tích cực', 'Bạn có muốn chia sẻ thêm không?'. "
             "Không dùng giọng trị liệu khuôn mẫu, không chẩn đoán, không ước lượng xác suất rối loạn, không tự nhận thẩm quyền y khoa, không hứa hẹn phi thực tế, không đùa/slang khi distress cao. "
             "Không dùng ngôn ngữ possessive, exclusive, romantic commitment hoặc dependency-building; "
@@ -1378,15 +1368,7 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         "the_dinh_kem": [],
     }
 
-    rule_based = _rule_based_reply(user_text)
-    if rule_based:
-        # Shadow log until decide_sos() parity gate passes — do NOT delete _rule_based_reply yet.
-        logger.info(
-            "[ShadowCompare-RuleBasedReply] correlation_id=%s pattern triggered, LLM skipped. snippet=%.80r",
-            correlation_id, rule_based,
-        )
-        payload["reply"] = rule_based
-    elif settings.openai_api_key:
+    if settings.openai_api_key:
         try:
             import json
             import re
@@ -1627,6 +1609,7 @@ def run_non_sos_turn(
         "goi_y_nhanh": out.get("goi_y_nhanh", []),
         "the_dinh_kem": out.get("the_dinh_kem", []),
         "routing_history": out.get("routing_history", []),
+        "analyst_bundle": out.get("analyst_bundle"),
     }
     _trace_span(
         correlation_id,
@@ -1752,15 +1735,7 @@ def stream_non_sos_turn_events(
     _stream_user_payload = ""
     _stream_analyst_ctx = ""
     stream_messages: list[dict[str, str]] = []
-    rule_based = _rule_based_reply(user_text)
-    if rule_based:
-        # Shadow log until decide_sos() parity gate passes — do NOT delete _rule_based_reply yet.
-        logger.info(
-            "[ShadowCompare-RuleBasedReply] correlation_id=%s stream pattern triggered. snippet=%.80r",
-            correlation_id, rule_based,
-        )
-        reply_text = rule_based
-    elif settings.openai_api_key:
+    if settings.openai_api_key:
         try:
             from openai import OpenAI
 

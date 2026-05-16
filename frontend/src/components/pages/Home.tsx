@@ -22,6 +22,8 @@ import morningRhythmImg from '../../assets/motion/serene-landing-day-welcome.gif
 import dayRhythmImg from '../../assets/motion/afternoon-serene-bamboo-page.gif'
 import eveningRhythmImg from '../../assets/motion/serene-landing-night-welcome.gif'
 import healingImg from '../../assets/motion/calmness.gif'
+import catSoulDay from '../../assets/motion/cat-soul-2.gif'
+import catSoulNight from '../../assets/motion/cat-soul.gif'
 import { Link, useNavigate } from 'react-router-dom'
 import { homeService } from '../../services/homeService'
 import { rewardsService } from '../../services/rewardsService'
@@ -30,7 +32,8 @@ import { CheckinHistoryModal } from '../dashboard/CheckinHistoryModal'
 import { MoodWordChips } from '../common/MoodWordChips'
 import { StreakBar } from '../common/StreakBar'
 import { useAuth } from '../../hooks/useAuth'
-import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
+import { dashboardService, adaptInsights, type NutritionDailyTip, type ReflectInsight } from '../../services/dashboardService'
+import { InsightCardList } from '../dashboard/InsightCardList'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import type { ScreeningId } from '../../services/screeningService'
 import { REWARD_UPDATED_EVENT } from '../../utils/rewardProgress'
@@ -288,6 +291,7 @@ export default function Home() {
     const streak = backendStreakDays ?? 0
     const [nutritionTip, setNutritionTip] = useState<NutritionDailyTip | null>(null)
     const [homeMoodWords, setHomeMoodWords] = useState<string[]>([])
+    const [safeInsights, setSafeInsights] = useState<ReflectInsight[]>([])
     const [quoteIndex, setQuoteIndex] = useState(0)
 
     const [screeningResults, setScreeningResults] = useState<StoredScreeningResults>(() => readStoredScreeningResults())
@@ -298,6 +302,10 @@ export default function Home() {
     const [currentHour, setCurrentHour] = useState(() => new Date().getHours())
     const recoCards = useMemo(() => getRecoCards(currentHour, isDark), [currentHour, isDark])
     const currentSlot = useMemo<TimeSlot>(() => getCurrentTimeSlot(currentHour), [currentHour])
+    const screeningSectionImg = useMemo(
+        () => (currentHour >= 6 && currentHour < 18 ? catSoulDay : catSoulNight),
+        [currentHour],
+    )
 
     const currentReminders = useMemo(() => SLOT_REMINDERS[currentSlot], [currentSlot])
     const [selectedReminderId, setSelectedReminderId] = useState<string>(currentReminders[0]?.id ?? '')
@@ -360,6 +368,14 @@ export default function Home() {
                 setIsTodayCompleted(data.progress.is_today_completed ?? false)
                 setCompletedDays(data.progress.completed_days ?? [])
 
+            })
+            .catch(() => undefined)
+
+        dashboardService
+            .getSafeInsights()
+            .then((data) => {
+                if (!mounted) return
+                setSafeInsights(adaptInsights(data.insights ?? []))
             })
             .catch(() => undefined)
 
@@ -546,9 +562,10 @@ export default function Home() {
 
                     <div className="relative min-h-72 overflow-hidden rounded-[32px] shadow-sm lg:min-h-0">
                         <img
-                            src={healingImg}
+                            src={screeningSectionImg}
                             alt="Không gian tĩnh lặng cho sàng lọc"
                             className={`h-full w-full object-cover ${isDark ? 'brightness-75' : ''}`}
+                            style={{ imageRendering: 'pixelated' }}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                         <blockquote className="absolute bottom-6 left-6 right-6 text-white">
@@ -637,6 +654,11 @@ export default function Home() {
                         </div>
                     )}
                 </section>
+
+                {/* ── Insight của tuần ── */}
+                {safeInsights.length > 0 && (
+                    <InsightCardList insights={safeInsights} />
+                )}
 
                 {/* ── Gợi ý nhẹ nhàng ── */}
                 <section className="bg-theme-surface/80 p-6 rounded-4xl backdrop-blur-xl border border-theme-border/50 shadow-sm">

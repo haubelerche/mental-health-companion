@@ -38,17 +38,22 @@ def run_migrations_online() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
+    if connectable.dialect.name == "sqlite":
+        # Match `get_engine()` — SQLite has no PG schemas; strip `app.*` qualification.
+        connectable = connectable.execution_options(schema_translate_map={"app": None})
 
     with connectable.connect() as connection:
-        connection.execute(text("CREATE SCHEMA IF NOT EXISTS app"))
-        connection.execute(text("SET search_path TO app, extensions"))
-        connection.commit()
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            compare_type=True,
-            version_table_schema="app",
-        )
+        configure_kw: dict[str, object] = {
+            "connection": connection,
+            "target_metadata": target_metadata,
+            "compare_type": True,
+        }
+        if connection.dialect.name == "postgresql":
+            connection.execute(text("CREATE SCHEMA IF NOT EXISTS app"))
+            connection.execute(text("SET search_path TO app, extensions"))
+            connection.commit()
+            configure_kw["version_table_schema"] = "app"
+        context.configure(**configure_kw)
 
         with context.begin_transaction():
             context.run_migrations()

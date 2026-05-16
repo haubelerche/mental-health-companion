@@ -82,9 +82,20 @@ def get_engine():
             pool_recycle=settings.db_pool_recycle_seconds,
             pool_pre_ping=settings.db_pool_pre_ping,
             pool_use_lifo=True,
-            connect_args={"options": "-c search_path=app,extensions"},
+            connect_args={
+                "options": "-c search_path=app,extensions",
+                # PgBouncer transaction pooling can reuse server-side prepared
+                # statement names across clients, causing DuplicatePreparedStatement.
+                "prepare_threshold": None,
+            },
         )
-    return create_engine(database_url, future=True)
+    engine = create_engine(database_url, future=True)
+    if engine.dialect.name == "sqlite":
+        # SQLite has no PostgreSQL-style schemas. Some production models are
+        # schema-qualified as `app.*`; translate that schema away for local
+        # auto-created SQLite databases so dev startup can still create tables.
+        return engine.execution_options(schema_translate_map={"app": None})
+    return engine
 
 
 @lru_cache(maxsize=1)

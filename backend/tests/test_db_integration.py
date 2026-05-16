@@ -46,7 +46,6 @@ class TestSchemaConnectivity:
             "insight_hypotheses",
             "crisis_logs",
             "session_risk_snapshots",
-            "risk_inference_log",
             "sync_outbox",
             "admin_audit_log",
             "heart_wallets",

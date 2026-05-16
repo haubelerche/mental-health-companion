@@ -42,7 +42,16 @@ class Settings(BaseSettings):
     background_workers_enabled: bool = Field(default=True, validation_alias=AliasChoices("BACKGROUND_WORKERS_ENABLED"))
     idle_summarizer_enabled: bool = Field(default=True, validation_alias=AliasChoices("IDLE_SUMMARIZER_ENABLED"))
     notification_outbox_worker_enabled: bool = Field(default=True, validation_alias=AliasChoices("NOTIFICATION_OUTBOX_WORKER_ENABLED"))
+    neo4j_graph_outbox_worker_enabled: bool = Field(default=False, validation_alias=AliasChoices("NEO4J_GRAPH_OUTBOX_WORKER_ENABLED"))
     voice_tts_worker_enabled: bool = Field(default=True, validation_alias=AliasChoices("VOICE_TTS_WORKER_ENABLED"))
+    random_proactive_voice_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("RANDOM_PROACTIVE_VOICE_ENABLED"),
+    )
+    random_proactive_voice_poll_seconds: int = Field(
+        default=300,
+        validation_alias=AliasChoices("RANDOM_PROACTIVE_VOICE_POLL_SECONDS"),
+    )
 
     access_token_ttl_seconds: int = 2592000  # 30 days
     refresh_token_ttl_days: int = 3650       # 10 years
@@ -67,6 +76,11 @@ class Settings(BaseSettings):
 
     openai_api_key: str = ""
     youtube_api_key: str = Field(default="", validation_alias=AliasChoices("YOUTUBE_API_KEY"))
+    youtube_api_enabled: bool = Field(default=False, validation_alias=AliasChoices("YOUTUBE_API_ENABLED"))
+    youtube_region_code: str = Field(default="VN", validation_alias=AliasChoices("YOUTUBE_REGION_CODE"))
+    youtube_relevance_language: str = Field(default="vi", validation_alias=AliasChoices("YOUTUBE_RELEVANCE_LANGUAGE"))
+    youtube_safe_search: str = Field(default="strict", validation_alias=AliasChoices("YOUTUBE_SAFE_SEARCH"))
+    youtube_sync_ttl_hours: int = Field(default=24, validation_alias=AliasChoices("YOUTUBE_SYNC_TTL_HOURS"))
     openai_model_analyst: str = "gpt-4o-mini"
     openai_model_friend: str = "gpt-4o-mini"
     openai_model_friend_fast: str = "gpt-4o-mini"
@@ -96,6 +110,22 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("PROACTIVE_VOICE_AUTO_DISTRESS_THRESHOLD"),
     )
     voice_tts_auto_process_on_enqueue: bool = True
+    random_proactive_voice_user_cooldown_seconds: int = Field(
+        default=21600,
+        validation_alias=AliasChoices("RANDOM_PROACTIVE_VOICE_USER_COOLDOWN_SECONDS"),
+    )
+    random_proactive_voice_session_cooldown_seconds: int = Field(
+        default=1800,
+        validation_alias=AliasChoices("RANDOM_PROACTIVE_VOICE_SESSION_COOLDOWN_SECONDS"),
+    )
+    random_proactive_voice_active_window_minutes: int = Field(
+        default=90,
+        validation_alias=AliasChoices("RANDOM_PROACTIVE_VOICE_ACTIVE_WINDOW_MINUTES"),
+    )
+    random_proactive_voice_chance: float = Field(
+        default=0.2,
+        validation_alias=AliasChoices("RANDOM_PROACTIVE_VOICE_CHANCE"),
+    )
 
     profile_cache_ttl_seconds: int = 30
 
@@ -121,8 +151,12 @@ class Settings(BaseSettings):
         default="",
         validation_alias=AliasChoices("ELEVENLABS_VOICE_ID_MENTOR"),
     )
+    elevenlabs_voice_id_crush_female: str = Field(
+        default="",
+        validation_alias=AliasChoices("ELEVENLABS_VOICE_ID_CRUSH_FEMALE"),
+    )
     elevenlabs_model_id: str = Field(
-        default="eleven_multilingual_v2",
+        default="eleven_flash_v2_5",
         validation_alias=AliasChoices("ELEVENLABS_MODEL_ID"),
     )
     elevenlabs_output_format: str = Field(
@@ -138,16 +172,30 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("ELEVENLABS_MAX_CHARS_PER_JOB"),
     )
     elevenlabs_use_only_on_tier: str = Field(
-        default="voice_recommended,critical",
+        default="normal,elevated,voice_recommended,critical",
         validation_alias=AliasChoices("ELEVENLABS_USE_ONLY_ON_TIER"),
     )
     elevenlabs_min_distress: float = Field(
-        default=0.8,
+        default=0.0,
         validation_alias=AliasChoices("ELEVENLABS_MIN_DISTRESS"),
     )
     elevenlabs_max_chars_per_user_per_day: int = Field(
         default=12000,
         validation_alias=AliasChoices("ELEVENLABS_MAX_CHARS_PER_USER_PER_DAY"),
+    )
+
+    # LLM-generated voice scripts (runs in background TTS worker, default OFF)
+    voice_llm_script_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("VOICE_LLM_SCRIPT_ENABLED"),
+    )
+    openai_model_voice_script: str = Field(
+        default="gpt-4o-mini",
+        validation_alias=AliasChoices("OPENAI_MODEL_VOICE_SCRIPT"),
+    )
+    voice_llm_script_max_chars: int = Field(
+        default=280,
+        validation_alias=AliasChoices("VOICE_LLM_SCRIPT_MAX_CHARS"),
     )
 
     trusted_contact_outbound_enabled: bool = False

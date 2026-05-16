@@ -4,7 +4,7 @@ import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Literal
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
 import logging
@@ -24,7 +24,7 @@ from app.dashboard.types import (
     MoodSeriesPoint,
     WellnessDimensionCard,
 )
-from app.services.db.models import Conversation, InsightHypothesis, MoodCheckin, UserProfile, StreakState
+from app.services.db.models import Conversation, InsightEvidence, InsightHypothesis, MoodCheckin, UserProfile, StreakState
 from app.services.utils import VN_TZ, local_date_utc7, get_now
 
 _MOOD_TO_SCORE: dict[str, tuple[int, str]] = {
@@ -175,6 +175,13 @@ def _fetch_hypothesis_insights(
                 InsightHypothesis.status == "active",
                 InsightHypothesis.display_allowed.is_(True),
                 InsightHypothesis.evidence_count > 0,
+                InsightHypothesis.run_id.isnot(None),
+                exists(
+                    select(InsightEvidence.evidence_id).where(
+                        InsightEvidence.insight_id == InsightHypothesis.insight_id,
+                        InsightEvidence.display_allowed.is_(True),
+                    )
+                ),
             )
             .order_by(InsightHypothesis.updated_at.desc())
             .limit(12)

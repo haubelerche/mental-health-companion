@@ -98,7 +98,10 @@ def test_get_voice_job_processing_uses_processing_started_at(monkeypatch):
     assert db.committed is False
 
 
-def test_get_voice_job_done_ready_clears_stale_error():
+def test_get_voice_job_done_ready_clears_stale_error(tmp_path):
+    audio_file = tmp_path / "tts_10_dummy.mp3"
+    audio_file.write_bytes(b"x")
+
     class Row:
         outbox_id = 10
         event_type = proactive_voice.VOICE_JOB_EVENT_TYPE
@@ -110,6 +113,7 @@ def test_get_voice_job_done_ready_clears_stale_error():
             "user_id": "usr_1",
             "voice": {
                 "status": "ready",
+                "audio_path": str(audio_file),
                 "audio_url": "/v1/chat/voice-jobs/tts_10/audio",
                 "error_code": "stale_lock",
                 "error_message": "Voice job xử lý quá lâu; hệ thống đã đánh dấu thất bại.",
@@ -339,3 +343,276 @@ def test_message_suggests_proactive_voice_detects_intensity_cues():
     assert proactive_voice.message_suggests_proactive_voice("mấy thằng đó cực đoan quá") is True
     assert proactive_voice.message_suggests_proactive_voice("tôi muốn trả thù") is True
     assert proactive_voice.message_suggests_proactive_voice("hôm nay trời đẹp") is False
+
+
+def test_generate_llm_voice_script_returns_none_when_disabled(monkeypatch):
+    from app.services.proactive_voice import _generate_llm_voice_script
+
+    settings = SimpleNamespace(
+        voice_llm_script_enabled=False,
+        openai_api_key="sk-test",
+        openai_model_voice_script="gpt-4o-mini",
+        llm_timeout_seconds=5.0,
+        voice_llm_script_max_chars=280,
+    )
+    result = _generate_llm_voice_script(
+        user_message="toi met",
+        conversation_context=[],
+        distress_score=0.7,
+        safety_tier="elevated",
+        settings=settings,
+    )
+    assert result is None
+
+
+def test_generate_llm_voice_script_returns_none_without_api_key(monkeypatch):
+    from app.services.proactive_voice import _generate_llm_voice_script
+
+    settings = SimpleNamespace(
+        voice_llm_script_enabled=True,
+        openai_api_key="",
+        openai_model_voice_script="gpt-4o-mini",
+        llm_timeout_seconds=5.0,
+        voice_llm_script_max_chars=280,
+    )
+    result = _generate_llm_voice_script(
+        user_message="toi met",
+        conversation_context=[],
+        distress_score=0.7,
+        safety_tier="elevated",
+        settings=settings,
+    )
+    assert result is None
+
+
+def test_generate_llm_voice_script_calls_openai_and_returns_script(monkeypatch):
+    from unittest.mock import MagicMock, patch
+    from app.services.proactive_voice import _generate_llm_voice_script
+
+    settings = SimpleNamespace(
+        voice_llm_script_enabled=True,
+        openai_api_key="sk-real",
+        openai_model_voice_script="gpt-4o-mini",
+        llm_timeout_seconds=5.0,
+        voice_llm_script_max_chars=280,
+    )
+
+    fake_choice = MagicMock()
+    fake_choice.message.content = "Mình ở đây với bạn. Hãy thử hít thở chậm một nhịp."
+    fake_resp = MagicMock()
+    fake_resp.choices = [fake_choice]
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.return_value = fake_resp
+
+    with patch("app.services.proactive_voice.OpenAI", return_value=fake_client):
+        result = _generate_llm_voice_script(
+            user_message="toi cam thay rat met va khong muon lam gi nua",
+            conversation_context=[
+                {"role": "user", "content": "hom nay kho qua"},
+                {"role": "assistant", "content": "Minh nghe ban"},
+            ],
+            distress_score=0.75,
+            safety_tier="elevated",
+            settings=settings,
+        )
+
+    assert result == "Mình ở đây với bạn. Hãy thử hít thở chậm một nhịp."
+    call_kwargs = fake_client.chat.completions.create.call_args[1]
+    assert call_kwargs["model"] == "gpt-4o-mini"
+    assert call_kwargs["max_tokens"] == 120
+
+
+def test_generate_llm_voice_script_returns_none_on_exception(monkeypatch):
+    from unittest.mock import patch
+    from app.services.proactive_voice import _generate_llm_voice_script
+
+    settings = SimpleNamespace(
+        voice_llm_script_enabled=True,
+        openai_api_key="sk-real",
+        openai_model_voice_script="gpt-4o-mini",
+        llm_timeout_seconds=5.0,
+        voice_llm_script_max_chars=280,
+    )
+
+    with patch("app.services.proactive_voice.OpenAI", side_effect=RuntimeError("timeout")):
+        result = _generate_llm_voice_script(
+            user_message="toi met",
+            conversation_context=[],
+            distress_score=0.7,
+            safety_tier="elevated",
+            settings=settings,
+        )
+    assert result is None
+
+
+def test_process_job_uses_llm_script_when_enabled(monkeypatch):
+    """Khi voice_llm_script_enabled=True, _process_job phải dùng LLM script thay fallback."""
+    from unittest.mock import patch, MagicMock
+
+    llm_script = "Hãy đặt tay lên ngực và hít thở chậm ba nhịp."
+
+    fake_payload = {
+        "user_id": "u1",
+        "session_id": "s1",
+        "voice_script": "Script cũ hardcode không liên quan",
+        "trigger_reason": "test",
+        "trigger_snapshot": {"distress_score": 0.75, "safety_tier": "elevated"},
+        "user_message": "Tôi đang rất mệt",
+        "conversation_context": [{"role": "user", "content": "hôm nay khó quá"}],
+        "voice": {"status": "processing", "voice_style_id": "default", "risk_mode": "normal"},
+    }
+
+    fake_row = MagicMock()
+    fake_row.event_type = proactive_voice.VOICE_JOB_EVENT_TYPE
+    fake_row.payload = fake_payload
+    fake_row.status = "processing"
+    fake_row.retry_count = 0
+
+    fake_db = MagicMock()
+    fake_db.get.return_value = fake_row
+    fake_session_factory = MagicMock(return_value=fake_db)
+
+    used_script = {}
+
+    def fake_render(provider, script, job_id, *args, **kwargs):
+        used_script["script"] = script
+        return {"audio_path": "", "provider": "elevenlabs", "duration": 0, "chars": len(script), "success": False, "fallback": False}
+
+    settings = SimpleNamespace(
+        tts_provider="elevenlabs",
+        voice_llm_script_enabled=True,
+        openai_api_key="sk-test",
+        openai_model_voice_script="gpt-4o-mini",
+        llm_timeout_seconds=5.0,
+        voice_llm_script_max_chars=280,
+        voice_tts_auto_process_on_enqueue=False,
+    )
+
+    with patch.object(proactive_voice, "get_session_factory", return_value=fake_session_factory), \
+         patch.object(proactive_voice, "get_settings", return_value=settings), \
+         patch.object(proactive_voice, "_generate_llm_voice_script", return_value=llm_script) as mock_gen, \
+         patch.object(proactive_voice, "render_tts_audio", side_effect=fake_render), \
+         patch.object(proactive_voice, "mask_pii", side_effect=lambda x: x):
+        proactive_voice._process_job(1)
+
+    mock_gen.assert_called_once()
+    assert used_script.get("script") == llm_script
+
+
+def test_process_job_falls_back_to_stored_script_when_llm_returns_none(monkeypatch):
+    """Khi LLM trả None, _process_job phải dùng voice_script gốc từ payload."""
+    from unittest.mock import patch, MagicMock
+
+    fallback_script = "Script cũ deterministic."
+
+    fake_payload = {
+        "user_id": "u1",
+        "session_id": "s1",
+        "voice_script": fallback_script,
+        "trigger_reason": "test",
+        "trigger_snapshot": {"distress_score": 0.75, "safety_tier": "elevated"},
+        "user_message": "Tôi mệt",
+        "conversation_context": [],
+        "voice": {"status": "processing", "voice_style_id": "default", "risk_mode": "normal"},
+    }
+
+    fake_row = MagicMock()
+    fake_row.event_type = proactive_voice.VOICE_JOB_EVENT_TYPE
+    fake_row.payload = fake_payload
+    fake_row.status = "processing"
+    fake_row.retry_count = 0
+
+    fake_db = MagicMock()
+    fake_db.get.return_value = fake_row
+    fake_session_factory = MagicMock(return_value=fake_db)
+
+    used_script = {}
+
+    def fake_render(provider, script, job_id, *args, **kwargs):
+        used_script["script"] = script
+        return {"audio_path": "", "provider": "elevenlabs", "duration": 0, "chars": len(script), "success": False, "fallback": False}
+
+    settings = SimpleNamespace(
+        tts_provider="elevenlabs",
+        voice_llm_script_enabled=True,
+        openai_api_key="sk-test",
+        openai_model_voice_script="gpt-4o-mini",
+        llm_timeout_seconds=5.0,
+        voice_llm_script_max_chars=280,
+        voice_tts_auto_process_on_enqueue=False,
+    )
+
+    with patch.object(proactive_voice, "get_session_factory", return_value=fake_session_factory), \
+         patch.object(proactive_voice, "get_settings", return_value=settings), \
+         patch.object(proactive_voice, "_generate_llm_voice_script", return_value=None), \
+         patch.object(proactive_voice, "render_tts_audio", side_effect=fake_render), \
+         patch.object(proactive_voice, "mask_pii", side_effect=lambda x: x):
+        proactive_voice._process_job(1)
+
+    assert used_script.get("script") == fallback_script
+
+
+def test_enqueue_voice_job_stores_conversation_context(monkeypatch):
+    """enqueue_voice_job phải lưu user_message và conversation_context vào outbox payload."""
+    from app.services.proactive_voice import enqueue_voice_job
+    from app.services.db.models import SyncOutbox
+
+    captured_payload = {}
+
+    class FakeRow:
+        outbox_id = 42
+        event_type = proactive_voice.VOICE_JOB_EVENT_TYPE
+        payload = None
+        status = "pending"
+
+    fake_row = FakeRow()
+
+    class FakeDb:
+        def add(self, obj):
+            pass
+        def flush(self):
+            fake_row.payload = fake_row.payload  # no-op; row is set externally
+        def commit(self):
+            if fake_row.payload:
+                captured_payload.update(dict(fake_row.payload or {}))
+
+    monkeypatch.setattr(
+        proactive_voice,
+        "get_settings",
+        lambda: SimpleNamespace(
+            tts_provider="elevenlabs",
+            voice_tts_auto_process_on_enqueue=False,
+            elevenlabs_model_id="eleven_flash_v2_5",
+        ),
+    )
+    monkeypatch.setattr(proactive_voice, "_VOICE_PROVIDER_BLOCKED_CODE", None)
+    monkeypatch.setattr(proactive_voice, "resolve_active_style", lambda *a, **kw: "default")
+    monkeypatch.setattr(proactive_voice, "resolve_elevenlabs_voice_id", lambda **kw: "v123")
+    monkeypatch.setattr(proactive_voice, "compute_event_signature", lambda **kw: "sig_abc")
+    monkeypatch.setattr(proactive_voice, "find_dedup_job", lambda db, sig: None)
+
+    created_rows = []
+
+    def fake_syncoutbox(**kwargs):
+        fake_row.payload = kwargs.get("payload")
+        fake_row.status = kwargs.get("status", "pending")
+        created_rows.append(fake_row)
+        return fake_row
+
+    monkeypatch.setattr(proactive_voice, "SyncOutbox", fake_syncoutbox)
+
+    enqueue_voice_job(
+        FakeDb(),
+        user_id="u1",
+        session_id="s1",
+        voice_script="Mình ở đây với bạn",
+        trigger_reason="test",
+        trigger_snapshot={"distress_score": 0.7},
+        user_message="Tôi đang rất mệt",
+        conversation_context=[{"role": "user", "content": "Hôm nay buồn lắm"}],
+    )
+
+    assert captured_payload.get("user_message") == "Tôi đang rất mệt"
+    assert isinstance(captured_payload.get("conversation_context"), list)
+    assert len(captured_payload["conversation_context"]) == 1
+    assert captured_payload["conversation_context"][0]["role"] == "user"

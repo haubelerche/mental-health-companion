@@ -45,7 +45,7 @@ export function CopingEffectivenessPanel({ insights }: Props) {
         : 'border-emerald-300/70 bg-white/70 text-emerald-700 hover:bg-emerald-50'
 
     return (
-        <section className="rounded-2xl border border-theme-border/70 bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
+        <section className="rounded-2xl border border-theme-border/70 bg-theme-surface p-4 shadow-sm md:p-5">
             <div className="mb-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-theme-text-tertiary">Điều từng giúp</p>
                 <h2 className="mt-1 text-xl font-semibold text-theme-text-primary">Điều từng giúp bạn nhẹ hơn</h2>

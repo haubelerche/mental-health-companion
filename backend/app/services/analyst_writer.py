@@ -20,6 +20,8 @@ from app.services.db.models import AnalystSignal, InsightHypothesis
 from app.services.memory_enrichment import StructuredExtract
 from app.services.utils import utc_now
 
+_LANGGRAPH_ANALYST_MODEL_VERSION = "langgraph-inline-v1"
+
 _ANALYST_MODEL_VERSION = "rule-based-v1"
 
 logger = logging.getLogger(__name__)
@@ -217,5 +219,53 @@ def upsert_insight_hypothesis(
     except Exception as exc:
         logger.error(
             "insight_hypothesis upsert failed user=%s type=%s: %s", user_id, hyp_type, exc
+        )
+        return None
+
+
+def record_analyst_bundle_signal(
+    db: Session,
+    *,
+    user_id: str,
+    session_id: str,
+    analyst_bundle: Any,
+    distress_score: float = 0.0,
+    sos_triggered: bool = False,
+) -> str | None:
+    """Persist an inline LangGraph AnalystBundle to analyst_signals.
+
+    Called from the chat router immediately after a non-SOS turn.
+    SOS turns are skipped — crisis data belongs in safety tables only.
+    analyst_bundle must have .emotional_theme and .risk_indicators attributes.
+    Returns signal_id or None on failure.
+    """
+    if sos_triggered or analyst_bundle is None:
+        return None
+    emotional_theme = getattr(analyst_bundle, "emotional_theme", None) or "unknown"
+    if emotional_theme in ("cold_start_screen", "unknown", "unclear"):
+        return None
+    risk_indicators = list(getattr(analyst_bundle, "risk_indicators", []) or [])
+    suggested_focus = getattr(analyst_bundle, "suggested_focus", None)
+    try:
+        signal = AnalystSignal(
+            user_id=user_id,
+            session_id=session_id,
+            emotional_theme=emotional_theme,
+            suggested_focus=suggested_focus,
+            risk_indicators=risk_indicators,
+            distress_score=max(0.0, min(1.0, float(distress_score))),
+            model_version=_LANGGRAPH_ANALYST_MODEL_VERSION,
+            source="friend_turn",
+            display_allowed=False,
+        )
+        db.add(signal)
+        db.flush()
+        return str(signal.signal_id)
+    except Exception as exc:
+        logger.error(
+            "analyst_bundle signal write failed user=%s session=%s: %s",
+            user_id,
+            session_id,
+            exc,
         )
         return None

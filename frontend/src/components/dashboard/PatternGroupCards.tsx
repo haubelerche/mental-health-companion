@@ -95,7 +95,7 @@ export function PatternGroupCards({ insights }: Props) {
     const visibleInsights = insights.slice(0, 5)
 
     return (
-        <section className="rounded-2xl border border-theme-border/70 bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
+        <section className="rounded-2xl border border-theme-border/70 bg-theme-surface p-4 shadow-sm md:p-5">
             <div className="mb-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-theme-text-tertiary">Dấu hiệu theo dõi</p>
                 <h2 className="mt-1 text-xl font-semibold text-theme-text-primary">Dấu hiệu nên theo dõi thêm</h2>

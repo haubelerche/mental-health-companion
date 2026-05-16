@@ -219,7 +219,7 @@ export function PixelMoodCalendar({ series, range }: Props) {
     const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
     return (
-        <section className="rounded-2xl border border-theme-border/70 bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
+        <section className="rounded-2xl border border-theme-border/70 bg-theme-surface p-4 shadow-sm md:p-5">
             <div className="mb-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-theme-text-tertiary">Lịch cảm xúc</p>
                 <h2 className="mt-1 text-xl font-semibold text-theme-text-primary">Mood theo ngày</h2>

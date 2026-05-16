@@ -116,6 +116,14 @@ export type TriggerEmotionMatrixCell = {
     strength: 'low' | 'medium' | 'high'
 }
 
+export type MoodByPeriodItem = {
+    period: ReflectPeriod
+    label: string
+    avg_mood: number | null
+    avg_energy: number | null
+    count: number
+}
+
 export type ReflectRecentCheckin = {
     id: string
     date: string
@@ -150,6 +158,7 @@ export type ReflectDashboardResponse = {
     overview: ReflectOverview
     summary: ReflectDashboardSummary
     mood_series: ReflectMoodSeriesPoint[]
+    mood_by_period: MoodByPeriodItem[]
     dimensions: ReflectWellnessDimension[]
     insights: ReflectInsight[]
     trigger_emotion_matrix: TriggerEmotionMatrixCell[]
@@ -345,7 +354,7 @@ function severityLabel(severity: InsightCard['severity_band'] | string): string 
     return 'Nhẹ, chỉ cần để ý'
 }
 
-function adaptInsights(insights: InsightCard[]): ReflectInsight[] {
+export function adaptInsights(insights: InsightCard[]): ReflectInsight[] {
     return insights.map((insight) => ({
         insight_id: insight.insight_id,
         hypothesis_type: insight.evidence_sources?.[0] || 'safe_dashboard_insight',
@@ -528,6 +537,37 @@ function recommendAction(checkins: ReflectRecentCheckin[], insights: ReflectInsi
     }
 }
 
+const PERIOD_LABELS: Record<ReflectPeriod, string> = {
+    morning: 'Buổi sáng',
+    afternoon: 'Buổi chiều',
+    evening: 'Buổi tối',
+    unknown: 'Không rõ',
+}
+
+function buildMoodByPeriod(checkins: ReflectRecentCheckin[]): MoodByPeriodItem[] {
+    const groups: Record<ReflectPeriod, { moods: number[]; energies: number[] }> = {
+        morning: { moods: [], energies: [] },
+        afternoon: { moods: [], energies: [] },
+        evening: { moods: [], energies: [] },
+        unknown: { moods: [], energies: [] },
+    }
+    for (const checkin of checkins) {
+        const g = groups[checkin.period]
+        if (typeof checkin.mood_score === 'number') g.moods.push(checkin.mood_score)
+        if (typeof checkin.energy_score === 'number') g.energies.push(checkin.energy_score)
+    }
+    const avg = (nums: number[]): number | null =>
+        nums.length ? Math.round((nums.reduce((s, v) => s + v, 0) / nums.length) * 10) / 10 : null
+
+    return (['morning', 'afternoon', 'evening'] as ReflectPeriod[]).map((period) => ({
+        period,
+        label: PERIOD_LABELS[period],
+        avg_mood: avg(groups[period].moods),
+        avg_energy: avg(groups[period].energies),
+        count: groups[period].moods.length,
+    }))
+}
+
 function buildReflectSummary(
     range: ReflectRange,
     generatedAt: string,
@@ -613,6 +653,7 @@ export const dashboardService = {
             overview: buildOverview(quality, summary.wellness_dimensions, moodSeries, recentCheckins, insights),
             summary: buildReflectSummary(range, generatedAt, quality, recentCheckins, insights),
             mood_series: moodSeries,
+            mood_by_period: buildMoodByPeriod(recentCheckins),
             dimensions,
             insights,
             trigger_emotion_matrix: buildMatrix(recentCheckins),

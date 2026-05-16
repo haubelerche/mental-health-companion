@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import hashlib
 import json
 import mimetypes
 import threading
@@ -10,7 +11,9 @@ from fastapi import APIRouter, Depends, Query, Request, BackgroundTasks
 from fastapi.responses import FileResponse
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.api.deps import (
     ensure_policy_acknowledged,
@@ -22,18 +25,19 @@ from app.api.deps import (
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.services.db.models import AdminAuditLog, Conversation, CrisisLog, Message, NutritionMealCheckin, User, UserProfile
+from app.services.db.models import AdminAuditLog, Conversation, CrisisLog, Message, NutritionMealCheckin, SyncOutbox, User, UserProfile
 from app.services.risk_writer import record_risk_inference, record_session_risk_snapshot
 from app.services.db.session import get_db, get_session_factory
 from app.services.schemas.payloads import ChatEndRequest, ChatMessageRequest, GuestChatMessageRequest
 from app.services.chat_context import load_chat_context_sync
-from app.services.chat_orchestrator import ChatOrchestrator
+from app.services.chat_orchestrator import ChatOrchestrator, extract_tts_job
 from app.services.chat_response_cache import get_cached_turn, hash_message, set_cached_turn
 from app.services.confidence_router import route_for_human_review
 from app.services.guest_service import heartbeat as guest_heartbeat
 from app.services.guest_service import start_session as guest_start_session
 from app.services.langfuse_tracing import ChatTurnTracer, set_active_tracer
 from app.services.latency_metrics import ensure_chat_latency_trace
+from app.services.analyst_writer import record_analyst_bundle_signal
 from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn, stream_non_sos_turn_events
 from app.services.longterm_memory import (
     UserMemoryContext,
@@ -69,6 +73,7 @@ from app.services.safety_policy import evaluate_safety_policy
 from app.services.safety_scoring import SafetySnapshot, build_snapshot, compute_escalation_signal
 from app.services.schemas.contracts import ContextPack
 from app.services.proactive_voice import (
+    VOICE_JOB_EVENT_TYPE,
     cooldown_active,
     enqueue_voice_job,
     get_voice_audio_path,
@@ -76,7 +81,7 @@ from app.services.proactive_voice import (
     mark_cooldown,
     message_suggests_proactive_voice,
 )
-from app.services.voice_consent import get_voice_consent
+from app.services.tts_renderer import elevenlabs_route_allowed, resolve_elevenlabs_voice_id
 from app.memory.extractor import extract_memory_candidates
 from app.memory.llm_extractor import extract_memory_candidates_llm
 from app.memory.extractor import ExtractionResult
@@ -85,6 +90,7 @@ from app.services.voice_message_planner import intent_title
 from app.services.voice_policy import VoiceMessagePolicyEngine, VoicePolicyContext
 from app.services.utils import make_id, get_now
 from app.voice.types import TTS_TERMINAL_STATUSES
+from app.voice.style_mapping import resolve_active_style
 from app.personas.router import route_persona
 from app.personas.greetings import persona_chat_greeting_text
 from app.services.persona_unlock_persistence import is_persona_unlocked
@@ -97,6 +103,223 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 SYSTEM_AUDIT_ADMIN = "sys_auto"
 DEFAULT_PERSONA_ID = "dung_luong"
+
+_MESSAGE_CLIENT_PAYLOAD_KEYS = {
+    "session_id",
+    "message_id",
+    "persona_id",
+    "reply",
+    "assistant_text",
+    "sos_triggered",
+    "route_tier",
+    "used_advisor_ids",
+    "resource_suggestions",
+    "nutrition_suggestion",
+    "optional_support",
+    "tts_job",
+    "voice_messages",
+    "meme_suggestion",
+    "pending_human_review",
+    "review_reason",
+    "crisis_plan",
+    "distress_ui",
+    "hotline_cards",
+    "grounding_actions",
+    "micro_actions",
+    "referral_options",
+}
+
+
+def _public_client_payload(data: dict) -> dict:
+    payload = {key: data.get(key) for key in _MESSAGE_CLIENT_PAYLOAD_KEYS if key in data}
+    if "assistant_text" not in payload and isinstance(payload.get("reply"), str):
+        payload["assistant_text"] = payload["reply"]
+    if "reply" not in payload and isinstance(payload.get("assistant_text"), str):
+        payload["reply"] = payload["assistant_text"]
+    return payload
+
+
+def _persist_assistant_client_payload(db: Session, assistant_msg: Message, data: dict) -> None:
+    metadata = dict(getattr(assistant_msg, "metadata_json", None) or {})
+    metadata["client_payload"] = _public_client_payload(data)
+    assistant_msg.metadata_json = metadata
+    try:
+        flag_modified(assistant_msg, "metadata_json")
+    except Exception:
+        pass
+    db.add(assistant_msg)
+
+
+def _refresh_tts_payload(db: Session, tts_job: dict | None) -> dict | None:
+    if not isinstance(tts_job, dict):
+        return None
+    job_id = str(tts_job.get("tts_job_id") or "").strip()
+    if not job_id:
+        return dict(tts_job)
+    try:
+        current = get_voice_job(db, job_id)
+    except SQLAlchemyError as exc:
+        logger.warning("history_tts_refresh_failed job_id=%s: %s", job_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return dict(tts_job)
+    if not current:
+        return dict(tts_job)
+    refreshed = dict(tts_job)
+    for key in ("status", "audio_url", "audio_data_uri", "error_code", "error_message"):
+        if current.get(key) is not None:
+            refreshed[key] = current.get(key)
+    return refreshed
+
+
+def _history_client_payload(db: Session, message: Message) -> dict | None:
+    metadata = dict(getattr(message, "metadata_json", None) or {})
+    payload = metadata.get("client_payload")
+    if not isinstance(payload, dict):
+        return None
+    payload = dict(payload)
+    payload["tts_job"] = _refresh_tts_payload(db, payload.get("tts_job"))
+    voice_messages = payload.get("voice_messages")
+    if isinstance(voice_messages, list):
+        refreshed_messages = []
+        for item in voice_messages:
+            if not isinstance(item, dict):
+                continue
+            refreshed = dict(item)
+            current = _refresh_tts_payload(db, refreshed)
+            if current:
+                refreshed.update(current)
+            refreshed_messages.append(refreshed)
+        payload["voice_messages"] = refreshed_messages
+    return payload
+
+
+def _legacy_voice_payloads_for_history(db: Session, *, session_id: str) -> dict[str, dict]:
+    try:
+        rows = db.scalars(
+            select(SyncOutbox)
+            .where(SyncOutbox.event_type == VOICE_JOB_EVENT_TYPE)
+            .order_by(SyncOutbox.created_at.asc())
+            .limit(500)
+        ).all()
+    except SQLAlchemyError as exc:
+        logger.warning("history_legacy_voice_scan_failed session_id=%s: %s", session_id, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return {}
+    session_jobs: list[dict] = []
+    for row in rows:
+        payload = dict(row.payload or {})
+        if str(payload.get("session_id") or "") != session_id:
+            continue
+        try:
+            job = get_voice_job(db, f"tts_{row.outbox_id}")
+        except SQLAlchemyError as exc:
+            logger.warning("history_legacy_voice_job_failed outbox_id=%s: %s", row.outbox_id, exc)
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            continue
+        if not job:
+            continue
+        session_jobs.append({"created_at": row.created_at, "job": job})
+    if not session_jobs:
+        return {}
+
+    messages = db.scalars(
+        select(Message)
+        .where(Message.session_id == session_id, Message.role == "assistant")
+        .order_by(Message.created_at.asc())
+    ).all()
+    by_message_id: dict[str, dict] = {}
+    for item in session_jobs:
+        created_at = item["created_at"]
+        candidates = [m for m in messages if m.created_at <= created_at]
+        if not candidates:
+            continue
+        target = candidates[-1]
+        payload = by_message_id.setdefault(
+            target.message_id,
+            {
+                "session_id": session_id,
+                "message_id": target.message_id,
+                "assistant_text": target.content,
+                "reply": target.content,
+                "sos_triggered": bool(target.sos_triggered),
+                "voice_messages": [],
+            },
+        )
+        voice_job = {
+            "tts_job_id": item["job"].get("tts_job_id"),
+            "status": item["job"].get("status"),
+            "audio_url": item["job"].get("audio_url"),
+            "audio_data_uri": item["job"].get("audio_data_uri"),
+            "error_code": item["job"].get("error_code"),
+            "error_message": item["job"].get("error_message"),
+        }
+        if not payload.get("tts_job"):
+            payload["tts_job"] = voice_job
+        payload["voice_messages"].append(voice_job)
+    return by_message_id
+
+
+def _meme_cadence_for_session(db: Session, *, session_id: str) -> dict:
+    rows = db.scalars(
+        select(Message)
+        .where(Message.session_id == session_id, Message.role == "assistant")
+        .order_by(Message.created_at.asc(), Message.message_id.asc())
+    ).all()
+    used_images: list[str] = []
+    text_turns_since_last_meme = 0
+    assistant_text_turns = 0
+    for row in rows:
+        if str(row.content or "").strip():
+            assistant_text_turns += 1
+            text_turns_since_last_meme += 1
+        payload = dict((dict(row.metadata_json or {})).get("client_payload") or {})
+        meme = payload.get("meme_suggestion")
+        if isinstance(meme, dict):
+            image_path = str(meme.get("image_path") or "").strip()
+            if image_path:
+                used_images.append(image_path)
+                text_turns_since_last_meme = 0
+    return {
+        "assistant_text_turns": assistant_text_turns,
+        "text_turns_since_last_meme": text_turns_since_last_meme,
+        "used_images": used_images,
+    }
+
+
+def _maybe_select_session_meme(
+    db: Session,
+    *,
+    session_id: str,
+    persona_id: str,
+    safety_tier: str,
+    distress_score: float,
+    user_message: str,
+    assistant_text: str,
+    min_text_turns_between_memes: int = 3,
+) -> dict | None:
+    cadence = _meme_cadence_for_session(db, session_id=session_id)
+    if int(cadence["text_turns_since_last_meme"]) < min_text_turns_between_memes:
+        return None
+    return maybe_select_meme_suggestion(
+        persona_id=persona_id,
+        safety_tier=safety_tier,
+        distress_score=distress_score,
+        session_id=session_id,
+        assistant_turn_index=int(cadence["assistant_text_turns"]),
+        cooldown_turns=1,
+        user_message=user_message,
+        assistant_text=assistant_text,
+        previous_meme_image_paths=list(cadence["used_images"]),
+    )
 
 
 def _trace_memory_recall_turn(
@@ -241,6 +464,23 @@ def _active_persona_id(db: Session, user_id: str, *, distress: float = 0.0) -> s
         is_unlocked=unlocked,
     )
     return decision.target_persona_id
+
+
+def _voice_env_name_for_style(style_id: str) -> str:
+    if style_id == "warm_friend":
+        return "ELEVENLABS_VOICE_ID_CRUSH_MALE"
+    if style_id == "calm_mentor":
+        return "ELEVENLABS_VOICE_ID_MENTOR"
+    if style_id == "soft_quiet":
+        return "ELEVENLABS_VOICE_ID_CRUSH_FEMALE"
+    return "ELEVENLABS_VOICE_ID"
+
+
+def _voice_fingerprint(voice_id: str) -> str:
+    token = (voice_id or "").strip()
+    if not token:
+        return ""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()[:10]
 
 
 def _resolve_active_session(
@@ -559,6 +799,8 @@ def _build_voice_intervention(
     rolling_window_turns: int,
     delta_score: float,
     voice_scripts: list[str] | None = None,
+    user_message: str = "",
+    recent_messages: list[dict] | None = None,
 ) -> dict:
     """Build a voice intervention from an explicit TTS-only script."""
     tts_cfg = get_settings()
@@ -593,6 +835,8 @@ def _build_voice_intervention(
             voice_script=script,
             trigger_reason=trigger_reason,
             trigger_snapshot=_trigger_snapshot,
+            user_message=str(user_message or ""),
+            conversation_context=list(recent_messages or []),
         )
         voice_jobs.append(job)
 
@@ -789,15 +1033,26 @@ def _maybe_enqueue_voice(
         trigger_reason = "distress_auto_voice"
     else:
         trigger_reason = "keyword_intensity_voice"
+    from app.services.proactive_voice import build_voice_script as _bvs
+    _voice_script = _bvs(
+        user_message=str(user_message or ""),
+        recent_messages=list(recent_messages or []),
+        distress_score=final_distress,
+        risk_level=int(snap.risk_level),
+        safety_tier=str(snap.safety_tier or "normal"),
+        conversation_mode="de_escalation" if final_distress >= 0.7 else "support",
+    )
     return _build_voice_intervention(
         db=db,
         user_id=user_id,
         session_id=session_id,
-        voice_script=assistant_content,
+        voice_script=_voice_script,
         snapshot=snap,
         trigger_reason=trigger_reason,
         rolling_window_turns=signal.rolling_window_turns,
         delta_score=signal.delta_score,
+        user_message=str(user_message or ""),
+        recent_messages=list(recent_messages or []),
     )
 
 
@@ -1090,7 +1345,6 @@ def send_message(
             data["used_advisor_ids"] = []
             data["resource_suggestions"] = []
             data["nutrition_suggestion"] = None
-            data["tts_job"] = None
             data["pending_human_review"] = True
             data["voice_script"] = crisis_plan.voice_script
             data["crisis_plan"] = crisis_plan.model_dump()
@@ -1104,7 +1358,6 @@ def send_message(
                 sos_triggered=True,
                 cooldown_active=cooldown_is_active,
                 cooldown_seconds_remaining=cooldown_seconds,
-                user_voice_enabled=get_voice_consent(db, current_user.user_id),
                 provider_enabled=True,
                 current_turn_has_emotional_weight=True,
                 purely_technical_turn=False,
@@ -1126,6 +1379,8 @@ def send_message(
             except Exception as exc:  # pragma: no cover - fail-open side-effect path
                 logger.warning("sos voice policy enqueue failed for %s: %s", current_user.user_id, exc)
                 voice_result = {"voice_policy": None, "intervention": None}
+            data["tts_job"] = extract_tts_job(voice_result.get("intervention"))
+            data["voice_messages"] = (voice_result.get("voice_policy") or {}).get("voice_messages") or []
             data["voice_policy"] = voice_result["voice_policy"]
             data["intervention"] = voice_result["intervention"]
             _mark_stage(latency_trace, "tts_enqueue_ms", stage_started)
@@ -1151,6 +1406,8 @@ def send_message(
                 "safety_tier",
             ):
                 data.pop(internal_key, None)
+            _persist_assistant_client_payload(db, assistant_msg, data)
+            db.commit()
             safety_tracer.score("distress_score", distress0, comment="sos_gate_forced")
             safety_tracer.update_output(
                 distress_plan.visible_text,
@@ -1344,6 +1601,20 @@ def send_message(
             logger.exception("langgraph chat failed")
             raise AppError("LLM_TIMEOUT", "Phản hồi quá lâu, vui lòng thử lại", 504) from exc
 
+    _ab = turn.get("analyst_bundle")
+    if _ab is not None:
+        try:
+            record_analyst_bundle_signal(
+                db,
+                user_id=current_user.user_id,
+                session_id=session.session_id,
+                analyst_bundle=_ab,
+                distress_score=float(distress),
+                sos_triggered=False,
+            )
+        except Exception:
+            logger.debug("analyst_bundle persist skipped (non-fatal)")
+
     snap = turn["session_fields"]
     assistant_content = turn["reply"]
     if "bỏ bơ" in raw_text.lower() and "bỏ bơ" not in str(assistant_content).lower():
@@ -1483,19 +1754,18 @@ def send_message(
         sos_triggered=False,
         cooldown_active=False if _dung_voice else cooldown_is_active,
         cooldown_seconds_remaining=0 if _dung_voice else cooldown_seconds,
-        user_voice_enabled=get_voice_consent(db, current_user.user_id),
         provider_enabled=True,
         current_turn_has_emotional_weight=True if _dung_voice else emotional_weight,
         purely_technical_turn=purely_technical,
         visible_text=assistant_content,
         reason_codes=tuple([signal_for_voice.trigger_reason] if signal_for_voice.escalate else []),
     ))
-    meme_suggestion = maybe_select_meme_suggestion(
+    meme_suggestion = _maybe_select_session_meme(
+        db,
+        session_id=session.session_id,
         persona_id=selected_persona_id,
         safety_tier=str(snap.safety_tier),
         distress_score=float(snap.distress_score),
-        session_id=session.session_id,
-        assistant_turn_index=int(session.message_count),
         user_message=str(raw_text or ""),
         assistant_text=str(assistant_content or ""),
     )
@@ -1554,6 +1824,8 @@ def send_message(
         pending_human_review=review_decision.requires_human_review if review_decision.requires_human_review else None,
         review_reason=review_decision.reason if review_decision.requires_human_review else None,
     )
+    _persist_assistant_client_payload(db, assistant_msg, data)
+    db.commit()
     logger.info("chat.latency_trace user_id=%s session_id=%s trace=%s", current_user.user_id, session.session_id, latency_trace)
     return ok(data)
 
@@ -1824,6 +2096,11 @@ def send_message_stream(
                         assistant_text=distress_plan.visible_text,
                         distress_ui=distress_ui,
                     )
+                    data["message_id"] = assistant_msg.message_id
+                    data["route_tier"] = "fast"
+                    data["used_advisor_ids"] = []
+                    data["resource_suggestions"] = []
+                    data["nutrition_suggestion"] = None
                     data["voice_script"] = crisis_plan.voice_script
                     data["crisis_plan"] = crisis_plan.model_dump()
                     if settings.chat_expose_scoring_debug:
@@ -1836,7 +2113,6 @@ def send_message_stream(
                         sos_triggered=True,
                         cooldown_active=cooldown_is_active,
                         cooldown_seconds_remaining=cooldown_seconds,
-                        user_voice_enabled=get_voice_consent(db, current_user.user_id),
                         provider_enabled=True,
                         current_turn_has_emotional_weight=True,
                         purely_technical_turn=False,
@@ -1854,9 +2130,14 @@ def send_message_stream(
                         rolling_window_turns=1,
                         delta_score=0.0,
                     )
-                    data["voice_policy"] = voice_result["voice_policy"]
-                    data["intervention"] = voice_result["intervention"]
+                    data["tts_job"] = extract_tts_job(voice_result.get("intervention"))
+                    data["voice_messages"] = (voice_result.get("voice_policy") or {}).get("voice_messages") or []
+                    for _sos_stream_key in ("voice_policy", "intervention"):
+                        data.pop(_sos_stream_key, None)
                     elapsed_ms = int((time.perf_counter() - started_at) * 1000)
+                    data["latency_trace"] = ensure_chat_latency_trace({}, total_backend_ms=elapsed_ms)
+                    _persist_assistant_client_payload(db, assistant_msg, data)
+                    db.commit()
                     safety_tracer.score("distress_score", distress0, comment="sos_gate_forced")
                     safety_tracer.update_output(
                         distress_plan.visible_text,
@@ -1910,6 +2191,53 @@ def send_message_stream(
             if turn is None:
                 turn = get_cached_turn(session.session_id, message_hash) if settings.chat_response_cache_ttl_seconds > 0 else None
             _stream_persona_id = _active_persona_id(db, current_user.user_id, distress=distress)
+            if turn is None:
+                _s_route_tier, _, _s_route_codes = ChatOrchestrator.resolve_route_advisors_with_reasons(
+                    raw_text=raw_text,
+                    previous_user_messages=previous_user_messages,
+                )
+                if _s_route_tier == "fast" and any(
+                    c in {"small_talk_fast", "greeting_fast", "thanks_fast", "ack_fast", "empty_fast"}
+                    for c in _s_route_codes
+                ):
+                    policy_decision = evaluate_safety_policy(raw_text, previous_user_messages)
+                    context_pack = ContextPack(
+                        recent_messages=ctx.recent_messages,
+                        active_memory={},
+                        mood_context=ctx.mood_today,
+                        nutrition_context=None,
+                        persona_context={"selected": _stream_persona_id},
+                        safety_policy=policy_decision,
+                    )
+                    generated = ChatOrchestrator.generate_normal_turn(
+                        user_message=raw_text,
+                        context_pack=context_pack,
+                        route_tier=_s_route_tier,
+                        planned_advisor_ids=[],
+                        apply_output_policy_or_fallback=lambda text, **_kwargs: text,
+                        policy_decision=policy_decision,
+                        route_reason_codes=_s_route_codes,
+                        consultation_db=None,
+                        request_id=message_hash,
+                        session_id=session.session_id,
+                        user_id=current_user.user_id,
+                    )
+                    snap = build_snapshot(
+                        distress,
+                        sos_triggered=False,
+                        voice_hint=settings.distress_voice_hint,
+                        critical=settings.distress_critical,
+                    )
+                    turn = {
+                        "session_fields": snap,
+                        "reply": generated.assistant_text,
+                        "assistant_tone": generated.assistant_tone,
+                        "goi_y_nhanh": generated.goi_y_nhanh,
+                        "the_dinh_kem": generated.the_dinh_kem,
+                        "routing_history": generated.routing_history,
+                        "route_tier": generated.route_tier,
+                        "used_advisor_ids": generated.used_advisor_ids,
+                    }
             if turn is None:
                 memory_ctx, compat_longterm = _load_memory_context_for_turn(
                     db,
@@ -2062,6 +2390,12 @@ def send_message_stream(
                 voice_hint=vhint,
                 routing_history=routing_hist,
             )
+            data["message_id"] = assistant_msg.message_id
+            data["route_tier"] = turn.get("route_tier") or data.get("route_tier") or "fast"
+            if isinstance(turn.get("used_advisor_ids"), list):
+                data["used_advisor_ids"] = turn.get("used_advisor_ids")
+            data["resource_suggestions"] = _compact_recommendation_attachments(the_dinh)
+            data["nutrition_suggestion"] = None
             data["intervention"] = None
             if review_decision.requires_human_review:
                 data["pending_human_review"] = True
@@ -2093,13 +2427,23 @@ def send_message_stream(
                 sos_triggered=False,
                 cooldown_active=False if _dung_voice else cooldown_is_active,
                 cooldown_seconds_remaining=0 if _dung_voice else cooldown_seconds,
-                user_voice_enabled=get_voice_consent(db, current_user.user_id),
                 provider_enabled=True,
                 current_turn_has_emotional_weight=True if _dung_voice else emotional_weight,
                 purely_technical_turn=purely_technical,
                 visible_text=assistant_content,
                 reason_codes=tuple([signal_for_voice.trigger_reason] if signal_for_voice.escalate else []),
             ))
+            meme_suggestion = _maybe_select_session_meme(
+                db,
+                session_id=session.session_id,
+                persona_id=_stream_persona_id,
+                safety_tier=str(snap.safety_tier),
+                distress_score=float(snap.distress_score),
+                user_message=str(raw_text or ""),
+                assistant_text=str(assistant_content or ""),
+            )
+            if meme_suggestion:
+                data["meme_suggestion"] = meme_suggestion
             voice_result = _enqueue_voice_policy(
                 db=db,
                 user_id=current_user.user_id,
@@ -2113,6 +2457,8 @@ def send_message_stream(
             )
             data["voice_policy"] = voice_result["voice_policy"]
             data["intervention"] = voice_result["intervention"]
+            data["tts_job"] = extract_tts_job(voice_result.get("intervention"))
+            data["voice_messages"] = (voice_result.get("voice_policy") or {}).get("voice_messages") or []
 
             elapsed_ms = int((time.perf_counter() - started_at) * 1000)
             data["latency_trace"] = ensure_chat_latency_trace({}, total_backend_ms=elapsed_ms)
@@ -2125,6 +2471,8 @@ def send_message_stream(
                 "intervention",
             ):
                 data.pop(internal_key, None)
+            _persist_assistant_client_payload(db, assistant_msg, data)
+            db.commit()
             yield "event: status\ndata: " + json.dumps({"stage": "ready", "latency_ms": elapsed_ms}, ensure_ascii=False) + "\n\n"
             yield "event: final\ndata: " + json.dumps(data, ensure_ascii=False) + "\n\n"
         except AppError as exc:
@@ -2284,6 +2632,81 @@ def send_guest_message(payload: GuestChatMessageRequest, _: None = Depends(requi
         raise AppError("SCHEMA_VALIDATION_FAILED", "Đã xảy ra lỗi nội bộ", 500) from exc
 
 
+@router.get("/debug/voice-tts")
+def debug_voice_tts(
+    session_id: str | None = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    settings = get_settings()
+    active_persona = _active_persona_id(db, current_user.user_id, distress=0.0)
+    style_id = resolve_active_style(active_persona, user_owns_voice_style=True)
+    voice_id = resolve_elevenlabs_voice_id(settings=settings, voice_style_id=style_id)
+    cooldown_is_active, cooldown_seconds = cooldown_active(user_id=current_user.user_id, session_id=session_id)
+    rows = db.scalars(
+        select(SyncOutbox)
+        .where(
+            SyncOutbox.user_id == current_user.user_id,
+            SyncOutbox.event_type == VOICE_JOB_EVENT_TYPE,
+        )
+        .order_by(SyncOutbox.created_at.desc())
+        .limit(20)
+    ).all()
+    voice_jobs: list[dict] = []
+    latest_reason_codes: list[str] = []
+    for row in rows:
+        payload = dict(row.payload or {})
+        if session_id and str(payload.get("session_id") or "") != session_id:
+            continue
+        voice = dict(payload.get("voice") or {})
+        trigger_snapshot = dict(payload.get("trigger_snapshot") or {})
+        if not latest_reason_codes:
+            raw_reasons = trigger_snapshot.get("reason_codes") or voice.get("reason_codes") or []
+            if isinstance(raw_reasons, list):
+                latest_reason_codes = [str(item) for item in raw_reasons]
+        tts_job_id = f"tts_{row.outbox_id}"
+        voice_jobs.append({
+            "tts_job_id": tts_job_id,
+            "session_id": payload.get("session_id"),
+            "trigger_reason": payload.get("trigger_reason"),
+            "status": voice.get("status") or row.status,
+            "db_status": row.status,
+            "error_code": voice.get("error_code"),
+            "audio_url_present": bool(voice.get("audio_url")),
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "voice_intent": voice.get("voice_intent"),
+            "voice_style_id": voice.get("voice_style_id") or style_id,
+        })
+        if len(voice_jobs) >= 5:
+            break
+    tiers = ["normal", "elevated", "voice_recommended", "critical"]
+    return ok({
+        "voice_allowed": True,
+        "persona_id": active_persona,
+        "voice_style_id": style_id,
+        "voice_env_name": _voice_env_name_for_style(style_id),
+        "voice_id_fingerprint": _voice_fingerprint(voice_id),
+        "provider": {
+            "name": "elevenlabs",
+            "feature_enabled": bool(settings.elevenlabs_feature_enabled),
+            "api_key_present": bool((settings.elevenlabs_api_key or "").strip()),
+            "model_id": settings.elevenlabs_model_id,
+            "timeout_seconds": settings.elevenlabs_timeout_seconds,
+        },
+        "route_allowance": {
+            tier: elevenlabs_route_allowed(safety_tier=tier, distress_score=0.0, settings=settings)
+            for tier in tiers
+        },
+        "cooldown": {
+            "active": cooldown_is_active,
+            "seconds_remaining": cooldown_seconds,
+            "session_id": session_id,
+        },
+        "latest_reason_codes": latest_reason_codes,
+        "last_voice_jobs": voice_jobs,
+    })
+
+
 @router.get("/voice-jobs/{tts_job_id}")
 def get_voice_job_status(
     tts_job_id: str,
@@ -2431,6 +2854,7 @@ def get_session_messages(
         .offset(offset)
         .limit(limit)
     ).all()
+    legacy_voice_payloads = _legacy_voice_payloads_for_history(db, session_id=session_id)
 
     messages = [
         {
@@ -2440,6 +2864,7 @@ def get_session_messages(
             "assistant_tone": m.assistant_tone,
             "the_dinh_kem": [],
             "created_at": m.created_at.isoformat() + "Z",
+            "client_payload": _history_client_payload(db, m) or legacy_voice_payloads.get(m.message_id),
         }
         for m in rows
     ]

@@ -31,6 +31,11 @@ from app.services.tts_renderer import (
 from app.voice.dedup import compute_event_signature, dedup_status_for, find_dedup_job
 from app.voice.style_mapping import resolve_active_style
 
+try:
+    from openai import OpenAI
+except ImportError:  # openai optional; falls back gracefully in _generate_llm_voice_script
+    OpenAI = None  # type: ignore[assignment,misc]
+
 logger = logging.getLogger(__name__)
 
 
@@ -153,6 +158,79 @@ def build_voice_script(
     )
 
 
+def _generate_llm_voice_script(
+    *,
+    user_message: str,
+    conversation_context: list[dict[str, Any]],
+    distress_score: float,
+    safety_tier: str,
+    settings: Any,
+) -> str | None:
+    """Generate a context-aware voice script via LLM. Runs inside TTS worker thread.
+
+    Returns None when flag is off, API key missing, or LLM fails — caller falls back to stored script.
+    """
+    if not getattr(settings, "voice_llm_script_enabled", False):
+        return None
+    api_key = str(getattr(settings, "openai_api_key", "") or "").strip()
+    if not api_key:
+        return None
+
+    recent_lines: list[str] = []
+    for msg in (conversation_context or [])[-6:]:
+        role = str(msg.get("role") or "")
+        content = str(msg.get("content") or "")[:200]
+        if role == "user":
+            recent_lines.append(f"Người dùng: {content}")
+        elif role == "assistant":
+            recent_lines.append(f"Serene: {content}")
+    context_block = "\n".join(recent_lines) if recent_lines else "(không có lịch sử)"
+    current = str(user_message or "")[:300]
+
+    system_prompt = (
+        "Bạn là Serene, AI hỗ trợ sức khỏe tinh thần người Việt.\n"
+        "Dựa trên nội dung cuộc trò chuyện, viết một đoạn voice message ngắn bằng tiếng Việt.\n\n"
+        "Quy tắc bắt buộc:\n"
+        "- Tối đa 60 từ, dạng nói chuyện tự nhiên (không markdown, không link, không số điện thoại).\n"
+        "- Nội dung KHÁC với tin nhắn text: voice là hướng dẫn hành động cụ thể, không phải đồng cảm chung.\n"
+        "- Không chẩn đoán rối loạn, không bịa số hotline hay tên cơ sở y tế.\n"
+        "- Kết thúc bằng một hành động cụ thể người dùng có thể làm ngay bây giờ."
+    )
+    user_prompt = (
+        f"Distress score: {distress_score:.2f} | Safety tier: {safety_tier}\n\n"
+        f"Lịch sử hội thoại gần đây:\n{context_block}\n\n"
+        f"Tin nhắn mới nhất của người dùng: {current}\n\n"
+        "Viết voice script (tối đa 60 từ, tiếng Việt, plain text):"
+    )
+
+    try:
+        if OpenAI is None:
+            logger.warning("voice_llm_script_generation_failed: openai package not installed")
+            return None
+        client = OpenAI(
+            api_key=api_key,
+            timeout=min(float(getattr(settings, "llm_timeout_seconds", 5.0)), 3.0),
+        )
+        resp = client.chat.completions.create(
+            model=str(getattr(settings, "openai_model_voice_script", "gpt-4o-mini")),
+            temperature=0.7,
+            max_tokens=120,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+        )
+        script = (resp.choices[0].message.content or "").strip()
+        max_chars = int(getattr(settings, "voice_llm_script_max_chars", 280))
+        if not script or len(script) > max_chars * 2:
+            logger.warning("voice_llm_script_invalid_length chars=%d", len(script))
+            return None
+        return script
+    except Exception as exc:
+        logger.warning("voice_llm_script_generation_failed: %s", exc)
+        return None
+
+
 def cooldown_active(*, user_id: str, session_id: str | None) -> tuple[bool, int]:
     settings = get_settings()
     key = f"{user_id}:{session_id or '-'}"
@@ -174,7 +252,7 @@ def mark_cooldown(*, user_id: str, session_id: str | None) -> None:
 
 
 def _model_hint_for_queue(settings: Any) -> str:
-    return str(getattr(settings, "elevenlabs_model_id", "") or "eleven_multilingual_v2")
+    return str(getattr(settings, "elevenlabs_model_id", "") or "eleven_flash_v2_5")
 
 
 def _is_provider_level_block(code: str | None) -> bool:
@@ -195,6 +273,8 @@ def enqueue_voice_job(
     voice_intent: str = "unspecified",
     priority: str = "normal",
     template_version: str = "voice_policy_v1",
+    user_message: str = "",
+    conversation_context: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     global _VOICE_PROVIDER_BLOCKED_CODE
     settings = get_settings()
@@ -273,18 +353,27 @@ def enqueue_voice_job(
             "voice_script": voice_script,
             "trigger_reason": trigger_reason,
             "trigger_snapshot": trigger_snapshot,
-                "voice": {
-                    "status": "queued",
-                    "requested_tts_provider": provider,
-                    "event_signature": signature,
-                    "voice_script_hash": signature,
-                    "voice_style_id": voice_style_id,
-                    "risk_mode": risk_mode,
-                    "voice_intent": voice_intent,
-                    "priority": priority,
-                    "template_version": template_version,
-                },
+            "user_message": mask_pii(str(user_message or ""))[:400],
+            "conversation_context": [
+                {
+                    "role": str(m.get("role") or ""),
+                    "content": mask_pii(str(m.get("content") or ""))[:300],
+                }
+                for m in (conversation_context or [])[-6:]
+                if m.get("role") in {"user", "assistant"}
+            ],
+            "voice": {
+                "status": "queued",
+                "requested_tts_provider": provider,
+                "event_signature": signature,
+                "voice_script_hash": signature,
+                "voice_style_id": voice_style_id,
+                "risk_mode": risk_mode,
+                "voice_intent": voice_intent,
+                "priority": priority,
+                "template_version": template_version,
             },
+        },
         status="pending",
     )
     db.add(outbox)
@@ -379,9 +468,22 @@ def _process_job(job_id: int, owner_token: str | None = None) -> None:
         except (TypeError, ValueError):
             distress_f = None
 
+        settings = get_settings()
+
+        # LLM-enhanced voice script — runs here in the background thread, never blocks chat.
+        llm_script = _generate_llm_voice_script(
+            user_message=str(payload.get("user_message") or ""),
+            conversation_context=list(payload.get("conversation_context") or []),
+            distress_score=float(distress_f or 0.0),
+            safety_tier=str(tier_s or "normal"),
+            settings=settings,
+        )
+        if llm_script:
+            logger.info("voice_job_llm_script_used job_id=%s chars=%d", job_id, len(llm_script))
+            voice_script = llm_script
+
         # Mask PII before any external TTS.
         safe_script = mask_pii(voice_script)
-        settings = get_settings()
         provider = _normalize_voice_provider(getattr(settings, "tts_provider", "elevenlabs"))
         user_id = str(payload.get("user_id") or "")
 
@@ -537,15 +639,14 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
     )
 
     audio_path_from_payload = Path(str(voice.get("audio_path"))) if voice.get("audio_path") else None
-    has_ready_audio = bool(
-        voice.get("audio_url")
-        or (audio_path_from_payload and audio_path_from_payload.exists())
-        or _voice_audio_file(outbox_id).exists()
-    )
+    payload_audio_exists = bool(audio_path_from_payload and audio_path_from_payload.exists())
+    fallback_audio_path = _voice_audio_file(outbox_id)
+    fallback_audio_exists = fallback_audio_path.exists()
+    has_ready_audio = payload_audio_exists or fallback_audio_exists
 
     if row.status == "done" and (voice_status != "ready" or has_ready_audio):
         if has_ready_audio:
-            audio_path = audio_path_from_payload if audio_path_from_payload and audio_path_from_payload.exists() else _voice_audio_file(outbox_id)
+            audio_path = audio_path_from_payload if payload_audio_exists else fallback_audio_path
             voice["status"] = "ready"
             if audio_path.exists():
                 voice["audio_path"] = str(audio_path)
@@ -564,7 +665,7 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
             voice_status = "ready"
 
     if row.status == "done" and voice_status in {"queued", "processing", "pending"}:
-        audio_path = _voice_audio_file(outbox_id)
+        audio_path = fallback_audio_path
         if audio_path.exists():
             voice["status"] = "ready"
             voice["audio_path"] = str(audio_path)
@@ -588,6 +689,18 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
             db.commit()
             logger.warning("voice_job_done_missing_audio job_id=%s", outbox_id)
             voice_status = "failed"
+
+    if row.status == "done" and voice_status == "ready" and not has_ready_audio:
+        voice["status"] = "failed"
+        voice["error_code"] = "voice_ready_missing_audio"
+        voice["error_message"] = "Voice job marked ready but generated audio file was missing on this server."
+        voice.pop("audio_url", None)
+        payload["voice"] = voice
+        _assign_payload(row, payload)
+        row.status = "failed"
+        db.commit()
+        logger.warning("voice_job_ready_missing_audio job_id=%s", outbox_id)
+        voice_status = "failed"
 
     if row.status == "processing" and processing_age_seconds >= VOICE_JOB_PROCESSING_STALE_SECONDS:
         voice["status"] = "failed"
@@ -660,12 +773,20 @@ def get_voice_audio_path(db: Session, tts_job_id: str) -> Path | None:
     payload = dict(row.payload or {})
     voice = dict(payload.get("voice") or {})
     p = voice.get("audio_path")
-    if not p:
-        return None
-    path = Path(str(p))
-    if not path.exists():
-        return None
-    return path
+    if p:
+        path = Path(str(p))
+        if path.exists():
+            return path
+    fallback = _voice_audio_file(outbox_id)
+    if fallback.exists():
+        voice["audio_path"] = str(fallback)
+        voice["audio_url"] = f"/v1/chat/voice-jobs/tts_{outbox_id}/audio"
+        voice["status"] = "ready"
+        payload["voice"] = voice
+        _assign_payload(row, payload)
+        db.commit()
+        return fallback
+    return None
 
 
 def reclaim_stale_processing_jobs(db: Session, *, stale_after_seconds: int = 180) -> int:

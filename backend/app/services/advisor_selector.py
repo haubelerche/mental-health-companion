@@ -122,7 +122,31 @@ class AdvisorSelector:
             add("relevance_naturalness_critic")
 
         if not picked:
-            picked = ["reflection_advisor"]
+            # Context-aware fallback: check recent messages for emotional signals
+            recent_normalized = [_normalize(m) for m in (recent_user_messages or [])[-3:]]
+            recent_combined = " ".join(recent_normalized)
+
+            has_recent_self_blame = any(
+                k in recent_combined
+                for k in (
+                    "tu trach", "loi tai minh", "tai minh", "vo dung",
+                    "thua kem", "minh te", "minh kem", "lam hong",
+                )
+            )
+            has_recent_emotional = any(
+                k in recent_combined
+                for k in (
+                    "cam thay", "buon", "met", "tuyet vong", "qua tai",
+                    "kiet suc", "khong on", "can kiet", "kho tho", "cang thang",
+                )
+            )
+
+            if has_recent_self_blame:
+                picked = ["cbt_pattern_advisor"]
+            elif has_recent_emotional:
+                picked = ["empathy_advisor"]
+            else:
+                picked = ["reflection_advisor"]
 
         return AdvisorSelection(
             advisor_ids=picked[:MAX_ADVISORS_PER_TURN],

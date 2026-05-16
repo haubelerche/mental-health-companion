@@ -12,7 +12,7 @@ export function InsightSummaryStrip({ summary }: Props) {
         summary.checkin_count === 0 ? 'Bằng chứng: chưa có check-in' : `Bằng chứng: ${summary.checkin_count} check-in`
 
     return (
-        <section className="rounded-2xl border border-theme-border/70 bg-theme-surface/92 p-4 shadow-sm backdrop-blur-xl md:p-5">
+        <section className="rounded-2xl border border-theme-border/70 bg-theme-surface p-4 shadow-sm md:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0">
                     <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-theme-text-tertiary">
