@@ -2,7 +2,7 @@
 
 > **Live URL:** [Serene.AI](https://a20-app-039.vercel.app/) <br>
 > **Video Demo:** *(YouTube link — cập nhật trước khi nộp)* <br>
-> **Pitch Deck:** *(Google Slides link — cập nhật trước khi nộp)* <br>
+> **Pitch Deck:** [Google Slides link](https://docs.google.com/presentation/d/1AyPRQK7WMZfvQPd2KT_a3YjDnyy2imBvwopUUpfLaIo/edit?usp=sharing) <br>
 > **Architecture:** [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md) <br>
 > **Evaluation Evidence:** [`docs/submission/EVALUATION_EVIDENCE.md`](docs/submission/EVALUATION_EVIDENCE.md) <br>
 > **Submission Report:** [`report.md`](report.md) <br>
