@@ -72,6 +72,7 @@ from app.services.clinical_profile import get_or_create_clinical_profile
 from app.services.safety_policy import evaluate_safety_policy
 from app.services.safety_scoring import SafetySnapshot, build_snapshot, compute_escalation_signal
 from app.services.schemas.contracts import ContextPack
+from app.services.resource_candidates import fetch_resource_candidates
 from app.services.proactive_voice import (
     VOICE_JOB_EVENT_TYPE,
     cooldown_active,
@@ -1462,6 +1463,13 @@ def send_message(
 
     if turn is None:
         try:
+            def _fast_output_policy(text: str, **_kwargs: object) -> str:
+                _v = _validate_tts_output(text, surface="chat")
+                if _v.is_blocked:
+                    logger.warning("output_validator blocked reply: %s", _v.reason_codes)
+                    return "Mình hiểu bạn đang cần hỗ trợ. Hãy chia sẻ thêm để Serene có thể đồng hành cùng bạn nhé."
+                return text
+
             if route_tier == "fast" and any(
                 reason in {"small_talk_fast", "greeting_fast", "thanks_fast", "ack_fast", "empty_fast"}
                 for reason in route_reason_codes
@@ -1476,12 +1484,6 @@ def send_message(
                     persona_context={"selected": selected_persona_id},
                     safety_policy=policy_decision,
                 )
-                def _fast_output_policy(text: str, **_kwargs: object) -> str:
-                    _v = _validate_tts_output(text, surface="chat")
-                    if _v.is_blocked:
-                        logger.warning("output_validator blocked fast-path reply: %s", _v.reason_codes)
-                        return "Mình hiểu bạn đang cần hỗ trợ. Hãy chia sẻ thêm để Serene có thể đồng hành cùng bạn nhé."
-                    return text
                 generated = ChatOrchestrator.generate_normal_turn(
                     user_message=raw_text,
                     context_pack=context_pack,
@@ -1531,6 +1533,13 @@ def send_message(
                 if memory_ctx and memory_ctx.onboarding:
                     _base_traits.setdefault("onboarding", memory_ctx.onboarding)
                 if route_tier == "advisor_assisted":
+                    _adv_tracer = ChatTurnTracer(
+                        correlation_id=message_hash,
+                        user_id=current_user.user_id,
+                        session_id=session.session_id,
+                        input_meta={"route_tier": "advisor_assisted", "user_message_len": len(raw_text)},
+                    )
+                    set_active_tracer(_adv_tracer)
                     policy_decision = evaluate_safety_policy(raw_text, previous_user_messages)
                     context_pack = ContextPack(
                         recent_messages=ctx.recent_messages,
@@ -1545,6 +1554,11 @@ def send_message(
                         nutrition_context={"today_meals": _nutrition_meals} if _nutrition_meals else None,
                         persona_context={"selected": selected_persona_id},
                         safety_policy=policy_decision,
+                        resource_candidates=fetch_resource_candidates(
+                            distress_score=float(getattr(policy_decision, "distress_score", 0.0)),
+                            user_message=raw_text,
+                            db=db,
+                        ),
                     )
                     generated = ChatOrchestrator.generate_normal_turn(
                         user_message=raw_text,
@@ -1559,6 +1573,10 @@ def send_message(
                         session_id=session.session_id,
                         user_id=current_user.user_id,
                     )
+                    _adv_tracer.score("distress_score", distress)
+                    _adv_tracer.update_output(generated.assistant_text, metadata={"route_tier": "advisor_assisted"})
+                    _adv_tracer.flush()
+                    set_active_tracer(None)
                     snap = build_snapshot(
                         distress,
                         sos_triggered=False,
@@ -2206,6 +2224,13 @@ def send_message_stream(
                     c in {"small_talk_fast", "greeting_fast", "thanks_fast", "ack_fast", "empty_fast"}
                     for c in _s_route_codes
                 ):
+                    _fast_tracer = ChatTurnTracer(
+                        correlation_id=message_hash,
+                        user_id=current_user.user_id,
+                        session_id=session.session_id,
+                        input_meta={"route_tier": "fast", "stream": True, "user_message_len": len(raw_text)},
+                    )
+                    set_active_tracer(_fast_tracer)
                     policy_decision = evaluate_safety_policy(raw_text, previous_user_messages)
                     context_pack = ContextPack(
                         recent_messages=ctx.recent_messages,
@@ -2234,6 +2259,10 @@ def send_message_stream(
                         session_id=session.session_id,
                         user_id=current_user.user_id,
                     )
+                    _fast_tracer.score("distress_score", distress)
+                    _fast_tracer.update_output(generated.assistant_text, metadata={"route_tier": "fast", "stream": "True"})
+                    _fast_tracer.flush()
+                    set_active_tracer(None)
                     snap = build_snapshot(
                         distress,
                         sos_triggered=False,

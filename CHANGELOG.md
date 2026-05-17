@@ -4,6 +4,33 @@
 
 ---
 
+## [Unreleased] — Redesign LifestyleRhythmPanel: insight-first layout với hero card · 2026-05-17
+
+### Changed
+- **`frontend/src/components/dashboard/LifestyleRhythmPanel.tsx`**: thiết kế lại hoàn toàn tab "Sinh hoạt" từ dạng số liệu rời rạc sang insight-first.
+  - Thêm **hero card "Điều đáng chú ý nhất"** tổng hợp điều nổi bật nhất từ các chiều dữ liệu, kèm evidence chips và mức tin cậy (Thấp / Trung bình / Cao).
+  - 4 thẻ (Giấc ngủ, Cơ thể, Cảm xúc, Kết nối) mỗi thẻ đều trả lời: Serene thấy gì → Dựa trên dữ liệu nào → Còn thiếu gì → Hôm nay thử việc nhỏ nào.
+  - Trạng thái thiếu dữ liệu hiển thị rõ ràng thay vì để card trống hoặc nói chung chung.
+  - Loại bỏ hoàn toàn tiếng Anh trong UI người dùng (không còn "coping", "check-in", "insight", "session", "score", "risk").
+  - Icon "Cơ thể" đổi từ `Salad` sang `Activity` để phản ánh đúng khái niệm hành động tự ổn định.
+
+---
+
+## [Unreleased] — Fix missing Langfuse traces for fast-path and advisor turns · 2026-05-17
+
+### Fixed
+- **`routers/chat.py` — `advisor_assisted` non-streaming path**: `ChatOrchestrator.generate_normal_turn()` was called without a `ChatTurnTracer` — `get_active_tracer()` returned `None`, silently dropping all routing, advisor, and generation spans. Added `ChatTurnTracer` wrapping with `set_active_tracer` / `score` / `update_output` / `flush`.
+- **`routers/chat.py` — streaming fast path** (greetings, small talk, ack): same root cause. Added `ChatTurnTracer` wrapping so fast turns now appear in Langfuse with `route_tier=fast`, `stream=True` metadata.
+
+---
+
+## [Unreleased] — Eval score improvement: safety tests + analyst sanitizer + backend screening · 2026-05-17
+
+### Fixed
+- `backend/app/api/v1/routers/chat.py`: `UnboundLocalError: _fast_output_policy` khi tiếp tục hội thoại cũ với `route_tier == "advisor_assisted"`. Hàm `_fast_output_policy` chỉ được khai báo trong nhánh `route_tier == "fast"`, nhưng lại được tham chiếu ở nhánh `else → advisor_assisted`. Fix: chuyển khai báo lên đầu khối `try` để cả hai nhánh đều truy cập được.
+
+---
+
 ## [Unreleased] — Eval score improvement: safety tests + analyst sanitizer + backend screening · 2026-05-16
 
 ### Added (evaluation quality)
@@ -30,6 +57,7 @@
 
 ### Changed (Reflect)
 - `frontend/src/components/pages/reflect/Reflect.tsx` — Đổi nhãn tab **Pattern** thành **Khuynh hướng**.
+- `frontend/src/components/dashboard/DataQualityBadge.tsx` — Chữ badge chất lượng dữ liệu (cạnh tiêu đề **Nhìn lại**): dùng `text-black` / `dark:text-white` để đủ tương phản với nền màu.
 
 ---
 
