@@ -1,6 +1,6 @@
-# Serene — AI Mental-Health Companion cho Sinh Viên Việt Nam
+# **Serene.AI** — Trợ lý AI hỗ trợ sàng lọc và Chăm sóc sức khỏe tinh thần cho người Việt.
 
-> **Live URL:** *(deploy link — cập nhật trước khi nộp)*
+> **Live URL:** [Serene.AI](https://a20-app-039.vercel.app/) <br>
 > **Video Demo:** *(YouTube link — cập nhật trước khi nộp)*
 > **Pitch Deck:** *(Google Slides link — cập nhật trước khi nộp)*
 > **Architecture:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
@@ -279,3 +279,7 @@ A20-App-039/
 
 **Khóa:** AI20K Build Phase
 **Submission deadline:** 23:59 — 17/05/2026
+
+AI prompt logging hooks are installed after running `setup_hooks.sh`.
+
+See [AGENTS.md](./AGENTS.md) for details.
