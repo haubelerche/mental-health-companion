@@ -8,6 +8,7 @@ from app.services.db.session import get_db
 from app.services.db.models import Conversation, CrisisLog, MoodCheckin, Resource, Message
 from app.services.chat_cost_metrics import get_chat_cost_snapshot
 from app.services.utils import local_date_utc7
+from app.services.turn_trace_store import get_recent_traces
 from .shared import router, _audit
 
 @router.get("/dashboard/aggregate")
@@ -127,3 +128,14 @@ def admin_cost_dashboard(
             }
         }
     )
+
+@router.get("/traces/recent")
+def admin_traces_recent(
+    request: Request,
+    limit: int = 50,
+    claims: dict = Depends(get_admin_claims),
+):
+    enforce_admin_ip(request)
+    limit = max(1, min(limit, 200))
+    traces = get_recent_traces(limit=limit)
+    return ok({"traces": traces, "count": len(traces)})

@@ -32,6 +32,7 @@ from app.services.response_planner import build_response_plan
 from app.services.safety_scoring import build_snapshot
 from app.services.sos_handler import _normalize_text
 from app.services.neo4j_client import get_user_patterns_async
+from app.services.turn_trace_store import record_trace as _record_trace
 
 logger = logging.getLogger(__name__)
 
@@ -1681,6 +1682,19 @@ def run_non_sos_turn(
         result.get("reply", ""),
         metadata={"routing_history": result.get("routing_history", [])},
     )
+    # --- admin observability trace record ----------------------------------
+    _record_trace({
+        "turn_id": correlation_id,
+        "ts": time.time(),
+        "user_id_hash": _user_hash(user_id or ""),
+        "session_id": session_id or "",
+        "distress_score": round(distress_score, 3),
+        "route_decision": out.get("route_decision", "friend"),
+        "routing_history": out.get("routing_history", []),
+        "total_ms": round((time.perf_counter() - started) * 1000, 1),
+        "reply_len": len(str(out.get("reply") or "")),
+    })
+    # -----------------------------------------------------------------------
     _tracer.flush()
     set_active_tracer(None)
     return result
