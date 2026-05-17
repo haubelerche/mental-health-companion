@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
@@ -8,7 +9,7 @@ from app.api.deps import ensure_policy_acknowledged
 from app.core.responses import ok
 from app.hearts.service import grant_hearts, get_balance
 from app.hearts.streaks import update_mood_streak
-from app.services.db.models import MoodCheckin, User
+from app.services.db.models import MoodCheckin, SleepCheckin, User
 from app.services.db.session import get_db
 from app.services.schemas.payloads import CheckinQuickRequest
 from app.services.utils import local_date_utc7, make_id, get_now, VN_TZ
@@ -29,6 +30,67 @@ def _compute_time_bucket() -> str:
     return "other"
 
 
+def _time_on_date(base_date, value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        hour_s, minute_s = value.split(":", 1)
+        hour = int(hour_s)
+        minute = int(minute_s)
+    except (TypeError, ValueError):
+        return None
+    if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+        return None
+    return datetime.combine(base_date, datetime.min.time()) + timedelta(hours=hour, minutes=minute)
+
+
+def _upsert_sleep_checkin(
+    db: Session,
+    *,
+    user_id: str,
+    logged_date,
+    sleep_start: str | None,
+    wake_time: str | None,
+    duration_hours: float | None,
+    sleep_quality: int | None,
+    note: str | None,
+) -> None:
+    if not sleep_start and not wake_time and duration_hours is None and sleep_quality is None:
+        return
+    sleep_date = logged_date
+    bedtime_at = _time_on_date(logged_date, sleep_start)
+    wake_time_at = _time_on_date(logged_date, wake_time)
+    if bedtime_at and wake_time_at and bedtime_at > wake_time_at:
+        bedtime_at = bedtime_at - timedelta(days=1)
+        sleep_date = bedtime_at.date()
+    if duration_hours is None and bedtime_at and wake_time_at:
+        duration_hours = round((wake_time_at - bedtime_at).total_seconds() / 3600, 2)
+    if duration_hours is not None and not (0 < float(duration_hours) <= 16):
+        duration_hours = None
+
+    existing = db.scalar(
+        select(SleepCheckin).where(
+            SleepCheckin.user_id == user_id,
+            SleepCheckin.sleep_date == sleep_date,
+        )
+    )
+    now = get_now().replace(tzinfo=None)
+    if existing is None:
+        existing = SleepCheckin(
+            sleep_id=make_id("slp"),
+            user_id=user_id,
+            sleep_date=sleep_date,
+            source="self_report",
+        )
+        db.add(existing)
+    existing.bedtime_at = bedtime_at
+    existing.wake_time_at = wake_time_at
+    existing.duration_hours = duration_hours
+    existing.sleep_quality = sleep_quality
+    existing.note = note
+    existing.updated_at = now
+
+
 @router.post("/quick")
 def checkin_quick(
     payload: CheckinQuickRequest,
@@ -37,7 +99,7 @@ def checkin_quick(
 ):
     logged_date = local_date_utc7()
     user_id = current_user.user_id
-    time_bucket = _compute_time_bucket()
+    time_bucket = payload.time_bucket or _compute_time_bucket()
     existing = db.scalar(
         select(MoodCheckin).where(
             MoodCheckin.user_id == user_id,
@@ -56,6 +118,9 @@ def checkin_quick(
     extra = {
         "stress_level": payload.stress_level,
         "sleep_hours": payload.sleep_hours,
+        "sleep_start": payload.sleep_start,
+        "wake_time": payload.wake_time,
+        "sleep_quality": payload.sleep_quality,
         "study_hours": payload.study_hours,
         "emotions": payload.emotions,
         "triggers": payload.triggers,
@@ -68,6 +133,16 @@ def checkin_quick(
         existing.triggers = payload.triggers
         existing.note = note_blob[:10000]
         existing.updated_at = get_now().replace(tzinfo=None)
+        _upsert_sleep_checkin(
+            db,
+            user_id=user_id,
+            logged_date=logged_date,
+            sleep_start=payload.sleep_start,
+            wake_time=payload.wake_time,
+            duration_hours=payload.sleep_hours,
+            sleep_quality=payload.sleep_quality,
+            note=payload.note,
+        )
         streak_result = update_mood_streak(db, user_id=current_user.user_id, checkin_date=logged_date)
         db.commit()
         return ok({
@@ -96,6 +171,16 @@ def checkin_quick(
     )
     db.add(row)
     db.flush()
+    _upsert_sleep_checkin(
+        db,
+        user_id=user_id,
+        logged_date=logged_date,
+        sleep_start=payload.sleep_start,
+        wake_time=payload.wake_time,
+        duration_hours=payload.sleep_hours,
+        sleep_quality=payload.sleep_quality,
+        note=payload.note,
+    )
 
     idem_key = f"mood_checkin:{user_id}:{logged_date.isoformat()}"
     first_checkin_today = prior_same_day == 0

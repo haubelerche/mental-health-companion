@@ -1,12 +1,13 @@
 import { Activity, BedDouble, Users, Zap } from 'lucide-react'
 import type { ComponentType } from 'react'
-import type { ReflectWellnessDimension } from '../../services/dashboardService'
+import type { ReflectInsight, ReflectWellnessDimension } from '../../services/dashboardService'
 
 type Props = {
     dimensions: ReflectWellnessDimension[]
+    insights?: ReflectInsight[]
 }
 
-type DimKey = 'sleep' | 'body' | 'emotion' | 'connection'
+type DimKey = 'sleep' | 'nutrition' | 'emotion' | 'connection' | 'body'
 type StatusType = ReflectWellnessDimension['status']
 
 const STATUS_LABEL: Record<StatusType, string> = {
@@ -58,7 +59,7 @@ const DIMENSION_CONFIG: Record<DimKey, DimConfig> = {
     },
     body: {
         icon: Activity,
-        label: 'Cơ thể',
+        label: 'Hành động tự chăm sóc',
         iconColor: 'text-emerald-500',
         evidenceUnit: 'lần thử hành động nhỏ',
         missingWhenEmpty: 'hành động tự ổn định, mức năng lượng trong ngày',
@@ -66,6 +67,17 @@ const DIMENSION_CONFIG: Record<DimKey, DimConfig> = {
         fallbackExplanation:
             'Serene chưa có đủ thông tin về các hành động tự ổn định của bạn. Mỗi lần thử một hành động nhỏ, bạn đang giúp Serene hiểu điều gì thật sự có tác dụng.',
         fallbackAction: 'thử một hành động nhỏ tự ổn định hôm nay',
+    },
+    nutrition: {
+        icon: Activity,
+        label: 'Ăn uống và năng lượng',
+        iconColor: 'text-lime-500',
+        evidenceUnit: 'bữa ăn được ghi',
+        missingWhenEmpty: 'bữa sáng, bữa trưa, bữa tối',
+        missingWhenHasData: 'món ăn cụ thể và cảm giác sau bữa ăn',
+        fallbackExplanation:
+            'Serene chưa có đủ log bữa ăn để xem protein, chất xơ, đường hoặc caffeine đang ảnh hưởng đến năng lượng của bạn ra sao.',
+        fallbackAction: 'ghi bữa gần nhất, chỉ cần tên món và cảm giác sau bữa ăn',
     },
     emotion: {
         icon: Zap,
@@ -91,7 +103,7 @@ const DIMENSION_CONFIG: Record<DimKey, DimConfig> = {
     },
 }
 
-const PRIORITY_DIMS: DimKey[] = ['sleep', 'body', 'emotion', 'connection']
+const PRIORITY_DIMS: DimKey[] = ['sleep', 'nutrition', 'emotion', 'connection', 'body']
 
 function hasData(status: StatusType): boolean {
     return status === 'steady' || status === 'improving' || status === 'needs_attention'
@@ -194,6 +206,7 @@ function LifestyleCard({
 }) {
     const config = DIMENSION_CONFIG[dimKey]
     const Icon = config.icon
+    const displayLabel = dimKey === 'body' ? 'Hành động tự chăm sóc' : config.label
     const status: StatusType = dim?.status ?? 'unknown'
     const isDataReady = hasData(status)
 
@@ -218,7 +231,7 @@ function LifestyleCard({
                         aria-hidden
                     />
                     <p className="text-xs font-bold uppercase tracking-[0.14em] text-theme-text-primary">
-                        {config.label}
+                        {displayLabel}
                     </p>
                 </div>
                 <span
@@ -247,8 +260,47 @@ function LifestyleCard({
     )
 }
 
-export function LifestyleRhythmPanel({ dimensions }: Props) {
-    const dimMap = new Map(dimensions.map((d) => [d.dimension, d]))
+export function LifestyleRhythmPanel({ dimensions, insights = [] }: Props) {
+    const nutritionInsight = insights.find((insight) => insight.category === 'nutrition' || insight.hypothesis_type === 'nutrition')
+    const sleepInsight = insights.find((insight) => insight.category === 'sleep' || insight.hypothesis_type === 'sleep')
+    const emotionInsight = insights.find((insight) => insight.category === 'daily_mood' || insight.category === 'emotion' || insight.hypothesis_type === 'daily_mood')
+    const connectionInsight = insights.find((insight) => insight.category === 'real_world_connection' || insight.hypothesis_type === 'real_world_connection')
+    const selfCareInsight = insights.find((insight) => insight.category === 'self_care_action' || insight.hypothesis_type === 'self_care_action')
+    const enrichedDimensions = [...dimensions]
+
+    const upsertInsightDimension = (
+        insight: ReflectInsight | undefined,
+        dimension: ReflectWellnessDimension['dimension'],
+        label: string,
+        evidenceUnit: string,
+    ) => {
+        if (!insight) return
+        const status: StatusType = insight.severity_label.includes('chăm') || insight.severity_label.includes('theo dõi') ? 'needs_attention' : 'steady'
+        const nextDimension: ReflectWellnessDimension = {
+            dimension,
+            label,
+            status,
+            score: null,
+            explanation: insight.interpretation || insight.user_safe_summary,
+            evidence_count: insight.evidence_count,
+            suggested_action: insight.recommended_actions?.[0] || insight.suggested_action || null,
+            evidence_text: `${insight.evidence_count} ${evidenceUnit}`,
+        }
+        const existingIndex = enrichedDimensions.findIndex((dim) => dim.dimension === dimension)
+        if (existingIndex >= 0) {
+            enrichedDimensions[existingIndex] = nextDimension
+        } else {
+            enrichedDimensions.push(nextDimension)
+        }
+    }
+
+    upsertInsightDimension(sleepInsight, 'sleep', 'Giấc ngủ', 'ghi nhận giấc ngủ')
+    upsertInsightDimension(nutritionInsight, 'nutrition', 'Ăn uống và năng lượng', 'bữa ăn được ghi')
+    upsertInsightDimension(emotionInsight, 'emotion', 'Cảm xúc', 'ghi nhận cảm xúc')
+    upsertInsightDimension(connectionInsight, 'connection', 'Kết nối ngoài đời', 'phiên trò chuyện')
+    upsertInsightDimension(selfCareInsight, 'body', 'Hành động tự chăm sóc', 'ghi nhận hành động')
+
+    const dimMap = new Map(enrichedDimensions.map((d) => [d.dimension, d]))
 
     return (
         <section className="rounded-2xl border border-theme-border/70 bg-theme-surface p-4 shadow-sm backdrop-blur-xl md:p-5">
@@ -261,7 +313,7 @@ export function LifestyleRhythmPanel({ dimensions }: Props) {
                 </p>
             </div>
 
-            <HeroCard dimMap={dimMap} allDims={dimensions} />
+            <HeroCard dimMap={dimMap} allDims={enrichedDimensions} />
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {PRIORITY_DIMS.map((key) => (

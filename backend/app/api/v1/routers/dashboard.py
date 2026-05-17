@@ -15,6 +15,7 @@ from app.dashboard.service import (
     build_safe_insights_payload,
 )
 from app.dashboard.sufficiency import compute_data_sufficiency
+from app.services.dashboard_insights.insight_builder import build_safe_dashboard_payload
 from app.services.db.models import Conversation, MoodCheckin, User
 from app.services.db.session import get_db
 from app.services.utils import (
@@ -36,10 +37,15 @@ class DashboardWindow(str, Enum):
 
 # TODO: tạm thời để như này. bao giờ xong scale chi tiết hơn, đổi thành thang 10
 _MOOD_TO_SCORE = {
+    "terrible": (1, "rất khó"),
     "stressful": (1, "khó khăn"),
+    "bad": (1, "khó khăn"),
     "sad": (2, "buồn"),
+    "fine": (3, "ổn"),
     "neutral": (3, "ổn"),
+    "good": (4, "tốt"),
     "peaceful": (4, "tốt"),
+    "awesome": (5, "rất tốt"),
     "delightful": (5, "rất tốt"),
 }
 
@@ -47,7 +53,7 @@ _MOOD_TO_SCORE = {
 def _mood_score(mood: str | None) -> tuple[int, str]:
     if not mood:
         return 3, "ổn"
-    return _MOOD_TO_SCORE.get(mood, (3, "ổn"))
+    return _MOOD_TO_SCORE.get(str(mood).strip().lower(), (3, "ổn"))
 
 
 def _top_items(counter_map: dict, *, limit: int = 3) -> list[dict]:
@@ -399,10 +405,11 @@ def dashboard_checkin_history(
 
 @router.get("/safe-insights")
 def dashboard_safe_insights(
+    window: str = Query("7d", pattern="^(7d|14d|30d)$"),
     current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
-    return ok(build_safe_insights_payload(db, user_id=current_user.user_id))
+    return ok(build_safe_dashboard_payload(db, user_id=current_user.user_id, window=window))
 
 
 @router.get("/follow-up")
@@ -413,10 +420,11 @@ def follow_up(current_user: User = Depends(ensure_policy_acknowledged), db: Sess
 
 @router.get("/insights")
 def dashboard_insights_alias(
+    window: str = Query("7d", pattern="^(7d|14d|30d)$"),
     current_user: User = Depends(ensure_policy_acknowledged),
     db: Session = Depends(get_db),
 ):
-    return ok(build_safe_insights_payload(db, user_id=current_user.user_id))
+    return ok(build_safe_dashboard_payload(db, user_id=current_user.user_id, window=window))
 
 
 @router.get("/trends")

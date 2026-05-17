@@ -35,7 +35,7 @@ export function MoodMiniTimeline({ checkins, missingData }: Props) {
                 <div>
                     <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-theme-text-tertiary">
                         <Clock3 className="h-4 w-4 text-cyan-500" aria-hidden />
-                        Tín hiệu ban đầu
+                        Bằng chứng gần đây
                     </p>
                     <h2 className="mt-1 text-xl font-semibold text-theme-text-primary">Timeline check-in gần đây</h2>
                 </div>

@@ -138,6 +138,20 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 
 ---
 
+### [ADR-7] Map persona voice bằng biến môi trường ElevenLabs tường minh — 17/05/2026
+
+**Bối cảnh:** Sau khi chat history có fallback voice, backend TTS vẫn cần cơ chế phân giải voice-id ổn định theo persona để tránh phụ thuộc vào tên biến môi trường mơ hồ hoặc fallback ngầm khó kiểm thử.
+
+**Các lựa chọn đã xem xét:**
+- **Dùng một biến voice mặc định cho mọi persona:** triển khai nhanh nhưng làm mất khả năng kiểm soát giọng riêng theo nhân vật và khó phát hiện cấu hình thiếu.
+- **Map từng persona sang biến môi trường ElevenLabs tường minh:** tăng số lượng biến cấu hình nhưng giúp hành vi deterministic, dễ audit và dễ viết regression test.
+
+**Quyết định:** Lương Thanh Hậu / `haubelerche` cập nhật `backend/app/services/tts_renderer.py`, `backend/app/core/config.py`, `backend/app/api/v1/routers/chat.py`, `.env.example` và thêm `backend/tests/test_tts_voice_id_resolution.py` trong commit `54e06026` để map persona voice sang các biến ElevenLabs rõ ràng.
+
+**Hệ quả:** Cấu hình deploy phải khai báo đúng voice-id theo persona. Đổi lại, hệ thống giảm rủi ro phát nhầm voice, test được đường phân giải voice-id và tách rõ lỗi cấu hình khỏi lỗi render âm thanh.
+
+---
+
 ## Phân công
 
 ### Sprint 1 — 31/03 → 06/04/2026
@@ -186,6 +200,41 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 | CONTEXT ENGINEERING — Nghiên cứu kỹ thuật quản lý context LLM | Lương Thanh Hậu | 13/04 | 🔄 Đang research |
 | XÂY DATABASE | Lê Hoàng Đạt | 13/04 | 🔄 Đang research |
 | XÂY FRONTEND | Lương Tiến Dũng | 13/04 | 🔄 Đang research |
+
+---
+
+### Sprint 7 — 16/05 → 17/05/2026
+
+**Nguồn đối chiếu:** GitHub source graph / local Git graph trên `main`, gồm PR #247, #248, #249 và các commit `e473f6f0`, `f48eed78`, `766214fd`, `3178f3c1`, `ffab9828`, `54e06026`.
+
+| Task | Người làm | Người merge / nguồn graph | Deadline | Trạng thái |
+|---|---|---|---|---|
+| Thêm khu vực tài nguyên cá nhân hóa trong Resource page, gồm backend resource router, `ForYouSection`, cập nhật grid/page và service client | Lương Thanh Hậu (`haubelerche`) | PR #247 merge bởi Hau Luong, commit `e473f6f0` | 17/05 | Xong |
+| Dọn các markdown/report khỏi nhánh review để PR #247 tập trung vào thay đổi sản phẩm cần merge | Lương Thanh Hậu (`haubelerche`) | PR #247 merge bởi Hau Luong, commit `f48eed78` | 17/05 | Xong |
+| Cập nhật journal theo nhánh `feat/page-serene` | Lê Hoàng Đạt (`eltad2003`) | PR #248 merge bởi `eltad2003`, commit `766214fd` | 17/05 | Xong |
+| Merge PR #248 `feat/page-serene` vào `main` | Lê Hoàng Đạt (`eltad2003`) | Merge commit `afc6d733` | 17/05 | Xong |
+| Sửa fallback voice khi render lịch sử chat trong `frontend/src/components/pages/chat/Chat.tsx` | Lương Thanh Hậu (`haubelerche`) | PR #249 merge bởi `eltad2003`, commits `3178f3c1` / `ffab9828` | 17/05 | Xong |
+| Merge PR #249 `feat/greetings-screening-results` vào `main` | Lê Hoàng Đạt (`eltad2003`) | Merge commit `b56dc64d` | 17/05 | Xong |
+| Map persona voice sang biến môi trường ElevenLabs tường minh và thêm test `test_tts_voice_id_resolution.py` | Lương Thanh Hậu (`haubelerche`) | Direct commit trên `main`, `54e06026` | 17/05 | Xong |
+| Chỉnh UI page-serene trong giai đoạn 16-17/05: text size, mood chip wrapping, dark class, Vercel config | Lê Hoàng Đạt (`eltad2003`) | Commits `7cbecbc2`, `0d578720`, `f3f596f2`, `fb342de9`, `8e671055`, `8dcafe3e` | 17/05 | Xong |
+
+**Ghi chú attribution:** Bảng trên ghi theo author/merge thể hiện trong Git graph. Các mục có "merge bởi" không đồng nghĩa người merge là người author toàn bộ thay đổi chức năng.
+
+---
+
+### Tổng hợp phân công 7 tuần theo source graph — 31/03 → 17/05/2026
+
+
+
+| Tuần | Lương Thanh Hậu / `haubelerche` | Lê Hoàng Đạt / `eltad2003` | Lương Tiến Dũng / `dungltcn272` |
+|---|---|---|---|
+| Tuần 1 — 31/03→05/04 | AI logging hooks, pre-commit security checks, AI PR review bot, smart truncation, secret regex, staged diff fix, journal week 1. Commits: `5320d46f`, `532b5c61`, `0966d9d6`, `c3b8bacb`. | Không thấy authored commit trong graph. | Không thấy authored commit trong graph. |
+| Tuần 2 — 06/04→12/04 | Pre-push AI log enforcement, hook fixes/tests, planning docs, architecture/API/frontend/DB schema docs, Worklog ADRs, security/schema review fixes. Commits: `a5b416fa`, `7261b6eb`, `9450fc71`, `b024c69a`, `6ad7d671`, `88ec0f35`. | Không thấy authored commit trong graph. | Problem Brief / product problem analysis. Commit: `a9b2ef64`. |
+| Tuần 3 — 13/04→19/04 | Backend/data foundation: API/backend plans, sequence diagrams, DSM/Neo4j/Postgres assets, Supabase singleton, workers, profile/session summarizer, test DB/Neo4j, FastAPI routers/schemas. Commits: `59c64732`, `df19fbe1`, `e40b048a`, `25bde0d6`, `0730966d`, `653845f8`, `c71d04c8`. | Frontend auth/shell: login/register, password validation, CSS base, landing/home sections, sidebar/header/footer, route chat, chat mock-data/emoji/auto-scroll. Commits: `d6b0186f`, `cba857c2`, `dff369fe`, `1ac8c2a1`, `dfcca5f3`, `1919787e`, `5ee27c67`. | Base backend: scaffold, config/env, response envelope, DB session/models, Alembic, security/cookies, auth signup, Redis rate limit, home/reflect/resources/connect/admin routes, audit logging, critical security fixes. Commits: `00eacfdf`, `6fd13b6e`, `388b7c8d`, `d17a3316`, `2da99c12`, `57f8bc2f`, `b5987f27`, `27e94075`. |
+| Tuần 4 — 20/04→26/04 | Không thấy authored commit chính trong graph. | Frontend pages: login flow, reflect chart, settings profile/general/logout/theme controls, chat dropdown/debug/voice, forget/reset password. PR/commits: #44, #47, #51, #52, #53, `b3a3c761`, `da5817df`, `51620a57`, `712600ae`. | Email confirmation/forgot password backend, verification token table, resend/forgot payloads, auth API/docs, backend dependencies, admin resource API, time/security fixes. Commits: `166474da`, `253ebc44`, `98ffad9c`, `f8015edb`, `0ca459e7`, `329c40a1`, `b8606116`. |
+| Tuần 5 — 27/04→03/05 | Không thấy authored commit chính trong graph. | Chat history modal, settings logout/theme persistence, admin login layout, resource YouTube popup/expand, onboarding/profile UI, landing responsive/animation/logout, letter report modal, global theme/dark mode. PR/commits: #93, #94, #97, #99, #100, #101, #102, #103, `a6e95439`, `637d5ff5`, `47fb908f`. | Bamboo/letter backend, admin resource, inbox table/API/seen UI, backend mail, report logic, notification model/WebSocket/dispatcher/toast, OAuth Google/Facebook. Commits: `36fded8a`, `ecabb81c`, `0104b62c`, `d9ddb39b`, `5dfa9129`, `928ae884`, `79de0e7b`, `36710080`, `5574c1a8`, `5f6ec182`. |
+| Tuần 6 — 04/05→10/05 | Không thấy authored commit chính trong graph. | Dark mode completion, resource/exercise/home/checkin/reflect/chat UI, auth refresh-token integration, GIF backgrounds, reward/mobile nav, nutrition popup, streak/checkin logic, chat history/session persistence, notification popup, env URL handling. PR/commits: #127, #128, #131, #138, #139, #149-#156, #157, #163. | Notification/admin automation/resource agent: WebSocket notification, admin resource management, YouTube/resource crawl, admin dashboard/audit/crisis/letter/resource/user UI, worker automation, Docker build, admin IP enforcement, cookie/API base URL fixes, pytest/admin-timeout fixes. PR/commits: #153, #161, #164, #165, `c1470304`, `ae0d1fe0`, `d08a2864`, `6315e7fc`, `5e7cfbf0`, `d801011b`. |
+| Tuần 7 — 11/05→17/05 | Runtime/agent/safety/eval: chat orchestration, advisor retrieval, mem0 migration, persona progression, Serene runtime memory/analyst/SOS, insight pipeline, AutoCBT docs/audits, voice LLM scripts, Supabase CI, eval runners/rubrics, Langfuse traces, personalized resources, voice fallback, TTS voice-id test. Commits: `66ab0089`, `c4409f6c`, `832b2a8d`, `22ef4fd0`, `3c4d0305`, `5bc5269c`, `819f8bda`, `d314f557`, `ce123ceb`, `6a0a1f9e`, `e473f6f0`, `3178f3c1`, `54e06026`. | Page Serene/landing/exercise/screening polish: landing sections/GIF/header/footer, Vercel setup, exercise UI, meal check-in history, screening/result UI, health monitoring section, sidebar/login fixes, Reflect/Home/Setting/BeachMessage updates, Logo, route protection, guest expiration, build/text/mood-chip fixes, PR #248/#249 merges. Commits: `d329f004`, `1a87beaa`, `d6f811eb`, `9949fd1`, `ceb3e4c5`, `286aafec`, `38334275`, `b37bf900`, `ddb482e8`, `3cb0d64a`, `766214fd`, `afc6d733`, `b56dc64d`. | Admin/notification/privacy/screening: admin automation/analysis/log time fixes, notification seen/admin/letter fixes, ambient sound hook, exercise/admin update, letter fixes, eval-score, OAuth test-user cleanup, SMTP/resend fixes, meal check-in validation, privacy policy/delete-user-description, loading asset, DASS-21/MQD/PCL-5 question set. Commits/PRs: `875479c8`, `e22ab004`, `73d9c353`, `54e21cf1`, `22a56a52`, `46f794a5`, `28a839d8`, `4a3cd02e`, `0d9875e7`, `4351f8f0`, #227, #229, `d548fc1a`, #238. |
 
 ---
 

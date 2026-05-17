@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -29,20 +29,39 @@ class DashboardDataSufficiency(BaseModel):
 
 class DashboardInsightCard(BaseModel):
     insight_id: str
+    category: Literal[
+        "daily_mood",
+        "weekly_life_state",
+        "trigger_impact",
+        "sleep",
+        "nutrition",
+        "emotion",
+        "real_world_connection",
+        "self_care_action",
+        "coping_action",
+        "screening",
+        "next_step",
+        "safe_dashboard_insight",
+    ] = "safe_dashboard_insight"
     title: str
     user_safe_summary: str
+    interpretation: str | None = None
+    evidence: list[dict[str, Any]] = Field(default_factory=list)
     evidence_count: int = Field(ge=0)
     evidence_sources: list[str]
     confidence: Literal["low", "medium", "high"]
     severity_band: Literal["neutral", "watch"]
     suggested_action: str | None = None
+    recommended_actions: list[str] = Field(default_factory=list, max_length=3)
+    missing_data: list[str] = Field(default_factory=list)
+    source_version: str = "dashboard_insight_builder_v1"
     evidence_window_start: date | None = None
     evidence_window_end: date | None = None
     updated_at: datetime
 
 
 class WellnessDimensionCard(BaseModel):
-    dimension: Literal["emotion", "sleep", "mindfulness", "connection", "body", "growth"]
+    dimension: Literal["emotion", "sleep", "mindfulness", "connection", "body", "growth", "nutrition", "screening"]
     label: str
     status: Literal["unknown", "limited_data", "steady", "needs_attention", "improving"]
     score: int | None = Field(default=None, ge=0, le=100)

@@ -15,6 +15,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Identity,
+    Index,
     Integer,
     String,
     TIMESTAMP,
@@ -132,6 +133,9 @@ class PasswordResetToken(Base):
 
 class Conversation(Base):
     __tablename__ = "conversations"
+    __table_args__ = (
+        Index("idx_conversations_user_last_active", "user_id", "deleted_at", "last_message_at"),
+    )
 
     session_id: Mapped[str] = mapped_column(String(50), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
@@ -149,6 +153,8 @@ class Message(Base):
     __table_args__ = (
         CheckConstraint("role IN ('user','assistant')", name="chk_role"),
         CheckConstraint("length(content) <= 2000", name="chk_content_length"),
+        Index("idx_messages_session_created", "session_id", "created_at"),
+        Index("idx_messages_session_role_created", "session_id", "role", "created_at"),
     )
 
     message_id: Mapped[str] = mapped_column(String(50), primary_key=True)
@@ -195,6 +201,29 @@ class MoodCheckin(Base):
     logged_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime)
     time_bucket: Mapped[str] = mapped_column(String(20), nullable=False, default="other", server_default="other")
+
+
+class SleepCheckin(Base):
+    __tablename__ = "sleep_checkins"
+    __table_args__ = (
+        UniqueConstraint("user_id", "sleep_date", name="uq_sleep_checkins_user_date"),
+        CheckConstraint("duration_hours IS NULL OR (duration_hours > 0 AND duration_hours <= 16)", name="ck_sleep_duration_hours"),
+        CheckConstraint("sleep_quality IS NULL OR (sleep_quality >= 1 AND sleep_quality <= 5)", name="ck_sleep_quality"),
+        CheckConstraint("source IN ('self_report','imported','system')", name="ck_sleep_checkins_source"),
+        Index("idx_sleep_checkins_user_date", "user_id", "sleep_date"),
+    )
+
+    sleep_id: Mapped[str] = mapped_column(String(50), primary_key=True, default=lambda: f"slp_{uuid4().hex[:16]}")
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    sleep_date: Mapped[date] = mapped_column(Date, nullable=False)
+    bedtime_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    wake_time_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    duration_hours: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sleep_quality: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(String(20), default="self_report", server_default="self_report", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
 class ClinicalProfile(Base):
@@ -622,6 +651,39 @@ class InsightHypothesis(Base):
         server_default="analyst_pipeline",
         nullable=False,
     )
+
+
+class DashboardSafeInsight(Base):
+    __tablename__ = "dashboard_safe_insights"
+    __table_args__ = (
+        UniqueConstraint("user_id", "category", name="uq_dashboard_safe_insights_user_category"),
+        CheckConstraint(
+            "category IN ('daily_mood','weekly_life_state','trigger_impact','sleep','nutrition','emotion','real_world_connection','self_care_action','screening','next_step')",
+            name="ck_dashboard_safe_insights_category",
+        ),
+        CheckConstraint("confidence IN ('low','medium','high')", name="ck_dashboard_safe_insights_confidence"),
+        CheckConstraint("severity_band IN ('neutral','watch')", name="ck_dashboard_safe_insights_severity"),
+        CheckConstraint("evidence_count >= 0", name="ck_dashboard_safe_insights_evidence_count"),
+        Index("idx_dashboard_safe_insights_user_category", "user_id", "category"),
+        Index("idx_dashboard_safe_insights_user_updated", "user_id", "updated_at"),
+    )
+
+    insight_id: Mapped[str] = mapped_column(String(50), primary_key=True, default=lambda: f"dsi_{uuid4().hex[:16]}")
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    category: Mapped[str] = mapped_column(String(40), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    user_safe_summary: Mapped[str] = mapped_column(Text, nullable=False)
+    interpretation: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence: Mapped[list[Any]] = mapped_column(JSONB_COMPAT, default=list, server_default="[]", nullable=False)
+    evidence_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    evidence_window_start: Mapped[date | None] = mapped_column(Date, nullable=True)
+    evidence_window_end: Mapped[date | None] = mapped_column(Date, nullable=True)
+    confidence: Mapped[str] = mapped_column(String(10), nullable=False)
+    severity_band: Mapped[str] = mapped_column(String(20), nullable=False)
+    missing_data: Mapped[list[Any]] = mapped_column(JSONB_COMPAT, default=list, server_default="[]", nullable=False)
+    recommended_actions: Mapped[list[Any]] = mapped_column(JSONB_COMPAT, default=list, server_default="[]", nullable=False)
+    source_version: Mapped[str] = mapped_column(String(80), default="dashboard_insight_builder_v1", server_default="dashboard_insight_builder_v1", nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
 class InsightEvidence(Base):

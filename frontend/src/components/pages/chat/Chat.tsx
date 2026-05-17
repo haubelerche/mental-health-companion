@@ -215,6 +215,7 @@ const ATTACHMENT_ICONS: Record<string, typeof Wind> = {
     body_scan: Leaf,
     meditation: Leaf,
     music: Music,
+    nutrition_tip: Leaf,
     resource: Play,
     clinic_map: MapPin,
 }
@@ -227,6 +228,7 @@ const ATTACHMENT_META: Record<string, { badge: string; action: string }> = {
     music: { badge: 'NHẠC ĐỀ XUẤT', action: 'Mở' },
     recipe: { badge: 'CÔNG THỨC GỢI Ý', action: 'Xem' },
     nutrition: { badge: 'CÔNG THỨC GỢI Ý', action: 'Xem' },
+    nutrition_tip: { badge: 'GỢI Ý DINH DƯỠNG', action: 'Mở' },
     resource: { badge: 'NỘI DUNG ĐỀ XUẤT', action: 'Mở' },
     clinic_map: { badge: 'HỖ TRỢ GẦN BẠN', action: 'Xem' },
 }
@@ -274,6 +276,7 @@ function MemeCard({ item }: { item: MemeSuggestion }) {
 }
 
 const LEGACY_CHAT_SESSION_KEY = 'serene_chat_session_id'
+const HISTORY_CACHE_TTL_MS = 30_000
 
 function chatSessionStorageKey(personaId: string) {
     return `serene_chat_session_id:${isPersonaId(personaId) ? personaId : DEFAULT_PERSONA_ID}`
@@ -328,6 +331,8 @@ export default function Chat() {
     const guestDeadlineRef = useRef<number | null>(null)
     const guestExpiredNotifiedRef = useRef(false)
     const playedVoiceJobsRef = useRef<Set<string>>(new Set())
+    const historyFetchedAtRef = useRef(0)
+    const sessionMessagesCacheRef = useRef<Map<string, UiMessage[]>>(new Map())
     const [hotlineSheetOpen, setHotlineSheetOpen] = useState(false)
     const [breathingOpen, setBreathingOpen] = useState(false)
     const [activeDistressPopup, setActiveDistressPopup] = useState<DistressSupportPopup | null>(null)
@@ -957,11 +962,16 @@ export default function Chat() {
         }
     }
 
-    const loadHistory = async () => {
+    const loadHistory = async ({ force = false }: { force?: boolean } = {}) => {
+        const now = Date.now()
+        if (!force && sessions.length > 0 && now - historyFetchedAtRef.current < HISTORY_CACHE_TTL_MS) {
+            return
+        }
         setHistoryLoading(true)
         try {
-            const data = await chatService.getSessions()
+            const data = await chatService.getSessions(30, 0)
             setSessions(data.sessions)
+            historyFetchedAtRef.current = Date.now()
         } catch {
             setSessions([])
         } finally {
@@ -975,7 +985,7 @@ export default function Chat() {
             return
         }
         setShowHistory(true)
-        await loadHistory()
+        void loadHistory()
     }
 
     const loadSessionMessages = async (targetSessionId: string) => {
@@ -983,8 +993,14 @@ export default function Chat() {
         sendingRef.current = false
         setSending(false)
         setHotlineSheetOpen(false)
+        const cachedMessages = sessionMessagesCacheRef.current.get(targetSessionId)
+        if (cachedMessages?.length) {
+            setSessionId(targetSessionId)
+            setMessages(cachedMessages)
+            setShowHistory(false)
+        }
         try {
-            const data = await chatService.getSessionMessages(targetSessionId, 100, 0)
+            const data = await chatService.getSessionMessages(targetSessionId, 60, 0, true)
             playedVoiceJobsRef.current.clear()
             const hydratedMessages = data.messages.flatMap((msg) => {
                 const parsedTimestamp = msg.created_at ? new Date(msg.created_at).getTime() : undefined
@@ -999,6 +1015,7 @@ export default function Chat() {
                 }
                 return [textMessage, ...buildVoiceHistoryMessages(apiData, msg.message_id, timestamp)]
             })
+            sessionMessagesCacheRef.current.set(targetSessionId, hydratedMessages)
             setSessionId(targetSessionId)
             setMessages(hydratedMessages)
             hydratedMessages.forEach((msg) => {

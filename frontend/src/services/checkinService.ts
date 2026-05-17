@@ -4,8 +4,12 @@ export type MoodValue = 'awesome' | 'good' | 'fine' | 'bad' | 'terrible'
 
 export type CheckinQuickPayload = {
   mood: MoodValue
+  time_bucket?: 'morning' | 'afternoon' | 'evening' | 'other'
   stress_level?: number | null
   sleep_hours?: number | null
+  sleep_start?: string | null
+  wake_time?: string | null
+  sleep_quality?: number | null
   study_hours?: number | null
   emotions?: string[]
   triggers?: string[]
