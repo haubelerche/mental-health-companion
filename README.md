@@ -17,9 +17,11 @@
 
 ## Mô tả dự án
 
-**Serene** là AI companion sức khỏe tâm thần đầu tiên được thiết kế riêng cho sinh viên và Gen Z Việt Nam. Serene trò chuyện như một người bạn đồng trang lứa — lắng nghe, đồng cảm, hỗ trợ đúng lúc — trong khi chạy ngầm một hệ thống phân tích lâm sàng và an toàn khủng hoảng mà người dùng không bao giờ thấy.
+Trong kỷ nguyên số, nhiều người trẻ Việt Nam đang sống giữa một nghịch lý rất thật: "Cô đơn trong trốn đông người", bản thân họ vây quanh với những kết nối ngay tầm tay nhưng lại khó tìm được một nơi giãi bày tâm tư của mình, được lắng nghe, đồng cảm, được quan tâm, ghi nhớ. Chính vì thế, Serene.AI ra đời hưởng ứng công nghệ AI Emotional Intelligence - nơi công nghệ và cảm xúc giao thoa để tạo nên một không gian đồng hành nhân văn và thực sự gần gũi, hữu ích với mỗi cá nhân
 
-Serene giải quyết khoảng trống mà không app nào trên thị trường VN đang lấp: **AI tiếng Việt + trải nghiệm peer-to-peer + safety chuẩn lâm sàng**.
+Serene.AI không hướng đến việc thay thế chuyên gia hay đưa ra chẩn đoán y khoa. Dự án được định vị như một hệ sinh thái đồng hành sức khỏe tinh thần, kết hợp giữa AI, dữ liệu hành vi và sự thấu cảm trong giao tiếp tiếng Việt. Thông qua các cuộc trò chuyện tự nhiên cùng dữ liệu sinh hoạt hằng ngày như giấc ngủ, cảm xúc, dinh dưỡng và thói quen cá nhân, Serene.AI giúp chuyển hóa những trải nghiệm rời rạc thành các insight trực quan, dễ hiểu và có tính cá nhân hóa.
+
+Từ đó, người dùng có thể nhận diện rõ hơn những áp lực đến từ học tập, công việc, gia đình hay các mối quan hệ; gọi tên cảm xúc của mình; và bắt đầu xây dựng những hành động tự chăm sóc nhỏ nhưng bền vững. Với định hướng riêng tư, an toàn và không phán xét, Serene.AI mong muốn hạ thấp rào cản tâm lý khi người trẻ cần chia sẻ, đồng thời trở thành điểm chạm đầu tiên giúp họ hiểu mình hơn và chủ động tìm kiếm hỗ trợ chuyên sâu khi cần thiết.
 
 ---
 
