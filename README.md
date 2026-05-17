@@ -1,7 +1,7 @@
 # **Serene.AI** — Trợ lý AI hỗ trợ sàng lọc và Chăm sóc sức khỏe tinh thần cho người Việt.
 
 > **Live URL:** [Serene.AI](https://a20-app-039.vercel.app/) <br>
-> **Video Demo:** *(YouTube link — cập nhật trước khi nộp)* <br>
+> **Video Demo:** *[Serene.AI video demo](https://www.youtube.com/watch?v=6u_o8iUVvik)* <br>
 > **Pitch Deck:** [Google Slides link](https://docs.google.com/presentation/d/1AyPRQK7WMZfvQPd2KT_a3YjDnyy2imBvwopUUpfLaIo/edit?usp=sharing) <br>
 > **Architecture:** [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md) <br>
 > **Evaluation Evidence:** [`docs/submission/EVALUATION_EVIDENCE.md`](docs/submission/EVALUATION_EVIDENCE.md) <br>
