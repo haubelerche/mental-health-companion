@@ -2,7 +2,7 @@
     "rewrites": [
         {
             "source": "/v1/:path*",
-            "destination": "https://a20-app-039-production.up.railway.app/v1/:path*"
+            "destination": "https://a20-app-039-production-413e.up.railway.app/v1/:path*"
         },
         {
             "source": "/(.*)",
