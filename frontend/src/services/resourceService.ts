@@ -15,6 +15,11 @@ export type ResourceItem = {
     tags?: string[]
 }
 
+export type ResourceForYouResponse = {
+    items: ResourceItem[]
+    reason: string
+}
+
 export const resourceService = {
     getCategories: () =>
         httpClient.get<{ categories: ResourceCategory[] }>('/resources/categories'),
@@ -36,4 +41,7 @@ export const resourceService = {
 
     listExercises: () =>
         httpClient.get<{ items: unknown[] }>('/resources/exercises'),
+
+    getForYou: () =>
+        httpClient.get<ResourceForYouResponse>('/resources/for-you'),
 }

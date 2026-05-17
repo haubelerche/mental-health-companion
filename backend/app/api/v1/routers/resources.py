@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -10,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import ensure_policy_acknowledged
 from app.core.errors import AppError
 from app.core.responses import ok
-from app.services.db.models import Resource, User
+from app.services.db.models import MoodCheckin, Resource, User
 from app.services.db.session import get_db
 from app.services.exercise_catalog import get_exercise, list_exercises
 from app.services.utils import get_youtube_id
@@ -164,6 +165,90 @@ def query_resources_payload(db: Session, **kwargs: Any) -> dict[str, Any]:
     return {"items": items, "sections": [], "filters": {"tabs": []}, "next_cursor": None, "total": total, "has_more": offset + len(items) < total}
 
 
+def _category_candidates_from_signal(signal: str | None) -> list[str]:
+    normalized = (signal or "").strip().lower()
+    if any(token in normalized for token in ("buồn", "sad", "khóc", "down", "low", "melancholic")):
+        return ["meditate", "wisdom"]
+    if any(token in normalized for token in ("lo", "anx", "worry", "bất an", "overthinking", "stress", "stressed")):
+        return ["meditate", "wisdom"]
+    if any(token in normalized for token in ("mệt", "kiệt", "burnout", "tired", "exhausted")):
+        return ["sleep", "movement"]
+    if any(token in normalized for token in ("tức", "bực", "angry", "frustrated")):
+        return ["movement", "music"]
+    if any(token in normalized for token in ("ngủ", "sleep", "insomnia")):
+        return ["sleep"]
+    if any(token in normalized for token in ("cô đơn", "lonely")):
+        return ["music", "wisdom"]
+    return ["meditate"]
+
+
+def _resource_row_to_payload(row: Resource) -> dict[str, Any]:
+    url = row.storage_key
+    if not url.startswith(("http://", "https://")):
+        url = f"https://www.youtube.com/watch?v={url}"
+
+    thumbnail = row.thumbnail_key
+    if not thumbnail:
+        yt_id = get_youtube_id(url)
+        if yt_id:
+            thumbnail = f"https://img.youtube.com/vi/{yt_id}/maxresdefault.jpg"
+    elif not thumbnail.startswith(("http://", "https://")):
+        thumbnail = f"https://cdn.example.com/{thumbnail}"
+
+    return {
+        "id": row.resource_id,
+        "category": row.category,
+        "title": row.title,
+        "description": row.description,
+        "duration_sec": row.duration_sec,
+        "format": row.format,
+        "url": url,
+        "thumbnail": thumbnail,
+        "bookmarked": False,
+        "tags": row.tags,
+    }
+
+
+def _fallback_for_you_payload(categories: list[str], limit: int) -> list[dict[str, Any]]:
+    preferred = [item for item in _FALLBACK_RESOURCES if item["category"] in categories]
+    if not preferred:
+        preferred = [item for item in _FALLBACK_RESOURCES if item["category"] == "meditate"]
+    return preferred[:limit]
+
+
+def for_you_payload(db: Session, *, user_id: str, limit: int = 5) -> dict[str, Any]:
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    latest_mood = db.scalar(
+        select(MoodCheckin)
+        .where(MoodCheckin.user_id == user_id, MoodCheckin.logged_at >= cutoff)
+        .order_by(MoodCheckin.logged_at.desc())
+        .limit(1)
+    )
+    categories = _category_candidates_from_signal(latest_mood.mood if latest_mood else None)
+
+    try:
+        rows = db.scalars(
+            select(Resource)
+            .where(Resource.is_active.is_(True), Resource.category.in_(categories))
+            .order_by(func.random())
+            .limit(limit)
+        ).all()
+
+        if not rows:
+            rows = db.scalars(
+                select(Resource)
+                .where(Resource.is_active.is_(True), Resource.category == "meditate")
+                .order_by(func.random())
+                .limit(limit)
+            ).all()
+    except SQLAlchemyError:
+        db.rollback()
+        rows = []
+
+    items = [_resource_row_to_payload(row) for row in rows] if rows else _fallback_for_you_payload(categories, limit)
+    return {"items": items, "reason": "Dựa trên tâm trạng gần đây của bạn"}
+
+
 @router.get("/exercises")
 def exercises(current_user: User = Depends(ensure_policy_acknowledged)):
     return ok({"items": list_exercises()})
@@ -196,6 +281,14 @@ def categories():
 @router.get("/featured")
 def get_featured(db: Session = Depends(get_db)):
     return ok(featured_bundle(db))
+
+
+@router.get("/for-you")
+def get_for_you(
+    current_user: User = Depends(ensure_policy_acknowledged),
+    db: Session = Depends(get_db),
+):
+    return ok(for_you_payload(db, user_id=current_user.user_id))
 
 
 @router.get("")
