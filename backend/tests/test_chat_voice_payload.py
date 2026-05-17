@@ -1,6 +1,8 @@
 from types import SimpleNamespace
+from datetime import datetime, timezone
 
 from app.api.v1.routers import chat
+from app.services.proactive_voice import get_voice_job
 from app.services.voice_policy import VoiceMessagePolicyEngine, VoicePolicyContext
 
 
@@ -169,3 +171,37 @@ def test_assistant_client_payload_persists_meme_and_tts_metadata():
     assert payload["tts_job"]["tts_job_id"] == "tts_1"
     assert payload["meme_suggestion"]["image_path"] == "happy.jpg"
     assert "voice_policy" not in payload
+
+
+def test_voice_job_history_survives_missing_local_audio_file():
+    audio_data_uri = "data:audio/mpeg;base64,SUQz"
+    row = SimpleNamespace(
+        outbox_id=42,
+        event_type="voice.tts_request",
+        payload={
+            "user_id": "u1",
+            "trigger_reason": "test",
+            "voice": {
+                "status": "ready",
+                "audio_path": "/tmp/serene-missing-voice-file.mp3",
+                "audio_url": "/v1/chat/voice-jobs/tts_42/audio",
+                "audio_data_uri": audio_data_uri,
+            },
+        },
+        status="done",
+        created_at=datetime.now(timezone.utc),
+        processing_started_at=None,
+    )
+
+    commits = []
+    db = SimpleNamespace(
+        get=lambda _model, _pk: row,
+        commit=lambda: commits.append(True),
+    )
+
+    job = get_voice_job(db, "tts_42")
+
+    assert job["status"] == "ready"
+    assert job["audio_data_uri"] == audio_data_uri
+    assert row.status == "done"
+    assert row.payload["voice"].get("error_code") is None

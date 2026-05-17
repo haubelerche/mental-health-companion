@@ -110,6 +110,10 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("PROACTIVE_VOICE_AUTO_DISTRESS_THRESHOLD"),
     )
     voice_tts_auto_process_on_enqueue: bool = True
+    voice_tts_inline_process_on_poll: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("VOICE_TTS_INLINE_PROCESS_ON_POLL"),
+    )
     random_proactive_voice_user_cooldown_seconds: int = Field(
         default=21600,
         validation_alias=AliasChoices("RANDOM_PROACTIVE_VOICE_USER_COOLDOWN_SECONDS"),
