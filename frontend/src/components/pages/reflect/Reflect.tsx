@@ -32,7 +32,7 @@ type DashboardTab = 'overview' | 'mood' | 'pattern' | 'lifestyle'
 const TABS: Array<{ id: DashboardTab; label: string }> = [
     { id: 'overview', label: 'Tổng quan' },
     { id: 'mood', label: 'Tâm trạng' },
-    { id: 'pattern', label: 'Pattern' },
+    { id: 'pattern', label: 'Khuynh hướng' },
     { id: 'lifestyle', label: 'Sinh hoạt' },
 ]
 

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import date, timedelta
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.services.db.models import MoodCheckin, NutritionMealCheckin
+from app.services.analyst_context_loader import AnalystContextLoader
+from app.services.db.models import NutritionMealCheckin
+from app.services.langfuse_tracing import get_active_tracer
 from app.services.mem0_repository import list_all_user_memories
 from app.services.schemas.contracts import AnalystBundle
 
@@ -49,28 +50,44 @@ class AnalystAgent:
         )
 
     def generate_bundle_from_db(self, *, db: Session, user_id: str) -> AnalystBundle:
-        today = date.today()
-        start = today - timedelta(days=14)
-        mood_rows = db.scalars(
-            select(MoodCheckin)
-            .where(MoodCheckin.user_id == user_id, MoodCheckin.logged_date >= start)
-            .order_by(MoodCheckin.logged_date.asc())
-        ).all()
-        meal_rows = db.scalars(
-            select(NutritionMealCheckin)
-            .where(NutritionMealCheckin.user_id == user_id, NutritionMealCheckin.meal_date >= start)
-            .order_by(NutritionMealCheckin.meal_date.asc())
-        ).all()
+        loader = AnalystContextLoader(db=db)
+        ctx = loader.load_all(user_id=user_id, window_days=14)
+        _tracer = get_active_tracer()
+        if _tracer is not None:
+            for src, count in ctx.source_counts.items():
+                _tracer.event(
+                    f"analyst.source.{src}",
+                    output_data={"record_count": count, "source_table": src},
+                    metadata={"agent": "analyst_batch", "status": "ok" if count > 0 else "empty"},
+                )
+            _tracer.event(
+                "analyst.context_load",
+                output_data={
+                    "total_evidence": ctx.total_evidence(),
+                    "source_counts": ctx.source_counts,
+                    "evidence_refs_count": len(ctx.evidence_refs),
+                },
+                metadata={"agent": "analyst_batch"},
+            )
 
         events: list[dict[str, Any]] = []
-        for idx, row in enumerate(mood_rows):
-            events.append(
-                {
-                    "event_id": f"mood:{idx}:{row.checkin_id}",
-                    "emotion": row.mood,
-                    "triggers": list(row.triggers or []),
-                }
-            )
+        for ref in ctx.evidence_refs[:60]:
+            parts = str(ref).split(":", 2)
+            source = parts[0] if parts else "unknown"
+            events.append({"event_id": ref, "emotion": None, "triggers": [f"{source}_signal"]})
+
+        for emotion in ctx.mood.top_emotions:
+            events.append({"event_id": f"top_emotion:{emotion}", "emotion": emotion, "triggers": []})
+        for trigger in ctx.mood.top_triggers:
+            events.append({"event_id": f"top_trigger:{trigger}", "emotion": None, "triggers": [trigger]})
+
+        meal_rows = db.scalars(
+            select(NutritionMealCheckin)
+            .where(NutritionMealCheckin.user_id == user_id)
+            .order_by(NutritionMealCheckin.meal_date.asc())
+            .limit(100)
+        ).all()
+
         for idx, row in enumerate(meal_rows):
             events.append(
                 {
@@ -79,6 +96,7 @@ class AnalystAgent:
                     "triggers": [f"meal_{row.meal_slot}"],
                 }
             )
+
         mem0_rows = list_all_user_memories(db, user_id=user_id, batch_size=200, max_rows=2000)
         for idx, row in enumerate(mem0_rows):
             events.append(
@@ -90,7 +108,104 @@ class AnalystAgent:
             )
         out = self.generate_bundle(user_id=user_id, events=events)
         mem0_evidence = [f"mem0:{row.id}" for row in mem0_rows[:300]]
-        out.evidence_refs = list(dict.fromkeys(list(out.evidence_refs or []) + mem0_evidence))
+        out.evidence_refs = list(dict.fromkeys(list(ctx.evidence_refs or []) + list(out.evidence_refs or []) + mem0_evidence))
+
+        if ctx.screening.has_screening_data:
+            screening_note_parts: list[str] = []
+            s = ctx.screening
+            if s.phq9_score is not None:
+                screening_note_parts.append(f"phq9_band:{_phq9_band(s.phq9_score)}")
+            if s.gad7_score is not None:
+                screening_note_parts.append(f"gad7_band:{_gad7_band(s.gad7_score)}")
+            if s.dass21_depression_score is not None:
+                screening_note_parts.append(f"dass21_dep_band:{_dass21_depression_band(s.dass21_depression_score)}")
+            if s.dass21_anxiety_score is not None:
+                screening_note_parts.append(f"dass21_anx_band:{_dass21_anxiety_band(s.dass21_anxiety_score)}")
+            if s.dass21_stress_score is not None:
+                screening_note_parts.append(f"dass21_str_band:{_dass21_stress_band(s.dass21_stress_score)}")
+            if s.mdq_score is not None:
+                screening_note_parts.append(f"mdq_band:{_mdq_band(s.mdq_score)}")
+            if s.pcl5_score is not None:
+                screening_note_parts.append(f"pcl5_band:{_pcl5_band(s.pcl5_score)}")
+            if screening_note_parts:
+                out.safe_dashboard_candidates.append(
+                    {
+                        "type": "screening_context_notice",
+                        "instruments": list(ctx.screening.instruments_available),
+                        "signal": " ".join(screening_note_parts),
+                    }
+                )
+
+        missing = list(out.missing_info)
+        if ctx.screening.evidence_count == 0:
+            missing.append("no_screening_data")
+        if ctx.session_summaries.evidence_count == 0:
+            missing.append("no_session_summaries")
+        out.missing_info = list(dict.fromkeys(missing))
         if mem0_rows and "insufficient_signal" in out.missing_info:
             out.missing_info = [item for item in out.missing_info if item != "insufficient_signal"]
         return out
+
+
+def _phq9_band(score: int) -> str:
+    if score <= 4:
+        return "minimal"
+    if score <= 9:
+        return "mild"
+    if score <= 14:
+        return "moderate"
+    return "moderately_severe_or_above"
+
+
+def _gad7_band(score: int) -> str:
+    if score <= 4:
+        return "minimal"
+    if score <= 9:
+        return "mild"
+    if score <= 14:
+        return "moderate"
+    return "severe"
+
+
+def _dass21_depression_band(score: int) -> str:
+    if score <= 9:
+        return "normal"
+    if score <= 13:
+        return "mild"
+    if score <= 20:
+        return "moderate"
+    return "severe_or_above"
+
+
+def _dass21_anxiety_band(score: int) -> str:
+    if score <= 7:
+        return "normal"
+    if score <= 9:
+        return "mild"
+    if score <= 14:
+        return "moderate"
+    return "severe_or_above"
+
+
+def _dass21_stress_band(score: int) -> str:
+    if score <= 14:
+        return "normal"
+    if score <= 18:
+        return "mild"
+    if score <= 25:
+        return "moderate"
+    return "severe_or_above"
+
+
+def _mdq_band(score: int) -> str:
+    return "possible_signal" if score >= 7 else "no_signal"
+
+
+def _pcl5_band(score: int) -> str:
+    if score <= 10:
+        return "minimal"
+    if score <= 32:
+        return "low_to_moderate"
+    if score <= 50:
+        return "moderate"
+    return "moderately_high"

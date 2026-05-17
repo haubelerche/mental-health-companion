@@ -15,12 +15,16 @@ from fastapi.responses import JSONResponse
 from app.api.v1.api import api_router
 from app.core.config import get_settings
 from app.core.errors import AppError, humanize_validation_errors
+from app.core.observability import configure_json_logging, wire_prometheus
 from app.core.responses import fail
 from app.services.db.init_db import init_db
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 
 settings = get_settings()
+
+# Configure structured JSON logging early — before any logger.* calls
+configure_json_logging(log_level=os.getenv("LOG_LEVEL", "INFO"))
 
 
 def _idle_loop() -> None:
@@ -112,6 +116,9 @@ app.add_middleware(
     allow_headers=["*"],   # Authorization, Content-Type...
 )
 app.include_router(api_router, prefix=settings.api_prefix)
+
+# Prometheus /metrics + request latency middleware (no-op if dep missing)
+wire_prometheus(app)
 
 
 @app.exception_handler(AppError)

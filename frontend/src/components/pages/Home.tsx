@@ -536,7 +536,7 @@ export default function Home() {
                 <section className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
                     <div className="flex flex-col justify-center rounded-[32px] bg-theme-surface/80 p-7 backdrop-blur-xl lg:p-9 border border-theme-border/30">
                         <p className="text-[10px] uppercase tracking-[0.3em] text-theme-text-secondary/60">TẦM QUAN TRỌNG CỦA SÀNG LỌC</p>
-                        <h1 className="mt-3 font-display text-4xl italic leading-tight text-theme-text-primary">
+                        <h1 className="mt-3 font-display text-4xl italic leading-tight text-theme-text-primary sm:text-5xl">
                             Vì sao sức khỏe tâm thần là một "Chỉ số sinh tồn"?
                         </h1>
                         <p className="mt-5 text-sm leading-relaxed text-theme-text-secondary">
@@ -806,7 +806,7 @@ export default function Home() {
 
                     <div className="mt-4">
                         <div className="mb-4">
-                            <MoodWordChips selected={homeMoodWords} onChange={setHomeMoodWords} className='flex gap-2 overflow-x-auto hide-scrollbar '/>
+                            <MoodWordChips selected={homeMoodWords} onChange={setHomeMoodWords} />
                         </div>
                         {homeMoodWords.length > 0 && (
                             <motion.button

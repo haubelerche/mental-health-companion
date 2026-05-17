@@ -1,10 +1,17 @@
-import { Play, ChevronDown, ChevronUp, BookOpen, Volume2 } from 'lucide-react'
-import { useState } from 'react'
+import { Play, BookOpen, Volume2 } from 'lucide-react'
 import { type ResourceItem } from '../../../services/resourceService'
 import { useThemeContext } from '../../../contexts/ThemeContext'
 import PixelEmptyState from '../../pixel/PixelEmptyState'
-function minutes(durationSec: number): string {
-    return `${Math.max(1, Math.round(durationSec / 60))} phút`
+
+function formatDuration(sec: number): string {
+    const m = Math.max(1, Math.round(sec / 60))
+    return m >= 60 ? `${Math.floor(m / 60)} giờ ${m % 60 > 0 ? `${m % 60} phút` : ''}`.trim() : `${m} phút`
+}
+
+function FormatIcon({ format }: { format: string }) {
+    if (format === 'article') return <BookOpen className="h-3 w-3" />
+    if (format === 'audio') return <Volume2 className="h-3 w-3" />
+    return <Play className="h-3 w-3 fill-current" />
 }
 
 interface ResourceGridProps {
@@ -16,8 +23,6 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
     const { effectiveTheme } = useThemeContext()
     const isDark = effectiveTheme === 'dark'
 
-    const [expandedCount, setExpandedCount] = useState(3)
-
     if (items.length === 0) {
         return (
             <PixelEmptyState
@@ -28,128 +33,67 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
         )
     }
 
-    const [featured, ...rest] = items
-    const displayedSideItems = rest.slice(0, expandedCount)
-    const hasMore = expandedCount < rest.length
-    const isFullyExpanded = expandedCount >= rest.length
-
     return (
-        <div className="space-y-6">
-            {/* Featured */}
-            <article className={`rounded-4xl bg-theme-surface border border-theme-secondary/50 shadow-xl`}>
-                <div className="relative overflow-hidden rounded-t-3xl cursor-pointer" onClick={() => onOpen(featured)}>
-                    {featured.thumbnail ? (
-                        <div className="aspect-video relative">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {items.map((item) => (
+                <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onOpen(item)}
+                    className={`
+                        group relative flex flex-col overflow-hidden rounded-2xl text-left
+                        border transition-all duration-200
+                        hover:-translate-y-1 hover:shadow-xl
+                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-serene-primary
+                        ${isDark
+                            ? 'bg-white/5 border-white/10 hover:bg-white/8 hover:border-white/20'
+                            : 'bg-white border-black/6 hover:border-serene-primary/20 shadow-sm'
+                        }
+                    `}
+                >
+                    {/* Thumbnail */}
+                    <div className="relative aspect-video w-full overflow-hidden bg-serene-primary/8">
+                        {item.thumbnail ? (
                             <img
-                                src={featured.thumbnail}
-                                className="h-full w-full object-cover"
+                                src={item.thumbnail}
+                                alt=""
+                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                loading="lazy"
                             />
+                        ) : (
+                            <div className="h-full w-full bg-gradient-to-br from-serene-primary/20 to-serene-primary/5" />
+                        )}
 
-                            {/* overlay tối */}
-                            <div className="absolute inset-0 bg-black/40" />
+                        {/* Overlay on hover */}
+                        <div className="absolute inset-0 bg-black/0 transition-colors duration-200 group-hover:bg-black/30 flex items-center justify-center">
+                            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-serene-ink opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
+                                <FormatIcon format={item.format} />
+                            </span>
                         </div>
-                    ) : (
-                        <div className="h-52 w-full rounded-3xl bg-serene-primary/15" />
-                    )}
 
-                    {/* nút play ở giữa */}
-                    <button
-                        type="button"
-                        onClick={() => onOpen(featured)}
-                        className="cursor-pointer absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-red-500 text-serene-on-primary shadow-xl transition hover:scale-120 duration-300"
-                        aria-label={`Mở ${featured.title}`}
-                    >
-                        <Play className="ml-1 h-6 w-6 fill-current" />
-                    </button>
-                </div>
-                <div className="mt-5 flex items-end justify-between gap-4 p-5">
-                    <div>
-                        <h2
-                            dangerouslySetInnerHTML={{ __html: featured.title }}
-                            className={`font-display font-semibold text-4xl ${isDark ? 'text-white' : 'text-serene-ink'}`}>
-                        </h2>
+                        {/* Duration pill */}
+                        {item.duration_sec > 0 && (
+                            <span className="absolute bottom-2 right-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+                                {formatDuration(item.duration_sec)}
+                            </span>
+                        )}
+                    </div>
 
-                        <p className={`mt-1.5 ml-1.5 text-sm ${isDark ? 'text-white/60' : 'text-serene-muted'}`}>
-                            <span>{minutes(featured.duration_sec)}</span> · <span className='font-semibold capitalize'>{featured.format.replace(/_/g, ' ')}</span>
+                    {/* Info */}
+                    <div className="flex flex-1 flex-col gap-1 p-3">
+                        <p
+                            title={item.title}
+                            className={`line-clamp-2 text-sm font-semibold leading-snug ${
+                                isDark ? 'text-white/90' : 'text-serene-ink'
+                            }`}
+                            dangerouslySetInnerHTML={{ __html: item.title }}
+                        />
+                        <p className={`mt-auto text-[11px] font-medium capitalize ${isDark ? 'text-white/40' : 'text-serene-muted/70'}`}>
+                            {item.format.replace(/_/g, ' ')}
                         </p>
                     </div>
-
-                </div>
-                {featured.description && (
-                    <p className={`mt-4 text-sm leading-relaxed ${isDark ? 'text-white/70' : 'text-serene-muted'}`}>{featured.description}</p>
-                )}
-            </article>
-
-            {/* Side items */}
-            {displayedSideItems.length > 0 && (
-                <div className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-3">
-                        {displayedSideItems.map((item) => (
-                            <div
-                                key={item.id}
-
-                                onClick={() => onOpen(item)}
-                                className={`group grid grid-cols-[72px_1fr_auto] items-center gap-3 rounded-[1.75rem] bg-theme-surface border border-theme-secondary/20 p-4 text-left shadow-lg transition hover:-translate-y-1`}
-                            >
-                                {item.thumbnail ? (
-                                    <img src={item.thumbnail} alt="" className="h-20 w-20 rounded-2xl object-cover shadow" />
-                                ) : (
-                                    <div className="h-16 w-16 rounded-2xl bg-serene-primary/10" />
-                                )}
-                                <div>
-                                    <h3
-                                        title={item.title}
-                                        dangerouslySetInnerHTML={{ __html: item.title }}
-                                        className={`font-display font-semibold line-clamp-2 leading-tight ${isDark ? 'text-white' : 'text-serene-primary'}`}>
-
-                                    </h3>
-                                    <p className={`mt-1 text-xs ${isDark ? 'text-white/60' : 'text-serene-muted'}`}>
-                                        <span>{minutes(item.duration_sec)}</span> · <span className='font-semibold capitalize'>{item.format.replace(/_/g, ' ')}</span>
-                                    </p>
-                                </div>
-                                <button className={`cursor-pointer flex h-8 w-8 items-center justify-center rounded-full border ${isDark ? 'border-theme-accent text-theme-accent group-hover:bg-theme-accent group-hover:text-white' : 'border-serene-primary text-serene-primary group-hover:bg-serene-primary group-hover:text-white'} transition`}>
-                                    {item.format === 'article' ? <BookOpen className="ml-0.5 h-3.5 w-3.5 fill-current" />
-                                        : item.format === 'audio' ? <Volume2 className="ml-0.5 h-3.5 w-3.5 fill-current" />
-                                            : <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />}
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* See more / Show less button */}
-                    {items.length > 4 ? (
-                        (hasMore || isFullyExpanded) && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (hasMore) {
-                                        setExpandedCount((prev) => prev + 6)
-                                    } else {
-                                        setExpandedCount(3)
-                                    }
-                                }}
-                                className={`mx-auto cursor-pointer flex items-center gap-2 rounded-full bg-theme-surface px-6 py-3 text-sm font-semibold border border-theme-secondary/10 hover:border-theme-secondary/40`}
-                            >
-                                {hasMore ? (
-                                    <>
-                                        <span>Xem thêm</span>
-                                        <ChevronDown className="h-4 w-4" />
-                                    </>
-                                ) : (
-                                    <>
-                                        <span>Ẩn bớt</span>
-                                        <ChevronUp className="h-4 w-4" />
-                                    </>
-                                )}
-                            </button>
-                        )
-                    ) : (
-                        <div></div>
-                    )}
-
-
-                </div>
-            )}
+                </button>
+            ))}
         </div>
     )
 }

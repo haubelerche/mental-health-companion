@@ -6,6 +6,7 @@ from typing import Iterable
 
 from app.personas.aliases import resolve_alias
 from app.services.output_policy_validator import validate_final_response
+from app.services.resource_candidates import make_video_mention
 from app.services.schemas.contracts import AdvisorAdvice, ContextPack, FriendAgentOutput
 
 _LEAKY_TERMS = (
@@ -497,6 +498,18 @@ class FriendAgent:
         risk_level = context_pack.safety_policy.risk_level if context_pack.safety_policy else 0
         distress_score = context_pack.safety_policy.distress_score if context_pack.safety_policy else 0.0
 
+        # Append a natural video mention when resource candidates are available.
+        # Only for non-crisis turns and not too frequently (distress < 0.7).
+        resource_candidates = list(getattr(context_pack, "resource_candidates", []) or [])
+        used_resource_ids: list[str] = []
+        if resource_candidates and risk_level < 3 and distress_score < 0.70:
+            mention = make_video_mention(resource_candidates)
+            if mention:
+                final_text = f"{final_text}\n\n{mention}"
+                rid = str(resource_candidates[0].get("resource_id") or "").strip()
+                if rid:
+                    used_resource_ids = [rid]
+
         # tts_candidate: short voice script derived from final_text.
         # Suppressed for high-risk turns; only emit when text is substantive.
         tts_candidate: dict | None = None
@@ -517,7 +530,7 @@ class FriendAgent:
             final_text=final_text,
             response_intent="reflect",
             used_advisor_ids=[a.advisor_id for a in advice],
-            used_resource_ids=[],
+            used_resource_ids=used_resource_ids,
             suggested_next_action=None,
             memory_write_candidates=[],
             tts_candidate=tts_candidate,

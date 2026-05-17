@@ -69,7 +69,7 @@ backend/.ai-log/
 !evals/rubrics/*.md
 
 # Pytest temp workspace (local only)
-.pytest_tmp/
+.pytest_tmp*/
 
 # Local TTS renders (regenerate in dev)
 backend/generated_voice/
@@ -139,9 +139,17 @@ backend/tests/*
 !backend/tests/test_friend_agent_contract.py
 !backend/tests/test_context_pack_builder.py
 !backend/tests/test_analyst_agent_contract.py
+!backend/tests/test_analyst_context_loader.py
+!backend/tests/test_analyst_pipeline_integration.py
+!backend/tests/test_analyst_privacy_regression.py
 !backend/tests/test_dashboard_safe_insights.py
 !backend/tests/test_latency_observability.py
 !backend/tests/test_screening_contract.py
+!backend/tests/test_analyst_sanitizer.py
+!backend/tests/test_regression_no_internal_leaks.py
+!backend/tests/test_safety_and_sos.py
+!backend/tests/test_distress_router.py
+!backend/tests/test_safety_escalate_integration.py
 
 
 

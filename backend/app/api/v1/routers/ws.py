@@ -14,6 +14,7 @@ from app.api.deps import get_current_user
 from app.services.security import decode_token
 from app.services.ws_manager import connection_manager
 from app.services.utils import get_now
+from app.services.observability import hash_identifier
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ws", tags=["websocket"])
@@ -78,7 +79,7 @@ async def websocket_notifications(
         
         # Register connection
         await connection_manager.connect(websocket, user_id)
-        logger.info(f"WebSocket connection established: user_id={user_id}")
+        logger.info("WebSocket connection established: user_id=%s", hash_identifier(str(user_id)))
         
         # Send welcome message
         await websocket.send_json({
@@ -98,7 +99,7 @@ async def websocket_notifications(
     except WebSocketDisconnect:
         if user_id:
             await connection_manager.disconnect(websocket)
-            logger.info(f"WebSocket disconnected: user_id={user_id}")
+            logger.info("WebSocket disconnected: user_id=%s", hash_identifier(str(user_id)))
     
     except Exception as e:
         logger.error(f"WebSocket error: {e}")

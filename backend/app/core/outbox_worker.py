@@ -49,6 +49,7 @@ _EVENT_REQUIRED_KEYS: dict[str, tuple[str, ...]] = {
     "session.ended": ("user_id", "session_id"),
     "coping.attempted": ("user_id", "action_id"),
     "profile.updated": ("user_id",),
+    "user.deleted": ("user_id",),
 }
 
 _EVENT_ALLOWED_KEYS: dict[str, set[str]] = {
@@ -60,9 +61,9 @@ _EVENT_ALLOWED_KEYS: dict[str, set[str]] = {
         "started_at",
         "ended_at",
         "dominant_emotion",
-        "sos_triggered",
         "key_triggers",
     },
+    "user.deleted": {"user_id"},
     "coping.attempted": {
         "user_id",
         "action_id",
@@ -171,6 +172,7 @@ class Neo4jApplier:
             "session.ended": self._handle_session_ended,
             "coping.attempted": self._handle_coping_attempted,
             "profile.updated": self._handle_profile_updated,
+            "user.deleted": self._handle_user_deleted,
         }.get(event.event_type)
 
         if handler is None:
@@ -271,8 +273,10 @@ class Neo4jApplier:
         """
         event.payload expected:
           { user_id, session_id, started_at, ended_at, dominant_emotion,
-            sos_triggered, key_triggers: [] }
+            key_triggers: [] }
         Creates Session node and links to User. No raw content stored.
+        sos_triggered is intentionally excluded — safety indicators must not
+        be persisted on the derived Neo4j graph.
         """
         p = event.payload
         user_id = p["user_id"]
@@ -284,8 +288,7 @@ class Neo4jApplier:
                 MERGE (s:Session {session_id: $sid})
                 ON CREATE SET s.started_at = $started,
                               s.ended_at = $ended,
-                              s.dominant_emotion = $emotion,
-                              s.sos_triggered = $sos
+                              s.dominant_emotion = $emotion
                 MERGE (u)-[:HAS_SESSION]->(s)
                 """,
                 uid=user_id,
@@ -293,7 +296,6 @@ class Neo4jApplier:
                 started=p.get("started_at"),
                 ended=p.get("ended_at"),
                 emotion=p.get("dominant_emotion"),
-                sos=p.get("sos_triggered", False),
             )
 
             # Link session triggers
@@ -357,6 +359,22 @@ class Neo4jApplier:
         """
         logger.debug("profile.updated event received for %s — no Neo4j action needed",
                      event.payload.get("user_id"))
+
+    async def _handle_user_deleted(self, event: OutboxEvent) -> None:
+        """
+        event.payload expected:
+          { user_id }
+        DETACH DELETE the User node and all its relationships from Neo4j.
+        Called during account deletion to fulfil the right-to-erasure obligation
+        on the derived graph (GDPR / privacy gap fix).
+        """
+        user_id = event.payload["user_id"]
+        async with self._driver.session(database=self._neo4j_database) as session:
+            await session.run(
+                "MATCH (u:User {user_id: $uid}) DETACH DELETE u",
+                uid=user_id,
+            )
+        logger.info("user.deleted Neo4j purge completed for user_id=%s", user_id)
 
 
 # ---------------------------------------------------------------------------

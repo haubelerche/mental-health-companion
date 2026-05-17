@@ -1,4 +1,5 @@
-import type { ScreeningId, ScreeningResult } from '../services/screeningService'
+import type { ScreeningId, ScreeningLatestEntry, ScreeningResult } from '../services/screeningService'
+import { screeningService } from '../services/screeningService'
 
 export type StoredScreeningResult = {
     instrument_id: ScreeningId
@@ -147,6 +148,40 @@ export function subscribeToScreeningResults(onChange: (results: StoredScreeningR
     return () => {
         window.removeEventListener(SCREENING_RESULTS_UPDATED_EVENT, refresh)
         window.removeEventListener('storage', refreshFromStorage)
+    }
+}
+
+/**
+ * Hydrate localStorage from backend on login / mount.
+ * Falls back silently if the API call fails — localStorage remains valid.
+ * This makes the backend the authoritative source for cross-device persistence.
+ */
+export async function syncScreeningResultsFromBackend(): Promise<void> {
+    if (!hasLocalStorage()) return
+    try {
+        const resp = await screeningService.getLatest()
+        const results: Record<ScreeningId, ScreeningLatestEntry | null> = (resp as { results: Record<ScreeningId, ScreeningLatestEntry | null> })?.results ?? {}
+        for (const id of SCREENING_IDS) {
+            const entry = results[id]
+            if (!entry) continue
+            // Only overwrite localStorage if backend has a newer record
+            const existing = readStoredScreeningResult(id)
+            const backendAt = entry.assessment_updated_at ?? ''
+            const localAt = existing?.assessment_updated_at ?? ''
+            if (!existing || backendAt > localAt) {
+                const stored: StoredScreeningResult = {
+                    instrument_id: id,
+                    raw_score: 0,            // not exposed by /latest
+                    severity_label: entry.severity_label,
+                    assessment_updated_at: entry.assessment_updated_at ?? undefined,
+                    timestamp: new Date().toISOString(),
+                }
+                window.localStorage.setItem(storageKey(id), JSON.stringify(stored))
+            }
+        }
+        window.dispatchEvent(new CustomEvent(SCREENING_RESULTS_UPDATED_EVENT))
+    } catch {
+        // Non-fatal — user continues with locally cached data
     }
 }
 

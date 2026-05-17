@@ -37,6 +37,15 @@ from app.services.guest_service import heartbeat as guest_heartbeat
 from app.services.guest_service import start_session as guest_start_session
 from app.services.langfuse_tracing import ChatTurnTracer, set_active_tracer
 from app.services.latency_metrics import ensure_chat_latency_trace
+from app.services.analyst_agent import (
+    _dass21_anxiety_band,
+    _dass21_depression_band,
+    _dass21_stress_band,
+    _gad7_band,
+    _mdq_band,
+    _pcl5_band,
+    _phq9_band,
+)
 from app.services.analyst_writer import record_analyst_bundle_signal
 from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn, stream_non_sos_turn_events
 from app.services.longterm_memory import (
@@ -72,6 +81,7 @@ from app.services.clinical_profile import get_or_create_clinical_profile
 from app.services.safety_policy import evaluate_safety_policy
 from app.services.safety_scoring import SafetySnapshot, build_snapshot, compute_escalation_signal
 from app.services.schemas.contracts import ContextPack
+from app.services.resource_candidates import fetch_resource_candidates
 from app.services.proactive_voice import (
     VOICE_JOB_EVENT_TYPE,
     cooldown_active,
@@ -704,6 +714,36 @@ def _load_today_meals(db: Session, user_id: str) -> list[dict]:
     except Exception as exc:
         logger.debug("meal load failed for %s: %s", user_id, exc)
         return []
+
+
+def _load_analyst_extra_context(db: Session, user_id: str) -> tuple[str | None, object | None]:
+    try:
+        from app.services.analyst_context_loader import AnalystContextLoader
+
+        ctx = AnalystContextLoader(db=db).load_all(user_id=user_id, window_days=14)
+        parts: list[str] = []
+        if ctx.screening.has_screening_data:
+            s = ctx.screening
+            if s.phq9_score is not None:
+                parts.append(f"PHQ-9:{_phq9_band(s.phq9_score)}")
+            if s.gad7_score is not None:
+                parts.append(f"GAD-7:{_gad7_band(s.gad7_score)}")
+            if s.dass21_depression_score is not None:
+                parts.append(f"DASS21-dep:{_dass21_depression_band(s.dass21_depression_score)}")
+            if s.dass21_anxiety_score is not None:
+                parts.append(f"DASS21-anx:{_dass21_anxiety_band(s.dass21_anxiety_score)}")
+            if s.dass21_stress_score is not None:
+                parts.append(f"DASS21-str:{_dass21_stress_band(s.dass21_stress_score)}")
+            if s.mdq_score is not None:
+                parts.append(f"MDQ:{_mdq_band(s.mdq_score)}")
+            if s.pcl5_score is not None:
+                parts.append(f"PCL-5:{_pcl5_band(s.pcl5_score)}")
+        if ctx.session_summaries.top_themes:
+            parts.append(f"Recent session themes: {', '.join(ctx.session_summaries.top_themes[:3])}")
+        return ("; ".join(parts) if parts else None), ctx
+    except Exception as exc:
+        logger.warning("analyst_context_load failed (non-blocking): %s", exc)
+        return None, None
 
 
 def _previous_assistant_texts(recent_messages: list[dict], *, max_turns: int = 6) -> list[str]:
@@ -1429,6 +1469,7 @@ def send_message(
     # distress_score frozen after decide_sos() — mood is context for LangGraph, not a routing delta.
     distress = distress0
     selected_persona_id = _active_persona_id(db, current_user.user_id, distress=distress)
+    analyst_extra_context, analyst_ctx = _load_analyst_extra_context(db, current_user.user_id)
     route_tier, planned_advisor_ids, route_reason_codes = ChatOrchestrator.resolve_route_advisors_with_reasons(
         raw_text=raw_text,
         previous_user_messages=previous_user_messages,
@@ -1462,6 +1503,13 @@ def send_message(
 
     if turn is None:
         try:
+            def _fast_output_policy(text: str, **_kwargs: object) -> str:
+                _v = _validate_tts_output(text, surface="chat")
+                if _v.is_blocked:
+                    logger.warning("output_validator blocked reply: %s", _v.reason_codes)
+                    return "Mình hiểu bạn đang cần hỗ trợ. Hãy chia sẻ thêm để Serene có thể đồng hành cùng bạn nhé."
+                return text
+
             if route_tier == "fast" and any(
                 reason in {"small_talk_fast", "greeting_fast", "thanks_fast", "ack_fast", "empty_fast"}
                 for reason in route_reason_codes
@@ -1481,7 +1529,7 @@ def send_message(
                     context_pack=context_pack,
                     route_tier=route_tier,
                     planned_advisor_ids=[],
-                    apply_output_policy_or_fallback=lambda text, **_kwargs: text,
+                    apply_output_policy_or_fallback=_fast_output_policy,
                     policy_decision=policy_decision,
                     route_reason_codes=route_reason_codes,
                     consultation_db=None,
@@ -1525,6 +1573,13 @@ def send_message(
                 if memory_ctx and memory_ctx.onboarding:
                     _base_traits.setdefault("onboarding", memory_ctx.onboarding)
                 if route_tier == "advisor_assisted":
+                    _adv_tracer = ChatTurnTracer(
+                        correlation_id=message_hash,
+                        user_id=current_user.user_id,
+                        session_id=session.session_id,
+                        input_meta={"route_tier": "advisor_assisted", "user_message_len": len(raw_text)},
+                    )
+                    set_active_tracer(_adv_tracer)
                     policy_decision = evaluate_safety_policy(raw_text, previous_user_messages)
                     context_pack = ContextPack(
                         recent_messages=ctx.recent_messages,
@@ -1539,13 +1594,18 @@ def send_message(
                         nutrition_context={"today_meals": _nutrition_meals} if _nutrition_meals else None,
                         persona_context={"selected": selected_persona_id},
                         safety_policy=policy_decision,
+                        resource_candidates=fetch_resource_candidates(
+                            distress_score=float(getattr(policy_decision, "distress_score", 0.0)),
+                            user_message=raw_text,
+                            db=db,
+                        ),
                     )
                     generated = ChatOrchestrator.generate_normal_turn(
                         user_message=raw_text,
                         context_pack=context_pack,
                         route_tier=route_tier,
                         planned_advisor_ids=planned_advisor_ids,
-                        apply_output_policy_or_fallback=lambda text, **_kwargs: text,
+                        apply_output_policy_or_fallback=_fast_output_policy,
                         policy_decision=policy_decision,
                         route_reason_codes=route_reason_codes,
                         consultation_db=db,
@@ -1553,6 +1613,10 @@ def send_message(
                         session_id=session.session_id,
                         user_id=current_user.user_id,
                     )
+                    _adv_tracer.score("distress_score", distress)
+                    _adv_tracer.update_output(generated.assistant_text, metadata={"route_tier": "advisor_assisted"})
+                    _adv_tracer.flush()
+                    set_active_tracer(None)
                     snap = build_snapshot(
                         distress,
                         sos_triggered=False,
@@ -1588,6 +1652,7 @@ def send_message(
                         active_memory_text=_active_memory_text_from_context(memory_ctx, compat_longterm),
                         graph_patterns=_graph_patterns,
                         nutrition_meals=_nutrition_meals or None,
+                        analyst_extra_context=analyst_extra_context,
                     )
                 _mark_stage(latency_trace, "friend_llm_call_ms", llm_started)
             if route_tier != "advisor_assisted":
@@ -1611,6 +1676,7 @@ def send_message(
                 analyst_bundle=_ab,
                 distress_score=float(distress),
                 sos_triggered=False,
+                evidence_refs=getattr(analyst_ctx, "evidence_refs", None),
             )
         except Exception:
             logger.debug("analyst_bundle persist skipped (non-fatal)")
@@ -1826,7 +1892,7 @@ def send_message(
     )
     _persist_assistant_client_payload(db, assistant_msg, data)
     db.commit()
-    logger.info("chat.latency_trace user_id=%s session_id=%s trace=%s", current_user.user_id, session.session_id, latency_trace)
+    logger.info("chat.latency_trace user_id=%s session_id=%s trace=%s", hash_identifier(str(current_user.user_id)), hash_identifier(str(session.session_id)), latency_trace)
     return ok(data)
 
 
@@ -2191,6 +2257,7 @@ def send_message_stream(
             if turn is None:
                 turn = get_cached_turn(session.session_id, message_hash) if settings.chat_response_cache_ttl_seconds > 0 else None
             _stream_persona_id = _active_persona_id(db, current_user.user_id, distress=distress)
+            _stream_analyst_extra_context, _stream_analyst_ctx = _load_analyst_extra_context(db, current_user.user_id)
             if turn is None:
                 _s_route_tier, _, _s_route_codes = ChatOrchestrator.resolve_route_advisors_with_reasons(
                     raw_text=raw_text,
@@ -2200,6 +2267,13 @@ def send_message_stream(
                     c in {"small_talk_fast", "greeting_fast", "thanks_fast", "ack_fast", "empty_fast"}
                     for c in _s_route_codes
                 ):
+                    _fast_tracer = ChatTurnTracer(
+                        correlation_id=message_hash,
+                        user_id=current_user.user_id,
+                        session_id=session.session_id,
+                        input_meta={"route_tier": "fast", "stream": True, "user_message_len": len(raw_text)},
+                    )
+                    set_active_tracer(_fast_tracer)
                     policy_decision = evaluate_safety_policy(raw_text, previous_user_messages)
                     context_pack = ContextPack(
                         recent_messages=ctx.recent_messages,
@@ -2209,12 +2283,18 @@ def send_message_stream(
                         persona_context={"selected": _stream_persona_id},
                         safety_policy=policy_decision,
                     )
+                    def _stream_fast_output_policy(text: str, **_kwargs: object) -> str:
+                        _v = _validate_tts_output(text, surface="chat")
+                        if _v.is_blocked:
+                            logger.warning("output_validator blocked stream fast-path reply: %s", _v.reason_codes)
+                            return "Mình hiểu bạn đang cần hỗ trợ. Hãy chia sẻ thêm để Serene có thể đồng hành cùng bạn nhé."
+                        return text
                     generated = ChatOrchestrator.generate_normal_turn(
                         user_message=raw_text,
                         context_pack=context_pack,
                         route_tier=_s_route_tier,
                         planned_advisor_ids=[],
-                        apply_output_policy_or_fallback=lambda text, **_kwargs: text,
+                        apply_output_policy_or_fallback=_stream_fast_output_policy,
                         policy_decision=policy_decision,
                         route_reason_codes=_s_route_codes,
                         consultation_db=None,
@@ -2222,6 +2302,10 @@ def send_message_stream(
                         session_id=session.session_id,
                         user_id=current_user.user_id,
                     )
+                    _fast_tracer.score("distress_score", distress)
+                    _fast_tracer.update_output(generated.assistant_text, metadata={"route_tier": "fast", "stream": "True"})
+                    _fast_tracer.flush()
+                    set_active_tracer(None)
                     snap = build_snapshot(
                         distress,
                         sos_triggered=False,
@@ -2290,6 +2374,7 @@ def send_message_stream(
                     active_memory_text=_active_memory_text_from_context(memory_ctx, compat_longterm),
                     graph_patterns=_stream_graph_patterns,
                     nutrition_meals=_stream_nutrition_meals or None,
+                    analyst_extra_context=_stream_analyst_extra_context,
                 ):
                     if ev.get("type") == "token":
                         yield "event: delta\ndata: " + json.dumps({"text": str(ev.get("text") or "")}, ensure_ascii=False) + "\n\n"

@@ -514,6 +514,9 @@ class AnalystSignal(Base):
     risk_indicators: Mapped[list[Any]] = mapped_column(
         JSONB_COMPAT, default=list, server_default="[]", nullable=False
     )
+    evidence_refs: Mapped[list[Any]] = mapped_column(
+        JSONB_COMPAT, default=list, server_default="[]", nullable=False
+    )
     distress_score: Mapped[Optional[float]] = mapped_column(
         Float,
         CheckConstraint(

@@ -231,6 +231,7 @@ def record_analyst_bundle_signal(
     analyst_bundle: Any,
     distress_score: float = 0.0,
     sos_triggered: bool = False,
+    evidence_refs: list[str] | None = None,
 ) -> str | None:
     """Persist an inline LangGraph AnalystBundle to analyst_signals.
 
@@ -253,6 +254,7 @@ def record_analyst_bundle_signal(
             emotional_theme=emotional_theme,
             suggested_focus=suggested_focus,
             risk_indicators=risk_indicators,
+            evidence_refs=list(evidence_refs or [])[:100],
             distress_score=max(0.0, min(1.0, float(distress_score))),
             model_version=_LANGGRAPH_ANALYST_MODEL_VERSION,
             source="friend_turn",
