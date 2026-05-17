@@ -106,6 +106,12 @@ def _voice_audio_file(job_id: int) -> Path:
     return _AUDIO_DIR / f"tts_{job_id}.mp3"
 
 
+def _audio_data_uri_from_path(audio_path: Path) -> str | None:
+    if not audio_path.exists():
+        return None
+    return "data:audio/mpeg;base64," + base64.b64encode(audio_path.read_bytes()).decode("ascii")
+
+
 def _seconds_since(timestamp: datetime | None) -> int:
     if timestamp is None:
         return 0
@@ -259,6 +265,10 @@ def _is_provider_level_block(code: str | None) -> bool:
     return bool(code and code in _PROVIDER_LEVEL_BLOCK_CODES)
 
 
+def _should_process_voice_job_inline(settings: Any) -> bool:
+    return bool(getattr(settings, "voice_tts_inline_process_on_poll", False)) or os.environ.get("VERCEL") == "1"
+
+
 def enqueue_voice_job(
     db: Session,
     *,
@@ -335,6 +345,7 @@ def enqueue_voice_job(
             "provider": provider,
             "tts_job_id": existing["tts_job_id"],
             "audio_url": existing.get("audio_url"),
+            "audio_data_uri": existing.get("audio_data_uri"),
             "status": dedup_status,
             "model_id": _model_hint_for_queue(settings),
             "requested_tts_provider": provider,
@@ -535,6 +546,9 @@ def _process_job(job_id: int, owner_token: str | None = None) -> None:
             payload["voice"]["status"] = "ready"
             payload["voice"]["audio_path"] = str(audio_path)
             payload["voice"]["audio_url"] = f"/v1/chat/voice-jobs/tts_{job_id}/audio"
+            data_uri = _audio_data_uri_from_path(audio_path)
+            if data_uri:
+                payload["voice"]["audio_data_uri"] = data_uri
             payload["voice"].pop("error_code", None)
             payload["voice"].pop("error_message", None)
             row.status = "done"
@@ -620,7 +634,7 @@ def _process_job(job_id: int, owner_token: str | None = None) -> None:
             _start_voice_job_worker(job_id)
 
 
-def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
+def get_voice_job(db: Session, tts_job_id: str, *, _inline_attempted: bool = False) -> dict[str, Any] | None:
     if not tts_job_id.startswith("tts_"):
         return None
     try:
@@ -643,13 +657,18 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
     fallback_audio_path = _voice_audio_file(outbox_id)
     fallback_audio_exists = fallback_audio_path.exists()
     has_ready_audio = payload_audio_exists or fallback_audio_exists
+    persisted_audio_data_uri = str(voice.get("audio_data_uri") or "").strip()
+    has_persisted_audio_data_uri = persisted_audio_data_uri.startswith("data:audio/")
 
-    if row.status == "done" and (voice_status != "ready" or has_ready_audio):
+    if row.status == "done" and (voice_status != "ready" or has_ready_audio or has_persisted_audio_data_uri):
         if has_ready_audio:
             audio_path = audio_path_from_payload if payload_audio_exists else fallback_audio_path
             voice["status"] = "ready"
             if audio_path.exists():
                 voice["audio_path"] = str(audio_path)
+                data_uri = _audio_data_uri_from_path(audio_path)
+                if data_uri:
+                    voice["audio_data_uri"] = data_uri
             voice["audio_url"] = voice.get("audio_url") or f"/v1/chat/voice-jobs/tts_{outbox_id}/audio"
             voice.pop("error_code", None)
             voice.pop("error_message", None)
@@ -663,12 +682,40 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
                     voice_status,
                 )
             voice_status = "ready"
+        elif has_persisted_audio_data_uri:
+            voice["status"] = "ready"
+            voice.pop("error_code", None)
+            voice.pop("error_message", None)
+            payload["voice"] = voice
+            _assign_payload(row, payload)
+            db.commit()
+            voice_status = "ready"
+
+    settings = get_settings()
+    if (
+        row.status == "pending"
+        and voice_status == "queued"
+        and not _inline_attempted
+        and bool(getattr(settings, "voice_tts_auto_process_on_enqueue", False))
+        and _should_process_voice_job_inline(settings)
+        and outbox_id not in _INFLIGHT_JOBS
+    ):
+        logger.info("voice_job_inline_poll_process job_id=%s", outbox_id)
+        _process_job(outbox_id, owner_token=None)
+        try:
+            db.expire_all()
+        except Exception:
+            pass
+        return get_voice_job(db, tts_job_id, _inline_attempted=True)
 
     if row.status == "done" and voice_status in {"queued", "processing", "pending"}:
         audio_path = fallback_audio_path
         if audio_path.exists():
             voice["status"] = "ready"
             voice["audio_path"] = str(audio_path)
+            data_uri = _audio_data_uri_from_path(audio_path)
+            if data_uri:
+                voice["audio_data_uri"] = data_uri
             voice["audio_url"] = f"/v1/chat/voice-jobs/tts_{outbox_id}/audio"
             payload["voice"] = voice
             _assign_payload(row, payload)
@@ -690,7 +737,7 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
             logger.warning("voice_job_done_missing_audio job_id=%s", outbox_id)
             voice_status = "failed"
 
-    if row.status == "done" and voice_status == "ready" and not has_ready_audio:
+    if row.status == "done" and voice_status == "ready" and not has_ready_audio and not has_persisted_audio_data_uri:
         voice["status"] = "failed"
         voice["error_code"] = "voice_ready_missing_audio"
         voice["error_message"] = "Voice job marked ready but generated audio file was missing on this server."
@@ -717,7 +764,6 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
         )
         voice_status = "failed"
 
-    settings = get_settings()
     if row.status == "pending" and voice_status == "queued":
         if created_age_seconds >= VOICE_JOB_PENDING_TIMEOUT_SECONDS:
             voice["status"] = "failed"
@@ -746,9 +792,13 @@ def get_voice_job(db: Session, tts_job_id: str) -> dict[str, Any] | None:
         "status": str(voice.get("status") or voice_status or row.status),
         "audio_url": voice.get("audio_url"),
         "audio_data_uri": (
-            "data:audio/mpeg;base64," + base64.b64encode(Path(str(voice.get("audio_path"))).read_bytes()).decode("ascii")
-            if voice.get("audio_path") and Path(str(voice.get("audio_path"))).exists()
-            else None
+            str(voice.get("audio_data_uri"))
+            if str(voice.get("audio_data_uri") or "").startswith("data:audio/")
+            else (
+                _audio_data_uri_from_path(Path(str(voice.get("audio_path"))))
+                if voice.get("audio_path") and Path(str(voice.get("audio_path"))).exists()
+                else None
+            )
         ),
         "trigger_reason": payload.get("trigger_reason"),
         "error_code": voice.get("error_code"),

@@ -121,6 +121,7 @@ def find_dedup_job(
             "tts_job_id": f"tts_{row.outbox_id}",
             "voice_status": voice_status,
             "audio_url": voice.get("audio_url"),
+            "audio_data_uri": voice.get("audio_data_uri"),
             "event_signature": signature,
         }
 
