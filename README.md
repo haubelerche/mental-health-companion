@@ -171,6 +171,7 @@ Metrics: `http://localhost:8000/metrics`
 
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 
