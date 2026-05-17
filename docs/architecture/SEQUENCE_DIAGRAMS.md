@@ -1,292 +1,379 @@
-# Sequence diagrams — Serene
+# Sequence Diagrams - Serene.AI Runtime
 
-## Summary
+## Context
 
-Tài liệu này tập hợp **13 sequence diagram** mô tả luồng chính của Serene: chat thường, phân tích pattern, an toàn SOS, giọng nói khủng hoảng và TTS, persona và phần thưởng, bộ nhớ, đồng bộ graph/dashboard, screening có hướng dẫn, knowledge unlock và vòng lặp end-to-end. Mỗi mục gồm **tiêu đề**, **ảnh PNG** trong thư mục `docs/sequence/` và **mô tả luồng ngắn** ngay bên dưới.
+Tài liệu này là bộ sequence diagram canonical cho các luồng agent chính của Serene.AI, được cập nhật theo `docs/PRD.md` phiên bản 7.2. Mục tiêu không phải là liệt kê mọi tương tác phụ trong sản phẩm, mà là mô tả chính xác các đường đi quyết định giữa **Friend Agent**, **Analyst Agent** và **Safety Agent** trong những workflow có rủi ro sản phẩm, an toàn và vận hành cao nhất.
 
-**Quy ước thuật ngữ (khớp `docs/PRD.md`):** Ba vai trò LLM/runtime chính được gọi theo **tên agent sản phẩm**, kèm **mã bước orchestration** trong backtick khi cần chỉ code hoặc LangGraph:
-Mapping chuẩn giữa tên vai trò, orchestration id và runtime tokens: `docs/GLOSSARY_RUNTIME.md`.
+Các sơ đồ dùng Mermaid để có thể render trực tiếp trong Markdown preview, GitHub, hoặc công cụ tài liệu nội bộ.
 
-| Tên agent (sản phẩm) | Mã triển khai | Vai trò ngắn |
-|----------------------|----------------|---------------|
-| **Serene Conversation Agent** | `FriendNode` | Một identity Serene; phản hồi user-facing trong luồng bình thường; persona là style mode bên trong agent này. |
-| **Internal Analyst Agent** | `AnalystNode` | Chỉ xuất `AnalystBundle` (JSON có cấu trúc); không nói trực tiếp với user. |
-| **Safety Agent** | `SafetyFinalizer` | Luồng high-risk / SOS; payload kiểm soát, deterministic. |
+## Problem Statement Technical Deep-Dive
 
-Các thành phần khác (`SafetyGate`, `DistressRouter`, `PersonaRouter`, service/worker…) **không** là agent có identity riêng theo PRD. Không dùng từ **node** để chỉ agent; chỉ dùng “node” theo nghĩa graph Neo4j nếu có (ví dụ `:MemoryNode` trong PRD).
+PRD xác định Serene.AI là một assistant duy nhất với ba vai trò runtime chính. Persona, reward, memory, dashboard, resource retrieval, TTS và notification là service/router/worker, không phải agent độc lập có danh tính riêng. Do đó, sequence diagram phải tránh hai sai lệch kiến trúc phổ biến: biến mọi service thành agent, hoặc cho phép Analyst/Safety viết trực tiếp ra UI ngoài contract được kiểm soát.
 
-**Tên file ảnh:** toàn bộ PNG trong `docs/sequence/` dùng **kebab-case** (chữ thường, dấu `-`, không khoảng trắng) để Markdown preview hiển thị ổn định.
+| Vai trò runtime | Mã triển khai tham chiếu | User-facing | Trách nhiệm kỹ thuật |
+|---|---|---:|---|
+| Friend Agent | `FriendNode` | Có | Tạo phản hồi hội thoại cuối cùng trong normal flow, áp dụng persona như style mode, dùng context đã được lọc an toàn. |
+| Analyst Agent | `AnalystNode` | Không | Tạo `AnalystBundle` có cấu trúc từ dữ liệu được phép, evidence, confidence, caveat và action candidate. |
+| Safety Agent | `SafetyFinalizer` | Có, qua payload kiểm soát | Xử lý high-risk/SOS, de-escalation, hotline/referral, crisis/audit log và crisis UI payload. |
 
----
+Các invariant bắt buộc trong mọi sơ đồ:
 
-## Mục lục — các loại biểu đồ
+1. `SafetyGate` chạy trước mọi LLM call hoặc advisor call.
+2. High-risk/SOS bypass toàn bộ normal flow, bao gồm Analyst Agent và Friend Agent.
+3. Analyst Agent không nói trực tiếp với user; mọi nội dung chat user-facing phải đi qua Friend Agent hoặc dashboard-safe sanitizer.
+4. Advisor không tạo final response; advisor chỉ cung cấp evidence, candidate hoặc critique cho Analyst.
+5. PostgreSQL/Supabase là source of truth; Redis, pgvector, RAG, outbox và worker chỉ là lớp hỗ trợ.
+6. Frontend chỉ render state/payload từ backend; frontend không tự quyết định safety tier, crisis state, reward grant hoặc diagnosis-like interpretation.
+7. Output sanitizer chặn diagnosis label, internal metadata leak, prompt-injection echo, unsafe medical advice và persona bypass.
 
-| # | Loại / chủ đề | Mục trong tài liệu |
-|---|----------------|-------------------|
-| 1 | Chat thường — Serene Conversation Agent | [§1](#sec-seq-1) |
-| 2 | Pattern insight — Internal Analyst rồi Serene Conversation | [§2](#sec-seq-2) |
-| 3 | High-risk / SOS — Safety Agent | [§3](#sec-seq-3) |
-| 4 | SOS voice — CrisisInterventionPlan + TTS dedup | [§4](#sec-seq-4) |
-| 5 | Frontend TTS polling — trạng thái job | [§5](#sec-seq-5) |
-| 6 | Persona — chọn / unlock / safety fallback | [§6](#sec-seq-6) |
-| 7 | Heart reward — luồng idempotent | [§7](#sec-seq-7) |
-| 8 | Reward store — mua + unlock persona | [§8](#sec-seq-8) |
-| 9 | Memory cards — async + kiểm soát user | [§9](#sec-seq-9) |
-| 10 | Neo4j async + dashboard materialization | [§10](#sec-seq-10) |
-| 11 | Guided screening — không chẩn đoán | [§11](#sec-seq-11) |
-| 12 | Knowledge unlock — hoàn thành + reward | [§12](#sec-seq-12) |
-| 13 | End-to-end release — chat tới retention | [§13](#sec-seq-13) |
+## Strategic Recommendations
 
-Dưới đây là phần **mô tả luồng ngắn gọn, logic, theo từng sequence diagram**. Nội dung đặt ngay dưới từng ảnh.
+| # | Sơ đồ | Quyết định kiến trúc được khóa |
+|---:|---|---:|
+| 1 | Normal Chat - Friend Direct | Latency thấp, SafetyGate trước Friend, Analyst không bị gọi khi không cần. |
+| 2 | Analyst-Assisted Chat | Analyst internal-only, Friend diễn đạt lại user-safe, advisor có provenance. |
+| 3 | Crisis/SOS - Safety Agent | Safety bypass normal flow, crisis/audit log sync, UI nhận payload kiểm soát. |
+| 4 | Dashboard Rollup Insight | Analyst tạo insight từ dữ liệu được phép, sanitizer bảo vệ dashboard khỏi raw risk/trauma/rationale. |
+| 5 | Guided Screening With Safety Intercept | PHQ/GAD/DASS/MDQ/PCL là screening signal, không diagnosis; risk answer chuyển Safety. |
+| 6 | End-to-End Agent Runtime | Toàn bộ vòng lặp routing, persistence, async worker, trace và degradation. |
 
 ---
 
-<a id="sec-seq-1"></a>
-## 1. Normal Chat Turn — Serene Conversation Agent (direct)
+## 1. Normal Chat - Friend Direct
 
-![Normal chat — Serene Conversation Agent](sequence/normal-chat-turn-friend-direct-flow.png)
+Luồng này xử lý một turn chat thông thường khi không có dấu hiệu high-risk và không cần phân tích pattern sâu. Mục tiêu hệ thống là tối ưu latency, giữ giọng Serene nhất quán, đồng thời vẫn thực thi safety gate và output validation đầy đủ.
 
-1. User gửi một tin nhắn thông thường từ Chat UI.
-2. Frontend gọi `ChatGateway` qua API chat.
-3. `ContextLoader` tải recent messages, profile, mood và screening snapshot từ PostgreSQL.
-4. `SafetyGate` kiểm tra safety/distress trước mọi orchestration khác.
-5. Vì không có high-risk signal, `DistressRouter` chọn route `friend_direct`.
-6. `PersonaRouter` kiểm tra persona hiện tại, unlock state, cooldown và safety fallback.
-7. **Serene Conversation Agent** (`FriendNode`) tạo phản hồi user-facing với identity Serene và persona style hợp lệ.
-8. `SafetyOutputValidator` kiểm tra output cuối cùng để tránh diagnosis, unsafe advice hoặc persona drift.
-9. API ghi user message và assistant message vào PostgreSQL.
-10. Async workers được enqueue cho memory, profile, dashboard hoặc TTS nếu cần.
-11. Frontend render phản hồi cho user.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User
+    participant UI as Frontend Chat UI
+    participant API as ChatGateway API
+    participant Store as PostgreSQL/Supabase
+    participant Redis as Redis Cache
+    participant Safety as SafetyGate
+    participant Router as DistressRouter
+    participant Persona as PersonaRouter
+    participant Friend as Friend Agent (FriendNode)
+    participant Validator as SafetyOutputValidator
+    participant Outbox as Outbox Queue
+    participant Trace as Langfuse
 
----
+    User->>UI: Gửi message tiếng Việt
+    UI->>API: POST /chat/messages
+    API->>Store: Persist user message, request id, session id
+    API->>Store: Load recent messages, consent, profile, safe memory refs
+    API->>Redis: Load ephemeral session/cache if available
+    API->>Safety: Classify risk before LLM/advisor
+    Safety-->>API: risk=normal, reason_codes
+    API->>Router: Decide route from intent, distress, context sufficiency
+    Router-->>API: route=friend_direct
+    API->>Persona: Resolve selected persona and safety fallback
+    Persona-->>API: style_mode=dung_luong, dat_le, or hau_luong; strength
+    API->>Friend: Generate user-facing response with safe context and persona style
+    Friend-->>API: draft_response
+    API->>Validator: Validate no diagnosis, unsafe advice, internal leak, persona drift
+    Validator-->>API: approved_response
+    API->>Store: Persist assistant message and safe metadata
+    API->>Outbox: Enqueue memory/dashboard/TTS jobs as non-blocking side effects
+    API->>Trace: Record route, safety decision, model, latency, token/cost, validator verdict
+    API-->>UI: Stream/render approved_response
+    UI-->>User: Hiển thị phản hồi của Serene
+```
 
-<a id="sec-seq-2"></a>
-## 2. Pattern Insight Turn — Internal Analyst Agent, then Serene Conversation Agent
+![Sơ đồ 1 — Normal Chat — Friend Direct](flow-chart-images/1.%20Normal%20Chat%20%E2%80%94%20Friend%20Direct.png)
 
-![Pattern insight — Internal Analyst then Serene Conversation](sequence/pattern-insight-turn-analystnode-then-friendnode.png)
-
-1. User hỏi một câu cần phân tích pattern, ví dụ “mình không biết mình bị sao”.
-2. `ChatGateway` nhận request và tải runtime context.
-3. `SafetyGate` kiểm tra trước để đảm bảo không phải high-risk turn.
-4. `DistressRouter` xác định cần route `analyst_then_friend`.
-5. **Internal Analyst Agent** (`AnalystNode`) chạy nội bộ và tạo `AnalystBundle` dạng JSON, không nói trực tiếp với user.
-6. Nếu cần, **Internal Analyst Agent** (`AnalystNode`) truy vấn Neo4j hoặc pgvector để lấy pattern/resource liên quan.
-7. `PersonaRouter` áp dụng style mode an toàn.
-8. **Serene Conversation Agent** (`FriendNode`) chuyển `AnalystBundle` thành câu trả lời tự nhiên, không chẩn đoán, có một next step rõ ràng.
-9. `SafetyOutputValidator` kiểm tra non-diagnosis, privacy và persona boundary.
-10. PostgreSQL lưu message và metadata.
-11. Async workers cập nhật memory, profile, dashboard hoặc graph-derived insight.
-
----
-
-<a id="sec-seq-3"></a>
-## 3. High-Risk / SOS Turn — Safety Agent (deterministic)
-
-![High-risk / SOS — Safety Agent](sequence/high-risk-sos-turn-deterministic-safetyfinalizer.png)
-
-1. User gửi tin nhắn có dấu hiệu high-risk hoặc SOS.
-2. `ChatGateway` chỉ tải context tối thiểu cần cho safety.
-3. `SafetyGate` chạy đầu tiên và phát hiện high-risk.
-4. Hệ thống bypass `DistressRouter`, **Internal Analyst Agent** (`AnalystNode`) và **Serene Conversation Agent** (`FriendNode`) ở luồng bình thường.
-5. **Safety Agent** (`SafetyFinalizer`) tạo de-escalation payload theo contract deterministic.
-6. `ReferralService` cung cấp hotline/referral options từ nguồn cấu hình có kiểm duyệt.
-7. API ghi user message, assistant safety response và crisis/audit log vào PostgreSQL.
-8. Frontend nhận de-escalation payload.
-9. UI render safety response, micro-actions hoặc referral options.
-10. Async follow-up chỉ chạy nếu an toàn và không thay thế safety-critical sync writes.
+**Kiểm soát sản phẩm:** Friend Agent là agent duy nhất tạo final response trong normal chat direct. Persona chỉ là style mode và bị SafetyGate/PersonaRouter override khi distress tăng.
 
 ---
 
-<a id="sec-seq-4"></a>
-## 4. SOS Voice Intervention — CrisisInterventionPlan + TTS Dedup
+## 2. Analyst-Assisted Chat - Analyst Internal, Friend User-Facing
 
-![SOS voice — CrisisInterventionPlan + TTS dedup](sequence/sos-voice-intervention-crisisinterventionplan-tts-dedup.png)
+Luồng này áp dụng khi user hỏi về pattern, dashboard context còn thiếu diễn giải, hoặc router nhận thấy câu trả lời trực tiếp sẽ tạo insight nông. Analyst Agent tạo bundle nội bộ; Friend Agent diễn đạt lại thành phản hồi an toàn, tự nhiên, không chẩn đoán.
 
-1. User gửi SOS/high-distress message.
-2. Backend chạy `decide_sos_debug` để lấy `sos_triggered`, score và reason codes.
-3. Nếu SOS được kích hoạt, `CrisisInterventionPlanner` tạo `CrisisInterventionPlan` (thành phần định hướng nội dung khủng hoảng + giọng đọc; không phải một trong ba agent chính ở bảng trên).
-4. Plan gồm `visible_text`, `voice_script`, `action_cards`, `follow_up_question` và safety metadata.
-5. `CrisisPlanValidator` kiểm tra plan: không diagnosis, không hotline bịa, không unsafe content, `visible_text` khác `voice_script`.
-6. Nếu LLM output lỗi hoặc unsafe, hệ thống dùng deterministic fallback plan.
-7. Backend lưu assistant message bằng `plan.visible_text`.
-8. TTS service nhận `plan.voice_script`, không dùng `visible_text` để đọc lại.
-9. `TTSDedupService` tạo hash từ normalized `voice_script` và voice config.
-10. Nếu đã có queued/processing/done job trùng hash, hệ thống reuse job cũ.
-11. Nếu chưa có, backend tạo TTS job mới trong outbox.
-12. API trả về `crisis_plan`, `intervention` và `scoring_debug`.
-13. Frontend render `CrisisStepper` với voice grounding, action cards và follow-up.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User
+    participant UI as Frontend Chat UI
+    participant API as ChatGateway API
+    participant Store as PostgreSQL/Supabase
+    participant Safety as SafetyGate
+    participant Router as DistressRouter
+    participant AnalystCtx as AnalystContextLoader
+    participant Advisor as Advisor Pool
+    participant Analyst as Analyst Agent (AnalystNode)
+    participant Sanitizer as AnalystSanitizer
+    participant Persona as PersonaRouter
+    participant Friend as Friend Agent (FriendNode)
+    participant Validator as SafetyOutputValidator
+    participant Trace as Langfuse
 
----
+    User->>UI: Hỏi về pattern hoặc "mình đang bị sao?"
+    UI->>API: POST /chat/messages
+    API->>Store: Persist user message and load minimal turn context
+    API->>Safety: Classify risk before Analyst/Friend
+    Safety-->>API: risk=normal_or_elevated_non_crisis
+    API->>Router: Evaluate need for insight support
+    Router-->>API: route=analyst_assisted
+    API->>AnalystCtx: Build permitted evidence pack
+    AnalystCtx->>Store: Load chat summary, safe memory, mood, meal, sleep, coping, PHQ/GAD, DASS-21, MDQ, PCL-5
+    AnalystCtx-->>API: sanitized_analysis_context
+    API->>Advisor: Request only necessary advisors with no raw PII/crisis detail
+    Advisor-->>API: evidence, candidate_actions, provenance, caveats
+    API->>Analyst: Produce structured AnalystBundle
+    Analyst-->>API: signals, hypotheses, confidence, evidence_refs, recommended_actions, caveats
+    API->>Sanitizer: Convert AnalystBundle to Friend-safe context
+    Sanitizer-->>API: friend_safe_themes, allowed_actions, non_diagnostic_caveats
+    API->>Persona: Resolve safe style mode
+    Persona-->>API: persona_style
+    API->>Friend: Generate final response from friend-safe analyst context
+    Friend-->>API: draft_response
+    API->>Validator: Validate no diagnosis, no internal rationale, no raw risk detail
+    Validator-->>API: approved_response
+    API->>Store: Persist assistant message and analyst metadata references
+    API->>Trace: Record advisors, evidence sources, route, cost, latency, sanitizer verdict
+    API-->>UI: Return approved_response
+    UI-->>User: Hiển thị phản hồi user-safe
+```
 
-<a id="sec-seq-5"></a>
-## 5. Frontend TTS Polling — Queued / Processing / Ready / Failed
+![Sơ đồ 2 — Analyst-Assisted Chat](flow-chart-images/2.%20Analyst-Assisted%20Chat%20%E2%80%94%20Analyst%20internal,%20Friend%20user-facing.png)
 
-![Frontend TTS polling](sequence/frontend-tts-polling-queued-processing-ready-failed.png)
-
-1. Frontend nhận `tts_job_id` hoặc intervention voice payload.
-2. `VoiceCard` bắt đầu gọi API để kiểm tra trạng thái job.
-3. Nếu status là `queued`, UI hiển thị trạng thái đang chuẩn bị voice.
-4. Nếu status là `processing`, UI tiếp tục loading và polling.
-5. Nếu status là `ready`, API trả `audio_url`, UI bật nút play.
-6. Nếu status là `failed`, UI dừng polling và hiển thị fallback action/text.
-7. Nếu status là `cache_hit` hoặc `skipped_duplicate`, UI dùng audio/job đã có nếu khả dụng.
-8. Polling phải dừng ở terminal status: `ready`, `failed`, `cache_hit`, `skipped_duplicate`, hoặc `provider_disabled`.
-
----
-
-<a id="sec-seq-6"></a>
-## 6. Persona Selection / Unlock / Safety Fallback
-
-![Persona selection, unlock, safety fallback](sequence/persona-selection-unlock-safety-fallback.png)
-
-1. User chọn một persona card trong UI.
-2. Frontend gửi request chọn persona đến backend.
-3. `PersonaRegistryService` tải config của persona.
-4. `UnlockProgressionService` kiểm tra persona đã unlock chưa.
-5. Nếu persona bị khóa, API trả unlock progress cho frontend.
-6. Nếu đã unlock, `SafetyGate` kiểm tra distress/risk hiện tại.
-7. Nếu persona không an toàn trong trạng thái hiện tại, `PersonaRouter` fallback về `ban_than` hoặc giảm style strength (persona là style mode trong **Serene Conversation Agent**, không phải agent riêng).
-8. Nếu an toàn, `PersonaRouter` cập nhật active persona cho turn tiếp theo của **Serene Conversation Agent** (`FriendNode`).
-9. Backend lưu persona preference/state vào PostgreSQL.
-10. Các turn chat tiếp theo dùng persona style đã chọn, nhưng vẫn bị safety override khi cần.
-
----
-
-<a id="sec-seq-7"></a>
-## 7. Heart Reward Event — Idempotent Reward Flow
-
-![Heart reward — idempotent flow](sequence/heart-reward-event-idempotent-reward-flow.png)
-
-1. User hoàn thành một hành động có thể nhận Heart, ví dụ mood check-in, reflection hoặc knowledge card.
-2. Frontend gửi reward event lên backend.
-3. `RewardValidationService` kiểm tra event type, payload và điều kiện hợp lệ.
-4. Nếu nội dung cần kiểm duyệt, `ContentSafetyReviewService` kiểm tra harmful/unsafe content.
-5. Nếu invalid hoặc rejected, backend không cấp Heart.
-6. Nếu approved, `HeartWalletService` xử lý reward bằng idempotency key.
-7. Backend kiểm tra reward event đã được claim chưa.
-8. Nếu trùng idempotency key, hệ thống no-op và trả trạng thái already claimed.
-9. Nếu là event mới, wallet được cập nhật atomic trong PostgreSQL.
-10. API trả reward status và balance mới cho frontend.
-11. Frontend cập nhật Heart balance.
+**Kiểm soát sản phẩm:** Analyst Agent không được phép trả lời trực tiếp trong chat. Nếu `AnalystBundle` chứa diagnosis term, raw risk indicator hoặc rationale nội bộ, `AnalystSanitizer` phải loại bỏ trước khi Friend Agent nhận context.
 
 ---
 
-<a id="sec-seq-8"></a>
-## 8. Reward Store Purchase + Persona Unlock
+## 3. Crisis/SOS - Safety Agent Bypasses Normal Flow
 
-![Reward store + persona unlock](sequence/reward-store-purchase-persona-unlock.png)
+Luồng này xử lý self-harm, imminent danger, severe distress hoặc SOS explicit. Đây là đường đi ưu tiên reliability hơn personalization; mọi style vui, meme, Analyst và normal Friend response đều bị bypass.
 
-1. User bấm mua một reward item hoặc persona unlock trong Rewards Page.
-2. Frontend gửi purchase request đến Reward Store API.
-3. `RewardStoreService` tải catalog item từ backend, không từ hardcode frontend.
-4. `UnlockProgressionService` kiểm tra requirement, ownership và safety preconditions.
-5. Nếu requirement chưa đủ, API trả `requirements_not_met`.
-6. Nếu đủ điều kiện, `HeartWalletService` kiểm tra balance.
-7. Nếu không đủ Heart, API trả `insufficient_hearts`.
-8. Nếu đủ Heart, backend thực hiện spend transaction atomic.
-9. `InventoryService` cấp item vào inventory.
-10. Nếu item là persona, backend cập nhật `persona_unlock_state`.
-11. API trả purchase success và inventory state mới.
-12. Frontend hiển thị persona/reward đã unlock.
-13. User có thể kích hoạt persona sau khi mua, nhưng vẫn phải qua `PersonaRouter` và `SafetyGate` trước khi áp dụng vào **Serene Conversation Agent** (`FriendNode`).
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User
+    participant UI as Frontend Chat UI
+    participant API as ChatGateway API
+    participant Store as PostgreSQL/Supabase
+    participant SafetyGate as SafetyGate
+    participant SafetyAgent as Safety Agent (SafetyFinalizer)
+    participant Referral as Referral/Hotline Service
+    participant CrisisValidator as Crisis Validator
+    participant Audit as Crisis and Audit Log Writer
+    participant TTS as Voice/TTS Outbox
+    participant Trace as Langfuse
 
----
+    User->>UI: Gửi SOS/high-risk message
+    UI->>API: POST /chat/messages
+    API->>Store: Persist user message with protected safety metadata
+    API->>SafetyGate: Classify risk synchronously before any LLM/advisor
+    SafetyGate-->>API: risk=high_or_crisis, reason_codes
+    Note over API: Bypass DistressRouter, Analyst Agent, Friend Agent, meme and normal persona style.
+    API->>Referral: Load approved hotline/referral resources by locale and policy
+    Referral-->>API: hotline/referral/action options
+    API->>SafetyAgent: Build crisis payload contract
+    SafetyAgent-->>API: visible_text, action_cards, optional_voice_script, follow_up_step, safety_metadata
+    API->>CrisisValidator: Validate tone, no guilt/shame, no method detail, no fabricated hotline
+    CrisisValidator-->>API: approved_crisis_payload or deterministic_fallback
+    API->>Audit: Write crisis log and admin audit event
+    Audit->>Store: Persist backend-only crisis/audit records
+    opt voice grounding allowed
+        API->>TTS: Enqueue voice_script with dedup key
+    end
+    API->>Trace: Record anonymized reason codes, route=crisis, fallback state, latency
+    API-->>UI: Return crisis payload
+    UI-->>User: Render crisis UI, action cards, hotline/referral, grounding step
+```
 
-<a id="sec-seq-9"></a>
-## 9. Memory Cards Lifecycle — Async Extraction + User Control
+![Sơ đồ 3 — Crisis SOS](flow-chart-images/3.%20Crisis%20-%20SOS%20%E2%80%94%20Safety%20Agent%20bypasses%20normal%20flow.png)
 
-![Memory cards lifecycle](sequence/memory-cards-lifecycle-async-extraction-user-control.png)
-
-1. Sau chat/session event, API lưu message vào PostgreSQL.
-2. API enqueue memory extraction job vào outbox, không block chat response.
-3. `MemoryWorker` xử lý job async.
-4. Worker tải session summary hoặc context đã được phép xử lý.
-5. `MemorySafetyGuardrail` kiểm tra memory candidate.
-6. Candidate unsafe hoặc sensitive quá mức bị reject.
-7. Candidate hợp lệ được tạo thành Memory Card với trạng thái pending hoặc active.
-8. Nếu được phép, summary embedding được lưu vào pgvector.
-9. User mở tab `Chat > Ký ức`.
-10. Frontend gọi API để lấy user-visible memory cards.
-11. User có thể giữ, sửa, xóa hoặc tắt cá nhân hóa.
-12. Mọi chỉnh sửa nhạy cảm phải được kiểm tra lại trước khi lưu.
-13. Không có hidden memory ngoài hệ Memory Cards user kiểm soát.
-
----
-
-<a id="sec-seq-10"></a>
-## 10. Async Neo4j Sync + Dashboard Materialization
-
-![Async Neo4j sync + dashboard](sequence/async-neo4j-sync-dashboard-materialization.png)
-
-1. Chat response được trả cho user ngay sau sync write cần thiết.
-2. API enqueue async events cho memory, graph sync, embedding và dashboard.
-3. `MemoryWorker` xử lý summary, memory cards, profile patch hoặc embeddings.
-4. `GraphSyncWorker` chỉ đọc derived pattern events, không đọc raw sensitive transcript.
-5. Graph data được ghi vào Neo4j dưới dạng non-sensitive derived relationships (Neo4j **node**/relationship ở đây là khái niệm đồ thị, không chỉ agent).
-6. `InsightWorker` tổng hợp mood trend, trigger map, coping history và dashboard cards.
-7. Nếu cần, `InsightWorker` truy vấn Neo4j để lấy relationship insight.
-8. Dashboard insights được materialize lại vào PostgreSQL.
-9. Khi user mở dashboard, API đọc dữ liệu đã materialized.
-10. Frontend render mood trend, trigger map, coping history và next steps.
-11. Neo4j không bao giờ là source of truth và không chứa raw crisis/PII data.
+**Kiểm soát sản phẩm:** Safety Agent là agent user-facing duy nhất trong high-risk/SOS, nhưng chỉ thông qua payload kiểm soát. Crisis log/audit log là sync write bắt buộc; TTS là async và không được block phản hồi text.
 
 ---
 
-<a id="sec-seq-11"></a>
-## 11. Guided Screening Flow — Screening, Not Diagnosis
+## 4. Dashboard Rollup Insight - Analyst to Dashboard-Safe Layer
 
-![Guided screening flow](sequence/guided-screening-flow-screening-not-diagnosis.png)
+Luồng này chạy theo worker hoặc refresh dashboard. Analyst Agent tạo insight có evidence và confidence, nhưng dashboard chỉ được đọc dữ liệu đã sanitize; raw trauma detail, clinical note, risk inference và analyst rationale không được expose.
 
-1. User bắt đầu một check-in hoặc screening flow.
-2. Screening API tạo screening session.
-3. `ScreeningService` gửi câu hỏi đầu tiên cho frontend.
-4. User trả lời từng item.
-5. Backend validate answer và cập nhật interim score.
-6. `SafetyGate` kiểm tra safety implications trong quá trình screening.
-7. Nếu phát hiện high-risk, flow chuyển sang **Safety Agent** (`SafetyFinalizer`) / safety pathway.
-8. Nếu không high-risk, screening tiếp tục đến khi hoàn thành.
-9. Kết quả được lưu như screening indicator, không phải diagnosis.
-10. `ResourceSelector` chọn một next step hoặc resource phù hợp.
-11. Frontend hiển thị summary theo ngôn ngữ non-diagnostic.
-12. Async workers cập nhật dashboard/profile nếu phù hợp.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User
+    participant UI as Dashboard UI
+    participant API as Dashboard API
+    participant Worker as DashboardInsightWorker
+    participant Store as PostgreSQL/Supabase
+    participant Vector as pgvector/RAG Store
+    participant Safety as Safety/Privacy Sanitizer
+    participant Advisor as Advisor Pool
+    participant Analyst as Analyst Agent (AnalystNode)
+    participant Trace as Langfuse
+
+    Worker->>Store: Load permitted source events since last rollup
+    Store-->>Worker: mood, meal, sleep, coping, memory cards, conversation summaries, screening scores
+    Worker->>Vector: Retrieve relevant resource/context embeddings without raw PII
+    Vector-->>Worker: grounded context with provenance
+    Worker->>Safety: Remove raw risk, PII, raw trauma detail, clinical notes
+    Safety-->>Worker: dashboard_analysis_context
+    Worker->>Advisor: Request targeted advisors only when context requires them
+    Advisor-->>Worker: evidence, resource candidates, caveats, provenance
+    Worker->>Analyst: Generate structured insight bundle
+    Analyst-->>Worker: signals, hypotheses, confidence, evidence_refs, suggested_actions, data_gaps
+    Worker->>Safety: Sanitize for dashboard-safe exposure
+    Safety-->>Worker: insight_cards, charts_metadata, suggested_actions, freshness, empty_state_if_needed
+    Worker->>Store: Upsert dashboard_safe_insights and materialized chart data
+    Worker->>Trace: Record advisor usage, sufficiency, evidence coverage, latency, cost
+
+    User->>UI: Mở Dashboard
+    UI->>API: GET /dashboard
+    API->>Store: Read dashboard_safe_insights only
+    Store-->>API: sanitized insights, charts, data freshness
+    API-->>UI: Return dashboard payload
+    UI-->>User: Render insight cards, trend, next step, data quality notice
+```
+
+![Sơ đồ 4 — Dashboard Rollup Insight](flow-chart-images/4.%20Dashboard%20Rollup%20Insight%20%E2%80%94%20Analyst%20%E2%86%92%20dashboard-safe%20layer.png)
+
+**Kiểm soát sản phẩm:** Dashboard không được bịa insight khi thiếu dữ liệu. Khi evidence coverage thấp, worker phải materialize empty state hoặc data quality notice thay vì tạo kết luận giả.
 
 ---
 
-<a id="sec-seq-12"></a>
-## 12. Knowledge Unlock Completion + Reward
+## 5. Guided Screening With Safety Intercept
 
-![Knowledge unlock + reward](sequence/knowledge-unlock-completion-reward.png)
+Luồng này bao phủ PHQ-9, GAD-7, DASS-21, MDQ và PCL-5. Các công cụ này chỉ là screening signal, không phải diagnosis; câu trả lời high-risk trong quá trình làm bài phải chuyển ngay sang Safety flow.
 
-1. User mở một knowledge pack đã unlock.
-2. Frontend gọi API để lấy cards và progress.
-3. User đọc hoặc hoàn thành một knowledge card.
-4. Backend kiểm tra card đã completed trước đó chưa.
-5. Nếu đã completed, không cấp reward lần nữa.
-6. Nếu là completion mới, backend validate progress.
-7. Nếu có reflection, `ContentSafetyReviewService` kiểm tra nội dung.
-8. Completion được lưu vào PostgreSQL.
-9. `HeartWalletService` cấp reward một lần bằng idempotency key.
-10. Nếu reflection có giá trị và an toàn, hệ thống có thể tạo memory candidate.
-11. Frontend nhận completion success và reward status.
-12. UI cập nhật progress và Heart balance.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User
+    participant UI as Screening UI
+    participant API as Screening API
+    participant Screening as ScreeningService
+    participant SafetyGate as SafetyGate
+    participant Store as PostgreSQL/Supabase
+    participant SafetyAgent as Safety Agent (SafetyFinalizer)
+    participant Dashboard as Dashboard Outbox
+    participant Trace as Langfuse
+
+    User->>UI: Chọn PHQ-9/GAD-7/DASS-21/MDQ/PCL-5
+    UI->>API: POST /screening/sessions
+    API->>Screening: Create session with consent/disclaimer
+    Screening->>Store: Persist screening session and instrument type
+    API-->>UI: Return first item and non-diagnostic disclaimer
+
+    loop For each answer
+        User->>UI: Trả lời item
+        UI->>API: POST /screening/sessions/{id}/answers
+        API->>Screening: Validate answer and update interim score
+        Screening->>SafetyGate: Check safety implications before continuing
+        alt high-risk answer detected
+            SafetyGate-->>Screening: risk=high_or_crisis
+            Screening->>Store: Persist answer, risk snapshot, protected metadata
+            Screening->>SafetyAgent: Build crisis payload
+            SafetyAgent-->>API: crisis_payload
+            API-->>UI: Return safety_intercept payload
+            UI-->>User: Render crisis/SOS support instead of normal screening result
+        else no high-risk signal
+            SafetyGate-->>Screening: risk=normal_or_elevated_non_crisis
+            Screening->>Store: Persist answer and interim state
+            API-->>UI: Return next item or completion state
+        end
+    end
+
+    opt screening completed without safety intercept
+        Screening->>Store: Persist score, severity/signal band, coverage, timestamp
+        Screening->>Dashboard: Enqueue dashboard/profile update
+        API->>Trace: Record instrument, completion, safety checks, non-diagnostic result policy
+        API-->>UI: Return safe summary and suggested next step
+        UI-->>User: Hiển thị kết quả như tín hiệu sàng lọc, không gắn nhãn bệnh
+    end
+```
+
+![Sơ đồ 5 — Guided Screening](flow-chart-images/5.%20Guided%20Screening%20%E2%80%94%20screening%20with%20safety%20intercept.png)
+
+**Kiểm soát sản phẩm:** MDQ/PCL-5 không được hiển thị như nhãn bipolar/PTSD; PCL-5 không expose raw trauma detail lên dashboard; điểm cao phải khuyến nghị tìm chuyên gia theo ngôn ngữ không chẩn đoán.
 
 ---
 
-<a id="sec-seq-13"></a>
-## 13. End-to-End Release Flow — Chat to Retention Loop
+## 6. End-to-End Agent Runtime
 
-![End-to-end release flow](sequence/end-to-end-release-flow-from-chat-to-retention-loop.png)
+Sơ đồ này tổng hợp quyết định routing chính cho một chat turn, bao gồm normal direct, analyst-assisted và crisis. Đây là bản tham chiếu nên dùng khi review code orchestration hoặc viết integration test.
 
-1. User mở app và bắt đầu chat.
-2. Frontend gửi message đến `ChatGateway`.
-3. `SafetyGate` luôn kiểm tra trước normal orchestration.
-4. Nếu normal/elevated nhưng không high-risk, hệ thống chạy `DistressRouter`, tùy route có thể gọi **Internal Analyst Agent** (`AnalystNode`), rồi `PersonaRouter` và **Serene Conversation Agent** (`FriendNode`).
-5. Nếu high-risk, hệ thống chuyển sang **Safety Agent** (`SafetyFinalizer`) và bypass luồng analyst/conversation bình thường.
-6. Backend lưu message, safety metadata và các sync writes bắt buộc.
-7. Async workers xử lý memory, graph sync, dashboard, reward signals hoặc TTS.
-8. User hoàn thành check-in, reflection hoặc knowledge card để nhận Heart.
-9. Reward service cập nhật ledger và balance bằng idempotent transaction.
-10. Memory Cards được tạo sau session và chờ user review/control.
-11. Dashboard materializes trend, trigger, coping và next-step insight.
-12. User quay lại app để xem memory, dashboard, persona progression hoặc tiếp tục chat.
-13. Toàn bộ loop giữ nguyên nguyên tắc: support trước, safety trên hết, insight không diagnosis, progression không khóa hỗ trợ thiết yếu.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User
+    participant UI as Frontend
+    participant API as Backend API
+    participant Store as PostgreSQL/Supabase
+    participant Safety as SafetyGate
+    participant Router as DistressRouter
+    participant Analyst as Analyst Agent (AnalystNode)
+    participant Advisor as Advisor Pool
+    participant Friend as Friend Agent (FriendNode)
+    participant SafetyAgent as Safety Agent (SafetyFinalizer)
+    participant Validator as Output/Crisis Validators
+    participant Outbox as Outbox Workers
+    participant Trace as Langfuse
+
+    User->>UI: Send chat/check-in/screening-triggered message
+    UI->>API: Submit request
+    API->>Store: Sync write inbound event and load permitted context
+    API->>Safety: Mandatory pre-route risk classification
+
+    alt SafetyGate returns high-risk/SOS
+        Safety-->>API: route=crisis, reason_codes
+        API->>SafetyAgent: Generate controlled crisis payload
+        SafetyAgent-->>API: crisis_payload
+        API->>Validator: Validate crisis contract and fallback if unsafe
+        Validator-->>API: approved_crisis_payload
+        API->>Store: Persist assistant safety response, crisis log, audit log
+        API->>Outbox: Optional TTS/follow-up jobs only after sync safety writes
+        API->>Trace: Record route=crisis without raw PII
+        API-->>UI: Return crisis UI payload
+    else SafetyGate returns normal/elevated non-crisis
+        Safety-->>API: route_candidate=normal
+        API->>Router: Decide friend_direct vs analyst_assisted
+        alt route=analyst_assisted
+            Router-->>API: analyst_assisted
+            API->>Advisor: Fetch advisor evidence with sanitized input
+            Advisor-->>API: evidence and provenance
+            API->>Analyst: Produce internal AnalystBundle
+            Analyst-->>API: structured insight bundle
+            API->>Validator: Sanitize AnalystBundle for Friend context
+            Validator-->>API: friend_safe_context
+            API->>Friend: Generate final user-facing response
+            Friend-->>API: draft_response
+        else route=friend_direct
+            Router-->>API: friend_direct
+            API->>Friend: Generate final user-facing response
+            Friend-->>API: draft_response
+        end
+        API->>Validator: Validate final response
+        Validator-->>API: approved_response or safe_fallback
+        API->>Store: Persist assistant message and safe metadata
+        API->>Outbox: Enqueue memory, dashboard, reward, TTS, notification jobs
+        API->>Trace: Record route, model, advisor usage, validation, latency, token/cost
+        API-->>UI: Return approved response
+    end
+
+    UI-->>User: Render backend-provided state only
+```
+
+![Sơ đồ 6 — End-to-End Agent Runtime](flow-chart-images/6.%20End-to-End%20Agent%20Runtime%20%E2%80%94%20canonical%20routing.png)
+
+**Kiểm soát sản phẩm:** Frontend không tự suy luận route, safety tier hoặc crisis state. Mọi quyết định sản phẩm nhạy cảm nằm ở backend và được trace bằng Langfuse với dữ liệu đã ẩn danh.
+
+---
+
+## Verification Checklist
+
+| Gate | Điều kiện đạt |
+|---|---|
+| Safety-first | Mọi sơ đồ có `SafetyGate` trước LLM/advisor hoặc safety intercept trong screening. |
+| Friend boundary | Friend Agent chỉ nhận context an toàn và là final writer trong normal chat. |
+| Analyst boundary | Analyst Agent không có đường trả lời trực tiếp tới UI/User. |
+| Safety boundary | High-risk/SOS bypass Router, Analyst và Friend; Safety Agent trả payload kiểm soát. |
+| Data architecture | PostgreSQL/Supabase là source of truth; outbox/worker là async side effect. |
+| Dashboard privacy | Dashboard chỉ đọc `dashboard_safe_insights`, không đọc raw risk, trauma detail hoặc analyst rationale. |
+| Non-diagnosis | Screening và insight đều dùng ngôn ngữ screening signal, caveat và suggested action. |
+| Observability | Các luồng agentic đều ghi Langfuse trace với route, reason code, model/cost/latency và validator verdict. |
