@@ -52,6 +52,13 @@ function RequireAuth({ children }: { children: ReactElement }) {
     return children
 }
 
+function RequireAdminAuth({ children }: { children: ReactElement }) {
+    if (!sessionStorage.getItem('admin_authenticated')) {
+        return <Navigate to={ROUTE_PATHS.adminLogin} replace />
+    }
+    return children
+}
+
 function RequireGuest({ children }: { children: ReactElement }) {
     const { user, isLoading } = useAuth()
     if (isLoading) {
@@ -110,7 +117,7 @@ export default function AppRoutes() {
         <Routes>
             {/* admin */}
             <Route path={ROUTE_PATHS.adminLogin} element={<AdminLogin />} />
-            <Route path={ROUTE_PATHS.admin} element={<AdminMain />}>
+            <Route path={ROUTE_PATHS.admin} element={<RequireAdminAuth><AdminMain /></RequireAdminAuth>}>
                 <Route index element={<Navigate to={ROUTE_PATHS.adminDashboard} replace />} />
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="crisis-logs" element={<AdminCrisisLogs />} />

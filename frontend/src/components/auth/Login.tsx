@@ -36,6 +36,7 @@ export default function Login() {
         const clickStartedAt = performance.now()
 
         if (email.trim() === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+            sessionStorage.setItem('admin_authenticated', '1')
             toast.success('Đăng nhập admin thành công')
             navigate(ROUTE_PATHS.adminDashboard)
             return

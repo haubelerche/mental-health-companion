@@ -24,6 +24,7 @@ export default function AdminLogin() {
     await new Promise((r) => setTimeout(r, 400))
 
     if (email.trim() === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+      sessionStorage.setItem('admin_authenticated', '1')
       toast.success('Đăng nhập admin thành công')
       navigate(ROUTE_PATHS.adminDashboard)
     } else {
