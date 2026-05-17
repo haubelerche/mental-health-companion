@@ -478,7 +478,7 @@ def _active_persona_id(db: Session, user_id: str, *, distress: float = 0.0) -> s
 
 def _voice_env_name_for_style(style_id: str) -> str:
     if style_id == "warm_friend":
-        return "ELEVENLABS_VOICE_ID_CRUSH_MALE"
+        return "ELEVENLABS_VOICE_ID_BFF"
     if style_id == "calm_mentor":
         return "ELEVENLABS_VOICE_ID_MENTOR"
     if style_id == "soft_quiet":

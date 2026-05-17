@@ -143,9 +143,9 @@ class Settings(BaseSettings):
         default="iSFxP4Z6YNcx9OXl62Ic",
         validation_alias=AliasChoices("ELEVENLABS_VOICE_ID"),
     )
-    elevenlabs_voice_id_crush_male: str = Field(
+    elevenlabs_voice_id_bff: str = Field(
         default="",
-        validation_alias=AliasChoices("ELEVENLABS_VOICE_ID_CRUSH_MALE"),
+        validation_alias=AliasChoices("ELEVENLABS_VOICE_ID_BFF"),
     )
     elevenlabs_voice_id_mentor: str = Field(
         default="",

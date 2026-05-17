@@ -71,13 +71,17 @@ def _elevenlabs_credentials_ready(settings: Settings) -> bool:
 def resolve_elevenlabs_voice_id(*, settings: Settings, voice_style_id: str | None) -> str:
     """Resolve per-persona ElevenLabs voice id with safe fallback."""
     style = (voice_style_id or "").strip().lower()
+    fallback = (getattr(settings, "elevenlabs_voice_id", "") or "").strip()
     if style == "warm_friend":
-        preferred = (getattr(settings, "elevenlabs_voice_id_crush_male", "") or "").strip()
-        return preferred or (getattr(settings, "elevenlabs_voice_id", "") or "").strip()
+        preferred = (getattr(settings, "elevenlabs_voice_id_bff", "") or "").strip()
+        return preferred or fallback
     if style == "calm_mentor":
         preferred = (getattr(settings, "elevenlabs_voice_id_mentor", "") or "").strip()
-        return preferred or (getattr(settings, "elevenlabs_voice_id", "") or "").strip()
-    return (getattr(settings, "elevenlabs_voice_id", "") or "").strip()
+        return preferred or fallback
+    if style == "soft_quiet":
+        preferred = (getattr(settings, "elevenlabs_voice_id_crush_female", "") or "").strip()
+        return preferred or fallback
+    return fallback
 
 
 def _ensure_elevenlabs_eligible(
