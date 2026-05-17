@@ -2,7 +2,7 @@
 
 > **Live URL:** [Serene.AI](https://a20-app-039.vercel.app/) <br>
 > **Video Demo:** *[Serene.AI video demo](https://www.youtube.com/watch?v=6u_o8iUVvik)* <br>
-> **Pitch Deck:** [Google Slides link](https://docs.google.com/presentation/d/1AyPRQK7WMZfvQPd2KT_a3YjDnyy2imBvwopUUpfLaIo/edit?usp=sharing) <br>
+> **Pitch Deck:** [Google Slides link](https://drive.google.com/file/d/1r1ivci4l2GZnT5R6ZH15JjmW_jOI2Rci/view?usp=sharing) <br>
 > **Architecture:** [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md) <br>
 > **Evaluation Evidence:** [`docs/submission/EVALUATION_EVIDENCE.md`](docs/submission/EVALUATION_EVIDENCE.md) <br>
 > **Submission Report:** [`report.md`](report.md) <br>
