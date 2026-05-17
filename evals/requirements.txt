@@ -1,0 +1,4 @@
+# Eval-only dependencies — not required for backend runtime
+ragas>=0.1
+datasets>=2.0
+httpx>=0.24

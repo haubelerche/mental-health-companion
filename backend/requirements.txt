@@ -24,6 +24,7 @@ opentelemetry-sdk==1.41.1
 opentelemetry-semantic-conventions==0.62b1
 pgvector
 prometheus-client
+python-json-logger>=2.0
 psycopg[binary]
 psycopg2-binary
 pydantic
