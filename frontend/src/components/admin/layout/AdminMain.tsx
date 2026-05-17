@@ -21,7 +21,7 @@ const AdminMain = () => {
             // Chỉ hiển thị modal nếu bị 401/403 khi đang gọi các API admin.
             // Không dựa vào /auth/me vì admin dùng cookie riêng (admin_access_token)
             // nên /auth/me sẽ luôn trả về 401 cho admin.
-            if (detail.path.includes('/admin')) {
+            if (detail.path.includes('/admin') && !sessionStorage.getItem('admin_authenticated')) {
                 setShowReAuth(true)
             }
         }
