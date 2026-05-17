@@ -4,15 +4,14 @@ import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { Loader2, ShieldCheck, Key } from 'lucide-react'
 import { ROUTE_PATHS } from '../../routes/paths'
-
-const ADMIN_EMAIL = 'admin@gmail.com'
-const ADMIN_PASSWORD = 'MatKhauAdmin@2026'
+import { adminService } from '../../services/adminService'
 
 export default function AdminLogin() {
   type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [totpCode, setTotpCode] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -21,18 +20,19 @@ export default function AdminLogin() {
     setErrorMessage('')
     setIsSubmitting(true)
 
-    await new Promise((r) => setTimeout(r, 400))
-
-    if (email.trim() === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+    try {
+      await adminService.login({ email: email.trim(), password, totp_code: totpCode.trim() })
       sessionStorage.setItem('admin_authenticated', '1')
       toast.success('Đăng nhập admin thành công')
       navigate(ROUTE_PATHS.adminDashboard)
-    } else {
-      setErrorMessage('Email hoặc mật khẩu không đúng.')
-      toast.error('Email hoặc mật khẩu không đúng.')
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Email, mật khẩu hoặc mã TOTP không đúng.'
+      setErrorMessage(message)
+      toast.error(message)
+    } finally {
+      setIsSubmitting(false)
     }
-
-    setIsSubmitting(false)
   }
 
   return (
@@ -85,6 +85,27 @@ export default function AdminLogin() {
                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-white placeholder:text-slate-600 focus:border-indigo-500/50 focus:bg-white/[0.08] transition-all outline-none"
                 required
               />
+            </div>
+
+            {/* TOTP */}
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                Mã TOTP (6 số)
+              </label>
+              <div className="relative">
+                <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="123456"
+                  required
+                  className="w-full pl-11 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 focus:bg-white/[0.07] transition-all text-sm font-medium tracking-widest"
+                />
+              </div>
             </div>
 
             {errorMessage && (
