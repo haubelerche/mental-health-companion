@@ -1,1324 +1,832 @@
-# PRD.md — Serene AI Mental-Health Companion
+# PRD.md — Serene.AI Mental-Health Companion
 
-**Document type:** Product + Backend + Runtime Requirements Document  
-**Version:** 6.2 — Technical Sync (2026-05-14)  
-**Status:** MVP architecture specification  
-**Supersedes:** `BACKEND_PLAN.md`, `BUILDING-PLAN-AGENT-SPECS.md`  
-**Target stack:** React, FastAPI, LangGraph-style orchestration, PostgreSQL/pgvector, Redis, Neo4j, Celery/Outbox, OpenAI-compatible LLMs  
-**Default user-facing language:** Vietnamese
+**Document type:** Product Requirements Document + Runtime Architecture Specification  
+**Version:** 7.2 — Persona Registry + Deep Screening Refresh  
+**Updated:** 2026-05-17  
+**Status:** MVP / Build Phase canonical spec  
+**Default user-facing language:** Tiếng Việt có dấu  
+**Target stack:** React 19, TypeScript, Vite, FastAPI, LangGraph-style orchestration, PostgreSQL/Supabase, pgvector, Redis, Outbox/worker queue, Langfuse, OpenAI-compatible LLMs  
+**Product positioning:** AI companion for private mental-health screening, emotional first-aid, guided reflection, and safe support escalation.
 
----
+## Mục lục
 
-<a id="reader-summary"></a>
-## Reader Summary
-
-**The current architecture is lightweight multi-agent: 3 main agents + supporting services/workers.** Do not implement five independent agents, and do not turn personas into separate agents.
-
-| Group | Agent / role (product) | Orchestration id (code) | Directly talks to user? | Responsibility |
-|---|---|---|---:|---|
-| Agent 1 | Serene Conversation Agent | `FriendNode` | Yes | Responds in the normal flow, preserves one stable Serene identity, and applies personas as style modes. |
-| Agent 2 | Internal Analyst Agent | `AnalystNode` | No | Analyzes patterns, signs, triggers, coping/resource context; outputs only structured `AnalystBundle`. |
-| Agent 3 | Safety Agent | `SafetyFinalizer` | Yes, through controlled payload | Handles high-risk turns, returns de-escalation payload, micro-actions, referral/hotline, crisis/audit logs. |
-| Not agents | Screening/resource/referral/persona/memory/dashboard/TTS/Neo4j sync | `Service`, `Router`, `Worker` | No | Backend support tools with no separate identity and no direct user-facing voice. |
-
-**Core flow:** `SafetyGate` always runs first. If high-risk, the **Safety Agent** (`SafetyFinalizer`) controls the whole turn. If not high-risk, the request goes to the **Serene Conversation Agent** (`FriendNode`) directly or through the **Internal Analyst Agent** (`AnalystNode`) when pattern insight is needed.
-
-**Naming (agents vs orchestration identifiers):** **Serene Conversation Agent**, **Internal Analyst Agent**, and **Safety Agent** are the product names for the three runtime roles that may invoke an LLM or return a user-visible outcome. In code, traces, and `RuntimeState`, the same roles appear as orchestration identifiers `FriendNode`, `AnalystNode`, and `SafetyFinalizer`. This document uses the agent name in prose where clarity matters, followed by the identifier in parentheses when both are relevant. The word **node** is not used to mean “agent”; Neo4j uses graph nodes (for example `:MemoryNode`) only in the graph-model sense.
-Runtime naming reference: `docs/GLOSSARY_RUNTIME.md`.
-
-**Sections that must not be skipped:** §3 invariants, §7 architecture, §8 runtime flow, §11 safety, §12 Neo4j boundaries, §15 privacy/security, §16 degradation, §21 acceptance criteria.
-
-<a id="agent-reading-protocol"></a>
-## Agent Reading Protocol
-
-1. **Do not start coding after reading only the beginning.** Before any backend/chat/safety/data change, scan the Table of Contents and Anti-Context-Rot Section Map.
-2. **For chat/routing tasks:** read §3, §4, §7, §8, §9, §10, §11, §21.
-3. **For graph/data/memory tasks:** read §12, §13, §15, §16, §21.
-4. **For API/frontend contract tasks:** read §6, §8, §10, §14, §21.
-5. **For persona/reward/TTS tasks:** read §4, §6.8, §10, §11, §14, §16, §21.
-6. **For high-risk/SOS/crisis tasks:** read §11 first, then the relevant implementation sections; high-risk turns must not enter normal flow.
-7. **Before merge:** check §21 Non-Negotiable Acceptance Criteria.
-
-
-## Table of Contents
-
-- [Reader Summary](#reader-summary)
-- [Agent Reading Protocol](#agent-reading-protocol)
-- [Anti-Context-Rot Section Map](#anti-context-rot-map)
-- [§0. Document Purpose](#sec-0)
-- [§1. Executive Summary](#sec-1)
-- [§2. Product Thesis](#sec-2)
-- [§3. Non-Negotiable Product and Architecture Invariants](#sec-3)
-- [§4. Strategic Product Decisions](#sec-4)
-- [§5. Target Users](#sec-5)
-- [§6. Core Product Requirements](#sec-6)
-- [§7. Canonical System Architecture](#sec-7)
-- [§8. Runtime Flow](#sec-8)
-- [§9. Runtime State Contract](#sec-9)
-- [§10. Component Contracts](#sec-10)
-- [§11. Safety Requirements](#sec-11)
-- [§12. Neo4j Knowledge Graph Role](#sec-12)
-- [§13. Data Architecture](#sec-13)
-- [§14. API Plan](#sec-14)
-- [§15. Memory, Privacy, Security](#sec-15)
-- [§16. Observability and Graceful Degradation](#sec-16)
-- [§17. Success Metrics](#sec-17)
-- [§18. MVP Scope](#sec-18)
-- [§19. Implementation Phases](#sec-19)
-- [§20. Open Product and Legal Decisions](#sec-20)
-- [§21. Non-Negotiable Acceptance Criteria](#sec-21)
-
----
-
-<a id="anti-context-rot-map"></a>
-## Anti-Context-Rot Section Map
-
-This map helps an agent understand the whole document before editing code, instead of reading only the beginning and missing safety/data/acceptance sections in the middle or end.
-
-| Section | Purpose | Mandatory read condition |
-|---|---|---|
-| §0. Document Purpose | Defines this file as the only canonical PRD and sets conflict-resolution priority after older backend/spec files are removed. | Before editing code, verify that no older document overrides this PRD. |
-| §1. Executive Summary | Summarizes Serene as a privacy-first companion, not a diagnostic or clinical replacement, with one stable identity. | Any UX/chat change must preserve one coherent Serene identity. |
-| §2. Product Thesis | States the product thesis: users need safe expression, pattern understanding, and one small next step, not diagnosis. | If a feature does not support this loop, move it to backlog instead of MVP. |
-| §3. Non-Negotiable Product and Architecture Invariants | Lists non-negotiable invariants for identity, persona, safety, data, async work, and validation. | Use this as the mandatory checklist before major PRs. |
-| §4. Strategic Product Decisions | Locks strategic decisions: 3 main agents in practical terms, personas are not agents, and Neo4j is not a diagnosis engine. | When asked for “multi-agent,” follow the top agent table; do not create five independent bots. |
-| §5. Target Users | Defines primary and secondary users and their real product needs. | Do not add heavy clinical intake if it increases first-chat friction. |
-| §6. Core Product Requirements | Defines core product requirements: onboarding, chat, pattern insight, screening, coping, safety pathway, dashboard, persona/reward/memory/TTS. | For each feature, check the acceptance criteria in the relevant subsection. |
-| §7. Canonical System Architecture | Defines the canonical runtime architecture and the rejected architecture. | Do not implement Conversation/Screener/Resource/Escalation/SafetyGuardrail as autonomous LLM agents. |
-| §8. Runtime Flow | Describes the three runtime flows: normal chat, pattern insight, and high-risk handling. | Always verify that high-risk turns bypass normal flow. |
-| §9. Runtime State Contract | Defines RuntimeState and mutation permissions for each component. | Do not pass free-form dictionaries or let async workers mutate in-request state after response return. |
-| §10. Component Contracts | Defines short contracts for each component/service/worker and required fallback behavior. | When assigning coding work, scope it to the relevant component contract only. |
-| §11. Safety Requirements | Defines SafetyGate output, risk levels, and the required Safety Agent (`SafetyFinalizer`) payload. | This section is mandatory when changing chat, safety, TTS, referral, or routing. |
-| §12. Neo4j Knowledge Graph Role | Defines Neo4j as graph reasoning for patterns/resources, not raw sensitive storage. | Do not create user-has-disorder edges or write raw transcripts to the graph. |
-| §13. Data Architecture | Separates data-layer responsibilities across PostgreSQL, Redis, pgvector, Neo4j, and Celery/Outbox. | Choose the correct source of truth before writing schema or persistence logic. |
-| §14. API Plan | Lists API scope for guest, chat, screening, safety/referral, dashboard, persona/reward/memory/TTS. | Check response shapes here before changing frontend/backend contracts. |
-| §15. Memory, Privacy, Security | Defines memory, privacy, security, access control, deletion, and opt-out rules. | Do not store long-term memory without consent and minimization. |
-| §16. Observability and Graceful Degradation | Defines metrics, logging fields, and graceful degradation when Redis/Neo4j/LLM/PostgreSQL/TTS fails. | Do not let TTS or Neo4j failure break normal text chat. |
-| §17. Success Metrics | Defines success metrics for activation, engagement, pattern quality, safety, and system health. | Evaluate features through metrics, not only subjective UX impressions. |
-| §18. MVP Scope | Locks MVP scope and out-of-scope boundaries to prevent scope creep. | If a task is out-of-scope, do not implement it in MVP without a new decision. |
-| §19. Implementation Phases | Breaks delivery into phases A-E from core safety/chat to hardening. | Prioritize Phase A before complex engagement layers. |
-| §20. Open Product and Legal Decisions | Lists unresolved product/legal decisions. | Do not guess thresholds, retention, hotline sources, or outbound contact policy. |
-| §21. Non-Negotiable Acceptance Criteria | Defines non-negotiable release acceptance criteria. | Use this as the final QA gate before merge or release. |
-
-<a id="sec-0"></a>
-## 0. Document Purpose
-
-> **Section summary:** Defines this file as the only canonical PRD and sets conflict-resolution priority after older backend/spec files are removed.  
-> **Agent checkpoint:** Before editing code, verify that no older document overrides this PRD.
-
-
-This document is the single source of truth for Serene after `BACKEND_PLAN.md` and `BUILDING-PLAN-AGENT-SPECS.md` are removed. It consolidates product requirements, backend architecture, runtime contracts, safety boundaries, data rules, API scope, rollout phases, and acceptance criteria into one consistent PRD.
-
-### 0.1 Core Implementation Rule
-
-```text
-Do not implement five independent agents.
-Implement one stable user-facing identity through the Serene Conversation Agent (`FriendNode`),
-one conditional Internal Analyst Agent (`AnalystNode`),
-one deterministic Safety Agent (`SafetyFinalizer`),
-and a service/tool/worker layer for screening, resources, referral, memory, dashboard, TTS, and Neo4j sync.
-```
-
-### 0.2 Conflict Resolution Priority
-
-1. User safety and legal/compliance policy.
-2. This canonical PRD.
-3. Local code conventions.
-4. Frontend/UI constraints.
-
-No older document may override this PRD.
+- [PRD.md — Serene.AI Mental-Health Companion](#prdmd--sereneai-mental-health-companion)
+  - [Mục lục](#mục-lục)
+  - [0. Mục đích tài liệu](#0-mục-đích-tài-liệu)
+  - [1. Executive Summary](#1-executive-summary)
+  - [2. Product Thesis](#2-product-thesis)
+  - [3. Người dùng mục tiêu](#3-người-dùng-mục-tiêu)
+    - [3.1 Primary users](#31-primary-users)
+    - [3.2 Secondary users](#32-secondary-users)
+  - [4. Nguyên tắc bất biến](#4-nguyên-tắc-bất-biến)
+  - [5. Phạm vi sản phẩm MVP](#5-phạm-vi-sản-phẩm-mvp)
+    - [5.1 Chat cảm xúc an toàn](#51-chat-cảm-xúc-an-toàn)
+    - [5.2 Guided screening: cơ bản và kiểm tra sâu](#52-guided-screening-cơ-bản-và-kiểm-tra-sâu)
+      - [5.2.1 Screening cơ bản: PHQ-9 và GAD-7](#521-screening-cơ-bản-phq-9-và-gad-7)
+      - [5.2.2 Kiểm tra sâu: DASS-21, MDQ và PCL-5](#522-kiểm-tra-sâu-dass-21-mdq-và-pcl-5)
+    - [5.3 Mood, meal, sleep và lifestyle check-in](#53-mood-meal-sleep-và-lifestyle-check-in)
+    - [5.4 Personal Insight Dashboard](#54-personal-insight-dashboard)
+    - [5.5 Memory Cards](#55-memory-cards)
+    - [5.6 Persona, reward và progression](#56-persona-reward-và-progression)
+    - [5.7 Voice, TTS và meme](#57-voice-tts-và-meme)
+    - [5.8 Resource Hub và coping recommendation](#58-resource-hub-và-coping-recommendation)
+    - [5.9 SOS và crisis support](#59-sos-và-crisis-support)
+  - [6. Kiến trúc hệ thống](#6-kiến-trúc-hệ-thống)
+    - [6.1 Tổng quan](#61-tổng-quan)
+    - [6.2 Stack dữ liệu và runtime](#62-stack-dữ-liệu-và-runtime)
+    - [6.3 Mô hình agent runtime](#63-mô-hình-agent-runtime)
+    - [6.4 Advisor-assisted Analyst Pipeline](#64-advisor-assisted-analyst-pipeline)
+    - [6.5 Model strategy](#65-model-strategy)
+  - [7. Luồng nghiệp vụ chính](#7-luồng-nghiệp-vụ-chính)
+    - [7.1 Normal chat flow](#71-normal-chat-flow)
+    - [7.2 Analyst-assisted insight flow](#72-analyst-assisted-insight-flow)
+    - [7.3 Crisis/SOS flow](#73-crisissos-flow)
+    - [7.4 Dashboard rollup flow](#74-dashboard-rollup-flow)
+  - [8. Data Architecture](#8-data-architecture)
+    - [8.1 Source of truth](#81-source-of-truth)
+    - [8.2 Data domains](#82-data-domains)
+    - [8.3 Data privacy rules](#83-data-privacy-rules)
+  - [9. API/Product Contract cấp cao](#9-apiproduct-contract-cấp-cao)
+  - [10. Observability và Debuggability](#10-observability-và-debuggability)
+    - [10.1 Langfuse trace bắt buộc](#101-langfuse-trace-bắt-buộc)
+    - [10.2 Metrics tối thiểu](#102-metrics-tối-thiểu)
+    - [10.3 Degradation policy](#103-degradation-policy)
+  - [11. Safety, Security và Abuse Prevention](#11-safety-security-và-abuse-prevention)
+    - [11.1 Mental-health safety](#111-mental-health-safety)
+    - [11.2 AI security](#112-ai-security)
+    - [11.3 Output sanitizer](#113-output-sanitizer)
+  - [12. Evaluation và Quality Gates](#12-evaluation-và-quality-gates)
+    - [12.1 Baseline hiện tại](#121-baseline-hiện-tại)
+    - [12.2 Required evaluation layers](#122-required-evaluation-layers)
+    - [12.3 Release blockers](#123-release-blockers)
+  - [13. MVP Scope và Non-goals](#13-mvp-scope-và-non-goals)
+    - [13.1 In scope](#131-in-scope)
+    - [13.2 Out of scope for MVP](#132-out-of-scope-for-mvp)
+  - [14. Roadmap triển khai](#14-roadmap-triển-khai)
+    - [Phase 0 — Stabilize core safety and chat](#phase-0--stabilize-core-safety-and-chat)
+    - [Phase 1 — Analyst and dashboard insight](#phase-1--analyst-and-dashboard-insight)
+    - [Phase 2 — Memory and personalization](#phase-2--memory-and-personalization)
+    - [Phase 3 — Voice, meme and UX polish](#phase-3--voice-meme-and-ux-polish)
+    - [Phase 4 — Reward/persona progression](#phase-4--rewardpersona-progression)
+    - [Phase 5 — Security and production readiness](#phase-5--security-and-production-readiness)
+  - [15. Success Metrics](#15-success-metrics)
+    - [Product metrics](#product-metrics)
+    - [Safety metrics](#safety-metrics)
+    - [Engineering metrics](#engineering-metrics)
+  - [16. Acceptance Criteria](#16-acceptance-criteria)
+  - [17. Final Product Principle](#17-final-product-principle)
 
 ---
 
-<a id="sec-1"></a>
+## 0. Mục đích tài liệu
+
+Tài liệu này là PRD nguồn sự thật cho Serene.AI ở giai đoạn MVP. PRD mô tả định vị sản phẩm, phạm vi tính năng, kiến trúc tác nhân, luồng dữ liệu, yêu cầu an toàn, tiêu chuẩn đánh giá và tiêu chí nghiệm thu. Tài liệu cố ý không mô tả chi tiết code, file triển khai hoặc tên hàm nội bộ.
+
+Bản cập nhật này phản ánh các thay đổi kiến trúc mới nhất:
+
+- Hệ thống giữ mô hình **lightweight multi-agent**, không tạo nhiều bot độc lập.
+- Trục dữ liệu chuyển về **PostgreSQL/Supabase làm source of truth**, kết hợp pgvector, Redis, outbox worker và Langfuse trace.
+- Safety chạy trước mọi LLM call và có quyền chặn toàn bộ normal flow.
+- Analyst Agent có thể sử dụng các advisor chuyên biệt, dữ liệu nội bộ, RAG và external search có kiểm soát để tạo insight.
+- Dashboard phải hiển thị insight có bằng chứng, không chỉ hiển thị chữ giới thiệu hoặc số liệu rời rạc.
+- Persona, meme, voice/TTS, reward và memory là lớp trải nghiệm; không được sở hữu logic an toàn hoặc chẩn đoán.
+- Persona registry hiện hành chỉ gồm **Dũng** (`dung_luong`), **Đạt** (`dat_le`) và **Hậu** (`hau_luong`); loại bỏ toàn bộ persona cũ khỏi PRD runtime.
+- Bổ sung nhóm **Kiểm tra sâu** gồm DASS-21, MDQ và PCL-5 để mở rộng phân tích stress, dao động khí sắc và sang chấn theo hướng sàng lọc an toàn, không chẩn đoán.
+
+---
+
 ## 1. Executive Summary
 
-> **Section summary:** Summarizes Serene as a privacy-first companion, not a diagnostic or clinical replacement, with one stable identity.  
-> **Agent checkpoint:** Any UX/chat change must preserve one coherent Serene identity.
+Serene.AI là ứng dụng đồng hành sức khỏe tinh thần cho người trẻ Việt Nam, tập trung vào bốn việc: giúp người dùng nói thật trong không gian riêng tư, hiểu trạng thái của mình qua dữ liệu cá nhân, nhận hành động nhỏ có thể làm ngay, và được hỗ trợ an toàn khi có dấu hiệu nguy cơ cao.
 
+Sản phẩm không phải bác sĩ AI, không chẩn đoán rối loạn tâm thần, không kê thuốc và không thay thế trị liệu chuyên nghiệp. Sản phẩm đóng vai trò **mental-health companion**: lắng nghe, sàng lọc ban đầu, hỗ trợ phản tư, đề xuất coping/resource phù hợp và kích hoạt luồng an toàn khi cần.
 
-Serene is a privacy-first AI mental-health companion for young users, especially people aged 18–24 who feel stressed, emotionally overloaded, uncertain about their mental state, or reluctant to seek real-world support because of stigma, cost, time, fear of judgment, or lack of trust.
+Kiến trúc runtime gồm ba vai trò chính:
 
-Serene is **not an AI doctor**, **not a diagnostic therapist**, and **not a replacement for professional care**. Its correct role is a supportive digital front door: it helps users express difficult feelings, understand emotional and behavioral patterns, receive one small actionable next step, and transition to real-world support when risk exceeds self-support.
+| Vai trò | User-facing | Trách nhiệm |
+|---|---:|---|
+| Friend Agent | Có | Trò chuyện, phản hồi cảm xúc, áp dụng persona/style, tạo câu trả lời cuối cùng cho normal flow. |
+| Analyst Agent | Không | Phân tích dữ liệu hội thoại, mood, PHQ-9/GAD-7, DASS-21, MDQ, PCL-5, meal check-in, memory và resource context để tạo structured insight. |
+| Safety Agent | Có, qua payload kiểm soát | Xử lý high-risk/SOS, de-escalation, voice grounding, hotline/referral, audit và crisis logs. |
 
-The user experience must feel like **one coherent companion**. The UI may expose persona cards, unlock progression, a heart economy, and memory cards; however, these are product and style layers. The backend may be sophisticated, but the user should experience one stable identity: **Serene**.
+Các thành phần còn lại như screening, persona router, reward, memory, dashboard, resource retrieval, TTS, meme và notification là **service/router/worker**, không phải agent có danh tính riêng.
 
 ---
 
-<a id="sec-2"></a>
 ## 2. Product Thesis
 
-> **Section summary:** States the product thesis: users need safe expression, pattern understanding, and one small next step, not diagnosis.  
-> **Agent checkpoint:** If a feature does not support this loop, move it to backlog instead of MVP.
+Người dùng mục tiêu không bắt đầu bằng nhu cầu “được điều trị”. Họ thường bắt đầu bằng các trạng thái mơ hồ: “mình không ổn”, “mình muốn nói ra nhưng sợ bị đánh giá”, “mình không biết đang bị gì”, hoặc “mình chỉ cần ai đó nghe mình”.
 
-
-Users who are struggling rarely begin with a clinical request. They usually begin with uncertainty:
+Vì vậy, vòng lặp sản phẩm phải là:
 
 ```text
-“I do not know what is wrong with me.”
-“I want to say it, but I do not want anyone to judge me.”
-“I am not sure whether this is serious.”
-“I need to know what to do next.”
+Talk → Understand → Act → Reflect → Return
 ```
 
-Therefore, Serene must not behave like a diagnosis machine. It must behave as a safe, explainable, action-oriented support layer.
-
-Core product loop:
-
-```text
-Private expression
-  -> Emotional validation
-  -> Pattern understanding
-  -> Small next step
-  -> Reflection and continuity
-  -> Care pathway when needed
-```
-
-Serene’s differentiation is not generic chatbot empathy. It is the combination of:
-
-- low-friction privacy-first onboarding;
-- one stable Serene identity with controlled persona/style modes;
-- clinically informed but non-diagnostic pattern insight;
-- a Neo4j Knowledge Graph for symptom, trigger, emotion, cognitive distortion, coping, and resource relationships;
-- a deterministic safety path;
-- async memory and dashboard intelligence;
-- engagement systems that do not manipulate dependency.
+- **Talk:** người dùng trò chuyện tự nhiên bằng tiếng Việt đời thường.
+- **Understand:** hệ thống phân tích cảm xúc, stressor, trigger, thói quen và tín hiệu rủi ro.
+- **Act:** hệ thống đề xuất một hành động nhỏ, có thể làm ngay, không giáo điều.
+- **Reflect:** dashboard và memory giúp người dùng nhìn lại pattern, tiến triển và điều từng giúp họ ổn hơn.
+- **Return:** gamification nhẹ, persona style, voice, memory card và knowledge unlock tạo động lực quay lại mà không gây nghiện hoặc phụ thuộc cảm xúc.
 
 ---
 
-<a id="sec-3"></a>
-## 3. Non-Negotiable Product and Architecture Invariants
+## 3. Người dùng mục tiêu
 
-> **Section summary:** Lists non-negotiable invariants for identity, persona, safety, data, async work, and validation.  
-> **Agent checkpoint:** Use this as the mandatory checklist before major PRs.
+### 3.1 Primary users
 
+Người trẻ 18–24 tuổi, đặc biệt là sinh viên và người mới đi làm, đang đối mặt với áp lực học tập, định hướng nghề nghiệp, tài chính, gia đình, quan hệ cá nhân, cô đơn hoặc tự ti nhưng chưa sẵn sàng tìm chuyên gia.
 
-| Category | Required invariant |
+Nhu cầu chính:
+
+- Có nơi riêng tư để nói thật mà không bị phán xét.
+- Được phản hồi bằng tiếng Việt tự nhiên, không máy móc, không sáo rỗng.
+- Hiểu vì sao mình hay tụt mood, stress hoặc mất năng lượng.
+- Có hành động nhỏ để làm ngay thay vì lời khuyên chung chung.
+- Có quyền kiểm soát dữ liệu cá nhân, ký ức và lịch sử trò chuyện.
+
+### 3.2 Secondary users
+
+Người đã có thói quen tự quan sát sức khỏe tinh thần, muốn theo dõi mood, sleep, meal, stress pattern, coping history và kết quả sàng lọc định kỳ.
+
+Nhu cầu chính:
+
+- Dashboard có insight thực sự, có bằng chứng và gợi ý cải thiện.
+- Theo dõi PHQ-9/GAD-7 và các bài kiểm tra sâu như DASS-21, MDQ, PCL-5 theo thời gian mà không bị gắn nhãn bệnh.
+- Lưu lại memory quan trọng nhưng có thể sửa/xóa.
+- Có resource phù hợp với trạng thái hiện tại.
+
+---
+
+## 4. Nguyên tắc bất biến
+
+1. **Safety-first:** mọi chat turn phải đi qua Safety Gate trước khi vào LLM hoặc advisor.
+2. **Không chẩn đoán:** không nói “bạn bị trầm cảm/rối loạn lo âu/rối loạn lưỡng cực/PTSD”; chỉ mô tả dấu hiệu, mức độ sàng lọc và khuyến nghị tìm chuyên gia khi cần.
+3. **Một identity ổn định:** Serene là một assistant duy nhất; persona chỉ là style mode.
+4. **Internal Analyst không nói với user:** Analyst chỉ tạo structured signal/insight cho Friend Agent hoặc dashboard-safe layer.
+5. **Advisor không viết final response:** advisor chỉ cung cấp evidence, context, recommendation candidates và provenance.
+6. **Frontend không sở hữu safety/business logic:** frontend chỉ render trạng thái backend trả về.
+7. **Dữ liệu nhạy cảm backend-only:** raw risk indicators, clinical notes, analyst rationale và crisis logs không được expose ra UI.
+8. **Memory phải có kiểm soát:** memory card phải ngắn, rõ, có thể xem/sửa/xóa; không lưu lặp vô hạn.
+9. **Voice/TTS không block chat:** text response phải trả trước; audio được xử lý async.
+10. **Langfuse trace bắt buộc cho luồng agentic:** cần nhìn được routing, advisor usage, analyst reasoning summary, latency, token/cost và failure mode.
+
+---
+
+## 5. Phạm vi sản phẩm MVP
+
+### 5.1 Chat cảm xúc an toàn
+
+Chat là bề mặt chính. Serene phải phản hồi bằng tiếng Việt tự nhiên, bám ngữ cảnh, không lạc vai, không tạo cảm giác “AI-generated”. Câu trả lời cần ưu tiên lắng nghe, gọi đúng vấn đề người dùng vừa nêu, phản hồi ngắn vừa đủ và kết thúc bằng một câu hỏi hoặc hành động nhỏ khi phù hợp.
+
+Yêu cầu:
+
+- Bám conversation history và memory liên quan.
+- Không nhồi quá nhiều câu hỏi trong một lượt.
+- Không dùng giọng trị liệu khuôn mẫu.
+- Không đưa lời khuyên sớm khi người dùng chỉ cần xả cảm xúc.
+- Có thể dùng meme/giọng hài nhẹ trong low-risk turn nếu đúng ngữ cảnh và persona cho phép.
+- Không dùng meme, joke hoặc persona “vui” trong grief, high-distress, SOS hoặc nội dung nhạy cảm.
+
+### 5.2 Guided screening: cơ bản và kiểm tra sâu
+
+Serene dùng các bài sàng lọc có cấu trúc để giúp người dùng tự quan sát sức khỏe tinh thần theo nhiều chiều. Tất cả kết quả chỉ là **tín hiệu sàng lọc**, không phải chẩn đoán, không kết luận bệnh và không thay thế đánh giá của chuyên gia.
+
+#### 5.2.1 Screening cơ bản: PHQ-9 và GAD-7
+
+PHQ-9 và GAD-7 được dùng để theo dõi dấu hiệu liên quan trầm cảm và lo âu ở mức sàng lọc ban đầu.
+
+Yêu cầu:
+
+- Hiển thị rõ đây là công cụ sàng lọc, không phải chẩn đoán.
+- Lưu điểm số, severity band, thời điểm làm bài và coverage.
+- Cho phép dashboard dùng kết quả như một nguồn evidence.
+- Nếu điểm cao hoặc câu trả lời liên quan tự hại, phải kích hoạt luồng safety phù hợp.
+- Nếu user chưa làm test, dashboard phải hiển thị lời mời rõ ràng: “Hãy làm bài test để Serene có thêm dữ liệu theo dõi xu hướng của bạn.”
+
+#### 5.2.2 Kiểm tra sâu: DASS-21, MDQ và PCL-5
+
+Nhóm kiểm tra sâu giúp Analyst Agent có thêm dữ liệu đa chiều để phân tích stress, dao động khí sắc và dấu hiệu sang chấn. Nhóm này chỉ nên được gợi ý khi người dùng đã có nhu cầu hiểu sâu hơn, dashboard thiếu dữ liệu để kết luận xu hướng, hoặc hệ thống phát hiện các pattern đủ đáng chú ý nhưng không nằm trong crisis flow.
+
+| Bài kiểm tra | Mục tiêu sàng lọc | Dữ liệu lưu | Cách diễn đạt user-facing | Guardrail bắt buộc |
+|---|---|---|---|---|
+| DASS-21 | Phân tích chuyên sâu hơn về stress, lo âu và trầm cảm theo cụm tín hiệu. | Subscale scores, severity band, timestamp, completion coverage. | “Điểm của bạn cho thấy mức stress/lo âu/tâm trạng buồn đang ở vùng cần chú ý hơn.” | Không thay thế PHQ/GAD và không kết luận bệnh. |
+| MDQ | Sàng lọc dấu hiệu dao động khí sắc/chu kỳ năng lượng có thể liên quan rối loạn lưỡng cực. | Positive item count, impairment marker, clustering marker, timestamp. | “Có một số dấu hiệu dao động khí sắc/năng lượng đáng theo dõi thêm.” | Không nói “bạn bị bipolar/rối loạn lưỡng cực”; điểm cao phải khuyến nghị gặp chuyên gia. |
+| PCL-5 | Sàng lọc dấu hiệu liên quan sang chấn/PTSD theo nhóm triệu chứng. | Total score, cluster scores, timestamp, safe summary. | “Có một số phản ứng sau trải nghiệm căng thẳng/sang chấn đáng được chăm sóc kỹ hơn.” | Không hiển thị raw trauma detail lên dashboard; không ép user kể lại sang chấn. |
+
+Yêu cầu triển khai:
+
+- Mỗi bài kiểm tra có consent/disclaimer riêng trước khi bắt đầu.
+- Cho phép user bỏ qua, dừng giữa chừng hoặc xóa kết quả theo retention policy.
+- Lưu raw answer ở backend-only nếu cần tính điểm; dashboard chỉ dùng summary an toàn.
+- Không dùng MDQ/PCL-5 để tự động gắn nhãn “rối loạn lưỡng cực”, “PTSD” hoặc bất kỳ chẩn đoán nào.
+- Nếu câu trả lời cho thấy nguy cơ tự hại hoặc mất an toàn hiện tại, Safety Gate phải được kích hoạt ngay, không chờ hoàn tất bài test.
+- Analyst chỉ được dùng kết quả kiểm tra sâu như một evidence source, kèm confidence và caveat.
+
+### 5.3 Mood, meal, sleep và lifestyle check-in
+
+Serene cần thu thập tín hiệu đời sống nhẹ, không gây ma sát, gồm mood check-in, meal check-in, sleep schedule từ onboarding và các phản tư ngắn.
+
+Nguồn dữ liệu MVP:
+
+- Mood check-in theo ngày hoặc theo buổi.
+- Meal check-in sáng/trưa/tối.
+- Thời gian ngủ/dậy nếu user cung cấp.
+- Conversation memory và session summary.
+- PHQ-9/GAD-7.
+- DASS-21, MDQ, PCL-5 nếu user đã hoàn thành kiểm tra sâu.
+- Coping action đã thử và mức độ hữu ích.
+
+Yêu cầu:
+
+- Check-in phải nhanh, có thể bỏ qua.
+- Không phán xét người dùng vì ăn uống/ngủ nghỉ chưa tốt.
+- Insight lifestyle chỉ dùng ngôn ngữ “có xu hướng/có dấu hiệu”, không kết luận bệnh.
+- Khi sleep dưới 6 giờ nhiều ngày, dashboard có thể cảnh báo nhẹ và đề xuất tiny action.
+
+### 5.4 Personal Insight Dashboard
+
+Dashboard phải là nơi người dùng hiểu mình hơn, không phải trang chứa nhiều text chung chung. Dashboard cần tổng hợp dữ liệu thành insight có bằng chứng.
+
+Dashboard phải trả lời được các câu hỏi:
+
+- Điều gì thường làm mood của người dùng giảm?
+- Thời điểm nào trong ngày/tuần người dùng dễ căng thẳng hơn?
+- Thói quen ăn/ngủ có liên quan gì đến mood hoặc năng lượng?
+- PHQ-9/GAD-7 gần nhất đang ở mức nào và xu hướng thay đổi ra sao?
+- DASS-21, MDQ hoặc PCL-5 có bổ sung góc nhìn nào về stress, dao động khí sắc hoặc sang chấn không?
+- Coping action nào từng giúp người dùng ổn hơn?
+- Người dùng đang đối mặt với nhóm khó khăn nào: học tập, gia đình, quan hệ, công việc, sức khỏe, cô đơn, tự trách?
+- Một việc nhỏ nên làm hôm nay là gì?
+
+Mỗi insight nên có:
+
+| Thành phần | Mô tả |
 |---|---|
-| Identity | The user experiences one assistant identity: **Serene**. |
-| Persona | Personas are style/profile modes inside the **Serene Conversation Agent** (`FriendNode`), not separate agents. |
-| Normal user-facing LLM | The **Serene Conversation Agent** (`FriendNode`) is the only user-facing LLM **step** in the normal flow. |
-| Internal analysis | The **Internal Analyst Agent** (`AnalystNode`) only produces a structured `AnalystBundle`; it never speaks directly to the user. |
-| Safety ordering | `SafetyGate` always runs before normal graph or LLM orchestration. |
-| High-risk path | High-risk turns bypass `DistressRouter`, the **Internal Analyst Agent** (`AnalystNode`), and the normal **Serene Conversation Agent** (`FriendNode`). |
-| Deterministic safety | The **Safety Agent** (`SafetyFinalizer`) must be deterministic, auditable, and final for the high-risk turn. |
-| Screening | Screening and pattern insight are monitoring support, not diagnosis. |
-| Data source of truth | PostgreSQL is the source of truth; Neo4j is a derived knowledge/pattern layer. |
-| Async-first work | Memory, embeddings, summaries, dashboards, and graph sync run after response unless synchronous writes are mandatory. |
-| Neo4j safety | Neo4j must not store raw messages, PII, crisis logs, or direct disorder assignment. |
-| Output validation | Every normal response must pass `SafetyOutputValidator` before return. |
+| Insight title | Một câu ngắn, rõ, có tính khai sáng. |
+| Evidence | Dữ liệu hỗ trợ: mood, memory, meal, PHQ-9/GAD-7, DASS-21, MDQ, PCL-5, chat theme, thời gian. |
+| Confidence | Low/medium/high; không giả vờ chắc chắn khi dữ liệu ít. |
+| Meaning | Diễn giải vì sao pattern này quan trọng. |
+| Suggested action | Một hành động nhỏ, khả thi trong 2–10 phút. |
+| Safety boundary | Không chẩn đoán, không kết luận bệnh, không thay chuyên gia. |
+
+### 5.5 Memory Cards
+
+Memory giúp Serene có continuity nhưng không được tạo cảm giác bị theo dõi. Cách lưu ưu tiên “thẻ ký ức” ngắn, rõ, user kiểm soát được.
+
+Yêu cầu:
+
+- Lưu memory dưới dạng câu ngắn, có nghĩa độc lập.
+- Không lưu trùng nội dung; nếu user nhắc lại cùng một ý, tăng số lần lặp hoặc cập nhật metadata thay vì tạo card mới.
+- Mỗi reply chỉ dùng tối đa một memory liên quan để tránh creepy personalization.
+- User có thể giữ, sửa, xóa hoặc tắt memory.
+- Không lưu nội dung tự hại chi tiết, thông tin nhạy cảm không cần thiết hoặc kết luận chẩn đoán.
+
+Loại memory MVP:
+
+- Preference: cách user muốn được gọi, phong cách hỗ trợ ưa thích.
+- Emotional pattern: trigger hoặc trạng thái lặp lại.
+- Coping history: điều từng giúp user ổn hơn.
+- Current stressor: áp lực đang diễn ra.
+- Lifestyle pattern: ăn/ngủ/năng lượng nếu user chia sẻ.
+- Persona preference: style mode user thích.
+
+### 5.6 Persona, reward và progression
+
+Persona là **style mode** của Serene, không phải agent riêng. Reward chỉ phục vụ engagement lành mạnh, không khóa hỗ trợ cốt lõi. Persona được áp dụng vào Friend Agent như một lớp giọng điệu, nhịp trả lời, cách dùng meme/voice và mức độ phân tích; persona không được sở hữu safety policy, memory riêng, clinical interpretation hoặc quyền quyết định crisis flow.
+
+Persona registry MVP hiện hành:
+
+| Persona | Canonical ID | Availability | Vai trò sản phẩm | Guardrail chính |
+|---|---|---|---|---|
+| Dũng | `dung_luong` | Core / mặc định | Vui vẻ, bắt mood tốt, biết lắng nghe, tử tế, có thể dùng meme nhẹ để làm cuộc trò chuyện bớt nặng. | Meme/hài chỉ dùng khi low-risk; khi distress tăng phải chuyển sang giọng an toàn, không đùa quá đà. |
+| Đạt | `dat_le` | Core | Trầm tính, có chiều sâu, giúp người dùng nhìn vấn đề rõ ràng hơn, có thể gợi mở theo hướng triết lý và phản tư. | Không được biến thành giọng chuyên gia chẩn đoán, không giảng đạo hoặc phân tích quá dài khi user đang quá tải. |
+| Hậu | `hau_luong` | Unlockable — 500 Tim | Hướng nội, đơn giản, ít áp lực, phù hợp khi user overthinking hoặc muốn được ở cạnh nhẹ nhàng; ưu tiên voice-message vibe. | Không dùng voice như nguồn logic riêng; voice phải bám cùng response plan và không tạo phụ thuộc cảm xúc. |
+
+Yêu cầu:
+
+- Safety override thắng mọi persona.
+- High-risk/SOS luôn ép về style an toàn; không dùng meme, joke, flirt, voice vui hoặc persona stylization trong crisis.
+- Dũng và Đạt là persona core, user mới có thể dùng ngay.
+- Hậu là persona mở khóa bằng Tim; frontend được hiển thị locked state nhưng backend là nguồn quyết định unlock.
+- Tim/Heart không được thưởng cho việc chat vô tận.
+- Reward nên gắn với hành vi có ích: mood check-in, meal check-in, reflection, hoàn thành tiny action, đọc knowledge card, review memory.
+- Frontend chỉ hiển thị wallet/unlock state; backend là nguồn quyết định selection, unlock, affordability và safety override.
+- Legacy alias cũ nếu còn trong database hoặc client phải được migrate/fallback an toàn về `dung_luong`, không giữ lại persona cũ trong UI/PRD.
+
+### 5.7 Voice, TTS và meme
+
+Voice/TTS là lớp trải nghiệm, không phải nguồn quyết định nội dung. Meme là lớp biểu đạt tùy ngữ cảnh, không được phá vỡ safety hoặc tính chuyên nghiệp.
+
+Yêu cầu voice/TTS:
+
+- Text response trả về trước; TTS chạy async.
+- Voice script có thể khác visible text để tự nhiên hơn khi nghe, nhưng không được mâu thuẫn nội dung.
+- Không render voice script thành text trên UI.
+- TTS có trạng thái rõ: queued, processing, completed, failed, provider_disabled, deduped.
+- Dedup theo nội dung và style để tránh tạo audio lặp.
+- SOS voice cần ưu tiên grounding, nhịp chậm, thuyết phục ở lại, không đọc cứng hotline như checklist.
+
+Yêu cầu meme:
+
+- Chỉ dùng ở low-risk, đúng ngữ cảnh, không làm người dùng thấy bị xem nhẹ.
+- Không dùng meme cho tự hại, grief, trauma, panic, medical, abuse hoặc crisis.
+- Meme phải đi kèm text đủ ý; không thay thế phản hồi cảm xúc.
+
+### 5.8 Resource Hub và coping recommendation
+
+Resource Hub cung cấp psychoeducation, CBT-lite exercise, grounding, journaling, sleep hygiene, stress management và tài nguyên hỗ trợ phù hợp văn hóa Việt Nam.
+
+Yêu cầu:
+
+- Resource recommendation dựa trên trạng thái, dữ liệu gần đây và mức rủi ro.
+- Không dùng resource như cách né tránh việc lắng nghe người dùng.
+- Mỗi lượt chỉ nên đề xuất 1–2 hành động nhỏ.
+- External content phải có provenance, không đưa nội dung không kiểm chứng vào lời khuyên sức khỏe.
+
+### 5.9 SOS và crisis support
+
+Khi user có dấu hiệu tự hại hoặc nguy cơ cao, hệ thống phải ưu tiên giữ người dùng an toàn và tiếp tục tương tác theo hướng de-escalation.
+
+Yêu cầu:
+
+- Safety Gate chạy trước mọi LLM call.
+- Nếu SOS rõ ràng: bypass normal flow, không gọi Conversation Agent.
+- Response phải đồng cảm, ngắn, trực tiếp, không máy móc.
+- Có thể gửi hotline/referral nhưng không biến hotline thành phản hồi chính duy nhất.
+- Crisis flow cần khuyến khích user ở lại cuộc trò chuyện, nói tiếp điều đang xảy ra, di chuyển khỏi vật nguy hiểm nếu có, liên hệ người đáng tin cậy khi phù hợp.
+- Ghi crisis log và audit log cho mọi SOS turn.
+- Không lặp lại cùng một template cứng ở các lượt liên tiếp.
 
 ---
 
-<a id="sec-4"></a>
-## 4. Strategic Product Decisions
+## 6. Kiến trúc hệ thống
 
-> **Section summary:** Locks strategic decisions: 3 main agents in practical terms, personas are not agents, and Neo4j is not a diagnosis engine.  
-> **Agent checkpoint:** When asked for “multi-agent,” follow the top agent table; do not create five independent bots.
+### 6.1 Tổng quan
 
-
-### 4.1 One Stable Identity, Multiple Controlled Style Modes
+Serene sử dụng kiến trúc backend-centered, safety-first, với frontend là display layer. Runtime chính gồm:
 
 ```text
-Serene = stable assistant identity.
-Serene Conversation Agent (`FriendNode`) = only normal user-facing LLM orchestration step.
-Persona = controlled style/profile layer inside the Serene Conversation Agent (`FriendNode`).
+User
+  → Frontend
+  → Backend API
+  → Input Normalization + PII Masking
+  → Safety Gate
+  → Risk-based Router
+  → Normal Flow hoặc Analyst-Assisted Flow hoặc Crisis Flow
+  → Output Validator
+  → Response
+  → Async workers: memory, TTS, dashboard rollup, notification, evaluation logs
 ```
 
-Allowed persona IDs:
+### 6.2 Stack dữ liệu và runtime
 
-| Persona | ID | Role | Safety posture |
-|---|---|---|---|
-| Good Friend | `ban_than` | Default emotional support | Always available in normal flow |
-| Mentor | `nguoi_thay` | Clarity and decision support | Available from day one |
-| Puppy | `cun` | Playful mood lift | Only when distress is low |
-| Cat | `meo` | Quiet, low-pressure support | Deactivate when distress rises |
-| Crush | `crush` | Warm soft-support with strict boundaries | Explicit opt-in; never during high-risk state |
-
-Canonical metadata:
-
-```json
-{
-  "agent_display_name": "Serene",
-  "active_persona_id": "ban_than",
-  "active_persona_label": "Bạn Tốt",
-  "persona_style_applied": true,
-  "persona_style_strength": 1.0
-}
-```
-
-Safety may force `active_persona_id = "ban_than"`, `persona_style_applied = false`, or `persona_style_strength = 0.0`. Core support must remain available even when a persona is locked, unsafe, in cooldown, or deactivated.
-
-### 4.2 Screening, Not Diagnosis
-
-Serene may identify signs compatible with broad condition groups such as anxiety-related stress, depressive mood, sleep disturbance, prolonged stress, social withdrawal, or cognitive distortion patterns. Serene must not conclude that the user has a disorder.
-
-Allowed framing:
-
-```text
-“Some signs you described are compatible with ...”
-“This is not a diagnosis.”
-“What is still missing to understand this better is ...”
-“The appropriate next step is ...”
-```
-
-Forbidden framing:
-
-```text
-“You have ...”
-“You are highly likely to have ...”
-“The AI diagnoses you with ...”
-“You have an X% disease risk ...”
-```
-
-### 4.3 Safety-First, Not Hard-Stop-First
-
-When a high-risk signal appears, the system must not simply freeze the UI or display a cold list of phone numbers. The backend must return a controlled de-escalation payload that includes:
-
-1. emotional stabilization;
-2. immediate safe micro-action;
-3. connection to real-world support when needed.
-
-LLMs may help generate bounded copy when policy allows, but the safety decision must not depend on free-form LLM output.
-
-### 4.4 Neo4j Is a Knowledge/Pattern Substrate, Not a Diagnosis Engine
-
-Neo4j supports relationship reasoning: symptom co-occurrence, trigger-emotion-symptom paths, cognitive distortion mapping, coping/resource matching, dashboard insight, and disorder-aware screening support. Neo4j is not the source of truth and must not store raw sensitive user data.
-
----
-
-<a id="sec-5"></a>
-## 5. Target Users
-
-> **Section summary:** Defines primary and secondary users and their real product needs.  
-> **Agent checkpoint:** Do not add heavy clinical intake if it increases first-chat friction.
-
-
-### 5.1 Primary User: Young Adult Who Cannot Tell Anyone
-
-| Attribute | Description |
+| Layer | Vai trò |
 |---|---|
-| Age | 18–24 |
-| Context | Student, early-career worker, or user under transition pressure |
-| Stressors | Study, work, family expectations, relationships, money, future uncertainty, loneliness |
-| Behavior | Comfortable with AI/social platforms; expects low-friction digital support |
-| Barrier | Fear of judgment, stigma, privacy concerns, uncertainty about severity |
-| Need | Private expression, emotional understanding, small next steps, safety path when escalation occurs |
+| Frontend | Chat UI, dashboard, screening UI, memory card UI, reward/persona UI, voice/meme rendering. |
+| Backend API | Auth, routing, validation, service orchestration, API contract. |
+| LangGraph-style orchestration | Điều phối Safety, Analyst, Conversation, Crisis và side-effect events. |
+| PostgreSQL/Supabase | Source of truth cho user, messages, screening, check-in, memory, reward, crisis log, insight. |
+| pgvector | Semantic memory, RAG retrieval và context matching. |
+| Redis | Cache, rate limit, ephemeral session state, queue coordination. |
+| Outbox/worker | TTS, memory extraction, dashboard rollup, notification, evaluation events. |
+| Langfuse | Trace agentic workflow, prompt version, advisor usage, latency, cost, failure mode. |
+| LLM provider | Config-driven OpenAI-compatible model calls cho Conversation, Analyst và Crisis Planner khi được phép. |
 
-### 5.2 Secondary User: Self-Aware Mental-Health Explorer
-
-| Attribute | Description |
-|---|---|
-| Context | Has used check-ins, journaling, therapy content, or self-care apps |
-| Need | Long-term tracking, trigger insight, pattern explanation, resource recommendation |
-| Opportunity | Convert chat into dashboard insight and a guided care pathway |
-
----
-
-<a id="sec-6"></a>
-## 6. Core Product Requirements
-
-> **Section summary:** Defines core product requirements: onboarding, chat, pattern insight, screening, coping, safety pathway, dashboard, persona/reward/memory/TTS.  
-> **Agent checkpoint:** For each feature, check the acceptance criteria in the relevant subsection.
-
-
-### 6.1 Private Onboarding
-
-**Goal:** Users should enter chat quickly without being forced through a long medical intake.
-
-Requirements:
-
-- Allow guest or anonymous sessions.
-- Show a short and understandable privacy note.
-- Let users choose their immediate need: talk, calm down, understand what is happening, or receive a small plan.
-- Do not require clinical forms before the first chat.
-- Provide controls to delete chat history or disable long-term memory.
-
-Acceptance criteria:
-
-- First chat can start in under 30 seconds.
-- Onboarding does not use diagnosis-oriented language.
-- Guest persistence is explicit and limited.
-
-### 6.2 Serene Chat Surface
-
-**Goal:** Users should feel heard without being judged, lectured, or labeled.
-
-Requirements:
-
-- If the user writes in Vietnamese, Serene responds in Vietnamese.
-- Response order: acknowledge emotional signal -> reflect specific context -> offer one question or one small action.
-- Avoid overusing medical terminology.
-- Do not claim diagnostic authority.
-- Do not reveal internal module names.
-
-Acceptance criteria:
-
-- Each normal response includes at least one concrete reflection.
-- User-facing copy does not expose the Internal Analyst Agent (`AnalystNode`), `SafetyGate`, or `ResourceSelector`.
-- P95 normal chat response target is under 3 seconds after context optimization.
-
-### 6.3 Pattern Insight
-
-**Goal:** Help users understand patterns without labeling them as having a disorder.
-
-Triggers:
-
-- The user asks whether something is wrong or requests analysis.
-- Repeated signs appear in recent context.
-- Screening suggests follow-up.
-- Distress is elevated but not high-risk.
-- Neo4j can improve resource or coping recommendations.
-
-Internal output schema:
-
-```json
-{
-  "pattern_group": "anxiety_related_signs",
-  "evidence": ["observable_sign_1", "observable_sign_2"],
-  "missing_info": ["duration", "functional_impact"],
-  "confidence": "low | medium | high",
-  "risk_level_hint": "low | moderate | elevated",
-  "recommended_next_action": "offer_short_screening | suggest_grounding | suggest_journaling | suggest_referral",
-  "resource_query": {
-    "symptom_slugs": ["sleep_difficulty"],
-    "coping_categories": ["grounding"]
-  },
-  "user_facing_policy": "screening_not_diagnosis"
-}
-```
-
-User-facing policy:
-
-- Use “signs compatible with,” not “you have.”
-- Provide brief evidence.
-- State limitations clearly.
-- Offer one concrete next step.
-
-Acceptance criteria:
-
-- No disease probability is shown to the user.
-- Insights include sufficient evidence or ask a follow-up question when evidence is missing.
-- If a high-risk state is detected, pattern analysis stops and the Safety Agent (`SafetyFinalizer`) controls the turn.
-
-### 6.4 Guided Screening
-
-Requirements:
-
-- Support short check-ins and approved scale flows such as PHQ-9, GAD-7, or PSS.
-- Screening may be conversational or form-based.
-- Users may skip or stop screening.
-- Results are interpreted as screening indicators, not diagnosis.
-- High-severity output sets safety flags and routes to the safe care pathway when needed.
-
-### 6.5 Coping Recommendation
-
-Requirements:
-
-- Use Neo4j and rules to match symptom/trigger/cognitive patterns to coping actions.
-- Candidate actions include grounding, breathing, journaling, task breakdown, sleep routine, social support scripts, and cognitive reframing.
-- Present no more than two options in one turn.
-- Include a short rationale and feedback hook.
-
-### 6.6 Safe Care Pathway
-
-Support pathway levels:
-
-| Level | Meaning |
-|---|---|
-| Self-help | User can try a small action in the app. |
-| Monitor | Continue tracking with a light check-in or screening. |
-| Professional support recommended | User should consider real-world professional support. |
-| Urgent support | Return a safety payload and referral/hotline options. |
-
-Requirements:
-
-- Risk levels 4–5 must not continue as normal chat in the same turn.
-- Referral payloads use calm, non-alarming language.
-- Counselor/clinician summaries are created only with user consent.
-- Do not automatically contact third parties without consent and legal approval.
-
-### 6.7 Personal Insight Dashboard
-
-The dashboard should answer:
-
-- What tends to trigger distress?
-- What coping actions helped before?
-- Is mood/stress improving, stable, or worsening?
-- What should the user try next?
-- When should the user consider real-world support?
-
-Modules:
-
-- mood trend;
-- trigger map;
-- pattern insight cards;
-- coping history;
-- weekly reflection;
-- “what helped me before?” retrieval;
-- optional screening history.
-
-Acceptance criteria:
-
-- The dashboard does not label the user as having a fixed disorder.
-- Insight cards can be hidden or deleted.
-- Sensitive data is summarized, not exposed as raw transcript.
-
-### 6.8 Persona Progression, Heart Economy, Memory/Knowledge Layers
-
-Requirements:
-
-- `ban_than` and `nguoi_thay` are available from day one.
-- `cun`, `meo`, and `crush` are unlockable rewards with clear safety gates.
-- Hearts are awarded only for meaningful behaviors: check-ins, reflections, tiny actions, knowledge completion, memory review.
-- Do not reward endless chat duration, spam, unsafe content, or high distress itself.
-- Memory Cards are user-controllable: keep, edit, delete, disable future use.
-- Knowledge Unlocks are psychoeducation, not treatment.
-- Voice/TTS renders from the selected response plan or a safe summary; there is no separate hardcoded crisis voice branch.
-
----
-
-<a id="sec-7"></a>
-## 7. Canonical System Architecture
-
-> **Section summary:** Defines the canonical runtime architecture and the rejected architecture.  
-> **Agent checkpoint:** Do not implement Conversation/Screener/Resource/Escalation/SafetyGuardrail as autonomous LLM agents.
-
-
-### 7.1 Accepted Runtime Model
-
-In the diagram below, `FriendNode`, `AnalystNode`, and `SafetyFinalizer` are **LangGraph (or equivalent) step identifiers** for the **Serene Conversation Agent**, **Internal Analyst Agent**, and **Safety Agent** defined in the Reader Summary table.
+### 6.3 Mô hình agent runtime
 
 ```text
-Frontend
-  -> FastAPI ChatGateway
-  -> ContextLoader (loads profile, mood, safety_flags, graph_patterns, nutrition_meals)
-  -> SafetyGate
-      -> if high-risk: SafetyFinalizer        // Safety Agent
-           -> returns de-escalation payload + DistressConversationUi (DistressSupportPopup)
-      -> else: DistressRouter
-           -> sets route_decision, use_fast_friend_model
-          -> friend_direct:
-               -> ultra-fast path (distress < 0.20 AND msg ≤ 50 chars): minimal ~550-token prompt, no fewshot
-               -> normal path: PersonaRouter -> FriendNode   // Serene Conversation Agent
-          -> analyst_then_friend: AnalystNode -> AnalystBundle -> PersonaRouter -> FriendNode
-               // ^ Internal Analyst Agent          ^ Serene Conversation Agent (same FriendNode step)
-  -> SafetyOutputValidator
-  -> SyncWriter
-  -> AsyncWorkers
-      -> MemoryWorker
-      -> GraphSyncWorker
-      -> InsightWorker (feeds AnalystPipelineService)
-      -> TTSJobService
-      -> SessionLifecycleService (on session close: summarize -> MemoryCard creation)
-
-Offline Analyst Pipeline (async, not in-request):
-  AnalystPipelineService: collect SourceEvents -> PrivacyFilter -> FeatureBuilder
-    -> ContextPackBuilder -> LLMAnalyzer -> InsightAggregator -> InsightHypothesis / InsightEvidence
-  Trigger types: "turn" | "daily" | "rolling_3d" | "weekly" | "on_demand_dashboard" | "post_screening"
+Safety Gate
+  ├── Crisis / SOS → Safety Agent → controlled crisis payload
+  └── Non-crisis → Router
+          ├── Simple support → Friend Agent
+          └── Needs insight → Analyst Agent → Friend Agent
 ```
 
-### 7.2 Rejected Architecture
+- **Safety Gate** là deterministic pre-LLM layer.
+- **Friend Agent** là agent duy nhất viết final text trong normal flow.
+- **Analyst Agent** phân tích nhưng không nói trực tiếp với user.
+- **Safety Agent** tạo crisis payload khi risk vượt ngưỡng.
 
-Do not implement these autonomous LLM agents:
+### 6.4 Advisor-assisted Analyst Pipeline
 
-```text
-ConversationAgent
-ScreenerAgent
-ResourceAgent
-EscalationAgent
-SafetyGuardrailAgent
-Persona agents
-```
+Analyst Agent có thể gọi các advisor để phân tích sâu hơn. Advisor không phải agent user-facing và không được viết câu trả lời cuối cùng.
 
-Correct mapping:
+Advisor MVP:
 
-| Old concept | Correct implementation |
-|---|---|
-| ConversationAgent | **Serene Conversation Agent** (`FriendNode`) |
-| ScreenerAgent | `ScreeningService` + optional **Internal Analyst Agent** (`AnalystNode`) |
-| ResourceAgent | `ResourceSelector` |
-| EscalationAgent | **Safety Agent** (`SafetyFinalizer`) + `ReferralService` |
-| SafetyGuardrailAgent | `SafetyGate` + `SafetyOutputValidator` |
-| Persona agents | style modes inside **Serene Conversation Agent** (`FriendNode`) |
-
-The five-agent model is rejected because it creates role overlap, persona fragmentation, latency/cost inflation, debugging complexity, safety ambiguity, and weak MVP focus.
-
----
-
-<a id="sec-8"></a>
-## 8. Runtime Flow
-
-> **Section summary:** Describes the three runtime flows: normal chat, pattern insight, and high-risk handling.  
-> **Agent checkpoint:** Always verify that high-risk turns bypass normal flow.
-
-
-### 8.1 Normal Chat Turn
-
-```text
-1. User sends a message.
-2. ChatGateway validates auth, guest token, and session.
-3. ContextLoader loads recent messages, profile, mood, screening, safety flags,
-   graph_patterns (Neo4j async pre-fetch), nutrition_meals, optional pgvector memories.
-4. SafetyGate runs first.
-5. If no high-risk state:
-   - DistressRouter decides route and sets use_fast_friend_model flag.
-   - If ultra-fast eligible (distress_score < 0.20 AND message ≤ 50 chars):
-     FriendNode uses minimal ~550-token prompt (no fewshot, no plan_hint, no memory hint).
-   - If analyst_then_friend: Internal Analyst Agent (`AnalystNode`) runs and produces AnalystBundle.
-   - PersonaRouter applies persona, unlock, cooldown, and safety fallback.
-   - Serene Conversation Agent (`FriendNode`) generates the Serene response
-     (uses openai_model_friend_fast when use_fast_friend_model=True and distress_score < 0.55).
-6. SafetyOutputValidator validates the final response.
-7. SyncWriter persists required records.
-8. Async workers update memory/profile/Neo4j/dashboard/TTS.
-```
-
-### 8.2 Pattern Insight Turn
-
-```text
-User message
-  -> SafetyGate: no high-risk
-  -> DistressRouter: analysis_needed = true
-  -> Internal Analyst Agent (`AnalystNode`): produces AnalystBundle
-  -> PersonaRouter: applies safe style mode
-  -> Serene Conversation Agent (`FriendNode`): converts bundle into non-diagnostic explanation
-  -> SafetyOutputValidator
-  -> SyncWriter
-  -> AsyncWorkers
-```
-
-### 8.3 High-Risk Turn
-
-```text
-User message
-  -> SafetyGate: high-risk = true
-  -> Safety Agent (`SafetyFinalizer`)
-       - no DistressRouter
-       - no Internal Analyst Agent (`AnalystNode`)
-       - no normal Serene Conversation Agent (`FriendNode`)
-       - return de-escalation payload + DistressConversationUi containing DistressSupportPopup
-         (character "Đạt" / dat_le; cooldown_seconds = 900; includes breathing_exercise_route and support_route)
-  -> SyncWriter:
-       - user message
-       - assistant safety response
-       - crisis_logs
-       - admin_audit_log if configured
-  -> optional async follow-up events
-```
-
----
-
-<a id="sec-9"></a>
-## 9. Runtime State Contract
-
-> **Section summary:** Defines RuntimeState and mutation permissions for each component.  
-> **Agent checkpoint:** Do not pass free-form dictionaries or let async workers mutate in-request state after response return.
-
-
-Use typed state. Do not scatter ad-hoc dictionaries across orchestration components.
-
-```python
-RouteDecision = "friend_direct | analyst_then_friend | safety_finalizer"
-ConversationMode = "normal | de_escalation"
-ConfidenceLevel = "low | medium | high"
-RiskLevelHint = "low | moderate | elevated"
-
-# Implementation reference: backend/app/services/langgraph_chat.py ChatGraphState
-RuntimeState = {
-    # === IMMUTABLE INPUTS (set once, never mutated by nodes) ===
-    "request_id": str,
-    "correlation_id": str,
-    "user_id": str | None,
-    "guest_id": str | None,
-    "session_id": str,
-    "user_message": str,
-    "recent_messages": list,
-    "profile_snapshot": dict,
-    "mood_snapshot": dict,
-    "screening_snapshot": dict,
-    "safety_flags": dict,
-    "distress_score": float,          # FROZEN — distress_router must never mutate this
-    "risk_level": int,
-    "graph_patterns": dict,           # UserPatternsResult from Neo4j, pre-fetched async; {} if unavailable
-    "nutrition_meals": list | None,   # today's meal check-ins; None if none logged
-    "long_term_memories": list[str],
-    "mem0_facts": list[str],
-    "top_triggers": list[str],
-    "active_goals": list[str],
-    "effective_coping": list[str],
-    "clinical_trajectory": str | None,
-
-    # === CONTROL FLAGS ===
-    "use_fast_friend_model": bool,     # set by distress_router; True when distress < 0.55 and msg short
-
-    # === ROUTER OUTPUT ===
-    "route_decision": RouteDecision | None,
-    "route_reason": str | None,
-    "routing_history": list[str],
-
-    # === INTERNAL ANALYST AGENT OUTPUT ===
-    "analyst_bundle": dict | None,    # typed AnalystBundle; None until AnalystNode runs
-
-    # === SERENE CONVERSATION AGENT OUTPUT ===
-    "reply": str,
-    "assistant_tone": str,
-    "goi_y_nhanh": list[str],
-    "the_dinh_kem": list[dict],
-
-    # === ORCHESTRATION ===
-    "persona_state": dict,
-    "persona_router_decision": dict | None,
-    "conversation_mode": ConversationMode,
-    "crisis_route_finalized": bool,
-}
-```
-
-Mutation rules (first column = orchestration identifier; see Reader Summary for agent names):
-
-| Component | Allowed mutations |
-|---|---|
-| `SafetyGate` | `risk_level`, `distress_score`, `safety_flags`, `route_decision` |
-| `SafetyFinalizer` (Safety Agent) | `conversation_mode`, `crisis_route_finalized`, forced persona safety metadata |
-| `DistressRouter` | `route_decision`, `route_reason`, `use_fast_friend_model`, `routing_history` |
-| `PersonaRouter` | `persona_state`, `persona_router_decision`, `routing_history` |
-| `AnalystNode` (Internal Analyst Agent) | `analyst_bundle`, `routing_history` only |
-| `FriendNode` (Serene Conversation Agent) | output-related fields and `routing_history` only |
-| Async workers | Must not mutate in-request state after response return |
-
----
-
-<a id="sec-10"></a>
-## 10. Component Contracts
-
-> **Section summary:** Defines short contracts for each component/service/worker and required fallback behavior.  
-> **Agent checkpoint:** When assigning coding work, scope it to the relevant component contract only.
-
-
-| Component | Short contract |
-|---|---|
-| `ChatGateway` | FastAPI entry point; validates session, generates IDs, loads context, runs runtime, persists writes, schedules async work. |
-| `ContextLoader` | Loads fixed recent window, profile, mood, screening, safety flags; optional pgvector/Neo4j only when useful. |
-| `SafetyGate` | Rule/classifier gate before normal flow; outputs `risk_level`, `distress_score`, `policy_action`. |
-| `SafetyFinalizer` | **Safety Agent** — deterministic finalizer for high-risk turns; returns controlled payload; writes crisis/audit records synchronously. |
-| `DistressRouter` | Cheap deterministic router; selects `friend_direct` or `analyst_then_friend`; never creates user-facing text. |
-| `PersonaRegistryService` | Loads persona configuration, prompt blocks, safety bounds, TTS style mapping. |
-| `PersonaRouter` | Keeps/switches/suggests/deactivates/rejects style modes based on unlock, cooldown, and safety. |
-| `AnalystNode` | **Internal Analyst Agent** — internal conditional LLM; JSON only; no diagnosis; no final answer; timeout fallback. |
-| `FriendNode` | **Serene Conversation Agent** — only user-facing LLM in normal flow; validates emotion, reflects context, offers one next step. |
-| `ScreeningService` | Manages check-ins/scales, scoring, interpretation policy, and safety flags. |
-| `ResourceSelector` | Selects coping/resources using state + Neo4j/rules; falls back to static resources. |
-| `ReferralService` | Returns hotline/trusted-contact/counselor/clinic options based on config and risk level. |
-| `SafetyOutputValidator` | Validates safety, non-diagnosis, privacy, and persona boundaries before response. |
-| `SyncWriter` | Handles transactional writes for messages, crisis logs, audit, and ledger records. |
-| `MemoryWorker` | Extracts safe memories, summaries, embeddings, and profile patches asynchronously. |
-| `GraphSyncWorker` | Syncs derived non-sensitive pattern data to Neo4j through outbox. |
-| `InsightWorker` | Builds dashboard cards, trends, and weekly summaries asynchronously. |
-| `TTSJobService` | Renders voice asynchronously and never blocks chat. |
-| `TTSDedupService` | Deduplicates TTS by content/persona/voice/risk hash before enqueue. |
-| `AnalystPipelineService` | Offline async insight pipeline: collects `SourceEvent`s, applies `PrivacyFilter`, builds `FeatureSnapshot`, runs `LLMAnalyzer`, aggregates into `InsightHypothesis` / `InsightEvidence`. Idempotent via `idempotency_key`. Never runs in-request. |
-| `SessionLifecycleService` | On session close (reason: `new_session`, `idle_timeout`, `explicit_end`, `logout`, etc.): generates summary, creates `MemoryCard` rows, invalidates Redis profile cache. |
-| `MemoryRecallService` | Deterministic handler for factual recall turns (`TurnKind`: `factual_memory_recall`, `identity_recall`). Returns `RecallReply` from `MemoryCard` + pgvector + profile; bypasses normal LLM path for eligible turns. |
-
-Failure behavior:
-
-| Failure | Required behavior |
-|---|---|
-| Redis unavailable | Load profile from PostgreSQL; chat still works with higher latency. |
-| Neo4j unavailable | Serene Conversation Agent (`FriendNode`) still works; Internal Analyst Agent (`AnalystNode`) uses profile/pgvector; resources fallback to static data. |
-| Analyst timeout | Continue with Serene Conversation Agent (`FriendNode`) only. |
-| Friend timeout | Serene Conversation Agent (`FriendNode`) timeout: return a safe fallback response. |
-| Sync write fails | Return server error; do not pretend success. |
-| Crisis log write fails | Treat as a critical operational incident. |
-
----
-
-<a id="sec-11"></a>
-## 11. Safety Requirements
-
-> **Section summary:** Defines SafetyGate output, risk levels, and the required Safety Agent (`SafetyFinalizer`) payload.  
-> **Agent checkpoint:** This section is mandatory when changing chat, safety, TTS, referral, or routing.
-
-
-### 11.1 SafetyGate Output
-
-```json
-{
-  "risk_level": 0,
-  "distress_score": 0.0,
-  "should_route_crisis": false,
-  "matched_rules": [],
-  "policy_action": "normal | de_escalation | crisis_finalizer",
-  "reason": "..."
-}
-```
-
-### 11.2 Risk Levels
-
-| Level | Meaning | Runtime behavior |
-|---:|---|---|
-| 0 | No visible distress | Normal Serene Conversation Agent (`FriendNode`) |
-| 1 | Mild distress | Supportive tone |
-| 2 | Moderate distress | Support + possible resource |
-| 3 | Elevated non-crisis distress | Internal Analyst Agent (`AnalystNode`) may enrich; careful tone |
-| 4 | High risk | **Safety Agent** (`SafetyFinalizer`); no normal flow |
-| 5 | Highest urgency | **Safety Agent** (`SafetyFinalizer`) + urgent referral payload + audit path |
-
-Thresholds must be centralized in configuration, not hardcoded across files.
-
-### 11.3 Safety Agent (`SafetyFinalizer`) payload contract
-
-```json
-{
-  "conversation_mode": "de_escalation",
-  "risk_level": 4,
-  "agent_display_name": "Serene",
-  "active_persona_id": "ban_than",
-  "active_persona_label": "Bạn Tốt",
-  "persona_style_applied": false,
-  "persona_style_strength": 0.0,
-  "assistant_text": "controlled_supportive_text",
-  "assistant_strategy": {
-    "keep_engaged": true,
-    "encourage_external_help": true,
-    "avoid_hard_stop": true
-  },
-  "micro_actions": [
-    {"type": "grounding", "label": "short_safe_action"},
-    {"type": "breathing", "label": "short_safe_action"}
-  ],
-  "hotline_cards": [
-    {"label": "configured_emergency_or_support_resource", "phone": "configured_phone"}
-  ],
-  "referral_options": [
-    {"type": "trusted_contact"},
-    {"type": "counselor_or_clinic"}
-  ],
-  "followup_priority": true,
-  "distress_ui": {
-    "mode": "sos_soft_popup",
-    "suppress_inline_crisis_cards": true,
-    "support_popup": {
-      "show": true,
-      "popup_id": "sos_dat_le:{session_id}:{risk_level}",
-      "character_id": "dat_le",
-      "character_label": "Đạt",
-      "asset_path": "/frontend/assets/dat-le-shock-sos.png",
-      "title": "Đạt đang ở đây",
-      "message_segments": [{"type": "text", ...}, {"type": "route_link", ...}],
-      "support_route": "/serene/support",
-      "breathing_exercise_route": "/serene/exercises?exercise=anxiety_breathing",
-      "cooldown_seconds": 900
-    },
-    "allow_quick_replies": false,
-    "preferred_input_focus": false
-  }
-}
-```
-
-`DistressConversationUi` is also returned on non-SOS elevated turns with `mode: "distress_soft_support"` and `DistressSupportPopup(show=false)`. The frontend (`DatLeSosPopup.tsx`) enforces the 900-second client-side cooldown via `useDistressPopupCooldown`.
-
-Forbidden:
-
-- Do not call `DistressRouter`, the Internal Analyst Agent (`AnalystNode`), or the normal Serene Conversation Agent (`FriendNode`) in a high-risk turn.
-- Do not produce long psychological analysis in a high-risk turn.
-- Do not store raw crisis transcripts in Neo4j.
-- Do not claim third-party contact unless opt-in and valid integration exist.
-
----
-
-<a id="sec-12"></a>
-## 12. Neo4j Knowledge Graph Role
-
-> **Section summary:** Defines Neo4j as graph reasoning for patterns/resources, not raw sensitive storage.  
-> **Agent checkpoint:** Do not create user-has-disorder edges or write raw transcripts to the graph.
-
-
-Neo4j is the graph layer for relationship reasoning. It is not an agent and not the source of truth.
-
-Allowed use cases:
-
-- symptom-to-symptom co-occurrence;
-- symptom-to-coping matching;
-- trigger-to-emotion/symptom paths;
-- cognitive distortion mapping;
-- resource recommendation;
-- dashboard pattern insight;
-- screening support without diagnosis.
-
-Forbidden in Neo4j:
-
-- raw messages;
-- PII;
-- phone/email/address;
-- crisis logs;
-- direct “user has disorder X” edge;
-- unreviewed LLM conclusions as clinical facts.
-
-Recommended graph concepts:
-
-```text
-:Symptom, :SymptomCategory, :Disorder, :DisorderCategory,
-:CognitiveDistortion, :CopingAction, :CopingCategory,
-:Resource, :ResourceCategory, :Trigger, :Emotion,
-:Instrument, :Item, :SafetyKeyword, :MemoryNode
-```
-
-Core relationships:
-
-```text
-(:Disorder)-[:HAS_SYMPTOM]->(:Symptom)
-(:Symptom)-[:CO_OCCURS_WITH]->(:Symptom)
-(:CopingAction)-[:TARGETS_SYMPTOM]->(:Symptom)
-(:Resource)-[:HELPS_WITH]->(:Symptom)
-(:Trigger)-[:MANIFESTS_AS]->(:Symptom)
-(:Trigger)-[:EVOKES]->(:Emotion)
-(:CognitiveDistortion)-[:AMPLIFIES]->(:Symptom)
-(:Instrument)-[:HAS_ITEM]->(:Item)
-(:Item)-[:MEASURES]->(:Symptom)
-```
-
-Neo4j query results must be converted into an `AnalystBundle` or ranked resource candidates before the Serene Conversation Agent (`FriendNode`) uses them. Raw graph output must not be shown to the user.
-
----
-
-<a id="sec-13"></a>
-## 13. Data Architecture
-
-> **Section summary:** Separates data-layer responsibilities across PostgreSQL, Redis, pgvector, Neo4j, and Celery/Outbox.  
-> **Agent checkpoint:** Choose the correct source of truth before writing schema or persistence logic.
-
-
-| Layer | Responsibility |
-|---|---|
-| PostgreSQL | Source of truth: users, sessions, messages, screening, profile, crisis logs, audit, ledger. |
-| Redis | Hot-path cache, guest ephemeral state, rate limiting, idempotency, temporary orchestration. |
-| pgvector | Semantic recall over approved summaries or masked content. |
-| Neo4j | Derived knowledge/pattern graph; no raw sensitive data. |
-| Celery/Outbox | Async memory, embedding, graph sync, dashboard, TTS. |
-
-PostgreSQL tables:
-
-```text
-users, refresh_tokens, guest_sessions, conversations, messages,
-mood_checkins, screening_results, clinical_profiles, crisis_logs,
-admin_audit_log, user_profiles, user_profile_snapshots,
-mem0_memories, session_summaries_archive, resources,
-bookmarks, play_events, sync_outbox, heart_wallets,
-heart_reward_events, heart_spend_events, reward_store_items,
-user_inventory_items, persona_unlock_states, memory_cards,
-analyst_runs, analyst_feature_snapshots,
-insight_hypotheses, insight_evidence
-```
-
-`analyst_runs`: idempotent pipeline run records (`run_id`, `user_id`, `run_type`, `status`, `window_start/end`, `data_cutoff_at`, `idempotency_key`, `feature_version`).
-
-`analyst_feature_snapshots`: serialized `AnalystFeatureSnapshotPayload` per run (mood, nutrition, screening, memory, conversation, engagement, safety_internal, data_quality domains).
-
-`insight_hypotheses`: aggregated non-diagnostic insight per user (`hypothesis_type`, `title`, `user_safe_summary`, `confidence`, `severity_band`, `evidence_count`, `display_allowed`).
-
-`insight_evidence`: evidence items linked to a hypothesis (`source_table`, `source_id`, `sensitivity`, `redacted_text`); restricted access, never shown raw to user.
-
-Redis keys:
-
-```text
-profile:{user_id}
-guest:{guest_id}
-rate:{user_id}:{window}
-idempotency:{request_id}
-tts:{voice_id}:{persona_id}:{content_hash}:{risk_level}:{locale}
-```
-
-pgvector memory types:
-
-```text
-session_summary
-coping_preference
-recurring_trigger
-user_goal
-support_preference
-```
-
-Outbox event examples:
-
-```text
-memory.created
-profile.trigger_observed
-profile.emotion_observed
-coping.used
-session.ended
-resource.helpful_feedback
-persona.preference_updated
-knowledge_pack.completed
-analyst.run_requested
-analyst.insight_ready
-session.lifecycle_close
-memory_card.created
-memory_card.deduped
-```
-
----
-
-<a id="sec-14"></a>
-## 14. API Plan
-
-> **Section summary:** Lists API scope for guest, chat, screening, safety/referral, dashboard, persona/reward/memory/TTS.  
-> **Agent checkpoint:** Check response shapes here before changing frontend/backend contracts.
-
-
-### 14.1 Guest Onboarding
-
-```http
-POST /v1/guest/session/start
-POST /v1/guest/session/heartbeat
-POST /v1/guest/convert
-```
-
-Rules:
-
-- Guest mode must not require email or phone.
-- Guest persistence must be explicit and limited.
-- Account conversion requires consent before long-term storage.
-
-### 14.2 Chat
-
-```http
-POST /v1/chat/message
-GET  /v1/chat/sessions
-GET  /v1/chat/sessions/{session_id}
-POST /v1/chat/sessions/{session_id}/close
-```
-
-Normal response shape:
-
-```json
-{
-  "message_id": "msg_xxx",
-  "session_id": "ses_xxx",
-  "conversation_mode": "normal",
-  "agent_display_name": "Serene",
-  "active_persona_id": "ban_than",
-  "active_persona_label": "Bạn Tốt",
-  "persona_style_applied": true,
-  "persona_style_strength": 1.0,
-  "assistant_text": "...",
-  "suggested_actions": [],
-  "pattern_insight": null,
-  "safety": {
-    "risk_level": 0,
-    "followup_priority": false
-  },
-  "distress_ui": {
-    "mode": "none",
-    "suppress_inline_crisis_cards": false,
-    "support_popup": {"show": false},
-    "allow_quick_replies": true,
-    "preferred_input_focus": true
-  }
-}
-```
-
-`distress_ui` is always present. `mode` is `"none"` for low-risk turns, `"distress_soft_support"` for elevated non-SOS, `"sos_soft_popup"` for high-risk turns. Frontend enforces `cooldown_seconds` client-side.
-
-### 14.3 Screening
-
-```http
-POST /v1/screening/start
-POST /v1/screening/{screening_id}/answer
-POST /v1/screening/{screening_id}/complete
-GET  /v1/screening/history
-```
-
-### 14.4 Safety and Referral
-
-```http
-GET  /v1/safety/hotlines
-GET  /v1/safety/referrals/options
-POST /v1/safety/escalate
-```
-
-### 14.5 Dashboard
-
-```http
-GET /v1/dashboard/overview
-GET /v1/dashboard/mood-trend
-GET /v1/dashboard/triggers
-GET /v1/dashboard/coping-history
-GET /v1/dashboard/weekly-summary
-```
-
-### 14.6 Persona, Rewards, Memory, TTS
-
-```http
-GET  /v1/personas
-POST /v1/personas/select
-GET  /v1/rewards/store
-POST /v1/rewards/purchase
-GET  /v1/memory/cards
-PATCH /v1/memory/cards/{card_id}
-DELETE /v1/memory/cards/{card_id}
-POST /v1/tts/jobs
-GET  /v1/tts/jobs/{job_id}
-```
-
-### 14.7 Analyst Pipeline
-
-```http
-GET  /v1/analyst/dashboard/insights
-GET  /v1/analyst/dashboard/insights/{insight_id}/evidence
-POST /v1/analyst/refresh
-GET  /v1/analyst/runs
-GET  /v1/analyst/runs/{run_id}
-```
-
-`GET /analyst/dashboard/insights` returns `InsightHypothesis` rows with `display_allowed=true`; confidence, severity_band, evidence_count, window dates. No raw evidence text. Evidence detail requires separate call to `/evidence` endpoint (restricted). `POST /analyst/refresh` accepts `run_type` and optional `force` flag; enqueues or runs synchronously (`run_now=true` for dev/admin only).
-
----
-
-<a id="sec-15"></a>
-## 15. Memory, Privacy, Security
-
-> **Section summary:** Defines memory, privacy, security, access control, deletion, and opt-out rules.  
-> **Agent checkpoint:** Do not store long-term memory without consent and minimization.
-
-
-### 15.1 Memory Layers
-
-| Layer | Scope | Storage |
+| Advisor | Nguồn dữ liệu | Output |
 |---|---|---|
-| Working memory | One request | RuntimeState only |
-| Short-term memory | Current session | PostgreSQL messages/session state |
-| Long-term memory | Cross-session | `user_profiles`, pgvector memories, derived Neo4j patterns |
+| Screening Advisor | PHQ-9/GAD-7 | Severity band, trend, caveat không chẩn đoán. |
+| Deep Screening Advisor | DASS-21, MDQ, PCL-5 | Stress profile, mood-variation signal, trauma-related signal, confidence và caveat không chẩn đoán. |
+| Mood Advisor | Mood check-in | Mood trend, recurring trigger, volatility. |
+| Lifestyle Advisor | Meal, sleep, onboarding | Pattern ăn/ngủ/năng lượng. |
+| Memory Advisor | Memory cards/session summary | Current stressor, coping history, preference. |
+| Resource Advisor | Resource library + RAG | Coping/resource candidates có provenance. |
+| External Search Advisor | Web/resource search có kiểm soát | Thông tin psychoeducation/resource cập nhật, không truyền PII. |
+| Safety Context Advisor | Risk snapshots, crisis logs dạng safe summary | Cảnh báo luồng high-risk hoặc cần hạn chế insight. |
 
-Allowed long-term memory:
+Quy tắc external search:
 
-- recurring triggers;
-- preferred support style;
-- coping techniques that helped;
-- user goals;
-- repeated high-level emotional patterns;
-- general schedule patterns if shared voluntarily.
+- Không gửi raw user text, PII, crisis content hoặc clinical notes ra ngoài.
+- Chỉ dùng query đã được sanitize và tổng quát hóa.
+- Chỉ dùng cho psychoeducation, resource, thuật ngữ, hoặc thông tin hỗ trợ có tính công khai.
+- Mỗi kết quả phải có provenance và thời điểm truy xuất.
+- Nếu không có nguồn đáng tin, Analyst phải đánh dấu uncertainty thay vì suy đoán.
 
-Forbidden or minimized memory:
+### 6.5 Model strategy
 
-- raw sensitive confessions;
-- unnecessary personal identifiers;
-- private details about third parties;
-- crisis content beyond safety/audit needs;
-- unsupported diagnosis labels.
-
-### 15.2 Privacy and Security Requirements
-
-- Data minimization by default.
-- Mask phone, email, and full names where possible.
-- Avoid storing precise addresses.
-- Crisis logs restricted to safety/admin role.
-- Admin audit log is append-only.
-- Users can delete chat history, memory profile, and account; export basic data; opt out of long-term personalization; and disable memory card usage.
-
-Access control:
-
-| Data | Access |
-|---|---|
-| messages | user + service role |
-| screening_results | user + restricted service role |
-| clinical_profiles | restricted service role only |
-| crisis_logs | safety/admin role only |
-| admin_audit_log | append-only admin/service role |
-| Neo4j user subgraph | service role only; no raw PII |
-| heart_wallets / heart_reward_events / heart_spend_events | user read + service write |
-| memory_cards | user controls + service role |
-| sync_outbox (voice.tts_request jobs) | user read via API + service write |
-| analyst_runs, analyst_feature_snapshots | service role only; user may read own run status via API |
-| insight_hypotheses | user read (display_allowed=true rows) + restricted service role |
-| insight_evidence | restricted service role only; never shown raw to user |
+- Model name, temperature, timeout và fallback policy phải cấu hình được theo môi trường.
+- Safety Gate không phụ thuộc LLM.
+- Normal chat chỉ có một LLM caller chính để giảm latency và tránh mâu thuẫn response.
+- Analyst có thể chạy sync hoặc async tùy mức cần thiết; không được làm chat thường chậm quá mức.
+- Crisis Planner có thể dùng LLM để tạo response nhân văn hơn, nhưng luôn phải qua crisis validator và fallback deterministic khi timeout.
+- Output Validator phải chặn chẩn đoán, internal leak, unsafe medical advice, persona bypass và prompt-injection echo.
 
 ---
 
-<a id="sec-16"></a>
-## 16. Observability and Graceful Degradation
+## 7. Luồng nghiệp vụ chính
 
-> **Section summary:** Defines metrics, logging fields, and graceful degradation when Redis/Neo4j/LLM/PostgreSQL/TTS fails.  
-> **Agent checkpoint:** Do not let TTS or Neo4j failure break normal text chat.
+### 7.1 Normal chat flow
 
+```text
+1. User gửi tin nhắn.
+2. Backend chuẩn hóa input và mask PII nếu cần lưu.
+3. Safety Gate phân loại risk.
+4. Nếu risk bình thường: router quyết định direct response hay cần Analyst.
+5. Conversation Agent tạo response dựa trên history, persona, memory an toàn và context liên quan.
+6. Output Validator kiểm tra boundary.
+7. Frontend hiển thị text; worker xử lý TTS/memory/dashboard async.
+8. Langfuse ghi trace đầy đủ.
+```
 
-### 16.1 Metrics
+### 7.2 Analyst-assisted insight flow
 
-| Metric | Target |
+```text
+1. Trigger: user hỏi “mình đang bị sao?”, dashboard refresh, pattern inquiry, hoặc định kỳ rollup.
+2. Analyst lấy dữ liệu đã được phép: chat summary, memory, PHQ/GAD, DASS-21, MDQ, PCL-5, mood, meal, sleep, coping history.
+3. Analyst gọi advisor cần thiết.
+4. Analyst tạo structured insight bundle: signals, hypotheses, confidence, evidence, recommended actions, caveats.
+5. Nếu trong chat: Conversation Agent diễn đạt lại bằng ngôn ngữ user-safe.
+6. Nếu cho dashboard: insight được sanitize và lưu vào dashboard-safe layer.
+7. Langfuse trace ghi rõ advisor nào được gọi, dùng nguồn nào, latency/cost bao nhiêu.
+```
+
+### 7.3 Crisis/SOS flow
+
+```text
+1. User gửi nội dung nguy hiểm hoặc distress rất cao.
+2. Safety Gate quyết định crisis/high-risk.
+3. Normal flow bị bypass.
+4. Safety Agent tạo crisis payload: visible text, optional voice script, action cards, hotline/referral.
+5. Crisis Validator kiểm tra tone, safety, không gây guilt/shame, không lặp template cứng.
+6. Crisis log và audit log được ghi.
+7. Frontend hiển thị crisis UI, voice grounding và follow-up step.
+8. Langfuse + metrics ghi reason codes, không ghi raw PII.
+```
+
+### 7.4 Dashboard rollup flow
+
+```text
+1. Worker lấy dữ liệu mới: mood, meal, PHQ/GAD, DASS-21, MDQ, PCL-5, memory, conversation summary, coping action.
+2. Analyst tạo hoặc cập nhật hypotheses.
+3. Safety/privacy sanitizer loại raw risk, clinical note và internal rationale.
+4. Dashboard-safe insight được expose qua API.
+5. Frontend hiển thị insight cards, charts, suggested action và data freshness.
+```
+
+---
+
+## 8. Data Architecture
+
+### 8.1 Source of truth
+
+PostgreSQL/Supabase là source of truth duy nhất cho dữ liệu bền vững. Redis chỉ dùng cho trạng thái tạm thời và cache. pgvector lưu embedding phục vụ retrieval và semantic matching. Outbox/worker xử lý side effect không chặn request chính.
+
+### 8.2 Data domains
+
+| Domain | Dữ liệu |
+|---|---|
+| Identity/Auth | User, consent, policy acknowledgement, auth tokens. |
+| Conversation | Sessions, messages, summaries, assistant metadata. |
+| Screening | PHQ-9/GAD-7 score, DASS-21 subscale scores, MDQ screening markers, PCL-5 total/cluster scores, severity/signal band, coverage, timestamp. |
+| Mood/Lifestyle | Mood check-ins, emotions, triggers, meal check-ins, sleep schedule. |
+| Memory | Memory cards, audit events, duplicate count, user action. |
+| Safety | Risk snapshots, crisis logs, admin audit logs, trusted-contact policy. |
+| Analyst | Raw structured signals, hypotheses, evidence references, dashboard-safe insights. |
+| Resource/RAG | Wellness resources, bookmarks, play/read events, embeddings. |
+| Reward/Persona | Wallet, reward events, inventory, persona unlock/progress, selected persona, persona price, backend-owned availability. |
+| Voice/TTS | TTS jobs, style id, event signature, audio status. |
+| Notification | Push/SSE events and delivery state. |
+| Evaluation | Golden eval outputs, guardrail eval, AI security eval, latency/cost metrics. |
+
+### 8.3 Data privacy rules
+
+- Raw user text không được đưa vào logs/metrics.
+- PII phải được mask trước khi lưu vào các vùng không cần raw text.
+- Crisis logs và risk inference là backend-only.
+- Dashboard chỉ đọc insight đã sanitize.
+- PCL-5 hoặc dữ liệu sang chấn không được expose raw detail; dashboard chỉ hiển thị summary an toàn và quyền kiểm soát dữ liệu.
+- MDQ chỉ được lưu/hiển thị như screening signal, không phải nhãn rối loạn lưỡng cực.
+- User có thể xóa memory card và yêu cầu xóa dữ liệu theo retention policy.
+- External search không được nhận raw PII hoặc nội dung crisis cụ thể.
+
+---
+
+## 9. API/Product Contract cấp cao
+
+Tài liệu này không khóa chi tiết endpoint, nhưng yêu cầu hệ thống phải có các nhóm API sau:
+
+| Nhóm API | Trách nhiệm |
+|---|---|
+| Auth/User | Đăng nhập, guest mode, profile, consent, retention setting. |
+| Chat | Gửi message, stream response, history, crisis payload, assistant metadata safe. |
+| Screening | Submit PHQ-9/GAD-7, DASS-21, MDQ, PCL-5; lấy kết quả gần nhất, lịch sử xu hướng, summary an toàn và trạng thái completion. |
+| Mood/Meal | Check-in cảm xúc, meal check-in, streak/reward state. |
+| Dashboard | Insight cards, charts, trend, suggested actions, data freshness. |
+| Memory | List/create/update/delete memory cards, duplicate count, audit action. |
+| Persona/Reward | Wallet, reward catalog, purchase, inventory, persona progress, selected persona, unlock state. |
+| Resource | Search resource, recommendation, bookmark, playback/read events. |
+| Voice/TTS | Tạo job, lấy trạng thái, audio URL, provider fallback. |
+| Notification | SSE/push event stream, delivery state. |
+| Evaluation/Admin | Internal-only eval, audit, safety metrics, prompt/trace review. |
+
+Frontend không được tự suy luận safety tier, reward grant, unlock eligibility, crisis state hoặc diagnosis-like interpretation.
+
+---
+
+## 10. Observability và Debuggability
+
+Serene cần trace rõ ràng vì lỗi chính của hệ agentic thường không nằm ở model yếu, mà ở routing, context assembly, advisor misuse hoặc output validation.
+
+### 10.1 Langfuse trace bắt buộc
+
+Mỗi chat turn cần trace các trường:
+
+- request/session id đã ẩn danh;
+- safety decision và reason codes;
+- route: direct, analyst-assisted, crisis;
+- persona/style decision;
+- memory card được dùng nếu có;
+- advisor được gọi, input đã sanitize và output summary;
+- prompt version;
+- model, latency, token/cost;
+- output validator verdict;
+- fallback/degradation nếu xảy ra.
+
+Không trace raw PII, raw crisis details hoặc thông tin nhạy cảm vượt phạm vi debug.
+
+### 10.2 Metrics tối thiểu
+
+| Metric | Mục tiêu |
+|---|---|
+| Chat p95 latency | Theo dõi normal vs analyst-assisted vs crisis. |
+| Safety false negative | Release blocker nếu phát hiện. |
+| Internal leak rate | 0 cho production. |
+| Diagnosis violation rate | 0 cho production. |
+| TTS completion rate | Theo provider/status. |
+| Dashboard insight coverage | Tỷ lệ user có đủ evidence để tạo insight. |
+| Advisor usefulness | Advisor được gọi có làm tăng chất lượng insight không. |
+| Cost per conversation | Kiểm soát cost-to-serve. |
+
+### 10.3 Degradation policy
+
+- LLM timeout: dùng response fallback an toàn.
+- Analyst timeout: Conversation Agent trả lời bình thường, không bịa insight.
+- Advisor unavailable: bỏ advisor đó, đánh dấu confidence thấp.
+- Resource retrieval lỗi: không chặn chat.
+- TTS provider lỗi: trả text và trạng thái provider_disabled/failed.
+- Dashboard thiếu dữ liệu: hiển thị empty state có hướng dẫn thu thập dữ liệu, không tạo insight giả.
+
+---
+
+## 11. Safety, Security và Abuse Prevention
+
+### 11.1 Mental-health safety
+
+- Không chẩn đoán bệnh.
+- Không kê thuốc, chỉnh liều thuốc hoặc thay thế chỉ định bác sĩ.
+- Không đảm bảo người dùng “sẽ ổn” hoặc phủ nhận cảm xúc của họ.
+- Không dùng ngôn ngữ gây guilt/shame trong crisis.
+- Không romanticize self-harm hoặc mô tả phương pháp tự hại.
+- Không tạo phụ thuộc cảm xúc vào persona hoặc khiến người dùng hiểu Dũng/Đạt/Hậu là người thật, chuyên gia thật, người yêu thật hoặc nguồn hỗ trợ duy nhất.
+
+### 11.2 AI security
+
+Hệ thống phải chống các nhóm tấn công:
+
+- direct/indirect prompt injection;
+- system prompt extraction;
+- persona override;
+- safety bypass qua roleplay;
+- memory poisoning;
+- RAG context injection;
+- PII exfiltration;
+- frontend tampering;
+- reward farming;
+- TTS flooding;
+- IDOR/BOLA;
+- log leakage.
+
+### 11.3 Output sanitizer
+
+Mọi user-facing response phải được kiểm tra để chặn:
+
+- internal fields hoặc routing metadata;
+- diagnosis label, bao gồm gắn nhãn trầm cảm, lo âu, rối loạn lưỡng cực hoặc PTSD;
+- clinical certainty quá mức;
+- unsafe medical advice;
+- hotline/referral sai ngữ cảnh;
+- persona/style vi phạm safety;
+- prompt-injection echo;
+- meme hoặc voice script bị render sai chỗ.
+
+---
+
+## 12. Evaluation và Quality Gates
+
+### 12.1 Baseline hiện tại
+
+| Hạng mục | Baseline |
 |---|---:|
-| P95 normal chat latency (full path) | < 3s |
-| P95 ultra-fast chat latency (distress < 0.20, msg ≤ 50 chars) | < 1s target |
-| Safety high-risk recall | Near 100% for configured rules |
-| Average LLM calls per normal turn | <= 1.3 target |
-| Internal Analyst Agent (`AnalystNode`) invocation rate | Monitor and avoid overuse |
-| Internal Analyst Agent (`AnalystNode`) timeout rate | Monitor |
-| `AnalystPipelineService` run completion rate | Monitor (`completed` / total started) |
-| `AnalystPipelineService` `skipped_insufficient_data` rate | Monitor; high rate = user data gaps |
-| `AnalystPipelineService` `blocked_by_safety` rate | Monitor; safety boundary is working |
-| Memory card extraction rate per session close | Monitor |
-| Outbox success rate | >= 99.5% |
-| Redis profile cache hit | >= 80% |
-| Neo4j sync lag | < 10s target |
-| Crisis payload render success | 100% |
-| TTS dedup hit rate | Monitor and improve |
-| `DistressSupportPopup` shown rate per SOS turn | Monitor; frontend cooldown compliance |
+| Backend test suite | 901 pass, 0 fail |
+| Safety tests | 84 pass, 0 fail |
+| Golden dataset | 88 pass, 0 fail |
+| Adversarial guardrails | 44 pass, 6 skip live-backend, 0 fail |
+| Heuristic LLM-as-Judge | 50 pass |
+| RAGAS heuristic review set | 59 questions, 0 hard fail |
+| Blueprint score | 98.5/100 |
+| P0 guardrail failure rate | 0% |
 
-Logs per request:
+### 12.2 Required evaluation layers
 
-```text
-correlation_id
-request_id
-user_id or guest_id
-session_id
-route_decision
-risk_level
-latency_ms
-llm_call_count
-neo4j_read_used
-outbox_event_count
-error_code
-```
-
-Do not log raw sensitive content in normal application logs.
-
-### 16.2 Degradation Policy
-
-| Dependency failure | Required behavior |
+| Layer | Mục tiêu |
 |---|---|
-| Neo4j unavailable | Serene Conversation Agent (`FriendNode`) works; Internal Analyst Agent (`AnalystNode`) uses profile/pgvector; resources fallback static; outbox pending. |
-| Redis unavailable | Read profile from PostgreSQL; chat works with higher latency. |
-| LLM unavailable | Safety Agent (`SafetyFinalizer`) via templates; basic supportive fallback; screening/dashboard reads work. |
-| PostgreSQL unavailable | Fail closed for write operations; do not pretend persistence succeeded. |
-| TTS unavailable | Text succeeds; voice status returns degraded/failed without blocking chat. |
+| Unit tests | Service logic, schema, sanitizer, router, reward, memory, TTS. |
+| Integration tests | Chat route, crisis flow, analyst-assisted flow, dashboard rollup. |
+| Golden conversation eval | Kiểm tra route, tone, expected behavior, disallowed behavior. |
+| Adversarial eval | Prompt injection, persona bypass, memory poisoning, safety bypass. |
+| AI security eval | P0/P1/P2 threat classes. |
+| Judge eval | Empathy, relevance, actionability, Vietnamese naturalness, boundary. |
+| RAG/resource eval | Faithfulness, context precision/recall, source grounding. |
+| UI smoke tests | Chat, dashboard, memory, voice, reward, crisis panel. |
+
+### 12.3 Release blockers
+
+- SOS false negative.
+- Internal prompt/metadata leak.
+- Diagnosis claim in user-facing output.
+- Frontend tự quyết định safety/crisis state.
+- Crisis log/audit log không được ghi.
+- Analyst raw output hiển thị lên dashboard.
+- TTS/voice script render thành visible text.
+- External search gửi PII/raw crisis content.
+- Dashboard bịa insight khi thiếu dữ liệu.
+- Dashboard hiển thị raw trauma detail từ PCL-5 hoặc gắn nhãn bipolar/PTSD từ MDQ/PCL-5.
 
 ---
 
-<a id="sec-17"></a>
-## 17. Success Metrics
+## 13. MVP Scope và Non-goals
 
-> **Section summary:** Defines success metrics for activation, engagement, pattern quality, safety, and system health.  
-> **Agent checkpoint:** Evaluate features through metrics, not only subjective UX impressions.
+### 13.1 In scope
 
+- Guest/auth user mode.
+- Chat cảm xúc tiếng Việt.
+- Safety Gate + crisis flow.
+- PHQ-9/GAD-7 screening.
+- Kiểm tra sâu DASS-21, MDQ, PCL-5 với guardrail không chẩn đoán.
+- Mood, meal, sleep/lifestyle signals.
+- Memory cards có user control và duplicate handling.
+- Analyst-assisted insight pipeline.
+- Dashboard insight + chart + suggested action.
+- Persona style modes Dũng/Đạt/Hậu + reward/progression.
+- Voice/TTS async + dedup.
+- Meme low-risk rendering.
+- Resource Hub + RAG/resource recommendation.
+- Langfuse trace + metrics + evaluation gates.
 
-| Category | Metrics |
+### 13.2 Out of scope for MVP
+
+- Chẩn đoán hoặc điều trị lâm sàng.
+- Kê thuốc hoặc tư vấn liều thuốc.
+- Human therapist marketplace.
+- Tự động liên hệ người thân nếu chưa có consent/legal gate.
+- Agent tự trị có danh tính riêng ngoài ba vai trò runtime chính.
+- Frontend-only safety logic.
+- Thu thập dữ liệu nền ngoài phạm vi user đồng ý.
+- Dashboard kết luận bệnh lý từ pattern sinh hoạt.
+
+---
+
+## 14. Roadmap triển khai
+
+### Phase 0 — Stabilize core safety and chat
+
+- Safety Gate trước mọi LLM.
+- Normal chat bám ngữ cảnh.
+- Output sanitizer chặn internal leak, diagnosis, unsafe advice.
+- Langfuse trace cho route và model call.
+
+### Phase 1 — Analyst and dashboard insight
+
+- Chuẩn hóa nguồn dữ liệu: PHQ/GAD, DASS-21, MDQ, PCL-5, mood, meal, sleep, memory, session summary.
+- Xây advisor-assisted Analyst Pipeline.
+- Bổ sung Deep Screening Advisor để phân tích DASS-21, MDQ, PCL-5 theo hướng evidence-based, có caveat không chẩn đoán.
+- Tạo dashboard-safe insight cards có evidence/confidence/action.
+- Kiểm định dashboard không còn text chung chung hoặc insight giả.
+
+### Phase 2 — Memory and personalization
+
+- Memory card duplicate handling.
+- User controls: keep/edit/delete/disable.
+- Context injection tối đa một memory liên quan.
+- Audit memory changes.
+
+### Phase 3 — Voice, meme and UX polish
+
+- TTS async status model.
+- Voice script tách khỏi visible text.
+- Crisis voice grounding.
+- Meme low-risk rendering có guardrail.
+- UI tiếng Việt nhất quán, không chêm English không cần thiết.
+
+### Phase 4 — Reward/persona progression
+
+- Heart economy idempotent.
+- Persona unlock state backend-owned.
+- Dũng và Đạt là core personas; Hậu là persona mở khóa 500 Tim.
+- PersonaRouter chỉ nhận canonical IDs: `dung_luong`, `dat_le`, `hau_luong`.
+- Legacy IDs cũ được migrate/fallback về `dung_luong`.
+- Reward không khuyến khích chat vô tận.
+
+### Phase 5 — Security and production readiness
+
+- AI security testset trong CI.
+- Live backend guardrail tests.
+- Rate limit, abuse prevention, IDOR/BOLA checks.
+- Cost/latency budget monitoring.
+- Data retention và deletion policy.
+
+---
+
+## 15. Success Metrics
+
+### Product metrics
+
+| Metric | Mục tiêu |
 |---|---|
-| Activation | first chat completion, guest-to-account conversion, privacy note acknowledgement, first-session helpfulness |
-| Engagement | D1/D7/D30 retention, meaningful turns/session, next-step action usage, dashboard revisit, persona unlock, memory card review |
-| Pattern quality | insight usefulness, false over-labeling, insights with sufficient evidence, disclaimer + next-step rate |
-| Safety | high-risk recall, false-positive review, Safety Agent (`SafetyFinalizer`) latency, crisis payload success, crisis/audit write success |
-| System | P95 latency, Internal Analyst Agent timeout, graph query latency, outbox success, Redis hit rate, TTS completion/dedup |
+| First meaningful response rate | User nhận phản hồi đúng vấn đề trong lượt đầu. |
+| Return rate | User quay lại check-in hoặc chat không do guilt/shame. |
+| Insight usefulness | User thấy dashboard giúp hiểu bản thân hơn. |
+| Tiny action completion | User hoàn thành hành động nhỏ được gợi ý. |
+| Memory trust | User giữ/sửa/xóa memory mà không thấy creepy. |
+
+### Safety metrics
+
+| Metric | Mục tiêu |
+|---|---:|
+| SOS false negative | 0 |
+| P0 guardrail failure | 0 |
+| Diagnosis violation | 0 |
+| Internal leak | 0 |
+| Crisis audit coverage | 100% |
+
+### Engineering metrics
+
+| Metric | Mục tiêu |
+|---|---|
+| Normal chat p95 latency | Trong budget sản phẩm, không bị Analyst kéo chậm. |
+| Crisis response latency | Ưu tiên thấp hơn normal flow, fallback nhanh khi LLM timeout. |
+| TTS non-blocking rate | 100% text response không chờ audio. |
+| Trace coverage | 100% agentic turns có trace. |
+| Cost per active user | Có monitoring và budget rõ. |
 
 ---
 
-<a id="sec-18"></a>
-## 18. MVP Scope
+## 16. Acceptance Criteria
 
-> **Section summary:** Locks MVP scope and out-of-scope boundaries to prevent scope creep.  
-> **Agent checkpoint:** If a task is out-of-scope, do not implement it in MVP without a new decision.
+PRD chỉ được coi là thỏa mãn khi:
 
-
-### 18.1 In Scope
-
-- Private onboarding.
-- Serene chat surface.
-- `SafetyGate` and **Safety Agent** (`SafetyFinalizer`).
-- `DistressRouter`.
-- **Serene Conversation Agent** (`FriendNode`).
-- Conditional **Internal Analyst Agent** (`AnalystNode`) and `AnalystBundle`.
-- Neo4j pattern insight for non-diagnostic support.
-- Guided screening flow.
-- Basic resource recommendation.
-- Sync/async persistence.
-- Dashboard overview.
-- Basic referral/hotline payload.
-- Persona registry and `PersonaRouter`.
-- Heart economy, Reward Store, Memory Cards, Knowledge Unlocks.
-- TTS deduplication.
-- Observability and graceful degradation.
-- Privacy controls for memory deletion and opt-out.
-
-### 18.2 Out of Scope
-
-- Medical diagnosis.
-- Medication advice.
-- Autonomous clinical decision-making.
-- Five independent user-facing agents.
-- Personas with separate memory, authority, safety behavior, or clinical claims.
-- Frontend-owned wallet arithmetic or hardcoded reward catalog.
-- Autonomous emergency contact without explicit consent and legal review.
-- Unmoderated community.
-- Storing raw crisis conversations in Neo4j.
-- Outbound call/SMS integration unless legal/product review explicitly approves it.
+1. Sản phẩm có định vị rõ: companion + screening + support, không phải bác sĩ AI.
+2. Runtime giữ ba vai trò chính: Conversation, Analyst, Safety.
+3. Safety Gate chạy trước mọi LLM/advisor.
+4. High-risk/SOS bypass normal flow.
+5. Analyst không user-facing và advisor không viết final response.
+6. Dashboard insight có evidence, confidence và action; không chỉ là đoạn văn chung chung.
+7. Memory card không lặp vô hạn; user có quyền sửa/xóa.
+8. Persona là style mode, không phải agent riêng; canonical set chỉ gồm `dung_luong`, `dat_le`, `hau_luong`.
+9. Dũng và Đạt khả dụng từ đầu; Hậu mở khóa bằng 500 Tim; không còn bộ persona cũ trong PRD runtime.
+10. Reward không khóa hỗ trợ thiết yếu.
+11. Voice/TTS async, không block chat và không render voice script thành text.
+12. External search được sanitize, có provenance, không truyền PII.
+13. Langfuse trace đủ để debug route, advisor, prompt, latency, cost và failure mode.
+14. Evaluation suite pass các gate safety, guardrail, golden conversation và AI security.
+15. Kiểm tra sâu DASS-21/MDQ/PCL-5 được lưu, diễn giải và hiển thị như screening signal; không chẩn đoán stress disorder, rối loạn lưỡng cực hoặc PTSD.
+16. Dashboard không hiển thị raw trauma detail, không ép user kể lại sang chấn và không dùng kết quả MDQ/PCL-5 để gắn nhãn bệnh.
+17. Frontend không sở hữu logic safety, reward, unlock hoặc crisis decisioning.
+18. Toàn bộ user-facing copy dùng tiếng Việt rõ ràng, tự nhiên, không pha thuật ngữ không cần thiết.
 
 ---
 
-<a id="sec-19"></a>
-## 19. Implementation Phases
+## 17. Final Product Principle
 
-> **Section summary:** Breaks delivery into phases A-E from core safety/chat to hardening.  
-> **Agent checkpoint:** Prioritize Phase A before complex engagement layers.
-
-
-| Phase | Goal | Deliverables |
-|---|---|---|
-| A — Safety, core chat, core persona | Reliable MVP chat | `/v1/chat/message`, guest session, `ChatGateway`, `ContextLoader`, `SafetyGate`, Safety Agent (`SafetyFinalizer`), Serene Conversation Agent (`FriendNode`), basic `DistressRouter`, `PersonaRegistryService`, `PersonaRouter` for `ban_than`/`nguoi_thay`, sync writes, audit/crisis logging |
-| B — Conditional insight | Meaningful insight without diagnosis | Internal Analyst Agent (`AnalystNode`), `AnalystBundle`, Neo4j read queries, Pattern Insight policy, screening integration, feedback, timeout fallback |
-| C — Memory/dashboard | Retention and continuity | `MemoryWorker`, session summarizer, Memory Cards, pgvector, profile patch, persona preference, dashboard overview, mood trend, trigger map, coping history, weekly summary |
-| D — Resource/referral/progression | Useful graph + engagement | `ResourceSelector`, `ReferralService`, Neo4j resource matching, region-aware referral data, outbox worker, graph health, Heart economy, Reward Store, Knowledge Unlocks, TTS dedup |
-| E — Hardening | Safer release | PII masking, retention jobs, right-to-delete, test suite, monitoring dashboards, safety review, legal/product review for proactive escalation |
-
----
-
-<a id="sec-20"></a>
-## 20. Open Product and Legal Decisions
-
-> **Section summary:** Lists unresolved product/legal decisions.  
-> **Agent checkpoint:** Do not guess thresholds, retention, hotline sources, or outbound contact policy.
-
-
-1. Exact thresholds for `risk_level`, `distress_score`, and `ANALYST_DISTRESS_THRESHOLD`.
-2. Whether guest chat is persisted before account conversion.
-3. Retention period for messages, screening results, memories, TTS artifacts, and crisis logs.
-4. Whether trusted contact is opt-in only or excluded from MVP.
-5. Whether outbound call/SMS is allowed; if yes, provider and consent model.
-6. Which screening instruments are included in MVP.
-7. Whether clinical review is required before changing graph seed.
-8. Whether dashboard shows raw scores, bands, or user-friendly labels.
-9. Which hotline/referral sources are officially approved.
-10. How to handle minors or users outside target age range.
-11. Whether TTS audio is stored, cached temporarily, or regenerated.
-12. Whether persona unlock requirements are fixed or remotely configurable.
-13. Whether `AnalystPipelineService` runs are user-visible in full or only surfaced as dashboard insight cards.
-14. Whether insight evidence detail endpoint should be admin-only or accessible to the owning user.
-15. Retention period for `analyst_runs` and `analyst_feature_snapshots`.
-16. Whether `DistressSupportPopup` cooldown should be server-enforced (currently client-side only via `useDistressPopupCooldown`).
-
----
-
-<a id="sec-21"></a>
-## 21. Non-Negotiable Acceptance Criteria
-
-> **Section summary:** Defines non-negotiable release acceptance criteria.  
-> **Agent checkpoint:** Use this as the final QA gate before merge or release.
-
-
-Before MVP release:
-
-1. A normal user experiences one stable Serene identity.
-2. Persona cards are style modes, not agents.
-3. The **Serene Conversation Agent** (`FriendNode`) is the only normal user-facing LLM orchestration step.
-4. The **Internal Analyst Agent** (`AnalystNode`) never produces final user-facing text.
-5. `SafetyGate` always runs before normal orchestration.
-6. High-risk turns bypass normal Internal Analyst Agent / Serene Conversation Agent flow.
-7. The **Safety Agent** (`SafetyFinalizer`) is deterministic, auditable, and final for that turn.
-8. Pattern insight never exposes disease probabilities.
-9. Screening results are framed as screening, not diagnosis.
-10. Neo4j never stores raw messages, PII, crisis logs, or direct disorder assignment.
-11. Neo4j writes happen through outbox only.
-12. Async workers never block normal chat response.
-13. Safety-critical writes are synchronous in high-risk path.
-14. Persona/style modes cannot override safety, privacy, or medical-boundary policy.
-15. User can delete or disable long-term memory.
-16. TTS failure never blocks text response.
-17. Logs do not contain raw sensitive content.
-18. The system degrades safely when Redis, Neo4j, LLM, or TTS is unavailable.
+Serene.AI phải giúp người dùng cảm thấy: “Mình có một nơi đủ an toàn để nói thật, đủ thông minh để hiểu mình, đủ thực tế để biết bước tiếp theo, và đủ tôn trọng để mình kiểm soát dữ liệu của chính mình.”
