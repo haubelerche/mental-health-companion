@@ -42,6 +42,30 @@ export type AdminCostDashboardResponse = {
     }
 }
 
+export type AdminTraceSpan = {
+    node: string
+    duration_ms: number
+    status?: string
+    route_reason?: string
+}
+
+export type AdminTraceRecord = {
+    turn_id: string
+    ts: number
+    user_id_hash: string
+    session_id: string
+    distress_score: number
+    route_decision: string
+    routing_history: AdminTraceSpan[]
+    total_ms: number
+    reply_len: number
+}
+
+export type AdminRecentTracesResponse = {
+    traces: AdminTraceRecord[]
+    count: number
+}
+
 export type AdminCrisisLog = {
     log_id: string
     session_id: string
@@ -214,5 +238,7 @@ export const adminService = {
         httpClient.delete<any>(`/admin/automation/triggers/${encodeURIComponent(triggerId)}`),
     getAutomationLogs: (targetId: string) =>
         httpClient.get<{ logs: any[] }>(`/admin/automation/logs/${encodeURIComponent(targetId)}`),
+    getRecentTraces: (limit: number = 50) =>
+        httpClient.get<AdminRecentTracesResponse>(`/admin/traces/recent?limit=${limit}`),
 }
 

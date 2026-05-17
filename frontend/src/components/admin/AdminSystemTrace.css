@@ -1,0 +1,90 @@
+.trace-root {
+    padding: 2.5rem;
+    min-height: 100vh;
+    background: transparent;
+}
+
+.trace-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 2.5rem;
+}
+
+.trace-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 0.5rem;
+}
+
+.trace-table th {
+    text-align: left;
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: rgb(100 116 139);
+    padding: 0 1rem 0.5rem 1rem;
+}
+
+.trace-row {
+    background: rgba(255 255 255 / 0.03);
+    border: 1px solid rgba(255 255 255 / 0.06);
+    border-radius: 1rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.trace-row:hover {
+    background: rgba(99 102 241 / 0.08);
+    border-color: rgba(99 102 241 / 0.2);
+}
+
+.trace-row td {
+    padding: 0.9rem 1rem;
+    font-size: 11px;
+    color: rgb(203 213 225);
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+.trace-row td:first-child {
+    border-radius: 1rem 0 0 1rem;
+}
+
+.trace-row td:last-child {
+    border-radius: 0 1rem 1rem 0;
+}
+
+.trace-detail {
+    background: rgba(15 23 42 / 0.8);
+    border: 1px solid rgba(255 255 255 / 0.06);
+    border-top: none;
+    border-radius: 0 0 1rem 1rem;
+    padding: 1.25rem 1.5rem;
+}
+
+.span-bar-track {
+    height: 6px;
+    background: rgba(255 255 255 / 0.05);
+    border-radius: 999px;
+    overflow: hidden;
+    flex: 1;
+}
+
+.span-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+}
+
+.distress-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}

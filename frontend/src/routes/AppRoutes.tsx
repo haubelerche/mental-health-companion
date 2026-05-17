@@ -35,6 +35,7 @@ import AdminAuditLogs from '../components/admin/AdminAuditLogs'
 import AdminNotifications from '../components/admin/AdminNotifications.tsx'
 import AdminMain from '../components/admin/layout/AdminMain.tsx'
 import AdminAutomation from '../components/admin/AdminAutomation'
+import AdminSystemTrace from '../components/admin/AdminSystemTrace'
 import Home from '../components/pages/Home.tsx'
 import RewardsPage from '../components/pages/rewards/RewardsPage.tsx'
 import { ExercisesPage } from '@/components/pages/exercises/ExercisesPage.tsx'
@@ -128,6 +129,7 @@ export default function AppRoutes() {
                 <Route path="notifications" element={<AdminNotifications />} />
                 <Route path="analytics" element={<AdminAnalytics />} />
                 <Route path="automation" element={<AdminAutomation />} />
+                <Route path="system-trace" element={<AdminSystemTrace />} />
             </Route>
 
 

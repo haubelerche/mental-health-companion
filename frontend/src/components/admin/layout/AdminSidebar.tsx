@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, BarChart3, Bell, Cpu, LayoutDashboard, LogOut, Mail, Package, Shield, Users } from 'lucide-react'
+import { Activity, AlertTriangle, BarChart3, Bell, Cpu, GitBranch, LayoutDashboard, LogOut, Mail, Package, Shield, Users } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { ROUTE_PATHS } from '../../../routes/paths'
 import { adminAuthService } from '../../../services/adminAuthService'
@@ -13,6 +13,7 @@ const links = [
     { to: ROUTE_PATHS.adminCrisisLogs, label: 'Nhật ký khẩn', icon: AlertTriangle },
     { to: ROUTE_PATHS.adminResources, label: 'Tài nguyên', icon: Package },
     { to: ROUTE_PATHS.adminAutomation, label: 'Tự động hóa', icon: Cpu },
+    { to: ROUTE_PATHS.adminSystemTrace, label: 'Luồng hệ thống', icon: GitBranch },
 ]
 
 const AdminSidebar = () => {

@@ -4,6 +4,15 @@
 
 ---
 
+## [Unreleased] — Admin: SystemTrace page with per-turn latency and route view · 2026-05-18
+
+### Added
+- **`frontend/src/services/adminService.ts`**: 3 new TypeScript types (`AdminTraceSpan`, `AdminTraceRecord`, `AdminRecentTracesResponse`) and `getRecentTraces(limit)` method calling `GET /admin/traces/recent`.
+- **`frontend/src/components/admin/AdminSystemTrace.tsx`**: New admin page showing a table of recent AI chat turn traces (timestamp, user hash, distress score badge, route decision, total latency). Rows expand to reveal per-node span waterfall bars with duration and route reason. Refresh button and skeleton loading state included.
+- **`frontend/src/components/admin/AdminSystemTrace.css`**: Scoped CSS for the trace table (`.trace-root`, `.trace-table`, `.trace-row`, `.trace-detail`, `.span-bar-track`, `.span-bar-fill`, `.distress-badge`).
+
+---
+
 ## [Unreleased] — Admin observability: Redis ring-buffer for chat turn traces · 2026-05-18
 
 ### Added

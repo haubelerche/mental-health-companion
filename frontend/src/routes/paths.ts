@@ -43,4 +43,5 @@ export const ROUTE_PATHS = {
     adminNotifications: '/admin/notifications',
     adminAnalytics: '/admin/analytics',
     adminAutomation: '/admin/automation',
+    adminSystemTrace: '/admin/system-trace',
 } as const
