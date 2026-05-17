@@ -117,8 +117,12 @@ class ScreeningSubmitRequest(BaseModel):
 
 class CheckinQuickRequest(BaseModel):
     mood: str = Field(min_length=1, max_length=50)
+    time_bucket: Literal["morning", "afternoon", "evening", "other"] | None = None
     stress_level: int | None = Field(default=None, ge=0, le=10)
     sleep_hours: float | None = Field(default=None, ge=0, le=24)
+    sleep_start: str | None = Field(default=None, max_length=10)
+    wake_time: str | None = Field(default=None, max_length=10)
+    sleep_quality: int | None = Field(default=None, ge=1, le=5)
     study_hours: float | None = Field(default=None, ge=0, le=24)
     emotions: list[str] = Field(default_factory=list)
     triggers: list[str] = Field(default_factory=list)

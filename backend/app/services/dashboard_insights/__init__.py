@@ -1,0 +1,1 @@
+"""Dashboard insight generation package."""

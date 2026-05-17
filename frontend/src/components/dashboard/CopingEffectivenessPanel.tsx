@@ -20,13 +20,13 @@ type CopingEntry = {
 
 function buildCopingEntries(insights: ReflectInsight[]): CopingEntry[] {
     return insights
-        .filter((insight) => insight.suggested_action)
+        .filter((insight) => (insight.category === 'self_care_action' || insight.hypothesis_type === 'self_care_action') && (insight.suggested_action || insight.recommended_actions?.length))
         .slice(0, 3)
         .map((insight) => ({
             id: insight.insight_id,
             label: insight.title,
             usedFor: insight.user_safe_summary.slice(0, 80) + (insight.user_safe_summary.length > 80 ? '…' : ''),
-            suggestedActionText: insight.suggested_action ?? null,
+            suggestedActionText: insight.recommended_actions?.[0] || insight.suggested_action || null,
             route: ROUTE_PATHS.checkin,
             confidenceLabel: insight.confidence_label,
         }))

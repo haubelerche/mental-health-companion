@@ -19,8 +19,8 @@ function resolveState(stateLabel: string, enoughForTrend: boolean): State {
 const HEADLINE: Record<State, string> = {
     stable: 'Tuần này bạn đang ổn định hơn một chút.',
     improving: 'Tuần này bạn đang có xu hướng tốt hơn.',
-    needs_attention: 'Tuần này có vài dấu hiệu bạn nên chăm thêm.',
-    limited_data: 'Serene đang bắt đầu ghép nhịp cảm xúc của bạn.',
+    needs_attention: 'Tuần này có điểm cần ưu tiên chăm trước.',
+    limited_data: 'Serene cần thêm dữ liệu thật để nhận định chính xác.',
 }
 
 const BG: Record<State, string> = {

@@ -54,7 +54,7 @@ export function WellnessOverviewHero({ dashboard }: Props) {
                     </div>
                     <h2 className="max-w-3xl font-display text-3xl leading-tight text-[#17352f] md:text-4xl">
                         {overview.state_label === 'Dữ liệu còn ít'
-                            ? 'Serene đang bắt đầu ghép nhịp cảm xúc của bạn.'
+                            ? 'Serene cần thêm dữ liệu thật để nhận định chính xác.'
                             : `Tuần này bạn ${overview.state_label.toLowerCase()}.`}
                     </h2>
                     <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[#31554d] md:text-base">

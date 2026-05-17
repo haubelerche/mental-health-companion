@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Search, X } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
 import { dashboardService, type NutritionDailyTip } from '../../services/dashboardService'
 import { useThemeContext } from '../../contexts/ThemeContext'
 import nutritionContent from '../../../data/nutritionContent.json'
@@ -40,6 +41,36 @@ type NutritionContent = {
 
 const CONTENT = nutritionContent as NutritionContent
 
+const AGENT_MEAL_SUGGESTIONS: Record<string, NutritionDailyTip & { assistantLine: string; label: string }> = {
+    food_reset: {
+        day_index: -1,
+        dish: 'Cơm gạo lứt hoặc cơm trắng ít, trứng/cá, rau luộc và canh nóng',
+        benefit: 'Đủ protein, chất xơ và nước để thay thế nhịp ăn vặt nhiều đường hoặc nhiều dầu.',
+        tip: 'Nếu đang rất mệt, chọn phiên bản tối giản: trứng, cơm, rau hoặc canh.',
+        timezone: 'Asia/Bangkok',
+        assistantLine: 'Mình thấy hôm nay có dấu hiệu ăn uống hơi linh tinh, nên gợi ý một bữa đơn giản, đủ chất và dễ làm hơn.',
+        label: 'Gợi ý từ Dũng',
+    },
+    breakfast_reset: {
+        day_index: -1,
+        dish: 'Yến mạch qua đêm với sữa chua, chuối và hạt chia',
+        benefit: 'Có tinh bột chậm, protein và chất xơ để giảm đói gấp và đỡ phải bù bằng đồ ngọt.',
+        tip: 'Chuẩn bị trong 5 phút từ tối trước; sáng chỉ cần lấy ra ăn.',
+        timezone: 'Asia/Bangkok',
+        assistantLine: 'Nếu bạn đang bỏ bữa sáng hoặc hay ăn bù vội, món này giúp có sẵn một lựa chọn nhẹ và ổn định hơn.',
+        label: 'Gợi ý từ Dũng',
+    },
+    gentle_evening_reset: {
+        day_index: -1,
+        dish: 'Cháo trứng gừng kèm rau xanh mềm',
+        benefit: 'Ấm, dễ ăn và nhẹ hơn đồ chiên cay khi cơ thể đang mệt hoặc vừa uống rượu bia.',
+        tip: 'Ăn lượng vừa phải, uống thêm nước, và tránh xem đây là cách xử lý say rượu.',
+        timezone: 'Asia/Bangkok',
+        assistantLine: 'Tối nay nên chọn món ấm, mềm và vừa đủ thay vì tiếp tục đồ cay, ngọt hoặc nhiều dầu.',
+        label: 'Gợi ý từ Dũng',
+    },
+}
+
 const getMoodStyle = (isDark: boolean): Record<string, string> => ({
     'Năng lượng': isDark ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-amber-100 text-amber-700 border-amber-200',
     'Tập trung': isDark ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : 'bg-blue-100 text-blue-700 border-blue-200',
@@ -55,11 +86,20 @@ const getMoodStyle = (isDark: boolean): Record<string, string> => ({
 
 export default function Nutrition() {
     const { effectiveTheme } = useThemeContext()
+    const location = useLocation()
     const isDark = effectiveTheme === 'dark'
 
     const [dailyTip, setDailyTip] = useState<NutritionDailyTip | null>(null)
     const [query, setQuery] = useState('')
     const [activeTag, setActiveTag] = useState<string | null>(null)
+
+    const agentSuggestion = useMemo(() => {
+        const params = new URLSearchParams(location.search)
+        const key = params.get('agent') || ''
+        return AGENT_MEAL_SUGGESTIONS[key] ?? null
+    }, [location.search])
+
+    const displayedTip = agentSuggestion ?? dailyTip
 
     const todayFact = useMemo(() => {
         const facts = CONTENT.dailyFacts
@@ -96,7 +136,7 @@ export default function Nutrition() {
 
     return (
         <div data-tour-id="nutrition-page" className="space-y-6 pb-16 lg:space-y-8">
-            <NutritionAssistantPopup fact={todayFact} />
+            <NutritionAssistantPopup fact={agentSuggestion?.assistantLine ?? todayFact} />
 
             {/* ── Section 1: Content LEFT · Image RIGHT ──────────────────── */}
             <section className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
@@ -115,13 +155,15 @@ export default function Nutrition() {
                             {paragraph}
                         </p>
                     ))}
-                    {dailyTip && (
+                    {displayedTip && (
                         <div className="mt-5 rounded-2xl bg-theme-accent/20 px-4 py-3">
-                            <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-theme-accent/70">Gợi ý từ AI hôm nay</p>
-                            <p className="text-sm font-semibold text-theme-text-primary">{dailyTip.dish}</p>
-                            <p className="mt-1 text-xs leading-relaxed text-theme-text-secondary">{dailyTip.benefit}</p>
-                            {dailyTip.tip && (
-                                <p className="mt-1.5 text-[11px] text-theme-text-secondary/70">{dailyTip.tip}</p>
+                            <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-theme-accent/70">
+                                {agentSuggestion?.label ?? 'Gợi ý từ AI hôm nay'}
+                            </p>
+                            <p className="text-sm font-semibold text-theme-text-primary">{displayedTip.dish}</p>
+                            <p className="mt-1 text-xs leading-relaxed text-theme-text-secondary">{displayedTip.benefit}</p>
+                            {displayedTip.tip && (
+                                <p className="mt-1.5 text-[11px] text-theme-text-secondary/70">{displayedTip.tip}</p>
                             )}
                         </div>
                     )}

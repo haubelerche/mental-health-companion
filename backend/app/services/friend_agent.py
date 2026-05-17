@@ -43,8 +43,10 @@ def _has_phrase(normalized: str, phrase: str) -> bool:
 
 def _is_greeting_only(normalized: str) -> bool:
     compact = re.sub(r"[^a-z0-9\s]", " ", normalized)
-    words = [w for w in compact.split() if w not in {"dung", "dat", "hau", "oi", "e"}]
-    return bool(words) and all(w in {"hi", "hello", "helo", "chao", "yo", "hey"} for w in words)
+    ignored = {"dung", "dat", "hau", "oi", "e", "ban", "nhe", "nha", "a"}
+    words = [w for w in compact.split() if w not in ignored]
+    greeting_words = {"hi", "hello", "helo", "chao", "yo", "hey", "alo", "xin"}
+    return bool(words) and all(w in greeting_words for w in words)
 
 
 def _is_short_social_emotion_ping(normalized: str) -> bool:
@@ -198,6 +200,26 @@ def _is_physical_discomfort(normalized: str) -> bool:
     )
 
 
+_THANKS_CLOSE_HINTS = (
+    "cam on",
+    "thanks",
+    "thank you",
+    "tks",
+    "cam thay tot hon",
+    "thay tot hon",
+    "on hon roi",
+    "khoe hon roi",
+    "yen hon roi",
+    "binh on roi",
+    "biet roi cam on",
+)
+
+
+def _is_thanks_or_positive_close(normalized: str) -> bool:
+    """Detect thank-you or 'feeling better' messages that warrant a warm closing response."""
+    return any(_has_phrase(normalized, h) for h in _THANKS_CLOSE_HINTS)
+
+
 def _is_diagnosis_request(normalized: str) -> bool:
     return any(
         _has_phrase(normalized, token)
@@ -240,7 +262,7 @@ def _response_context(pack: ContextPack) -> tuple[list[dict], dict | None]:
 
 
 def _contains_any(normalized: str, tokens: tuple[str, ...]) -> bool:
-    return any(_has_phrase(normalized, token) or token in normalized for token in tokens)
+    return any(_has_phrase(normalized, token) for token in tokens)
 
 
 def _dung_intents(user_message: str, pack: ContextPack) -> list[str]:
@@ -253,9 +275,11 @@ def _dung_intents(user_message: str, pack: ContextPack) -> list[str]:
         ("deadline", ("deadline", "han nop", "nop bai", "bai tap", "thi cu", "on thi", "do an", "hoc tiep")),
         ("bữa ăn/năng lượng", ("bo bua", "khong an", "an uong", "khong con thay vi", "vi giac", "an gi", "ca phe", "bua", "doi", "run")),
         ("tự trách", ("tu trach", "loi tai minh", "do minh", "vo dung", "minh te", "thua kem")),
+        ("lo lắng/panic", ("lo lang", "lo qua", "panic", "panick", "khong kiem soat", "mat kiem soat", "bat an")),
+        ("cô đơn/không ai hiểu", ("co don", "mot minh", "khong ai hieu", "khong ai", "lac long")),
         ("overthinking", ("overthinking", "nghi nhieu", "suy dien", "lo qua", "bat an")),
         ("quan hệ", ("ban be", "nguoi yeu", "dong nghiep", "group chat", "bi seen", "bo roi", "bi bo bo", "bo bo")),
-        ("mệt/quá tải", ("met", "qua tai", "kiet suc", "can kiet", "can suc", "het suc", "het pin", "burnout", "duoi")),
+        ("mệt/kiệt sức/quá tải", ("met", "qua tai", "kiet suc", "can kiet", "can suc", "het suc", "het pin", "burnout", "duoi")),
         ("cần kế hoạch", ("ke hoach", "phuong an", "phai lam gi", "nen lam gi", "lam gi tiep", "go tung nut")),
     )
     out: list[str] = []
@@ -285,9 +309,13 @@ def _dung_tiny_step(user_message: str, pack: ContextPack) -> str:
     if "bữa ăn/năng lượng" in intents:
         return "Bước nhỏ nhất: uống vài ngụm nước rồi kiếm một món dễ nuốt trước, kiểu bánh/sữa/cháo cũng tính là cứu pin rồi."
     if "deadline" in intents or "cần kế hoạch" in intents:
-        return "Bước nhỏ nhất: mở đúng một file, làm 10 phút phần dễ nhất, chưa cần thắng cả deadline trong một pha."
+        return "Bước nhỏ nhất: mở đúng một file học tập, làm 10 phút phần dễ nhất, chưa cần thắng cả deadline trong một pha."
     if "tự trách" in intents:
-        return "Bước nhỏ nhất: tách một dòng sự kiện thật với một dòng cậu đang tự kết tội mình, để não đỡ tự xử oan."
+        return "Bước nhỏ nhất: tách cảm xúc buồn, một dòng sự kiện thật, và một dòng cậu đang tự trách bản thân, để não đỡ tự xử oan."
+    if "lo lắng/panic" in intents:
+        return "Bước nhỏ nhất: đặt hai chân xuống sàn, gọi tên cơn lo lắng/panic, rồi thở chậm 4 nhịp để lấy lại chút kiểm soát trước."
+    if "cô đơn/không ai hiểu" in intents:
+        return "Bước nhỏ nhất: gọi đúng cảm giác cô đơn và chuyện không ai hiểu mình trước, rồi mình chọn một người hoặc một việc rất nhỏ để cậu không phải ôm hết một mình."
     if "overthinking" in intents:
         return "Bước nhỏ nhất: chốt một điều chắc chắn đang xảy ra, còn mấy giả thuyết thì để tớ ngồi lọc cùng cậu sau."
     if "quan hệ" in intents:
@@ -307,8 +335,10 @@ def _dung_response(user_message: str, moves: list[str], supportive_mode: bool, p
         return "Tớ không thể chẩn đoán cậu bị bệnh gì qua chat được. Nhưng tớ có thể giúp cậu tách triệu chứng, cảm giác và chuyện vừa xảy ra để xem bước an toàn tiếp theo là gì."
     if _is_reassurance_doubt(normalized):
         return "Tớ không thấy cậu ảo tưởng chỉ vì cậu đã hy vọng. Có thể đã có vài tín hiệu khiến cậu bám vào thật, nhưng mình cũng chưa kết luận thay người kia được; tớ tách cùng cậu phần dấu hiệu thật với phần tự suy ra nhé?"
+    if _is_thanks_or_positive_close(normalized):
+        return "Cảm ơn cậu đã nói lại; vui khi nghe cậu thấy tốt hơn! Cứ quay lại khi cần nhé, tớ vẫn ở đây."
     if _is_greeting_only(normalized):
-        return "Tớ đây. Hôm nay cậu muốn kể gì trước?"
+        return "Chào bạn, tớ đây. Hôm nay cậu muốn kể gì trước?"
     if _is_short_social_emotion_ping(normalized):
         if any(_has_phrase(normalized, token) for token in ("chan", "buon", "nan", "te")):
             return "Ơ, nghe hơi tụt mood rồi đó. Kể tớ nghe: chán vì chuyện gì vậy?"
@@ -317,6 +347,10 @@ def _dung_response(user_message: str, moves: list[str], supportive_mode: bool, p
         return "Tớ đây. Hôm nay mood cậu đang thế nào?"
     if "dung" in normalized and len(normalized.split()) <= 4:
         return "Tớ nghe nè. Gọi Dũng là có mặt, cậu đang cần gỡ khúc nào trước?"
+    if any(_has_phrase(normalized, token) for token in ("lo lang", "panic", "panick", "khong kiem soat", "mat kiem soat")):
+        return "Cơn lo lắng/panic và cảm giác không kiểm soát được đang lên khá mạnh. Đặt hai chân xuống sàn, nhìn quanh gọi tên 3 thứ cậu thấy, rồi thở chậm 4 nhịp với tớ trước."
+    if any(_has_phrase(normalized, token) for token in ("co don", "khong ai hieu", "mot minh", "lac long")):
+        return "Cảm giác cô đơn và không ai hiểu mình dễ làm mọi thứ nặng hơn hẳn. Tớ ở đây với cậu; mình gọi đúng phần mệt nhất trước, rồi chọn một bước nhỏ để cậu không phải ôm hết một mình."
     if supportive_mode:
         context_line = _dung_context_line(user_message, pack)
         return f"{context_line} Tớ chậm lại một nhịp đã; phần nào đang nặng nhất ngay lúc này?"
@@ -329,6 +363,8 @@ def _dung_response(user_message: str, moves: list[str], supportive_mode: bool, p
         return f"{context_line} {advisor} Tớ lấy một bước nhỏ trước nhé."
     if _is_asking_for_advice(user_message):
         context_line = _dung_context_line(user_message, pack)
+        if any(_has_phrase(normalized, token) for token in ("phan tich", "sai khong", "minh sai")):
+            return f"{context_line} Tớ giúp cậu phân tích phần tự trách này mà chưa vội kết luận cậu sai. {_dung_tiny_step(user_message, pack)}"
         return f"{context_line} Tớ không quăng cả giáo trình đâu. {_dung_tiny_step(user_message, pack)}"
     if any(_has_phrase(normalized, token) for token in ("deadline", "han nop", "bai tap", "nop bai")):
         return "Deadline dí thì não dễ đứng hình thật. Cậu mở phần dễ nhất làm 10 phút trước đã, xong tớ tính tiếp với cậu."
@@ -350,8 +386,10 @@ def _dat_response(user_message: str, moves: list[str], supportive_mode: bool, pa
         return "Tôi không thể chẩn đoán bạn bị bệnh gì qua chat. Điều tôi có thể làm là cùng bạn tách dấu hiệu đang có, mức độ ảnh hưởng, và bước an toàn nên làm tiếp."
     if _is_reassurance_doubt(normalized):
         return "Tôi không nghĩ chỉ vì bạn hy vọng mà có thể gọi là ảo tưởng. Có thể đã có vài tín hiệu khiến bạn tin vào một khả năng, nhưng ta vẫn nên tách dữ kiện thật khỏi phần mình đang diễn giải."
+    if _is_thanks_or_positive_close(normalized):
+        return "Cảm ơn bạn đã nói lại; rất vui khi nghe bạn thấy ổn hơn. Bất cứ khi nào bạn cần, tôi vẫn ở đây."
     if _is_greeting_only(normalized):
-        return "Tôi đây. Hôm nay bạn muốn cùng tôi nhìn rõ chuyện gì?"
+        return "Chào bạn, tôi đây. Hôm nay bạn muốn cùng tôi nhìn rõ chuyện gì?"
     if _is_short_social_emotion_ping(normalized):
         if any(_has_phrase(normalized, token) for token in ("chan", "buon", "nan", "te")):
             return "Tôi nghe bạn đang chùng xuống một chút. Chuyện gì làm bạn thấy chán nhất lúc này?"
@@ -381,8 +419,10 @@ def _hau_response(user_message: str, moves: list[str], supportive_mode: bool, pa
         return "mình không chẩn đoán bạn bị bệnh gì qua chat được. mình chỉ giúp bạn nhìn lại dấu hiệu đang có và chọn bước an toàn tiếp theo thôi."
     if _is_reassurance_doubt(normalized):
         return "mình chưa muốn gọi đó là ảo tưởng. có thể đã có vài tín hiệu làm bạn hy vọng, chỉ là mình chưa kết luận thay người kia được."
+    if _is_thanks_or_positive_close(normalized):
+        return "cảm ơn bạn đã nói lại; vui khi nghe bạn thấy tốt hơn rồi. cứ quay lại khi cần nhé, mình ở đây."
     if _is_greeting_only(normalized):
-        return "Mình đây. Bạn cứ nói ngắn thôi cũng được, mình nghe."
+        return "Chào bạn, mình đây. Bạn cứ nói ngắn thôi cũng được, mình nghe."
     if _is_short_social_emotion_ping(normalized):
         if any(_has_phrase(normalized, token) for token in ("chan", "buon", "nan", "te")):
             return "Ừm, nghe hơi chán thật. Bạn thả một ý ngắn thôi cũng được: chán vì chuyện gì vậy?"

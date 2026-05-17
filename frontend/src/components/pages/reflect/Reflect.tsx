@@ -142,7 +142,7 @@ function LifestyleTab({ dashboard }: { dashboard: ReflectDashboardResponse }) {
             aria-labelledby="tab-lifestyle"
             className="flex flex-col gap-4"
         >
-            <LifestyleRhythmPanel dimensions={dashboard.dimensions} />
+            <LifestyleRhythmPanel dimensions={dashboard.dimensions} insights={dashboard.insights} />
             <ScreeningPanel />
             <NextStepsPlan summary={dashboard.summary} />
         </div>

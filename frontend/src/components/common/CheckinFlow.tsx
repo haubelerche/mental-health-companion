@@ -109,6 +109,8 @@ export function CheckinFlow() {
   const [moodWords, setMoodWords] = useState<string[]>([])
   const [selectedTriggers, setSelectedTriggers] = useState<string[]>([])
   const [note, setNote] = useState('')
+  const [sleepStart, setSleepStart] = useState('')
+  const [wakeTime, setWakeTime] = useState('')
   const [loading, setLoading] = useState(false)
   const [isDaytime, setIsDaytime] = useState(() => isDaytimeCheckin())
   const [showStreak, setShowStreak] = useState(false)
@@ -130,6 +132,13 @@ export function CheckinFlow() {
   }, [location.state])
 
   const background = isDaytime ? bgCheckinDay : bgCheckinNight
+  const requestedVariant = new URLSearchParams(location.search).get('variant')
+  const requestedBucket =
+    requestedVariant === 'evening'
+      ? 'evening'
+      : requestedVariant === 'morning'
+        ? 'morning'
+        : undefined
   const mood = selectedMood ?? deriveMoodFromWords(moodWords)
   const currentStep = stepIndex(step)
   const canGoNext = moodWords.length > 0
@@ -148,12 +157,28 @@ export function CheckinFlow() {
     )
   }
 
+  const computedSleepHours = useMemo(() => {
+    if (!sleepStart || !wakeTime) return null
+    const [sh, sm] = sleepStart.split(':').map(Number)
+    const [wh, wm] = wakeTime.split(':').map(Number)
+    if ([sh, sm, wh, wm].some((v) => Number.isNaN(v))) return null
+    let start = sh * 60 + sm
+    let end = wh * 60 + wm
+    if (end <= start) end += 24 * 60
+    const hours = Math.round(((end - start) / 60) * 10) / 10
+    return hours > 0 && hours <= 16 ? hours : null
+  }, [sleepStart, wakeTime])
+
   const submit = async () => {
     if (moodWords.length === 0) return
     setLoading(true)
     try {
       const result = await checkinService.quickCheckin({
         mood,
+        time_bucket: requestedBucket,
+        sleep_hours: computedSleepHours,
+        sleep_start: sleepStart || null,
+        wake_time: wakeTime || null,
         emotions: moodWords,
         triggers: selectedTriggers,
         note: note.trim() || null,
@@ -291,6 +316,38 @@ export function CheckinFlow() {
                       placeholder="Ghi lại điều gì đó về khoảnh khắc này..."
                       className="mt-2 w-full resize-none rounded-[18px] border border-[#ded0b8] bg-[#fffaf0] px-4 py-3 text-sm leading-relaxed text-[#33372f] placeholder:text-[#8a8b80] focus:border-[#526f5f] focus:outline-none"
                     />
+
+                    <div className="mt-4 rounded-[18px] border border-[#ded0b8] bg-[#fffaf0] p-3">
+                      <p className="text-sm font-semibold text-[#33372f]">Giấc ngủ tối qua</p>
+                      <p className="mt-1 text-xs leading-relaxed text-[#62695f]">
+                        Nếu nhớ, ghi giờ ngủ và giờ dậy để dashboard biết bạn có ngủ đủ 7-8 giờ không.
+                      </p>
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        <label className="text-xs font-semibold text-[#62695f]">
+                          Ngủ lúc
+                          <input
+                            type="time"
+                            value={sleepStart}
+                            onChange={(event) => setSleepStart(event.target.value)}
+                            className="mt-1 w-full rounded-xl border border-[#ded0b8] bg-white px-3 py-2 text-sm text-[#33372f] focus:border-[#526f5f] focus:outline-none"
+                          />
+                        </label>
+                        <label className="text-xs font-semibold text-[#62695f]">
+                          Dậy lúc
+                          <input
+                            type="time"
+                            value={wakeTime}
+                            onChange={(event) => setWakeTime(event.target.value)}
+                            className="mt-1 w-full rounded-xl border border-[#ded0b8] bg-white px-3 py-2 text-sm text-[#33372f] focus:border-[#526f5f] focus:outline-none"
+                          />
+                        </label>
+                      </div>
+                      {computedSleepHours !== null && (
+                        <p className="mt-2 text-xs font-medium text-[#526f5f]">
+                          Khoảng {computedSleepHours} giờ ngủ.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               )}
