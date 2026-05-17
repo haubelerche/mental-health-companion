@@ -18,11 +18,15 @@ const AdminMain = () => {
                 return
             }
 
-            // Show reauth modal on any admin 401/403. The admin_access_token cookie
-            // expires after ADMIN_TOKEN_TTL_SECONDS regardless of sessionStorage state,
-            // so we must not suppress the modal based on that flag.
+            // Show reauth modal on admin 401/403, but not during the 5-second window
+            // immediately after a fresh login (race between cookie propagation and
+            // first dashboard API calls firing).
             if (detail.path.includes('/admin')) {
-                setShowReAuth(true)
+                const loginTs = Number(sessionStorage.getItem('admin_login_ts') || 0)
+                const justLoggedIn = Date.now() - loginTs < 5000
+                if (!justLoggedIn) {
+                    setShowReAuth(true)
+                }
             }
         }
 
