@@ -83,7 +83,7 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 
 ### [ADR-3] Analyst không giao tiếp trực tiếp với người dùng — 09/04/2026
 
-**Bối cảnh:** Kết quả từ "MINDSET CỦA 1 THERAPIST" research (Dũng + Đạt) chỉ ra rằng ngôn ngữ lâm sàng gây stigma ngay cả khi thông tin chính xác. Analyst cần đưa ra đánh giá PHQ-9/GAD-7 nhưng không được để user cảm thấy "bị khám bệnh".
+**Bối cảnh:** Kết quả từ "MINDSET CỦA 1 THERAPIST" research (Hậu) chỉ ra rằng ngôn ngữ lâm sàng gây stigma ngay cả khi thông tin chính xác. Analyst cần đưa ra đánh giá PHQ-9/GAD-7 nhưng không được để user cảm thấy "bị khám bệnh".
 
 **Các lựa chọn đã xem xét:**
 - **Analyst → User trực tiếp**: Đơn giản hơn pipeline nhưng output lâm sàng phá vỡ trải nghiệm peer chat.
@@ -162,7 +162,7 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 | Xây dựng agent loop cơ bản (JS prototype) | Lương Thanh Hậu | 03/04 | ✅ Xong |
 | Debug message history format (`tool_result`) | Lê Hoàng Đạt | 04/04 | ✅ Xong |
 | Thêm timeout + error handling cho API calls | Lương Thanh Hậu | 05/04 | ✅ Xong |
-| Research tổng quan thị trường mental health app | Lương Tiến Dũng | 05/04 | ✅ Xong |
+| Research tổng quan thị trường mental health app | Lương Thanh Hậu | 05/04 | ✅ Xong |
 | Đánh giá và đề xuất techstack cho Sprint 2 | Cả nhóm | 06/04 | ✅ Xong |
 
 ---
