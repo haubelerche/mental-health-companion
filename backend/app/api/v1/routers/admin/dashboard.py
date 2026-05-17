@@ -133,9 +133,11 @@ def admin_cost_dashboard(
 def admin_traces_recent(
     request: Request,
     limit: int = 50,
+    db: Session = Depends(get_db),
     claims: dict = Depends(get_admin_claims),
 ):
     enforce_admin_ip(request)
     limit = max(1, min(limit, 200))
     traces = get_recent_traces(limit=limit)
+    _audit(db, claims["sub"], "GET_TRACES_RECENT", request)
     return ok({"traces": traces, "count": len(traces)})
