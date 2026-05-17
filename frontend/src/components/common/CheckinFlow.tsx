@@ -243,7 +243,7 @@ export function CheckinFlow() {
                     <p className="mt-2 text-sm leading-relaxed text-[#62695f]">
                       Chọn một hoặc nhiều từ gần nhất với cảm giác của bạn lúc này.
                     </p>
-                    <MoodWordChips words={MOOD_WORDS} selected={moodWords} onChange={setMoodWords} className="mt-4" />
+                    <MoodWordChips words={MOOD_WORDS} selected={moodWords} onChange={setMoodWords} className="mt-2 flex shrink-0 gap-1 flex-wrap overflow-y-auto hide-scrollbar" />
                   </div>
                 </motion.div>
               )}
