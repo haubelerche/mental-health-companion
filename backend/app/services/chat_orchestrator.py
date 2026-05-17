@@ -22,6 +22,7 @@ from app.services.fast_need_router import FastNeedRouter
 from app.services.friend_agent import FriendAgent
 from app.services.interaction_need_classifier import classify_interaction_need
 from app.services.async_outbox import enqueue_worker_job
+from app.analyst.jobs import build_refresh_job as _build_analyst_refresh_job
 from app.services.langgraph_chat import build_normal_envelope
 from app.services.langfuse_tracing import get_active_tracer
 from app.services.observability import record_event, record_metric, start_span
@@ -777,6 +778,12 @@ class ChatOrchestrator:
                     request_id=request_id,
                 )
             )
+
+        # Enqueue batch analyst pipeline (turn window). Idempotency key deduplicates per user per hour.
+        try:
+            jobs.append(_build_analyst_refresh_job(user_id=user_id, run_type="turn", trace_id=trace_id, request_id=request_id))
+        except Exception:
+            pass
 
         outcomes: dict[str, str] = {}
         for job in jobs:

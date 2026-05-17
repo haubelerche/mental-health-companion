@@ -133,6 +133,7 @@ backend/tests/*
 !backend/tests/test_memory_dedup_mention_count.py
 !backend/tests/test_advisor_provenance.py
 !backend/tests/test_meme_selector.py
+!backend/tests/test_nutrition_suggestion_service.py
 !backend/tests/test_memory_dedup.py
 !backend/tests/test_advisor_selector.py
 !backend/tests/test_chat_advisor_assisted_integration.py

@@ -166,22 +166,45 @@ def _refresh_tts_payload(db: Session, tts_job: dict | None) -> dict | None:
     job_id = str(tts_job.get("tts_job_id") or "").strip()
     if not job_id:
         return dict(tts_job)
+    current = _voice_job_history_snapshot(db, job_id)
+    if current:
+        refreshed = dict(tts_job)
+        refreshed.update(current)
+        return refreshed
+    return dict(tts_job)
+
+
+def _voice_job_history_snapshot(db: Session, tts_job_id: str) -> dict | None:
+    if not tts_job_id.startswith("tts_"):
+        return None
     try:
-        current = get_voice_job(db, job_id)
+        outbox_id = int(tts_job_id.replace("tts_", "", 1))
+    except ValueError:
+        return None
+    try:
+        row = db.get(SyncOutbox, outbox_id)
     except SQLAlchemyError as exc:
-        logger.warning("history_tts_refresh_failed job_id=%s: %s", job_id, exc)
+        logger.warning("history_tts_snapshot_failed job_id=%s: %s", tts_job_id, exc)
         try:
             db.rollback()
         except Exception:
             pass
-        return dict(tts_job)
-    if not current:
-        return dict(tts_job)
-    refreshed = dict(tts_job)
-    for key in ("status", "audio_url", "audio_data_uri", "error_code", "error_message"):
-        if current.get(key) is not None:
-            refreshed[key] = current.get(key)
-    return refreshed
+        return None
+    if not row or row.event_type != VOICE_JOB_EVENT_TYPE:
+        return None
+    payload = dict(row.payload or {})
+    voice = dict(payload.get("voice") or {})
+    status = str(voice.get("status") or row.status or "")
+    audio_url = voice.get("audio_url")
+    if not audio_url and status in {"ready", "cache_hit", "done", "synced"}:
+        audio_url = f"/v1/chat/voice-jobs/{tts_job_id}/audio"
+    return {
+        "tts_job_id": tts_job_id,
+        "status": status,
+        "audio_url": audio_url,
+        "error_code": voice.get("error_code"),
+        "error_message": voice.get("error_message"),
+    }
 
 
 def _history_client_payload(db: Session, message: Message) -> dict | None:
@@ -206,13 +229,13 @@ def _history_client_payload(db: Session, message: Message) -> dict | None:
     return payload
 
 
-def _legacy_voice_payloads_for_history(db: Session, *, session_id: str) -> dict[str, dict]:
+def _legacy_voice_payloads_for_history(db: Session, *, session_id: str, user_id: str) -> dict[str, dict]:
     try:
         rows = db.scalars(
             select(SyncOutbox)
-            .where(SyncOutbox.event_type == VOICE_JOB_EVENT_TYPE)
+            .where(SyncOutbox.event_type == VOICE_JOB_EVENT_TYPE, SyncOutbox.user_id == user_id)
             .order_by(SyncOutbox.created_at.asc())
-            .limit(500)
+            .limit(200)
         ).all()
     except SQLAlchemyError as exc:
         logger.warning("history_legacy_voice_scan_failed session_id=%s: %s", session_id, exc)
@@ -227,7 +250,7 @@ def _legacy_voice_payloads_for_history(db: Session, *, session_id: str) -> dict[
         if str(payload.get("session_id") or "") != session_id:
             continue
         try:
-            job = get_voice_job(db, f"tts_{row.outbox_id}")
+            job = _voice_job_history_snapshot(db, f"tts_{row.outbox_id}")
         except SQLAlchemyError as exc:
             logger.warning("history_legacy_voice_job_failed outbox_id=%s: %s", row.outbox_id, exc)
             try:
@@ -2259,7 +2282,7 @@ def send_message_stream(
             _stream_persona_id = _active_persona_id(db, current_user.user_id, distress=distress)
             _stream_analyst_extra_context, _stream_analyst_ctx = _load_analyst_extra_context(db, current_user.user_id)
             if turn is None:
-                _s_route_tier, _, _s_route_codes = ChatOrchestrator.resolve_route_advisors_with_reasons(
+                _s_route_tier, _s_planned_advisor_ids, _s_route_codes = ChatOrchestrator.resolve_route_advisors_with_reasons(
                     raw_text=raw_text,
                     previous_user_messages=previous_user_messages,
                 )
@@ -2321,6 +2344,93 @@ def send_message_stream(
                         "routing_history": generated.routing_history,
                         "route_tier": generated.route_tier,
                         "used_advisor_ids": generated.used_advisor_ids,
+                    }
+                elif _s_route_tier == "advisor_assisted":
+                    # Mirror non-streaming advisor path so streaming and non-streaming
+                    # produce equivalent advisor consultation for the same input.
+                    _s_memory_ctx, _s_compat_longterm = _load_memory_context_for_turn(
+                        db,
+                        user_id=current_user.user_id,
+                        raw_text=raw_text,
+                        recent_messages=ctx.recent_messages,
+                        distress_score=distress,
+                    )
+                    _s_nutrition = _load_today_meals(db, current_user.user_id)
+                    _s_traits = dict(_s_memory_ctx.traits if _s_memory_ctx else {})
+                    if _s_memory_ctx and _s_memory_ctx.onboarding:
+                        _s_traits.setdefault("onboarding", _s_memory_ctx.onboarding)
+                    _sadv_tracer = ChatTurnTracer(
+                        correlation_id=message_hash,
+                        user_id=current_user.user_id,
+                        session_id=session.session_id,
+                        input_meta={
+                            "route_tier": "advisor_assisted",
+                            "stream": True,
+                            "user_message_len": len(raw_text),
+                        },
+                    )
+                    set_active_tracer(_sadv_tracer)
+                    policy_decision = evaluate_safety_policy(raw_text, previous_user_messages)
+                    context_pack = ContextPack(
+                        recent_messages=ctx.recent_messages,
+                        active_memory={
+                            "recent_summaries": _s_memory_ctx.recent_summaries if _s_memory_ctx else _s_compat_longterm,
+                            "mem0_facts": _s_memory_ctx.mem0_facts if _s_memory_ctx else [],
+                            "top_triggers": _s_memory_ctx.top_triggers if _s_memory_ctx else [],
+                            "active_goals": _s_memory_ctx.active_goals if _s_memory_ctx else [],
+                            "effective_coping": _s_memory_ctx.effective_coping if _s_memory_ctx else [],
+                        },
+                        mood_context=ctx.mood_today,
+                        nutrition_context={"today_meals": _s_nutrition} if _s_nutrition else None,
+                        persona_context={"selected": _stream_persona_id},
+                        safety_policy=policy_decision,
+                        resource_candidates=fetch_resource_candidates(
+                            distress_score=float(getattr(policy_decision, "distress_score", 0.0)),
+                            user_message=raw_text,
+                            db=db,
+                        ),
+                    )
+                    def _stream_adv_output_policy(text: str, **_kwargs: object) -> str:
+                        _v = _validate_tts_output(text, surface="chat")
+                        if _v.is_blocked:
+                            logger.warning("output_validator blocked stream advisor reply: %s", _v.reason_codes)
+                            return "Mình hiểu bạn đang cần hỗ trợ. Hãy chia sẻ thêm để Serene có thể đồng hành cùng bạn nhé."
+                        return text
+                    _s_generated = ChatOrchestrator.generate_normal_turn(
+                        user_message=raw_text,
+                        context_pack=context_pack,
+                        route_tier=_s_route_tier,
+                        planned_advisor_ids=_s_planned_advisor_ids,
+                        apply_output_policy_or_fallback=_stream_adv_output_policy,
+                        policy_decision=policy_decision,
+                        route_reason_codes=_s_route_codes,
+                        consultation_db=db,
+                        request_id=message_hash,
+                        session_id=session.session_id,
+                        user_id=current_user.user_id,
+                    )
+                    _sadv_tracer.score("distress_score", distress)
+                    _sadv_tracer.update_output(
+                        _s_generated.assistant_text,
+                        metadata={"route_tier": "advisor_assisted", "stream": True},
+                    )
+                    _sadv_tracer.flush()
+                    set_active_tracer(None)
+                    snap = build_snapshot(
+                        distress,
+                        sos_triggered=False,
+                        voice_hint=settings.distress_voice_hint,
+                        critical=settings.distress_critical,
+                    )
+                    turn = {
+                        "session_fields": snap,
+                        "reply": _s_generated.assistant_text,
+                        "assistant_tone": _s_generated.assistant_tone,
+                        "goi_y_nhanh": _s_generated.goi_y_nhanh,
+                        "the_dinh_kem": _s_generated.the_dinh_kem,
+                        "routing_history": _s_generated.routing_history,
+                        "route_tier": _s_generated.route_tier,
+                        "used_advisor_ids": _s_generated.used_advisor_ids,
                     }
             if turn is None:
                 memory_ctx, compat_longterm = _load_memory_context_for_turn(
@@ -2887,30 +2997,46 @@ def end_chat_session(
 
 
 @router.get("/sessions")
-def get_sessions(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    rows = db.scalars(
-        select(Conversation)
+def get_sessions(
+    limit: int = Query(default=30, le=100, ge=1),
+    offset: int = Query(default=0, ge=0),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    latest_user_messages = (
+        select(
+            Message.session_id.label("session_id"),
+            Message.content.label("preview"),
+            func.row_number()
+            .over(partition_by=Message.session_id, order_by=Message.created_at.desc())
+            .label("rn"),
+        )
+        .where(Message.user_id == current_user.user_id, Message.role == "user")
+        .subquery()
+    )
+    rows = db.execute(
+        select(Conversation, latest_user_messages.c.preview)
+        .outerjoin(
+            latest_user_messages,
+            (latest_user_messages.c.session_id == Conversation.session_id)
+            & (latest_user_messages.c.rn == 1),
+        )
         .where(Conversation.user_id == current_user.user_id, Conversation.deleted_at.is_(None))
-        .order_by(Conversation.last_message_at.desc())
+        .order_by(Conversation.last_message_at.desc(), Conversation.session_id.desc())
+        .offset(offset)
+        .limit(limit + 1)
     ).all()
+    page_rows = rows[:limit]
+    sessions = [
+        {
+            "session_id": conv.session_id,
+            "last_message_at": conv.last_message_at.isoformat() + "Z",
+            "preview": preview,
+        }
+        for conv, preview in page_rows
+    ]
 
-    sessions = []
-    for row in rows:
-        preview = db.scalar(
-            select(Message.content)
-            .where(Message.session_id == row.session_id, Message.role == "user")
-            .order_by(Message.created_at.desc())
-            .limit(1)
-        )
-        sessions.append(
-            {
-                "session_id": row.session_id,
-                "last_message_at": row.last_message_at.isoformat() + "Z",
-                "preview": preview,
-            }
-        )
-
-    return ok({"sessions": sessions})
+    return ok({"sessions": sessions, "has_more": len(rows) > limit})
 
 
 @router.get("/sessions/{session_id}/messages")
@@ -2918,6 +3044,7 @@ def get_session_messages(
     session_id: str,
     limit: int = Query(default=20, le=100, ge=1),
     offset: int = Query(default=0, ge=0),
+    latest: bool = Query(default=False),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -2932,14 +3059,24 @@ def get_session_messages(
         raise AppError("SESSION_NOT_FOUND", "Session không tồn tại", 404)
 
     total = db.scalar(select(func.count(Message.message_id)).where(Message.session_id == session_id)) or 0
+    page_offset = max(0, total - offset - limit) if latest else offset
     rows = db.scalars(
         select(Message)
         .where(Message.session_id == session_id)
         .order_by(Message.created_at.asc())
-        .offset(offset)
+        .offset(page_offset)
         .limit(limit)
     ).all()
-    legacy_voice_payloads = _legacy_voice_payloads_for_history(db, session_id=session_id)
+    needs_legacy_voice = any(
+        row.role == "assistant"
+        and not isinstance((dict(row.metadata_json or {})).get("client_payload"), dict)
+        for row in rows
+    )
+    legacy_voice_payloads = (
+        _legacy_voice_payloads_for_history(db, session_id=session_id, user_id=current_user.user_id)
+        if needs_legacy_voice
+        else {}
+    )
 
     messages = [
         {
@@ -2959,7 +3096,7 @@ def get_session_messages(
             "session_id": session_id,
             "messages": messages,
             "total": total,
-            "has_more": offset + len(messages) < total,
+            "has_more": page_offset + len(messages) < total if not latest else page_offset > 0,
         }
     )
 

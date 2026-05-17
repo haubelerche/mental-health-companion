@@ -68,7 +68,10 @@ export const chatService = {
     startGuestSession: () => httpClient.postWithCsrf<GuestSessionStartResponse>('/guest/session/start'),
     getVoiceJob: (ttsJobId: string) =>
         httpClient.get<VoiceJobResponse>(`/chat/voice-jobs/${ttsJobId}`),
-    getSessions: () => httpClient.get<{ sessions: SessionSummary[] }>('/chat/sessions'),
+    getSessions: (limit = 30, offset = 0) =>
+        httpClient.get<{ sessions: SessionSummary[]; has_more?: boolean }>(
+            `/chat/sessions?limit=${limit}&offset=${offset}`,
+        ),
     endSession: (sessionId: string) =>
         httpClient.postWithCsrf<{
             session_id: string
@@ -81,9 +84,9 @@ export const chatService = {
             '/chat/end',
             { session_id: sessionId },
         ),
-    getSessionMessages: (sessionId: string, limit = 40, offset = 0) =>
+    getSessionMessages: (sessionId: string, limit = 40, offset = 0, latest = false) =>
         httpClient.get<{ session_id: string; messages: SessionMessage[]; total: number; has_more: boolean }>(
-            `/chat/sessions/${sessionId}/messages?limit=${limit}&offset=${offset}`,
+            `/chat/sessions/${sessionId}/messages?limit=${limit}&offset=${offset}&latest=${latest ? 'true' : 'false'}`,
         ),
     deleteSession: (sessionId: string, hard = false) =>
         httpClient.postWithCsrf<{ deleted_at: string; hard_delete_at: string }>(

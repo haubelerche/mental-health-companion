@@ -25,6 +25,7 @@ from app.services.chat_cost_metrics import observe_chat_usage
 from app.services.langfuse_tracing import ChatTurnTracer, get_active_tracer, set_active_tracer
 from app.services.exercise_catalog import build_clinic_attachment, build_resource_attachment
 from app.services.fewshot_selector import build_fewshot_style_block
+from app.services.nutrition_suggestion_service import NutritionSuggestionService
 from app.safety.output_validator import validate_output as _safety_validate_output
 from app.services.output_grounding import sanitize_grounded_reply
 from app.services.response_planner import build_response_plan
@@ -309,12 +310,24 @@ def _recommended_attachments(user_message: str, distress_score: float) -> list[d
             "an gi",
             "dinh duong",
             "an uong",
+            "an linh tinh",
+            "an vat",
+            "mi goi",
+            "tra sua",
+            "do ngot",
+            "nuoc ngot",
+            "bo bua",
+            "khong an sang",
+            "an qua khuya",
+            "ruou",
+            "bia",
             "diet",
             "thuc don",
             "healthy food",
             "cai thien tam trang",
         )
     )
+    nutrition_suggestion = NutritionSuggestionService().suggest_for_message(user_message=user_message)
 
     if wants_clinic or distress_score >= 0.72:
         attachments.append(build_clinic_attachment())
@@ -322,7 +335,20 @@ def _recommended_attachments(user_message: str, distress_score: float) -> list[d
         attachments.append(build_resource_attachment("sleep_meditation"))
     elif any(keyword in normalized for keyword in ("thien", "thu gian", "nghe gi", "resource", "tai nguyen")):
         attachments.append(build_resource_attachment("calm_library"))
-    if wants_nutrition:
+    if nutrition_suggestion:
+        dish = str(nutrition_suggestion.get("dish") or "Một bữa cân bằng hơn")
+        benefit = str(nutrition_suggestion.get("benefit") or "Xem gợi ý dinh dưỡng phù hợp hơn.")
+        attachments.append(
+            {
+                "type": "nutrition_tip",
+                "id": str(nutrition_suggestion.get("id") or "food_reset"),
+                "title": dish,
+                "description": benefit,
+                "action": "open_resource",
+                "route": str(nutrition_suggestion.get("route") or "/serene/nutrition?agent=food_reset"),
+            }
+        )
+    elif wants_nutrition:
         attachments.append(
             {
                 "type": "nutrition_tip",
@@ -606,9 +632,6 @@ def _detect_hardship_signals(text: str) -> list[str]:
             matches.append(key)
     return matches
 
-
-def _enforce_reply_quality(reply: str, user_message: str, distress_score: float) -> str:
-    return reply
 
 def _enforce_reply_quality(reply: str, user_message: str, distress_score: float) -> str:
     return reply

@@ -17,7 +17,7 @@ export function InsightSummaryStrip({ summary }: Props) {
                 <div className="min-w-0">
                     <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-theme-text-tertiary">
                         <BarChart3 className="h-4 w-4 text-cyan-500" aria-hidden />
-                        Quan sát ban đầu
+                        Dựa trên dữ liệu đã ghi
                     </p>
                     <h2 className="mt-2 text-xl font-semibold leading-snug text-theme-text-primary md:text-2xl">
                         {summary.primary_observation}

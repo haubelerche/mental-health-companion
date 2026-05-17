@@ -7,6 +7,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **Evidence-based Reflect insights** — Added first-class `sleep_checkins` and persisted `dashboard_safe_insights`, centralized the safe dashboard builder boundary, added `/dashboard/safe-insights?window=7d|14d|30d`, and rewired Reflect copy toward evidence, interpretation, and next actions without raw clinical/risk fields.
+- **Dashboard insight placeholders** — Safe dashboard cards now filter generic placeholder rows and add deterministic, evidence-backed insight cards for weekly life state, trigger impact, sleep, nutrition, real-world connection, and screening results. Reflect dashboard cards now render backend interpretation, missing-data hints, and concrete next actions instead of only generic summaries.
+- **Evening check-in and sleep capture** — Quick check-in now honors explicit `time_bucket` values, including evening check-ins, and accepts minimal sleep inputs (`sleep_start`, `wake_time`, computed `sleep_hours`) for dashboard sleep analysis.
 - **Chat duplicate text bubbles** — `applyIntervention()` no longer renders `voice_script` as a visible chat bubble when `voice_job_ids` is empty (provider disabled). Removed the `else if (intervention.voice_script)` branch that violated the `visible_text ≠ voice_script` contract.
 - **TTS fallback shown as chat text** — `pollVoiceJob()` on timeout/failed/provider_disabled no longer appended `fallbackScript` to messages; removed `fallbackScript` parameter entirely. Failures now only update the `voiceStatus` badge.
 - **Chat layout overflow** — `flex-1 min-h-0 overflow-y-auto` on the feed div (was `mb-8`) and `shrink-0` on the input form (was `sticky bottom-15`) prevent message bubbles from clipping behind the input bar.

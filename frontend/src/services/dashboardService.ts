@@ -23,20 +23,25 @@ export type DashboardSufficiency = {
 
 export type InsightCard = {
     insight_id: string
+    category?: string
     title: string
     user_safe_summary: string
+    interpretation?: string | null
+    evidence?: Array<Record<string, unknown>>
     evidence_count: number
     evidence_sources: string[]
     confidence: 'low' | 'medium' | 'high' | number
     severity_band: 'neutral' | 'watch' | 'informational' | 'low' | 'medium' | 'high'
     suggested_action: string | null
+    recommended_actions?: string[]
+    missing_data?: string[]
     evidence_window_start: string | null
     evidence_window_end: string | null
     updated_at: string
 }
 
 export type WellnessDimension = {
-    dimension: 'emotion' | 'sleep' | 'mindfulness' | 'connection' | 'body' | 'growth'
+    dimension: 'emotion' | 'sleep' | 'mindfulness' | 'connection' | 'body' | 'growth' | 'nutrition' | 'screening'
     label: string
     status: 'unknown' | 'limited_data' | 'steady' | 'needs_attention' | 'improving'
     score: number | null
@@ -98,15 +103,19 @@ export type ReflectWellnessDimension = WellnessDimension & {
 
 export type ReflectInsight = {
     insight_id: string
+    category?: string
     hypothesis_type: string
     title: string
     user_safe_summary: string
+    interpretation?: string | null
     confidence_label: string
     severity_label: string
     evidence_count: number
     evidence_window_start: string | null
     evidence_window_end: string | null
     suggested_action?: string | null
+    recommended_actions?: string[]
+    missing_data?: string[]
 }
 
 export type TriggerEmotionMatrixCell = {
@@ -339,12 +348,12 @@ function buildMoodSeriesFromHistory(history: CheckinHistoryDay[], range: Reflect
 function confidenceLabel(confidence: InsightCard['confidence']): string {
     if (typeof confidence === 'number') {
         if (confidence < 0.35) return 'Dữ liệu còn ít'
-        if (confidence < 0.65) return 'Có vài dấu hiệu'
+        if (confidence < 0.65) return 'Dữ liệu mức vừa'
         if (confidence <= 0.85) return 'Khá rõ'
         return 'Rất nhất quán'
     }
     if (confidence === 'high') return 'Khá rõ'
-    if (confidence === 'medium') return 'Có vài dấu hiệu'
+    if (confidence === 'medium') return 'Dữ liệu mức vừa'
     return 'Dữ liệu còn ít'
 }
 
@@ -357,15 +366,19 @@ function severityLabel(severity: InsightCard['severity_band'] | string): string 
 export function adaptInsights(insights: InsightCard[]): ReflectInsight[] {
     return insights.map((insight) => ({
         insight_id: insight.insight_id,
-        hypothesis_type: insight.evidence_sources?.[0] || 'safe_dashboard_insight',
+        category: insight.category,
+        hypothesis_type: insight.category || insight.evidence_sources?.[0] || 'safe_dashboard_insight',
         title: insight.title,
         user_safe_summary: insight.user_safe_summary,
+        interpretation: insight.interpretation,
         confidence_label: confidenceLabel(insight.confidence),
         severity_label: severityLabel(insight.severity_band),
         evidence_count: insight.evidence_count,
         evidence_window_start: insight.evidence_window_start,
         evidence_window_end: insight.evidence_window_end,
         suggested_action: insight.suggested_action,
+        recommended_actions: insight.recommended_actions || (insight.suggested_action ? [insight.suggested_action] : []),
+        missing_data: insight.missing_data || [],
     }))
 }
 
@@ -606,9 +619,10 @@ function buildOverview(
 ): ReflectOverview {
     const trend = trendLabel(series)
     const action = recommendAction(checkins, insights)
-    const summary = primaryObservation(checkins)
+    const lifeState = insights.find((insight) => insight.category === 'weekly_life_state')
+    const summary = lifeState?.interpretation || lifeState?.user_safe_summary || primaryObservation(checkins)
     return {
-        state_label: overviewState(quality, dimensions, trend),
+        state_label: lifeState ? lifeState.title : overviewState(quality, dimensions, trend),
         summary,
         trend_label: trend,
         primary_factor: topLabels(checkins.flatMap((item) => item.triggers), 1)[0],
@@ -637,7 +651,7 @@ export const dashboardService = {
     getReflectDashboard: async (range: ReflectRange = '7d'): Promise<ReflectDashboardResponse> => {
         const [summary, safeInsights, history] = await Promise.all([
             dashboardService.getReflectSummary(),
-            dashboardService.getSafeInsights(),
+            dashboardService.getSafeInsights(range),
             dashboardService.getCheckinHistory('30d'),
         ])
         const generatedAt = new Date().toISOString()
@@ -664,5 +678,5 @@ export const dashboardService = {
     getCheckinHistory: (range: '30d' | '90d' | 'all' = '30d') =>
         httpClient.get<CheckinHistoryResponse>(`/dashboard/checkin-history?range=${range}`),
 
-    getSafeInsights: () => httpClient.get<SafeInsightsPayload>('/dashboard/safe-insights'),
+    getSafeInsights: (window: ReflectRange = '7d') => httpClient.get<SafeInsightsPayload>(`/dashboard/safe-insights?window=${window}`),
 }

@@ -21,13 +21,13 @@ function titleForLevel(level: DashboardSufficiency['readiness_level']): string {
         case 'first_signals':
             return 'Đã có tín hiệu đầu tiên'
         case 'early_insight':
-            return 'Tín hiệu ban đầu'
+            return 'Quan sát có bằng chứng'
         case 'weekly_trend':
             return 'Xu hướng tuần'
         case 'stable_pattern':
             return 'Xu hướng ổn định hơn'
         default:
-            return 'Tín hiệu tuần này'
+            return 'Dữ liệu tuần này'
     }
 }
 

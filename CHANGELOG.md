@@ -273,6 +273,52 @@ Blueprint score: **98.5/100 PASS** (up from 94.5/100 CONDITIONAL_PASS). Observab
 - `.env.example` — thêm 3 env vars mới cho LLM voice script.
 ---
 
+## [Unreleased] — eval(advisor-routing): RAGAS-aligned evaluation v2 + FriendAgent thanks fix · 2026-05-17
+
+### Fixed
+- `backend/app/services/friend_agent.py` — Added `_is_thanks_or_positive_close()` detection and warm-acknowledgment response to all three persona functions (`_dung_response`, `_dat_response`, `_hau_response`). Root cause: "Cảm ơn / thấy tốt hơn" messages fell through all pattern checks and hit the fallback probe template ("Đoạn về điều cậu vừa kể có vẻ đang mắc lại…"), which is inappropriate for a closing/thanks message. Discovered via `response_relevance = 0.000` on S05 in the RAGAS eval harness.
+
+### Added
+- `backend/tests/eval_advisor_pipeline_ragas.py` — RAGAS-aligned evaluation harness (43 tests, 5 metrics, 10 dataset samples). Metric upgraded to character n-gram Jaccard similarity (n=3) from plain token-overlap; gate thresholds calibrated to Jaccard scale. All 43 tests pass; min `response_relevance` improved from 0.000 → 0.074 (no more zero-scoring samples).
+- `docs/eval/advisor-routing-ragas-eval.md` — Full evaluation results report v2: per-sample scores, before/after comparison, 3 findings (F1 routing gap, F2 safety override, F3 thanks fix), 5 open risks.
+
+### Findings (no code change, documented only)
+- **F1** — `FastNeedRouter` routes nutrition-only messages to `service_only`; `nutrition_support_advisor` only activates on multi-domain messages. Product decision needed.
+- **F2** — `safety_policy_layer` correctly overrides `empathy_advisor` when "panic" keyword present. Safety-first behavior confirmed correct per PRD §3.
+
+---
+
+## [Unreleased] — fix(advisor-routing): streaming path bypass + duplicate function + regression tests · 2026-05-17
+
+### Fixed
+- `backend/app/api/v1/routers/chat.py` — **H7 (critical)**: `/chat/message/stream` was bypassing the advisor pipeline for `advisor_assisted` turns. When `FastNeedRouter` returned `route_tier="advisor_assisted"`, the streaming generator fell through to `stream_non_sos_turn_events()` (LangGraph, `distress_router` threshold ≥0.82) instead of calling `ChatOrchestrator.generate_normal_turn()` with real advisors (EmpathyAdvisor, CBTPatternAdvisor, etc.). Added `elif _s_route_tier == "advisor_assisted":` branch that mirrors the non-streaming path exactly, including memory load, `CounselingAdvisorService`, `AdvisorPool`, and `FriendAgent.compose()`.
+- `backend/app/api/v1/routers/chat.py` — Captured `_s_planned_advisor_ids` (was discarded as `_`) from `resolve_route_advisors_with_reasons()` so the streaming advisor branch receives the correct advisor selection.
+- `backend/app/services/langgraph_chat.py` — Removed duplicate `_enforce_reply_quality` definition (defined twice at lines 636 and 639; second definition silently overwrote the first).
+- `backend/app/analyst/llm_analyzer.py` — Pre-existing f-string syntax error at line 93 (nested double quotes); changed outer delimiter to single quotes.
+
+### Added
+- `backend/tests/test_routing_regression.py` — 8 new router/selector regression tests: self-blame → `advisor_assisted`, explicit advice → `advisor_assisted`, greeting → fast/no-advisor, reason codes non-empty, AdvisorSelector CBT/strategy/fallback selection.
+- `backend/tests/test_advisor_pipeline_parity.py` — 12 new tests covering: advisor injection into FriendNode, degraded mode (empty advisor list), should_use=False exclusion, advisor contract (no final_text field), deterministic routing, routing_history shape, unknown advisor graceful degradation, fast-path and advisor-assisted response validity.
+
+---
+
+## [Unreleased] — fix(analyst): mood scoring, dashboard insights, deterministic patterns · 2026-05-17
+
+### Fixed
+- `backend/app/api/v1/routers/dashboard.py` — `_MOOD_TO_SCORE` expanded from 5 to 10 entries; "terrible"/"bad"/"fine"/"good"/"awesome" no longer fall back to `(3, "ổn")`. Root cause: any unrecognised mood defaulted to neutral (3/5 = 60%), causing e.g. "rất tệ" to show as 6 điểm.
+- `backend/app/dashboard/service.py` — same fix to `_MOOD_TO_SCORE`; added `str.strip().lower()` normalisation; added `import uuid` (was missing, causing `NameError` if `_profile_insights` ever ran); added `import func` from sqlalchemy.
+- `backend/app/dashboard/service.py:build_safe_insight_cards` — wired `_profile_insights` as fallback when `InsightHypothesis` table is empty (batch pipeline not yet run); now returns heuristic cards from `UserProfile.profile` on first use.
+
+### Improved
+- `backend/app/analyst/llm_analyzer.py:_deterministic_output` — deterministic analyzer now generates 6 patterns instead of 3:
+  - **low_mood_trend**: avg_score ≤ 4.0 (1–10 scale) + ≥ 3 check-ins
+  - **screening_context_notice**: PHQ-9 or GAD-7 in mild+ band
+  - **stress_pattern (volatility)**: σ ≥ 2.5 + ≥ 4 check-ins
+  - Retained: mood_trend (intraday delta), trigger_pattern, nutrition_mood_link
+- `backend/app/services/chat_orchestrator.py:enqueue_async_side_effects` — now enqueues `analyst_run:turn` job after every turn (idempotency key deduplicates per user per hour), so `InsightHypothesis` rows are generated automatically without manual API call.
+
+---
+
 ## [Unreleased] — Fix 28 SQLite schema failures; full suite 360 pass · 2026-05-15
 
 ### Fixed
@@ -1053,3 +1099,5 @@ Blueprint score: **98.5/100 PASS** (up from 94.5/100 CONDITIONAL_PASS). Observab
 - Real PostgreSQL integration suite `backend/tests/test_db_integration.py` covering connectivity, table/column consistency, ORM query smoke tests, and write/read flow.
 - Real DB fixtures in `backend/tests/conftest.py`: `real_db_url`, `real_engine`, `real_db`.
 - Verified `backend/scripts/verify_db_schema.py` execution against Supabase with UTF-8 console mode on Windows.
+
+## [Lost] - [2026-04-06 - ...]
