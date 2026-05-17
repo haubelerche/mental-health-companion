@@ -642,8 +642,8 @@ export default function Chat() {
                     ? ttsJob.audio_url
                     : null
 
-        if (audioUrl || TTS_TERMINAL_STATUSES.has(status as TtsStatus)) {
-            // Audio already available (or terminal state) — show card immediately
+        if (audioUrl) {
+            // Audio already available; show card immediately.
             const voiceMessage: UiMessage = {
                 id: `voice_${jobId}_${Date.now()}`,
                 role: 'assistant',
@@ -658,8 +658,8 @@ export default function Chat() {
             }
             setMessages((prev) => [...prev, voiceMessage])
             setVoiceStatus('')
-        } else {
-            // Audio not yet ready — poll silently and add card only when audio is available
+        } else if (!TTS_TERMINAL_STATUSES.has(status as TtsStatus)) {
+            // Audio not yet ready; poll silently and add card only when audio is available.
             void pollVoiceJob(jobId, 0)
         }
     }
@@ -688,6 +688,12 @@ export default function Chat() {
                     : typeof job.audio_url === 'string'
                         ? job.audio_url
                         : null
+            if (!audioUrl) {
+                if (!TTS_TERMINAL_STATUSES.has(status as TtsStatus)) {
+                    void pollVoiceJob(jobId, 0)
+                }
+                return []
+            }
             return [{
                 id: `voice_${sourceMessageId}_${jobId}_${index}`,
                 role: 'assistant' as const,
