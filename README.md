@@ -3,15 +3,10 @@
 > **Live URL:** [Serene.AI](https://a20-app-039.vercel.app/) <br>
 > **Video Demo:** *[Serene.AI video demo](https://www.youtube.com/watch?v=6u_o8iUVvik)* <br>
 > **Pitch Deck:** [Google Slides link](https://docs.google.com/presentation/d/1AyPRQK7WMZfvQPd2KT_a3YjDnyy2imBvwopUUpfLaIo/edit?usp=sharing) <br>
+> **PRD:** [`docs/product/PRD.md`](docs/product/PRD.md) <br>
 > **Architecture:** [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md) <br>
-> **Evaluation Evidence:** [`docs/submission/EVALUATION_EVIDENCE.md`](docs/submission/EVALUATION_EVIDENCE.md) <br>
-> **Submission Report:** [`report.md`](report.md) <br>
-> **Full Submission Report:** [`docs/submission/SUBMISSION_REPORT.md`](docs/submission/SUBMISSION_REPORT.md) <br>
-> **Submission Package Index:** [`docs/submission/SUBMISSION_PACKAGE.md`](docs/submission/SUBMISSION_PACKAGE.md) <br>
-> **Form Preparation:** [`docs/submission/FORM_SUBMISSION_PREP.md`](docs/submission/FORM_SUBMISSION_PREP.md) <br>
-> **Final Checklist:** [`docs/submission/FINAL_SUBMISSION_CHECKLIST.md`](docs/submission/FINAL_SUBMISSION_CHECKLIST.md) <br>
-> **AI Worktree Report:** [`docs/submission/AI_WORKTREE_CHANGE_REPORT.md`](docs/submission/AI_WORKTREE_CHANGE_REPORT.md) <br>
-> **AI Logs and Hooks:** [`docs/submission/AI_LOGS_AND_HOOKS.md`](docs/submission/AI_LOGS_AND_HOOKS.md)
+> **Evaluation Evidence:** [`docs/eval/EVALUATION_EVIDENCE.md`](docs/eval/EVALUATION_EVIDENCE.md) <br>
+> **Submission Report:** [`docs/submission/SUBMISSION_REPORT.md`](docs/submission/SUBMISSION_REPORT.md)
 
 ---
 
@@ -316,16 +311,15 @@ A20-App-039/
 │   ├── run_ragas.py                 # RAGAS quality runner (59 questions)
 │   └── run_judge.py                 # LLM-as-Judge runner
 ├── docs/
-│   ├── product/                     # PRD và product spec
-│   ├── architecture/                # System architecture và flows
-│   ├── api/                         # API documentation
-│   └── submission/                  # Evaluation và submission reports
+│   ├── product/                     # PRD.md và product spec
+│   ├── architecture/                # ARCHITECTURE.md, SEQUENCE_DIAGRAMS.md
+│   ├── eval/                        # EVALUATION_EVIDENCE.md, RAGAS eval reports
+│   └── submission/                  # SUBMISSION_REPORT.md
 ├── .ai-log/                         # AI tool usage logs (auto-generated)
 ├── .github/workflows/               # CI/CD pipeline
 ├── JOURNAL.md                       # Weekly journal
 ├── WORKLOG.md                       # Tech decisions + sprint log
-├── CHANGELOG.md                     # Change history
-└── eval_report.md                   # Latest evaluation report (98.5/100)
+└── CHANGELOG.md                     # Change history
 ```
 
 ---
