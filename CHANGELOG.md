@@ -4,6 +4,21 @@
 
 ---
 
+## [Unreleased] — Project cleanup: dead code, stale artifacts, obsolete plan docs · 2026-05-17
+
+### Removed
+- `src/` directory (5 files): legacy OpenAI agent from Apr 2025 — superseded by `backend/app/`; had zero imports in codebase
+- `serene_local.db` (root): duplicate of `backend/serene_local.db`; both now covered by `.gitignore`
+- `backend/_alembic_test.db`: auto-generated pytest artifact that was incorrectly tracked by git
+- `requirements.txt` (root): outdated subset of `backend/requirements.txt`, caused version confusion
+- `environment.yml`: referenced stale root requirements.txt with wrong Python 3.14 (project uses 3.11)
+- `plan/` directory (18 files): superseded by `.claude/plan/0X_*.md` shard system
+
+### Changed
+- `.gitignore`: removed 10+ duplicate entries, consolidated into logical sections, added `serene_local.db` and `backend/_alembic_test.db` to prevent future accidental tracking
+
+---
+
 ## [Unreleased] - Analyst pipeline audit gap-closure - 2026-05-17
 
 ### Added

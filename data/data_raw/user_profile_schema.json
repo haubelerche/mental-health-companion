@@ -1,0 +1,407 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "serene/user_profile/v1",
+  "title": "UserProfile",
+  "description": "JSONB payload for user_profiles.profile column. Validate with jsonschema 4.x before INSERT/UPDATE.",
+  "type": "object",
+  "required": ["schema_version", "bio", "traits", "clinical_snapshot", "session_summaries", "trigger_tags", "coping_history", "goals", "safety_flags", "stats", "meta"],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "schema_version": {
+      "type": "string",
+      "description": "Profile schema version. Bump when adding non-backwards-compatible fields.",
+      "enum": ["v1"],
+      "examples": ["v1"]
+    },
+
+    "bio": {
+      "type": "object",
+      "description": "Basic demographic hints. No PII — no full name, no email.",
+      "required": ["language"],
+      "additionalProperties": false,
+      "properties": {
+        "display_name_hint": {
+          "type": ["string", "null"],
+          "description": "Initials or nickname only. Never full name.",
+          "maxLength": 20,
+          "examples": ["M.A.", "Beo"]
+        },
+        "age_range": {
+          "type": ["string", "null"],
+          "description": "Broad age bucket. Not exact age.",
+          "enum": ["under_18", "18-24", "25-30", "30+", null]
+        },
+        "role": {
+          "type": ["string", "null"],
+          "description": "Self-reported role.",
+          "enum": ["sinh_vien", "di_lam", "khong_ro", null]
+        },
+        "language": {
+          "type": "string",
+          "description": "Preferred language for responses.",
+          "enum": ["vi", "en"],
+          "default": "vi"
+        },
+        "timezone": {
+          "type": ["string", "null"],
+          "description": "IANA timezone string.",
+          "examples": ["Asia/Ho_Chi_Minh"],
+          "pattern": "^[A-Za-z_]+/[A-Za-z_]+$"
+        }
+      }
+    },
+
+    "traits": {
+      "type": "object",
+      "description": "Long-term communication and preference traits. Updated by Analyst after sufficient data.",
+      "additionalProperties": false,
+      "properties": {
+        "communication_style": {
+          "type": ["string", "null"],
+          "description": "Observed user communication pattern.",
+          "enum": ["reflective", "direct", "avoidant", "humor", null]
+        },
+        "preferred_tone": {
+          "type": ["string", "null"],
+          "description": "Which Friend tone works best for this user.",
+          "enum": ["ho_tro", "xac_nhan", "vui_tuoi", "lam_diu", null]
+        },
+        "response_length_pref": {
+          "type": ["string", "null"],
+          "description": "User's apparent preference for response length.",
+          "enum": ["short", "medium", "long", null]
+        },
+        "openness_to_exercise": {
+          "type": ["number", "null"],
+          "description": "0.0 = refuses all exercises, 1.0 = eager. Updated from engagement data.",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "openness_to_journaling": {
+          "type": ["number", "null"],
+          "minimum": 0.0,
+          "maximum": 1.0
+        }
+      }
+    },
+
+    "clinical_snapshot": {
+      "type": "object",
+      "description": "Denormalized copy of clinical_profiles. Updated async after Analyst scoring. NOT exposed to frontend user.",
+      "additionalProperties": false,
+      "properties": {
+        "phq9_score": {
+          "type": ["integer", "null"],
+          "description": "Latest PHQ-9 total score. Internal only.",
+          "minimum": 0,
+          "maximum": 27
+        },
+        "gad7_score": {
+          "type": ["integer", "null"],
+          "description": "Latest GAD-7 total score. Internal only.",
+          "minimum": 0,
+          "maximum": 21
+        },
+        "phq9_coverage": {
+          "type": "object",
+          "description": "Which PHQ-9 items have been mapped. Key = item code (Q1..Q9), value = bool.",
+          "additionalProperties": { "type": "boolean" },
+          "examples": [{"Q1": true, "Q2": false, "Q3": true}]
+        },
+        "gad7_coverage": {
+          "type": "object",
+          "description": "Which GAD-7 items have been mapped. Key = item code (Q1..Q7).",
+          "additionalProperties": { "type": "boolean" }
+        },
+        "crisis_level": {
+          "type": "integer",
+          "description": "Current crisis level. Mirrored in user_profiles.current_crisis_level for fast query.",
+          "minimum": 0,
+          "maximum": 5,
+          "default": 0
+        },
+        "last_scored_at": {
+          "type": ["string", "null"],
+          "description": "ISO 8601 UTC timestamp of last Analyst scoring.",
+          "format": "date-time"
+        },
+        "trend_7d": {
+          "type": ["string", "null"],
+          "description": "Computed direction of PHQ-9+GAD-7 over last 7 days.",
+          "enum": ["improving", "stable", "worsening", "insufficient_data", null]
+        }
+      }
+    },
+
+    "session_summaries": {
+      "type": "array",
+      "description": "Most recent 50 session summaries, ordered newest-first. Overflow goes to session_summaries_archive.",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": ["session_id", "started_at", "summary", "dominant_emotion", "key_triggers", "sos_triggered"],
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "description": "FK to conversations.session_id.",
+            "pattern": "^sess_[a-zA-Z0-9]{6,}$"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 UTC."
+          },
+          "ended_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "turn_count": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Number of message turns in session."
+          },
+          "summary": {
+            "type": "string",
+            "description": "LLM-generated summary, PII-masked, Vietnamese, max 500 chars.",
+            "maxLength": 500
+          },
+          "summary_embedding_ref": {
+            "type": ["string", "null"],
+            "description": "Optional reference to the retrieval memory row when one is produced."
+          },
+          "dominant_emotion": {
+            "type": ["string", "null"],
+            "description": "Primary emotion label detected in session.",
+            "enum": ["stressed", "anxious", "sad", "hopeful", "neutral", "happy", "angry", null]
+          },
+          "key_triggers": {
+            "type": "array",
+            "description": "List of trigger labels identified this session.",
+            "items": { "type": "string", "maxLength": 50 },
+            "maxItems": 10
+          },
+          "resources_suggested": {
+            "type": "array",
+            "description": "resource_ids that Friend recommended.",
+            "items": { "type": "string" }
+          },
+          "resources_engaged": {
+            "type": "array",
+            "description": "resource_ids user actually opened/played (from play_events).",
+            "items": { "type": "string" }
+          },
+          "sos_triggered": {
+            "type": "boolean",
+            "description": "True if SOS rule fired at any point in this session.",
+            "default": false
+          },
+          "crisis_level_peak": {
+            "type": "integer",
+            "description": "Highest crisis_level reached during session.",
+            "minimum": 0,
+            "maximum": 5,
+            "default": 0
+          }
+        }
+      }
+    },
+
+    "trigger_tags": {
+      "type": "object",
+      "description": "Aggregated trigger counts across all sessions. Key = trigger label (snake_case Vietnamese or English).",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["count", "last_seen"],
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "Number of times this trigger has been observed.",
+            "minimum": 1
+          },
+          "last_seen": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 UTC of last observation."
+          },
+          "avg_intensity": {
+            "type": ["number", "null"],
+            "description": "Average intensity score when this trigger appeared.",
+            "minimum": 0.0,
+            "maximum": 1.0
+          }
+        }
+      },
+      "examples": [{
+        "deadline": {"count": 7, "last_seen": "2026-04-10T23:00:00Z", "avg_intensity": 0.75},
+        "insomnia": {"count": 4, "last_seen": "2026-04-10T23:00:00Z", "avg_intensity": 0.6}
+      }]
+    },
+
+    "coping_history": {
+      "type": "array",
+      "description": "Record of coping actions user has attempted.",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "required": ["action", "tried_count"],
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Identifier for the coping action.",
+            "maxLength": 100,
+            "examples": ["breathing_478", "body_scan_meditation", "journaling"]
+          },
+          "resource_id": {
+            "type": ["string", "null"],
+            "description": "FK to resources.resource_id if action is resource-backed."
+          },
+          "tried_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "self_reported_effective": {
+            "type": "integer",
+            "description": "Number of times user rated this as helpful.",
+            "minimum": 0
+          },
+          "last_tried": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "ISO 8601 date (UTC)."
+          }
+        }
+      }
+    },
+
+    "goals": {
+      "type": "array",
+      "description": "User-defined or agent-suggested goals. Max 10 active.",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["goal_id", "text", "set_at", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "goal_id": {
+            "type": "string",
+            "pattern": "^g_[a-z0-9]{3,}$"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "set_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "completed", "abandoned"]
+          },
+          "completed_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          }
+        }
+      }
+    },
+
+    "safety_flags": {
+      "type": "object",
+      "description": "Safety-relevant flags. Readable by Supervisor every turn.",
+      "required": ["ever_sos_triggered"],
+      "additionalProperties": false,
+      "properties": {
+        "ever_sos_triggered": {
+          "type": "boolean",
+          "description": "True if user has ever triggered SOS in any session.",
+          "default": false
+        },
+        "last_sos_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "admin_reviewed": {
+          "type": "boolean",
+          "description": "True if admin has reviewed SOS event and cleared.",
+          "default": false
+        },
+        "do_not_suggest_topics": {
+          "type": "array",
+          "description": "Topics Friend must not bring up (e.g., per user request).",
+          "items": { "type": "string", "maxLength": 50 },
+          "maxItems": 10
+        }
+      }
+    },
+
+    "stats": {
+      "type": "object",
+      "description": "Aggregated engagement statistics. Updated during weekly rollup or session end.",
+      "additionalProperties": false,
+      "properties": {
+        "total_sessions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_messages_user": {
+          "type": "integer",
+          "description": "Cumulative user message count across all sessions.",
+          "minimum": 0
+        },
+        "avg_session_length_turns": {
+          "type": ["number", "null"],
+          "minimum": 0.0
+        },
+        "days_active_last_30": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30
+        },
+        "streak_days": {
+          "type": "integer",
+          "description": "Consecutive days with at least 1 interaction.",
+          "minimum": 0
+        }
+      }
+    },
+
+    "meta": {
+      "type": "object",
+      "description": "Profile management metadata.",
+      "required": ["pii_masked"],
+      "additionalProperties": false,
+      "properties": {
+        "last_rollup_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 UTC of last weekly rollup job."
+        },
+        "next_rollup_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "pii_masked": {
+          "type": "boolean",
+          "description": "Assertion that all text fields in this profile have been PII-masked. Must be true before sync to outbox.",
+          "default": true
+        },
+        "weekly_note_content": {
+          "type": ["string", "null"],
+          "description": "Cached personalized weekly insight generated for Reflect dashboard.",
+          "maxLength": 1000
+        },
+        "weekly_note_generated_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 UTC timestamp when weekly_note_content was generated."
+        }
+      }
+    }
+  }
+}

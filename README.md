@@ -17,19 +17,19 @@
 
 ## Mô tả dự án
 
-**Serene** là AI companion sức khỏe tâm thần đầu tiên được thiết kế riêng cho sinh viên và Gen Z Việt Nam. Serene trò chuyện như một người bạn đồng trang lứa — lắng nghe, đồng cảm, hỗ trợ đúng lúc — trong khi chạy ngầm một hệ thống phân tích lâm sàng và an toàn khủng hoảng mà người dùng không bao giờ thấy.
+Trong kỷ nguyên số, nhiều người trẻ Việt Nam đang sống giữa một nghịch lý rất thật: "Cô đơn trong chốn đông người" — vây quanh bởi kết nối nhưng khó tìm được nơi để giãi bày, được lắng nghe và đồng cảm thực sự. Serene.AI ra đời hưởng ứng công nghệ AI Emotional Intelligence: nơi công nghệ và cảm xúc giao thoa để tạo nên một không gian đồng hành nhân văn, gần gũi và thực sự hữu ích với từng cá nhân.
 
-Serene giải quyết khoảng trống mà không app nào trên thị trường VN đang lấp: **AI tiếng Việt + trải nghiệm peer-to-peer + safety chuẩn lâm sàng**.
+Serene.AI **không** hướng đến việc thay thế chuyên gia hay đưa ra chẩn đoán y khoa. Sản phẩm được định vị như một **mental-health companion**: lắng nghe, sàng lọc ban đầu, hỗ trợ phản tư, đề xuất coping/resource phù hợp và kích hoạt luồng an toàn khi cần. Thông qua hội thoại tự nhiên bằng tiếng Việt cùng dữ liệu sinh hoạt hằng ngày (cảm xúc, giấc ngủ, dinh dưỡng, sàng lọc tâm lý), Serene.AI giúp người dùng chuyển hóa những trải nghiệm rời rạc thành insight trực quan, cá nhân hóa và có bằng chứng.
 
 ---
 
-## Mục tiêu / Vấn đề giải quyết
+## Bài toán và Giải pháp
 
-**Bài toán:** 45% sinh viên VN có dấu hiệu lo âu/trầm cảm đáng kể (nguồn: WHO, 2023), nhưng tỷ lệ tiếp cận hỗ trợ tâm lý chuyên nghiệp dưới 10%. Rào cản chính: stigma xã hội, chi phí cao, thiếu cơ sở vật chất, ngại gặp trực tiếp.
+**Bài toán:** 45% sinh viên Việt Nam có dấu hiệu lo âu/trầm cảm đáng kể (WHO, 2023), nhưng tỷ lệ tiếp cận hỗ trợ tâm lý chuyên nghiệp dưới 10%. Rào cản chính: stigma xã hội, chi phí cao, thiếu cơ sở vật chất, ngại gặp trực tiếp.
 
 **Giải pháp:** Một AI companion có thể:
 1. Nói chuyện tự nhiên bằng tiếng Việt Gen Z — không nghe như chatbot hoặc bác sĩ
-2. Phát hiện sớm dấu hiệu khủng hoảng qua phân tích ngầm (implicit PHQ-9/GAD-7)
+2. Phát hiện sớm dấu hiệu khủng hoảng qua phân tích ngầm (PHQ-9 / GAD-7 / DASS-21 / MDQ / PCL-5)
 3. Kích hoạt can thiệp khẩn cấp khi cần, cung cấp hotline VN uy tín
 4. Không bao giờ chẩn đoán — luôn giữ ranh giới lâm sàng
 
@@ -39,23 +39,66 @@ Serene giải quyết khoảng trống mà không app nào trên thị trường
 
 | Tính năng | Mô tả |
 |---|---|
-| **Chat AI tiếng Việt** | Hội thoại tự nhiên với persona Serene — empathetic, đồng trang lứa, không clinical |
+| **Chat AI tiếng Việt** | Hội thoại tự nhiên với Serene — empathetic, đồng trang lứa, không clinical |
 | **Safety Gate** | Rule-based gate chạy trước mọi LLM call — phát hiện khủng hoảng trong < 100ms |
-| **SOS Intervention** | Kích hoạt khi phát hiện nguy cơ cao: hotline VN, de-escalation script, CrisisLog |
-| **Implicit Screening** | PHQ-9/GAD-7 ngầm qua hội thoại — không hỏi trực tiếp, không gây stigma |
-| **Memory Cards** | Lưu ký ức hội thoại dưới dạng thẻ nhớ — Serene nhớ tên, sự kiện, cảm xúc quan trọng |
-| **Personas** | 4 style mode: Default, Calm, Motivate, Crush — cùng 1 identity, khác tone |
-| **Voice TTS** | Text-to-speech với ElevenLabs — SOS có `visible_text` và `voice_script` riêng |
-| **Resource Hub** | Thư viện tài nguyên sức khỏe tâm thần: bài viết, video YouTube, hotline |
-| **Screening** | PHQ-9/GAD-7 chính thức với kết quả lưu phía backend (không localStorage) |
-| **Dashboard** | Biểu đồ tâm trạng, lifestyle rhythm, streak, memory summary |
+| **SOS Intervention** | Kích hoạt khi phát hiện nguy cơ cao: de-escalation script, hotline VN, CrisisLog |
+| **Screening cơ bản** | PHQ-9 và GAD-7 — theo dõi dấu hiệu lo âu và trầm cảm |
+| **Kiểm tra sâu** | DASS-21 (stress/lo âu/trầm cảm), MDQ (dao động khí sắc), PCL-5 (sang chấn) — không chẩn đoán |
+| **Analyst Pipeline** | Analyst Agent + advisor chuyên biệt tạo insight có bằng chứng từ nhiều nguồn dữ liệu |
+| **Memory Cards** | Lưu ký ức hội thoại dưới dạng thẻ ngắn — Serene nhớ tên, sự kiện, cảm xúc quan trọng |
+| **Personas** | 3 style mode: Dũng (`dung_luong`), Đạt (`dat_le`), Hậu (`hau_luong`) — cùng 1 identity, khác tone |
+| **Voice TTS** | Text-to-speech với ElevenLabs — SOS có `visible_text` và `voice_script` riêng, không block chat |
+| **Resource Hub** | Thư viện tài nguyên sức khỏe tâm thần: bài tập, bài viết, hotline, coping recommendation |
+| **Dashboard** | Insight cards có evidence/confidence/action, biểu đồ tâm trạng, lifestyle rhythm, streak |
 | **Push Notifications** | Nhắc nhở chủ động, mood check-in, wellness tips qua SSE |
+
+---
+
+## Kiến trúc Agent Runtime
+
+Serene sử dụng kiến trúc **backend-centered, safety-first** với ba vai trò agent chính:
+
+```
+User
+  → Frontend (display layer)
+  → Backend API
+  → Input Normalization + PII Masking
+  → Safety Gate  ←── chạy trước mọi LLM call
+       ├── Crisis/SOS → Safety Agent → controlled crisis payload
+       └── Non-crisis → Risk Router
+               ├── Simple support → Friend Agent
+               └── Needs insight  → Analyst Agent → Friend Agent
+  → Output Validator
+  → Response
+  → Async workers: memory extraction, TTS, dashboard rollup, notification
+```
+
+| Vai trò | User-facing | Trách nhiệm |
+|---|:---:|---|
+| **Friend Agent** | ✓ | Trò chuyện, phản hồi cảm xúc, áp dụng persona/style, tạo câu trả lời cuối cùng cho normal flow |
+| **Analyst Agent** | ✗ | Phân tích dữ liệu hội thoại, mood, screening, meal, memory; tạo structured insight bundle |
+| **Safety Agent** | ✓ qua payload | Xử lý high-risk/SOS, de-escalation, voice grounding, hotline/referral, audit và crisis log |
+
+Advisor chuyên biệt hỗ trợ Analyst (không user-facing, không viết final response): Screening Advisor, Deep Screening Advisor (DASS-21/MDQ/PCL-5), Mood Advisor, Lifestyle Advisor, Memory Advisor, Resource Advisor, Safety Context Advisor.
+
+---
+
+## Persona Registry
+
+| Persona | Canonical ID | Trạng thái | Mô tả |
+|---|---|---|---|
+| **Dũng** | `dung_luong` | Core — khả dụng mặc định | Vui vẻ, bắt mood tốt, biết lắng nghe; có thể dùng meme nhẹ ở low-risk turn |
+| **Đạt** | `dat_le` | Core — khả dụng mặc định | Trầm tính, có chiều sâu; giúp người dùng nhìn vấn đề rõ ràng qua phản tư |
+| **Hậu** | `hau_luong` | Unlockable — 500 Tim | Hướng nội, nhẹ nhàng; ưu tiên voice-message vibe, phù hợp khi overthinking |
+
+> Safety override thắng mọi persona. High-risk/SOS luôn ép về style an toàn.
 
 ---
 
 ## Công nghệ sử dụng
 
 ### Backend
+
 | Layer | Công nghệ |
 |---|---|
 | Language / Runtime | Python 3.11 |
@@ -68,10 +111,11 @@ Serene giải quyết khoảng trống mà không app nào trên thị trường
 | TTS | ElevenLabs API |
 | Auth | JWT (PyJWT) + OAuth2 (Google) |
 | Migrations | Alembic |
-| Observability | Structured JSON logging (python-json-logger) + Prometheus metrics |
+| Observability | Langfuse traces + Structured JSON logging (python-json-logger) + Prometheus metrics |
 | Testing | pytest (901 tests, 0 failed) |
 
 ### Frontend
+
 | Layer | Công nghệ |
 |---|---|
 | Framework | ReactJS + TypeScript |
@@ -82,6 +126,7 @@ Serene giải quyết khoảng trống mà không app nào trên thị trường
 | Realtime | Server-Sent Events (SSE) |
 
 ### Infrastructure
+
 | Layer | Công nghệ |
 |---|---|
 | Deploy | Railway (backend + DB), Vercel (frontend) |
@@ -90,9 +135,25 @@ Serene giải quyết khoảng trống mà không app nào trên thị trường
 
 ---
 
+## Evaluation Summary
+
+| Hạng mục | Kết quả |
+|---|---:|
+| Backend test suite | 901 pass, 0 fail |
+| Safety tests | 84 pass, 0 fail |
+| Golden dataset | 88 pass, 0 fail |
+| Adversarial guardrails | 44 pass, 6 skip (live-backend), 0 fail |
+| Heuristic LLM-as-Judge | 50 pass |
+| RAGAS heuristic review set | 59 questions, 0 hard fail |
+| **Blueprint score** | **98.5 / 100** |
+| P0 guardrail failure rate | 0% |
+
+---
+
 ## Hướng dẫn cài đặt
 
 ### Yêu cầu hệ thống
+
 - Python 3.11+
 - Node.js 18+
 - PostgreSQL 15+ (hoặc dùng Railway)
@@ -162,9 +223,9 @@ cd backend
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Backend sẽ khởi động tại `http://localhost:8000`.
-API docs: `http://localhost:8000/docs`
-Health check: `http://localhost:8000/health`
+Backend sẽ khởi động tại `http://localhost:8000`.  
+API docs: `http://localhost:8000/docs`  
+Health check: `http://localhost:8000/health`  
 Metrics: `http://localhost:8000/metrics`
 
 ### Frontend (Development)
@@ -208,23 +269,23 @@ python evals/run_judge.py --mode heuristic
 
 ---
 
-## Hướng dẫn sử dụng sản phẩm
-
-### Luồng người dùng cơ bản
+## Luồng người dùng cơ bản
 
 1. **Đăng ký / Đăng nhập** — Tạo tài khoản hoặc đăng nhập bằng Google OAuth
-2. **Onboarding** — Làm bài screening PHQ-9/GAD-7 ban đầu (tùy chọn)
-3. **Chat với Serene** — Nhắn tin tự do, Serene phản hồi như người bạn đồng cảm
-4. **Chọn Persona** — Chuyển style mode (Default / Calm / Motivate / Crush)
-5. **Xem Dashboard** — Theo dõi tâm trạng, streak, memory cards
-6. **Resource Hub** — Khám phá tài nguyên sức khỏe tâm thần
+2. **Onboarding** — Làm bài screening PHQ-9/GAD-7/... ban đầu (tùy chọn)
+3. **Chat với Serene** — Nhắn tin tự do; Serene phản hồi như người bạn đồng cảm
+4. **Chọn Persona** — Chuyển style mode: Dũng (mặc định), Đạt hoặc Hậu (mở khóa)
+5. **Kiểm tra sâu** — DASS-21 / MDQ / PCL-5 khi muốn phân tích đa chiều hơn
+6. **Xem Dashboard** — Insight có bằng chứng, biểu đồ tâm trạng, streak, memory cards
+7. **Resource Hub** — Khám phá tài nguyên sức khỏe tâm thần và bài tập coping
 
 ### Tính năng Safety
 
-- Serene **tự động phát hiện** dấu hiệu khủng hoảng trong mọi tin nhắn
+- Serene **tự động phát hiện** dấu hiệu khủng hoảng trong mọi tin nhắn qua Safety Gate
 - Khi phát hiện nguy cơ cao: hiển thị tin nhắn hỗ trợ khủng hoảng + hotline VN
-- Serene **không bao giờ** chẩn đoán, không nói "bạn bị trầm cảm"
-- Crush persona tự động vô hiệu hóa khi người dùng ở trạng thái nguy cơ cao
+- Serene **không bao giờ** chẩn đoán ("bạn bị trầm cảm / rối loạn lưỡng cực / PTSD")
+- Kết quả DASS-21 / MDQ / PCL-5 chỉ được trình bày như **tín hiệu sàng lọc**, kèm khuyến nghị gặp chuyên gia khi cần
+- Crush persona / voice vui / meme **tự động vô hiệu hóa** khi người dùng ở trạng thái nguy cơ cao
 
 ---
 
@@ -234,37 +295,38 @@ python evals/run_judge.py --mode heuristic
 A20-App-039/
 ├── backend/
 │   ├── app/
-│   │   ├── api/v1/routers/      # FastAPI route handlers
-│   │   ├── core/                # Config, safety gate, observability
-│   │   ├── services/            # Business logic, DB, LangGraph nodes
-│   │   └── main.py              # App entry point
-│   ├── alembic/                 # DB migrations
-│   ├── tests/                   # 901 pytest tests
+│   │   ├── api/v1/routers/          # FastAPI route handlers
+│   │   ├── core/                    # Config, safety gate, observability
+│   │   ├── services/                # Business logic, DB, LangGraph nodes
+│   │   │   └── dashboard_insights/  # Evidence-based insight pipeline
+│   │   └── main.py                  # App entry point
+│   ├── alembic/                     # DB migrations
+│   ├── tests/                       # 901 pytest tests
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── components/          # React components
-│   │   ├── hooks/               # Custom hooks
-│   │   └── utils/               # Utilities
+│   │   ├── components/              # React components
+│   │   ├── hooks/                   # Custom hooks
+│   │   └── utils/                   # Utilities
 │   └── package.json
 ├── evals/
-│   ├── datasets/                # Golden + adversarial JSONL datasets
-│   ├── reports/                 # Eval results
-│   ├── run_golden.py            # Golden dataset runner (88 cases)
-│   ├── run_guardrails.py        # Adversarial safety runner (50 cases)
-│   ├── run_ragas.py             # RAGAS quality runner (59 questions)
-│   └── run_judge.py             # LLM-as-Judge runner
+│   ├── datasets/                    # Golden + adversarial JSONL datasets
+│   ├── reports/                     # Eval results
+│   ├── run_golden.py                # Golden dataset runner (88 cases)
+│   ├── run_guardrails.py            # Adversarial safety runner (50 cases)
+│   ├── run_ragas.py                 # RAGAS quality runner (59 questions)
+│   └── run_judge.py                 # LLM-as-Judge runner
 ├── docs/
-│   ├── product/                 # Product requirements and spec
-│   ├── architecture/            # System architecture and flows
-│   ├── api/                     # API documentation
-│   └── submission/              # Evaluation and submission reports
-├── .ai-log/                     # AI tool usage logs (auto-generated)
-├── .github/workflows/           # CI/CD pipeline
-├── JOURNAL.md                   # Weekly journal
-├── WORKLOG.md                   # Tech decisions + sprint log
-├── CHANGELOG.md                 # Change history
-└── eval_report.md               # Latest evaluation report (98.5/100)
+│   ├── product/                     # PRD và product spec
+│   ├── architecture/                # System architecture và flows
+│   ├── api/                         # API documentation
+│   └── submission/                  # Evaluation và submission reports
+├── .ai-log/                         # AI tool usage logs (auto-generated)
+├── .github/workflows/               # CI/CD pipeline
+├── JOURNAL.md                       # Weekly journal
+├── WORKLOG.md                       # Tech decisions + sprint log
+├── CHANGELOG.md                     # Change history
+└── eval_report.md                   # Latest evaluation report (98.5/100)
 ```
 
 ---
@@ -273,11 +335,11 @@ A20-App-039/
 
 | Thành viên | Vai trò |
 |---|---|
-| Lương Thanh Hậu | Team Lead, Backend Architecture, AI/LangGraph, Safety System |
-| Lê Hoàng Đạt | Backend Engineering, Database, API, Testing |
-| Lương Tiến Dũng | Frontend Engineering, UX, Research |
+| Lương Thanh Hậu | Team Lead, Backend Architecture, Product|
+| Lê Hoàng Đạt | Frontend, Database, QA|
+| Lương Tiến Dũng | DevOps, QA|
 
-**Khóa:** AI20K Build Phase
+**Khóa:** AI20K Build Phase  
 **Submission deadline:** 23:59 — 17/05/2026
 
 AI prompt logging hooks are installed after running `setup_hooks.sh`.

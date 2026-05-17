@@ -1,10 +1,11 @@
-# Worktrees
+# ── Worktrees ─────────────────────────────────────────────────────────────────
 .worktrees/
 
-# Environment
+# ── Environment / secrets ─────────────────────────────────────────────────────
 .env
+backend/.env
 
-# Python
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
@@ -14,48 +15,42 @@ build/
 *.egg-info/
 .pytest_cache/
 .mypy_cache/
-/refs/*
-# Node
+.pytest_tmp*/
+
+# ── Node ──────────────────────────────────────────────────────────────────────
 node_modules/
 package.json
 package-lock.json
-# Loại bỏ tất cả các tệp hình ảnh
-CLAUDE.md
 
+# ── Local SQLite (dev / pytest) ───────────────────────────────────────────────
+serene_local.db
+backend/serene_local.db
+backend/test_serene.db
+backend/_alembic_test.db
 
+# ── IDE configs ───────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.cursor/plans/
+.cursor/settings.json
+.cursor/hooks.json
 
-.codex/
-.github/
-.claude/
-.codex/
-.github/
-# Loại bỏ tất cả các tệp tài liệu PDF
-*.pdf
-# Local app config (env-backed; không đưa lên remote)
-scripts/config.py
-scripts/supabase/
-
-# OS
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 
-# AI logs — tracked structure, ignored content
+# ── AI logs — tracked structure, ignored content ──────────────────────────────
 .ai-log/*.jsonl
 .ai-log/*.md
 backend/.ai-log/
 
-!docs/
-!docs/*.md
-!docs/**/*.md
-*.csv
-*.jsonl
-*.json
-*.txt
-*.sql
-*.pkl
+# ── Local tool configs (not for remote) ───────────────────────────────────────
+.codex/
+.claude/
+.github/
+.sh/*
 
-!docs/
-!docs/*.md
-!docs/**/*.md
+# ── Media / binary / large files ─────────────────────────────────────────────
+*.pdf
 *.csv
 *.jsonl
 *.json
@@ -68,47 +63,18 @@ backend/.ai-log/
 !evals/datasets/*.csv
 !evals/rubrics/*.md
 
-# Pytest temp workspace (local only)
-.pytest_tmp*/
+# Docs — keep tracked
+!docs/
+!docs/*.md
+!docs/**/*.md
 
-# Local TTS renders (regenerate in dev)
+# ── Generated local TTS renders ───────────────────────────────────────────────
 backend/generated_voice/
 
-# Docker Compose may contain local secrets — do not commit
+# ── Docker Compose (may contain local secrets) ────────────────────────────────
 docker-compose.yml
 
-# Cursor IDE — local plans/settings/hooks (not for remote)
-.cursor/plans/
-.cursor/settings.json
-.cursor/hooks.json
-.sh/*
-
-
-# Generated local test output
-DONE_CRITERIA.md
-setup_cloudrun.sh
-
-.vscode/
-.idea/
-
-# Local SQLite (dev / pytest)
-backend/serene_local.db
-backend/test_serene.db
-# Raw text corpus (không version trong repo)
-
-backend/.env
-
-# MentalChat16K: pre-computed embeddings (large binary, regenerate locally)
-backend/data/mental_chat_embeddings.pkl
-backend/data/counseling_corpus_embeddings.pkl
-backend/data/emotion_centroids.pkl
-# Keep the curated examples JSONL in git (small text file)
-
-# Local design reference / screenshots (not shipped with app; app assets live under frontend/src/assets)
-reference-images/
-
-.agent/skills/
-
+# ── Test output ───────────────────────────────────────────────────────────────
 test-results/
 tests/
 !backend/tests/
@@ -152,7 +118,20 @@ backend/tests/*
 !backend/tests/test_distress_router.py
 !backend/tests/test_safety_escalate_integration.py
 
+# ── Pre-computed embeddings (large binary, regenerate locally) ────────────────
+backend/data/mental_chat_embeddings.pkl
+backend/data/counseling_corpus_embeddings.pkl
+backend/data/emotion_centroids.pkl
 
+# ── Misc scripts (local secrets) ─────────────────────────────────────────────
+scripts/config.py
+scripts/supabase/
 
-.ts
-/*.yaml
+# ── Refs ──────────────────────────────────────────────────────────────────────
+/refs/*
+
+# ── Agent skills (local only) ────────────────────────────────────────────────
+.agent/skills/
+
+# ── Reference images (design refs, not shipped) ──────────────────────────────
+reference-images/
