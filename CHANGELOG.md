@@ -4,6 +4,16 @@
 
 ---
 
+## [Unreleased] — Wire AdminLogin to real backend with TOTP · 2026-05-17
+
+### Fixed
+- `frontend/src/components/admin/AdminLogin.tsx`: replaced hardcoded local credential check with a real call to `adminService.login()` (`POST /v1/admin/auth/login`). Without this, the `admin_access_token` cookie was never set and all admin API calls returned 401, causing the dashboard to show 0% for all metrics.
+
+### Added
+- TOTP input field (6-digit numeric) to the admin login form, wired to `totp_code` in the backend payload.
+
+---
+
 ## [Unreleased] — Project cleanup: dead code, stale artifacts, obsolete plan docs · 2026-05-17
 
 ### Removed
