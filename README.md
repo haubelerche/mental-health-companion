@@ -74,7 +74,7 @@ Serene giải quyết khoảng trống mà không app nào trên thị trường
 ### Frontend
 | Layer | Công nghệ |
 |---|---|
-| Framework | React 19 + TypeScript |
+| Framework | ReactJS + TypeScript |
 | Build Tool | Vite |
 | State | React Context + custom hooks |
 | Styling | Tailwind CSS |
@@ -84,7 +84,7 @@ Serene giải quyết khoảng trống mà không app nào trên thị trường
 ### Infrastructure
 | Layer | Công nghệ |
 |---|---|
-| Deploy | Railway (backend + DB) |
+| Deploy | Railway (backend + DB), Vercel (frontend) |
 | CI | GitHub Actions (pytest + frontend lint/build) |
 | VCS | Git / GitHub |
 
@@ -171,6 +171,7 @@ Metrics: `http://localhost:8000/metrics`
 
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 
