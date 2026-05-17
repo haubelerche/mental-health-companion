@@ -4,6 +4,14 @@
 
 ---
 
+## [Unreleased] — Fix double-login UX on admin dashboard · 2026-05-18
+
+### Fixed
+- **`frontend/src/components/admin/AdminLogin.tsx`**: stamps `admin_login_ts` in `sessionStorage` immediately after a successful backend login.
+- **`frontend/src/components/admin/layout/AdminMain.tsx`**: ignores 401 events that arrive within 5 seconds of login, preventing the re-auth modal from firing during the initial dashboard API calls before the `admin_access_token` cookie is fully propagated.
+
+---
+
 ## [Unreleased] — Admin: SystemTrace page with per-turn latency and route view · 2026-05-18
 
 ### Added
