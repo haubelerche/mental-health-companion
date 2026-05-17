@@ -7,7 +7,7 @@ from app.personas.registry import DEFAULT_PERSONA_ID, PERSONA_REGISTRY
 
 PERSONA_CHAT_GREETINGS: dict[str, str] = {
     "dung_luong": (
-        "Ê, tớ là Dũng đây — nay cậu ổn không? Xong deadline chưa, còn đi chơi không?"
+        "Ê, tớ là Dũng đây — nay cậu ổn không? Xong deadline chưa hay bỏ đó đi chơi rồi?"
     ),
     "dat_le": (
         "Chào bạn, tôi là Đạt. Hôm nay bạn thấy thế nào — mọi thứ vẫn ổn chứ?"

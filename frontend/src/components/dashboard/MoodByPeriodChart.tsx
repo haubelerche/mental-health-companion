@@ -4,6 +4,7 @@ import {
     CartesianGrid,
     Cell,
     LabelList,
+    ReferenceLine,
     ResponsiveContainer,
     Tooltip,
     XAxis,
@@ -16,22 +17,68 @@ type Props = {
     data: MoodByPeriodItem[]
 }
 
-const PERIOD_COLORS: Record<string, { bar: string; label: string }> = {
-    morning: { bar: '#fbbf24', label: '#92400e' },
-    afternoon: { bar: '#34d399', label: '#065f46' },
-    evening: { bar: '#818cf8', label: '#3730a3' },
-    unknown: { bar: '#9ca3af', label: '#374151' },
+const PERIOD_COLORS: Record<string, { bar: string }> = {
+    morning: { bar: '#fbbf24' },
+    afternoon: { bar: '#34d399' },
+    evening: { bar: '#818cf8' },
+    unknown: { bar: '#9ca3af' },
+}
+
+// Matches toTenPointMood output (backend 1-5 → ×2 = 2/4/6/8/10)
+const MOOD_LEVELS: Array<{ max: number; label: string }> = [
+    { max: 2, label: 'Khó khăn' },
+    { max: 4, label: 'Buồn' },
+    { max: 6, label: 'Ổn' },
+    { max: 8, label: 'Tốt' },
+    { max: 10, label: 'Rất tốt' },
+]
+
+function moodLabel(score: number | null): string {
+    if (score == null) return ''
+    return MOOD_LEVELS.find((l) => score <= l.max)?.label ?? 'Rất tốt'
+}
+
+function weightedAvg(data: MoodByPeriodItem[]): number | null {
+    const totalCount = data.reduce((s, d) => s + d.count, 0)
+    if (!totalCount) return null
+    const totalScore = data.reduce(
+        (s, d) => (d.avg_mood != null ? s + d.avg_mood * d.count : s),
+        0,
+    )
+    return Math.round((totalScore / totalCount) * 10) / 10
+}
+
+function getInterpretation(data: MoodByPeriodItem[]): string | null {
+    const scored = data.filter((d) => d.avg_mood != null && d.count > 0)
+    if (scored.length < 2) return null
+
+    const best = scored.reduce((a, b) => (a.avg_mood! > b.avg_mood! ? a : b))
+    const worst = scored.reduce((a, b) => (a.avg_mood! < b.avg_mood! ? a : b))
+
+    if (best.avg_mood === worst.avg_mood) {
+        return `Mood của bạn khá đồng đều trong ngày — cả ${scored.length} buổi ở mức "${moodLabel(best.avg_mood)}" (${best.avg_mood}/10). Hãy check-in thêm để thấy sự biến động rõ hơn.`
+    }
+
+    const delta = Math.round((best.avg_mood! - worst.avg_mood!) * 10) / 10
+    return `Bạn thường cảm thấy tốt nhất vào ${best.label.toLowerCase()} (${best.avg_mood}/10 — ${moodLabel(best.avg_mood)}), thấp nhất vào ${worst.label.toLowerCase()} (${worst.avg_mood}/10 — ${moodLabel(worst.avg_mood)}), chênh nhau ${delta} điểm.`
 }
 
 function PeriodTooltip({
     active,
     payload,
+    overallAvg,
 }: {
     active?: boolean
     payload?: Array<{ payload: MoodByPeriodItem }>
+    overallAvg: number | null
 }) {
     if (!active || !payload?.length) return null
     const item = payload[0].payload
+    const delta =
+        overallAvg != null && item.avg_mood != null
+            ? Math.round((item.avg_mood - overallAvg) * 10) / 10
+            : null
+
     return (
         <div className="rounded-2xl border border-theme-border bg-theme-surface/95 p-3 text-xs shadow-xl backdrop-blur-xl">
             <p className="font-semibold text-theme-text-primary">{item.label}</p>
@@ -39,16 +86,31 @@ function PeriodTooltip({
                 <p>
                     Mood TB:{' '}
                     <span className="font-semibold text-theme-text-primary">
-                        {item.avg_mood != null ? `${item.avg_mood}/10` : 'chưa có dữ liệu'}
+                        {item.avg_mood != null
+                            ? `${item.avg_mood}/10 — ${moodLabel(item.avg_mood)}`
+                            : 'chưa có dữ liệu'}
                     </span>
                 </p>
-                {item.avg_energy != null && (
+                {delta != null && (
                     <p>
-                        Năng lượng TB:{' '}
-                        <span className="font-semibold text-theme-text-primary">{item.avg_energy}/10</span>
+                        So với TB chung:{' '}
+                        <span
+                            className={`font-semibold ${
+                                delta > 0
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : delta < 0
+                                      ? 'text-amber-600 dark:text-amber-400'
+                                      : 'text-theme-text-primary'
+                            }`}
+                        >
+                            {delta > 0 ? `+${delta}` : delta === 0 ? '±0' : `${delta}`}
+                        </span>
                     </p>
                 )}
-                <p>{item.count} check-in</p>
+                <p>{item.count} lần check-in trong buổi này</p>
+                <p className="text-theme-text-tertiary">
+                    Cách tính: TB điểm mood của {item.count} check-in{item.count > 1 ? '' : ' này'} trong khoảng đã chọn.
+                </p>
             </div>
         </div>
     )
@@ -56,6 +118,8 @@ function PeriodTooltip({
 
 export function MoodByPeriodChart({ data }: Props) {
     const hasData = data.some((item) => item.avg_mood != null)
+    const overallAvg = weightedAvg(data)
+    const interpretation = getInterpretation(data)
 
     return (
         <section className="rounded-2xl border border-theme-border/70 bg-theme-surface p-4 shadow-sm md:p-5">
@@ -63,11 +127,11 @@ export function MoodByPeriodChart({ data }: Props) {
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-theme-text-tertiary">
                     Mood theo thời điểm
                 </p>
-                <h2 className="mt-1 text-xl font-semibold text-theme-text-primary">
-                    Sáng, chiều, tối
-                </h2>
+                <h2 className="mt-1 text-xl font-semibold text-theme-text-primary">Sáng, chiều, tối</h2>
                 <p className="mt-1 text-sm leading-relaxed text-theme-text-secondary">
-                    So sánh mood trung bình ở từng buổi trong ngày. Mỗi cột là trung bình của tất cả check-in trong khoảng đã chọn.
+                    Trung bình mood từng buổi trong khoảng đã chọn — thang 10 điểm:{' '}
+                    <span className="font-medium text-theme-text-primary">2 Khó khăn · 4 Buồn · 6 Ổn · 8 Tốt · 10 Rất tốt</span>.{' '}
+                    Đường ngang là mức trung bình chung của bạn.
                 </p>
             </div>
 
@@ -83,7 +147,7 @@ export function MoodByPeriodChart({ data }: Props) {
                         <ResponsiveContainer width="100%" height="100%" minWidth={1}>
                             <BarChart
                                 data={data}
-                                margin={{ top: 20, right: 12, left: -20, bottom: 0 }}
+                                margin={{ top: 20, right: 16, left: -20, bottom: 0 }}
                                 barCategoryGap="30%"
                             >
                                 <CartesianGrid
@@ -104,7 +168,25 @@ export function MoodByPeriodChart({ data }: Props) {
                                     tickLine={false}
                                     tick={{ fill: 'var(--theme-text-tertiary)', fontSize: 11 }}
                                 />
-                                <Tooltip content={<PeriodTooltip />} cursor={{ fill: 'var(--theme-border)', opacity: 0.3 }} />
+                                <Tooltip
+                                    content={<PeriodTooltip overallAvg={overallAvg} />}
+                                    cursor={{ fill: 'var(--theme-border)', opacity: 0.3 }}
+                                />
+                                {overallAvg != null && (
+                                    <ReferenceLine
+                                        y={overallAvg}
+                                        stroke="var(--theme-accent)"
+                                        strokeDasharray="5 4"
+                                        strokeWidth={1.5}
+                                        label={{
+                                            value: `TB: ${overallAvg}`,
+                                            position: 'insideTopRight',
+                                            fill: 'var(--theme-accent)',
+                                            fontSize: 11,
+                                            fontWeight: 700,
+                                        }}
+                                    />
+                                )}
                                 <Bar dataKey="avg_mood" radius={[8, 8, 0, 0]} maxBarSize={72}>
                                     {data.map((item) => {
                                         const color = PERIOD_COLORS[item.period] ?? PERIOD_COLORS.unknown
@@ -135,12 +217,23 @@ export function MoodByPeriodChart({ data }: Props) {
                                     />
                                     {item.label}
                                     {item.count > 0 && (
-                                        <span className="text-theme-text-tertiary">({item.count})</span>
+                                        <span className="text-theme-text-tertiary">
+                                            ({item.count} check-in
+                                            {item.avg_mood != null
+                                                ? ` · ${moodLabel(item.avg_mood)}`
+                                                : ''})
+                                        </span>
                                     )}
                                 </span>
                             )
                         })}
                     </div>
+
+                    {interpretation && (
+                        <p className="mt-3 rounded-xl bg-theme-bg-secondary px-3 py-2.5 text-xs leading-relaxed text-theme-text-secondary">
+                            {interpretation}
+                        </p>
+                    )}
                 </>
             )}
         </section>

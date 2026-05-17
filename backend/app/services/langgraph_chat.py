@@ -76,6 +76,7 @@ class ChatGraphState(TypedDict, total=False):
     active_memory_text: str         # optional canonical memory text; usually supplied via mem0_facts
     graph_patterns: dict            # UserPatternsResult from Neo4j, pre-fetched async; {} if unavailable
     nutrition_meals: list[dict[str, Any]] | None  # today's meal check-ins; None if none logged
+    analyst_extra_context: str | None  # pre-loaded screening/session summary context; None if unavailable
 
     # === CONTROL FLAGS ===
     crisis_route_finalized: bool
@@ -187,6 +188,12 @@ def _trace_span(correlation_id: str, span: str, *, duration_ms: float, token_cou
     if extra:
         payload.update(extra)
     logger.info("[Trace] %s", payload)
+
+
+def _user_hash(user_id: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(user_id.encode("utf-8")).hexdigest()[:12]
 
 
 # Routing thresholds — single source of truth for distress_router decisions.
@@ -836,6 +843,20 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
     settings = get_settings()
     hist = list(state.get("routing_history") or [])
     hist.append("analyst")
+    _tracer = get_active_tracer()
+    if _tracer is not None:
+        _tracer.event(
+            "analyst.context_load",
+            input_data={"user_id_hash": _user_hash(user_id), "session_id": str(state.get("session_id") or "")[:8] or None},
+            output_data={
+                "has_extra_context": bool(state.get("analyst_extra_context")),
+                "mood_today": bool(state.get("mood_today")),
+                "mem0_facts_count": len(list(state.get("mem0_facts") or [])),
+                "nutrition_count": len(list(state.get("nutrition_meals") or [])),
+                "graph_available": bool((state.get("graph_patterns") or {}).get("available")),
+            },
+            metadata={"agent": "analyst", "span_type": "context_load"},
+        )
 
     mood_note = ""
     m = state.get("mood_today")
@@ -870,6 +891,9 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
     trajectory = str(state.get("clinical_trajectory") or "").strip()
     if trajectory:
         context_lines.append(f"Hành trình tâm lý: {trajectory}")
+    extra_ctx = str(state.get("analyst_extra_context") or "").strip()
+    if extra_ctx:
+        context_lines.append(f"Ngu canh bo sung:\n{extra_ctx}")
     profile_context = "\n".join(context_lines) if context_lines else "(chưa có profile context)"
     nutrition_meals = state.get("nutrition_meals") or []
     if nutrition_meals:
@@ -939,7 +963,6 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
                     input_tokens=int(getattr(usage, "prompt_tokens", analyst_in_tokens) or analyst_in_tokens),
                     output_tokens=int(getattr(usage, "completion_tokens", analyst_out_tokens) or analyst_out_tokens),
                 )
-            _tracer = get_active_tracer()
             if _tracer:
                 _in = int(getattr(usage, "prompt_tokens", analyst_in_tokens) or analyst_in_tokens) if usage else analyst_in_tokens
                 _out = int(getattr(usage, "completion_tokens", 0) or 0) if usage else 0
@@ -977,6 +1000,17 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
     except Exception as _parse_exc:
         logger.warning("analyst bundle parse failed corr=%s: %s", correlation_id, _parse_exc)
         _bundle = AnalystBundle(clinical_note="", emotional_theme="unclear", suggested_focus=None, risk_indicators=[])
+    if _tracer is not None:
+        _tracer.event(
+            "analyst.llm.generate_bundle",
+            output_data={
+                "emotional_theme": _bundle.emotional_theme,
+                "risk_indicator_count": len(_bundle.risk_indicators),
+                "has_suggested_focus": bool(_bundle.suggested_focus),
+                "latency_ms": round((time.perf_counter() - span_start) * 1000),
+            },
+            metadata={"agent": "analyst", "model": settings.openai_model_analyst},
+        )
     _trace_span(
         correlation_id,
         "analyst_generate",
@@ -1531,6 +1565,7 @@ def run_non_sos_turn(
     active_memory_text: str = "",
     graph_patterns: dict | None = None,
     nutrition_meals: list[dict[str, Any]] | None = None,
+    analyst_extra_context: str | None = None,
 ) -> dict[str, Any]:
     """Run non-SOS graph flow and return normalized conversation payload fields."""
     started = time.perf_counter()
@@ -1587,6 +1622,7 @@ def run_non_sos_turn(
         "user_id": user_id or "",
         "graph_patterns": _graph_patterns,
         "nutrition_meals": nutrition_meals or None,
+        "analyst_extra_context": analyst_extra_context or None,
         # Cold-start screening note pre-seeded as a minimal bundle; analyst_node will
         # overwrite with a richer bundle when routed to analyst.
         "analyst_bundle": AnalystBundle(
@@ -1646,6 +1682,7 @@ def stream_non_sos_turn_events(
     active_memory_text: str = "",
     graph_patterns: dict | None = None,
     nutrition_meals: list[dict[str, Any]] | None = None,
+    analyst_extra_context: str | None = None,
 ) -> Iterator[dict[str, Any]]:
     """Yield streaming events for non-SOS turn:
     - {"type":"token","text":"..."} while model is generating
@@ -1705,6 +1742,7 @@ def stream_non_sos_turn_events(
         "active_memory_text": active_memory_text or "",
         "graph_patterns": _stream_graph_patterns,
         "nutrition_meals": nutrition_meals or None,
+        "analyst_extra_context": analyst_extra_context or None,
         "analyst_bundle": AnalystBundle(
             clinical_note=screening_note[:200],
             emotional_theme="cold_start_screen",
@@ -1873,6 +1911,8 @@ def stream_non_sos_turn_events(
                 user_id=user_id,
                 session_id=session_id,
                 graph_patterns=_stream_graph_patterns,
+                nutrition_meals=nutrition_meals,
+                analyst_extra_context=analyst_extra_context,
             )
             yield {"type": "final", "turn": fallback}
             return

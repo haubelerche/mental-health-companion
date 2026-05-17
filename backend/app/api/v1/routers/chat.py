@@ -37,6 +37,15 @@ from app.services.guest_service import heartbeat as guest_heartbeat
 from app.services.guest_service import start_session as guest_start_session
 from app.services.langfuse_tracing import ChatTurnTracer, set_active_tracer
 from app.services.latency_metrics import ensure_chat_latency_trace
+from app.services.analyst_agent import (
+    _dass21_anxiety_band,
+    _dass21_depression_band,
+    _dass21_stress_band,
+    _gad7_band,
+    _mdq_band,
+    _pcl5_band,
+    _phq9_band,
+)
 from app.services.analyst_writer import record_analyst_bundle_signal
 from app.services.langgraph_chat import build_normal_envelope, run_non_sos_turn, stream_non_sos_turn_events
 from app.services.longterm_memory import (
@@ -705,6 +714,36 @@ def _load_today_meals(db: Session, user_id: str) -> list[dict]:
     except Exception as exc:
         logger.debug("meal load failed for %s: %s", user_id, exc)
         return []
+
+
+def _load_analyst_extra_context(db: Session, user_id: str) -> tuple[str | None, object | None]:
+    try:
+        from app.services.analyst_context_loader import AnalystContextLoader
+
+        ctx = AnalystContextLoader(db=db).load_all(user_id=user_id, window_days=14)
+        parts: list[str] = []
+        if ctx.screening.has_screening_data:
+            s = ctx.screening
+            if s.phq9_score is not None:
+                parts.append(f"PHQ-9:{_phq9_band(s.phq9_score)}")
+            if s.gad7_score is not None:
+                parts.append(f"GAD-7:{_gad7_band(s.gad7_score)}")
+            if s.dass21_depression_score is not None:
+                parts.append(f"DASS21-dep:{_dass21_depression_band(s.dass21_depression_score)}")
+            if s.dass21_anxiety_score is not None:
+                parts.append(f"DASS21-anx:{_dass21_anxiety_band(s.dass21_anxiety_score)}")
+            if s.dass21_stress_score is not None:
+                parts.append(f"DASS21-str:{_dass21_stress_band(s.dass21_stress_score)}")
+            if s.mdq_score is not None:
+                parts.append(f"MDQ:{_mdq_band(s.mdq_score)}")
+            if s.pcl5_score is not None:
+                parts.append(f"PCL-5:{_pcl5_band(s.pcl5_score)}")
+        if ctx.session_summaries.top_themes:
+            parts.append(f"Recent session themes: {', '.join(ctx.session_summaries.top_themes[:3])}")
+        return ("; ".join(parts) if parts else None), ctx
+    except Exception as exc:
+        logger.warning("analyst_context_load failed (non-blocking): %s", exc)
+        return None, None
 
 
 def _previous_assistant_texts(recent_messages: list[dict], *, max_turns: int = 6) -> list[str]:
@@ -1430,6 +1469,7 @@ def send_message(
     # distress_score frozen after decide_sos() — mood is context for LangGraph, not a routing delta.
     distress = distress0
     selected_persona_id = _active_persona_id(db, current_user.user_id, distress=distress)
+    analyst_extra_context, analyst_ctx = _load_analyst_extra_context(db, current_user.user_id)
     route_tier, planned_advisor_ids, route_reason_codes = ChatOrchestrator.resolve_route_advisors_with_reasons(
         raw_text=raw_text,
         previous_user_messages=previous_user_messages,
@@ -1612,6 +1652,7 @@ def send_message(
                         active_memory_text=_active_memory_text_from_context(memory_ctx, compat_longterm),
                         graph_patterns=_graph_patterns,
                         nutrition_meals=_nutrition_meals or None,
+                        analyst_extra_context=analyst_extra_context,
                     )
                 _mark_stage(latency_trace, "friend_llm_call_ms", llm_started)
             if route_tier != "advisor_assisted":
@@ -1635,6 +1676,7 @@ def send_message(
                 analyst_bundle=_ab,
                 distress_score=float(distress),
                 sos_triggered=False,
+                evidence_refs=getattr(analyst_ctx, "evidence_refs", None),
             )
         except Exception:
             logger.debug("analyst_bundle persist skipped (non-fatal)")
@@ -2215,6 +2257,7 @@ def send_message_stream(
             if turn is None:
                 turn = get_cached_turn(session.session_id, message_hash) if settings.chat_response_cache_ttl_seconds > 0 else None
             _stream_persona_id = _active_persona_id(db, current_user.user_id, distress=distress)
+            _stream_analyst_extra_context, _stream_analyst_ctx = _load_analyst_extra_context(db, current_user.user_id)
             if turn is None:
                 _s_route_tier, _, _s_route_codes = ChatOrchestrator.resolve_route_advisors_with_reasons(
                     raw_text=raw_text,
@@ -2331,6 +2374,7 @@ def send_message_stream(
                     active_memory_text=_active_memory_text_from_context(memory_ctx, compat_longterm),
                     graph_patterns=_stream_graph_patterns,
                     nutrition_meals=_stream_nutrition_meals or None,
+                    analyst_extra_context=_stream_analyst_extra_context,
                 ):
                     if ev.get("type") == "token":
                         yield "event: delta\ndata: " + json.dumps({"text": str(ev.get("text") or "")}, ensure_ascii=False) + "\n\n"

@@ -1,4 +1,4 @@
-import { BedDouble, PlusCircle, Salad, Users, Zap } from 'lucide-react'
+import { Activity, BedDouble, Users, Zap } from 'lucide-react'
 import type { ComponentType } from 'react'
 import type { ReflectWellnessDimension } from '../../services/dashboardService'
 
@@ -6,130 +6,243 @@ type Props = {
     dimensions: ReflectWellnessDimension[]
 }
 
+type DimKey = 'sleep' | 'body' | 'emotion' | 'connection'
 type StatusType = ReflectWellnessDimension['status']
 
-const STATUS_DOT: Record<StatusType, string> = {
-    unknown: 'bg-gray-300',
-    limited_data: 'bg-gray-300',
-    steady: 'bg-emerald-400',
-    needs_attention: 'bg-amber-400',
-    improving: 'bg-cyan-400',
-}
-
 const STATUS_LABEL: Record<StatusType, string> = {
-    unknown: 'Chưa có dữ liệu',
+    unknown: 'Chưa đủ dữ liệu',
     limited_data: 'Dữ liệu còn ít',
-    steady: 'Ổn định',
-    needs_attention: 'Cần chú ý thêm',
-    improving: 'Đang cải thiện',
+    steady: 'Khá đều',
+    needs_attention: 'Cần theo dõi thêm',
+    improving: 'Đang tốt lên',
 }
 
-const DIMENSION_CONFIG = {
+const STATUS_BADGE: Record<StatusType, string> = {
+    unknown: 'text-theme-text-tertiary bg-theme-bg-secondary border-theme-border/60',
+    limited_data: 'text-theme-text-secondary bg-theme-bg-secondary border-theme-border/60',
+    steady: 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-400/10 dark:border-emerald-400/20',
+    improving: 'text-cyan-700 bg-cyan-50 border-cyan-200 dark:text-cyan-300 dark:bg-cyan-400/10 dark:border-cyan-400/20',
+    needs_attention: 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-300 dark:bg-amber-400/10 dark:border-amber-400/20',
+}
+
+const CARD_BG: Record<StatusType, string> = {
+    unknown: 'bg-theme-bg-secondary/40 border-dashed border-theme-border/60',
+    limited_data: 'bg-theme-bg-secondary/40 border-dashed border-theme-border/60',
+    steady: 'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-400/5 dark:border-emerald-400/15',
+    improving: 'bg-cyan-50/50 border-cyan-100 dark:bg-cyan-400/5 dark:border-cyan-400/15',
+    needs_attention: 'bg-amber-50/50 border-amber-100 dark:bg-amber-400/5 dark:border-amber-400/15',
+}
+
+type DimConfig = {
+    icon: ComponentType<{ className?: string }>
+    label: string
+    iconColor: string
+    evidenceUnit: string
+    missingWhenEmpty: string
+    missingWhenHasData: string
+    fallbackExplanation: string
+    fallbackAction: string
+}
+
+const DIMENSION_CONFIG: Record<DimKey, DimConfig> = {
     sleep: {
         icon: BedDouble,
         label: 'Giấc ngủ',
         iconColor: 'text-indigo-400',
-        dataNeededHint: 'Ghi số giờ ngủ trong check-in buổi tối để Serene thấy mối liên hệ với mood.',
+        evidenceUnit: 'ngày có dữ liệu giấc ngủ',
+        missingWhenEmpty: 'giờ ngủ, giờ dậy, chất lượng ngủ',
+        missingWhenHasData: 'chất lượng ngủ từng đêm',
+        fallbackExplanation:
+            'Serene chưa thấy giờ đi ngủ hoặc giờ thức dậy trong các ghi nhận gần đây, nên chưa thể phân tích giấc ngủ ảnh hưởng thế nào đến tâm trạng của bạn.',
+        fallbackAction: 'ghi lại giờ đi ngủ trước khi ngủ',
     },
     body: {
-        icon: Salad,
-        label: 'Ăn uống & thể chất',
+        icon: Activity,
+        label: 'Cơ thể',
         iconColor: 'text-emerald-500',
-        dataNeededHint: 'Log bữa ăn trong "Dinh dưỡng" để Serene theo dõi mối liên hệ với năng lượng.',
+        evidenceUnit: 'lần thử hành động nhỏ',
+        missingWhenEmpty: 'hành động tự ổn định, mức năng lượng trong ngày',
+        missingWhenHasData: 'hành động nào thật sự giúp bạn nhẹ nhất',
+        fallbackExplanation:
+            'Serene chưa có đủ thông tin về các hành động tự ổn định của bạn. Mỗi lần thử một hành động nhỏ, bạn đang giúp Serene hiểu điều gì thật sự có tác dụng.',
+        fallbackAction: 'thử một hành động nhỏ tự ổn định hôm nay',
     },
     emotion: {
         icon: Zap,
-        label: 'Cảm xúc & năng lượng',
+        label: 'Cảm xúc',
         iconColor: 'text-amber-400',
-        dataNeededHint: 'Thêm mức năng lượng vào check-in để phân biệt mood ổn với trạng thái còn sức hay kiệt sức.',
+        evidenceUnit: 'ngày có ghi nhận',
+        missingWhenEmpty: 'dữ liệu theo buổi sáng, chiều, tối',
+        missingWhenHasData: 'sáng · chiều · tối',
+        fallbackExplanation:
+            'Serene chưa có ghi nhận cảm xúc theo buổi, nên chưa thể thấy lúc nào trong ngày bạn thường dễ tụt nhất.',
+        fallbackAction: 'thêm một ghi nhận ngắn vào buổi tối',
     },
     connection: {
         icon: Users,
         label: 'Kết nối',
         iconColor: 'text-rose-400',
-        dataNeededHint: 'Nhắn ghi chú về tương tác xã hội trong tuần để Serene thấy tác động đến mood.',
+        evidenceUnit: 'phiên trò chuyện',
+        missingWhenEmpty: 'tương tác ngoài ứng dụng, người bạn tin tưởng',
+        missingWhenHasData: 'người bạn có thể tin tưởng ngoài ứng dụng',
+        fallbackExplanation:
+            'Serene chưa có đủ dữ liệu về mức độ kết nối của bạn trong giai đoạn này.',
+        fallbackAction: 'nhắn một câu rất ngắn cho một người an toàn',
     },
-} as const
-
-const PRIORITY_DIMS = ['sleep', 'body', 'emotion', 'connection'] as const
-
-const STATUS_INSIGHT_BG: Record<string, string> = {
-    steady: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-400/8 dark:border-emerald-400/20',
-    improving: 'bg-cyan-50 border-cyan-200 dark:bg-cyan-400/8 dark:border-cyan-400/20',
-    needs_attention: 'bg-amber-50 border-amber-200 dark:bg-amber-400/8 dark:border-amber-400/20',
 }
 
-function InsightCard({
-    icon: Icon,
-    label,
-    iconColor,
-    status,
-    explanation,
-    evidenceText,
-    evidenceCount,
-    suggestedAction,
+const PRIORITY_DIMS: DimKey[] = ['sleep', 'body', 'emotion', 'connection']
+
+function hasData(status: StatusType): boolean {
+    return status === 'steady' || status === 'improving' || status === 'needs_attention'
+}
+
+function confidenceLabel(dims: ReflectWellnessDimension[]): string {
+    const count = dims.filter((d) => hasData(d.status)).length
+    if (count >= 3) return 'Cao'
+    if (count >= 2) return 'Trung bình'
+    return 'Thấp'
+}
+
+function buildEvidenceChips(dimMap: Map<string, ReflectWellnessDimension>): string[] {
+    const chips: string[] = []
+
+    const emotion = dimMap.get('emotion')
+    if (emotion && hasData(emotion.status) && emotion.evidence_count > 0) {
+        chips.push(`${emotion.evidence_count} ngày ghi nhận cảm xúc`)
+    }
+
+    const connection = dimMap.get('connection')
+    if (connection && hasData(connection.status) && connection.evidence_count > 0) {
+        chips.push(`${connection.evidence_count} phiên trò chuyện`)
+    }
+
+    const sleep = dimMap.get('sleep')
+    if (!sleep || !hasData(sleep.status)) {
+        chips.push('chưa có giờ ngủ')
+    } else if (sleep.evidence_count > 0) {
+        chips.push(`${sleep.evidence_count} ngày có dữ liệu giấc ngủ`)
+    }
+
+    const body = dimMap.get('body')
+    if (body && hasData(body.status) && body.evidence_count > 0) {
+        chips.push(`${body.evidence_count} lần thử hành động nhỏ`)
+    }
+
+    return chips.slice(0, 4)
+}
+
+function heroSummary(allDims: ReflectWellnessDimension[]): string {
+    const needsAttn = allDims.find((d) => d.status === 'needs_attention')
+    if (needsAttn?.explanation) return needsAttn.explanation
+
+    const improving = allDims.find((d) => d.status === 'improving')
+    if (improving?.explanation) return improving.explanation
+
+    const steady = allDims.find((d) => d.status === 'steady')
+    if (steady?.explanation) return steady.explanation
+
+    const limited = allDims.find((d) => d.status === 'limited_data' && d.explanation)
+    if (limited?.explanation) return limited.explanation
+
+    return 'Serene chưa có đủ dữ liệu sinh hoạt để rút ra điều đáng chú ý. Bạn có thể ghi nhận thêm giờ ngủ, cảm xúc theo buổi, và trò chuyện nhỏ để Serene thấy rõ hơn.'
+}
+
+function HeroCard({
+    dimMap,
+    allDims,
 }: {
-    icon: ComponentType<{ className?: string }>
-    label: string
-    iconColor: string
-    status: StatusType
-    explanation: string
-    evidenceText: string
-    evidenceCount: number
-    suggestedAction: string | null
+    dimMap: Map<string, ReflectWellnessDimension>
+    allDims: ReflectWellnessDimension[]
 }) {
-    const bgClass = STATUS_INSIGHT_BG[status] ?? 'bg-theme-bg-secondary border-theme-border'
+    const summary = heroSummary(allDims)
+    const chips = buildEvidenceChips(dimMap)
+    const confidence = confidenceLabel(allDims)
+
     return (
-        <div className={`rounded-2xl border p-4 ${bgClass} transition duration-200`}>
-            <div className="mb-3 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                    <Icon className={`h-4 w-4 shrink-0 ${iconColor}`} aria-hidden />
-                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-theme-text-primary">
-                        {label}
-                    </p>
+        <div className="rounded-2xl border border-theme-border bg-theme-bg-secondary/60 p-4 md:p-5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-theme-text-tertiary">
+                Điều đáng chú ý nhất
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-theme-text-primary">{summary}</p>
+            {chips.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                    {chips.map((chip) => (
+                        <span
+                            key={chip}
+                            className="inline-flex items-center rounded-full bg-theme-surface px-3 py-1 text-xs text-theme-text-secondary ring-1 ring-theme-border"
+                        >
+                            {chip}
+                        </span>
+                    ))}
                 </div>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-current/20 bg-white/60 px-2.5 py-0.5 text-[10px] font-semibold text-theme-text-secondary dark:bg-white/5">
-                    <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status]}`} />
-                    {STATUS_LABEL[status]}
-                </span>
-            </div>
-            <p className="text-sm leading-relaxed text-theme-text-primary">{explanation}</p>
-            {evidenceCount > 0 && (
-                <p className="mt-2 text-xs text-theme-text-secondary">{evidenceText}</p>
             )}
-            {suggestedAction && (
-                <p className="mt-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                    {suggestedAction}
-                </p>
-            )}
+            <p className="mt-3 text-xs text-theme-text-tertiary">
+                Mức tin cậy:{' '}
+                <span className="font-semibold text-theme-text-secondary">{confidence}</span>
+            </p>
         </div>
     )
 }
 
-function DataNeededCard({
-    icon: Icon,
-    label,
-    iconColor,
-    hint,
+function LifestyleCard({
+    dimKey,
+    dim,
 }: {
-    icon: ComponentType<{ className?: string }>
-    label: string
-    iconColor: string
-    hint: string
+    dimKey: DimKey
+    dim: ReflectWellnessDimension | undefined
 }) {
+    const config = DIMENSION_CONFIG[dimKey]
+    const Icon = config.icon
+    const status: StatusType = dim?.status ?? 'unknown'
+    const isDataReady = hasData(status)
+
+    const explanation =
+        dim?.explanation && dim.explanation.trim() ? dim.explanation : config.fallbackExplanation
+
+    const evidenceText =
+        isDataReady && dim && dim.evidence_count > 0
+            ? `${dim.evidence_count} ${config.evidenceUnit}`
+            : null
+
+    const missingText = isDataReady ? config.missingWhenHasData : config.missingWhenEmpty
+
+    const action = dim?.suggested_action ?? config.fallbackAction
+
     return (
-        <div className="rounded-2xl border border-dashed border-theme-border/70 bg-theme-bg-secondary/50 p-4 transition duration-200">
-            <div className="mb-2 flex items-center gap-2">
-                <Icon className={`h-4 w-4 shrink-0 ${iconColor} opacity-50`} aria-hidden />
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-theme-text-tertiary">
-                    {label}
-                </p>
-                <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-theme-text-tertiary">
-                    <PlusCircle className="h-3 w-3" aria-hidden />
-                    Cần thêm dữ liệu
+        <div className={`rounded-2xl border p-4 transition duration-200 ${CARD_BG[status]}`}>
+            <div className="mb-3 flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <Icon
+                        className={`h-4 w-4 shrink-0 ${config.iconColor} ${!isDataReady ? 'opacity-50' : ''}`}
+                        aria-hidden
+                    />
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-theme-text-primary">
+                        {config.label}
+                    </p>
+                </div>
+                <span
+                    className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${STATUS_BADGE[status]}`}
+                >
+                    {STATUS_LABEL[status]}
                 </span>
             </div>
-            <p className="text-sm leading-relaxed text-theme-text-secondary">{hint}</p>
+
+            <p className="text-sm leading-relaxed text-theme-text-primary">{explanation}</p>
+
+            {evidenceText && (
+                <p className="mt-2 text-xs text-theme-text-secondary">
+                    Dựa trên: {evidenceText}
+                </p>
+            )}
+
+            <p className="mt-1.5 text-xs text-theme-text-tertiary">Còn thiếu: {missingText}</p>
+
+            <div className="mt-3">
+                <span className="inline-flex rounded-full bg-theme-surface px-3 py-1.5 text-xs font-medium text-theme-text-secondary ring-1 ring-theme-border">
+                    Hôm nay thử: {action}
+                </span>
+            </div>
         </div>
     )
 }
@@ -140,46 +253,20 @@ export function LifestyleRhythmPanel({ dimensions }: Props) {
     return (
         <section className="rounded-2xl border border-theme-border/70 bg-theme-surface p-4 shadow-sm backdrop-blur-xl md:p-5">
             <div className="mb-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-theme-text-tertiary">Nhịp sinh hoạt</p>
-                <h2 className="mt-1 text-xl font-semibold text-theme-text-primary">Ngủ, ăn, năng lượng & kết nối</h2>
-                <p className="mt-1 text-sm leading-relaxed text-theme-text-secondary">
-                    Các yếu tố sinh hoạt thường ảnh hưởng đến cảm xúc theo cách khó nhận ra ngay.
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-theme-text-tertiary">
+                    Nhịp sinh hoạt
+                </p>
+                <p className="mt-1.5 text-sm leading-relaxed text-theme-text-secondary">
+                    Giấc ngủ, ăn uống, năng lượng và kết nối thường ảnh hưởng đến cảm xúc theo cách âm thầm.
                 </p>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-                {PRIORITY_DIMS.map((key) => {
-                    const dim = dimMap.get(key)
-                    const config = DIMENSION_CONFIG[key]
-                    const status = dim?.status ?? 'unknown'
-                    const hasInsight = status === 'steady' || status === 'improving' || status === 'needs_attention'
+            <HeroCard dimMap={dimMap} allDims={dimensions} />
 
-                    if (!hasInsight || !dim?.explanation) {
-                        return (
-                            <DataNeededCard
-                                key={key}
-                                icon={config.icon}
-                                label={config.label}
-                                iconColor={config.iconColor}
-                                hint={config.dataNeededHint}
-                            />
-                        )
-                    }
-
-                    return (
-                        <InsightCard
-                            key={key}
-                            icon={config.icon}
-                            label={dim.label ?? config.label}
-                            iconColor={config.iconColor}
-                            status={status}
-                            explanation={dim.explanation}
-                            evidenceText={dim.evidence_text ?? ''}
-                            evidenceCount={dim.evidence_count ?? 0}
-                            suggestedAction={dim.suggested_action ?? null}
-                        />
-                    )
-                })}
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {PRIORITY_DIMS.map((key) => (
+                    <LifestyleCard key={key} dimKey={key} dim={dimMap.get(key)} />
+                ))}
             </div>
         </section>
     )

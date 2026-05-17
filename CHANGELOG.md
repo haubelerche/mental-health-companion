@@ -4,6 +4,23 @@
 
 ---
 
+## [Unreleased] - Analyst pipeline audit gap-closure - 2026-05-17
+
+### Added
+- **`backend/app/services/analyst_context_loader.py`**: `AnalystContextLoader` with typed mood, screening, and session-summary bundles; source counts; and PII-safe `evidence_refs`.
+- **`backend/alembic/versions/0040_analyst_evidence_refs.py`**: migration adding `analyst_signals.evidence_refs`.
+- Internal screening band helpers for PHQ-9, GAD-7, DASS-21 subscales, MDQ, and PCL-5.
+- Langfuse analyst events for context loading, source counts, and bundle generation.
+- Analyst regression tests covering context loading, `evidence_refs` persistence, no-block failure behavior, band-label safety, and privacy surfaces.
+
+### Fixed
+- Batch analyst context now loads `ClinicalProfile` and `SessionSummaryArchive` through `AnalystContextLoader` instead of only relying on direct mood/nutrition queries.
+- Inline `analyst_node` can receive preloaded screening/session context from the chat router without blocking chat if context loading fails.
+- `record_analyst_bundle_signal()` now persists bounded `evidence_refs` so analyst signals can be traced back to source records.
+- Privacy regression coverage now checks batch analyst output, sanitizer behavior, dashboard-safe fields, and internal evidence stripping.
+
+---
+
 ## [Unreleased] — Eval dataset expansion, observability wiring, RAGAS BM25 heuristic, golden keyword tuning · 2026-05-17
 
 ### Added
