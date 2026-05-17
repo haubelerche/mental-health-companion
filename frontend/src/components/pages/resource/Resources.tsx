@@ -12,6 +12,7 @@ import Loading from '../../ui/Loading'
 import { useThemeContext } from '../../../contexts/ThemeContext'
 import { ExerciseTab } from './ExerciseTab'
 import Mascot from '../../pixel/Mascot'
+import { ForYouSection } from './ForYouSection'
 // ── Vietnamese category labels ────────────────────────────────────────────────
 const VI_LABELS: Record<string, { label: string; icon: string }> = {
     all: { label: 'Tất cả', icon: '✦' },
@@ -45,6 +46,8 @@ export default function Resources() {
     const [items, setItems] = useState<ResourceItem[]>([])
     const [query, setQuery] = useState(searchParams.get('q') || '')
     const [loadingResources, setLoadingResources] = useState(true)
+    const [forYouItems, setForYouItems] = useState<ResourceItem[]>([])
+    const [forYouReason, setForYouReason] = useState('Dựa trên nhịp cảm xúc gần đây của bạn')
     const [youtubeOpen, setYoutubeOpen] = useState(false)
     const [youtubeItem, setYoutubeItem] = useState<ResourceItem | null>(null)
 
@@ -59,6 +62,25 @@ export default function Resources() {
                 ])
             })
             .catch(() => undefined)
+    }, [])
+
+    useEffect(() => {
+        let active = true
+
+        resourceService
+            .getForYou()
+            .then((data) => {
+                if (!active) return
+                setForYouItems(data.items ?? [])
+                setForYouReason(data.reason || 'Dựa trên nhịp cảm xúc gần đây của bạn')
+            })
+            .catch(() => {
+                if (active) setForYouItems([])
+            })
+
+        return () => {
+            active = false
+        }
     }, [])
 
     useEffect(() => {
@@ -143,6 +165,8 @@ export default function Resources() {
                     />
                 </label>
             </div>
+
+            <ForYouSection items={forYouItems} reason={forYouReason} onOpen={openItem} />
 
             {/* Category tabs */}
             <div className="mb-8 flex flex-wrap gap-2">

@@ -17,9 +17,10 @@ function FormatIcon({ format }: { format: string }) {
 interface ResourceGridProps {
     items: ResourceItem[]
     onOpen: (item: ResourceItem) => void
+    compact?: boolean
 }
 
-export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
+export function ResourceGrid({ items, onOpen, compact = false }: ResourceGridProps) {
     const { effectiveTheme } = useThemeContext()
     const isDark = effectiveTheme === 'dark'
 
@@ -34,7 +35,7 @@ export function ResourceGrid({ items, onOpen }: ResourceGridProps) {
     }
 
     return (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <div className={`grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 ${compact ? '' : 'lg:grid-cols-4'}`}>
             {items.map((item) => (
                 <button
                     key={item.id}
