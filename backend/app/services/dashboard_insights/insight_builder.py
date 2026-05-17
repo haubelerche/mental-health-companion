@@ -259,7 +259,12 @@ def build_trigger_impact_insight(checkins: list[MoodCheckin], days: int) -> Dash
     if not trigger_counts:
         return None
     frequent, freq_count = trigger_counts.most_common(1)[0]
-    intense = min(trigger_low_score, key=lambda key: sum(trigger_low_score[key]) / len(trigger_low_score[key]))
+    scored_triggers = {key: scores for key, scores in trigger_low_score.items() if scores}
+    intense = (
+        min(scored_triggers, key=lambda key: sum(scored_triggers[key]) / len(scored_triggers[key]))
+        if scored_triggers
+        else frequent
+    )
     emotions = ", ".join(label for label, _ in trigger_emotions[frequent].most_common(2)) or "chưa rõ"
     return _card(
         category="trigger_impact",

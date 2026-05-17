@@ -233,7 +233,11 @@ def _legacy_voice_payloads_for_history(db: Session, *, session_id: str, user_id:
     try:
         rows = db.scalars(
             select(SyncOutbox)
-            .where(SyncOutbox.event_type == VOICE_JOB_EVENT_TYPE, SyncOutbox.user_id == user_id)
+            .where(
+                SyncOutbox.event_type == VOICE_JOB_EVENT_TYPE,
+                SyncOutbox.user_id == user_id,
+                SyncOutbox.payload["session_id"].as_string() == session_id,
+            )
             .order_by(SyncOutbox.created_at.asc())
             .limit(200)
         ).all()
@@ -246,9 +250,6 @@ def _legacy_voice_payloads_for_history(db: Session, *, session_id: str, user_id:
         return {}
     session_jobs: list[dict] = []
     for row in rows:
-        payload = dict(row.payload or {})
-        if str(payload.get("session_id") or "") != session_id:
-            continue
         try:
             job = _voice_job_history_snapshot(db, f"tts_{row.outbox_id}")
         except SQLAlchemyError as exc:

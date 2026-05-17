@@ -155,17 +155,18 @@ def _bucket_counts(rows: list[MoodCheckin]) -> dict[str, int]:
 
 def _placeholder_like(title: str, summary: str) -> bool:
     text = f"{title} {summary}".lower()
+    try:
+        repaired = text.encode("latin1").decode("utf-8").lower()
+    except UnicodeError:
+        repaired = text
+    variants = {text, repaired}
     bad_fragments = (
         "tín hiệu gần đây",
-        "tÃ­n hiá»‡u gáº§n",
         "có vài dấu hiệu",
-        "cÃ³ vÃ i dáº¥u hiá»‡u",
         "serene ghi nhận một tín hiệu nhẹ",
-        "serene ghi nháº­n má»™t tÃ­n hiá»‡u nháº¹",
         "đây chỉ là quan sát nhẹ",
-        "Ä‘Ã¢y chá»‰ lÃ  quan sÃ¡t nháº¹",
     )
-    return any(fragment in text for fragment in bad_fragments)
+    return any(fragment in variant for variant in variants for fragment in bad_fragments)
 
 
 def _confidence_from_evidence(count: int) -> Literal["low", "medium", "high"]:
@@ -497,7 +498,7 @@ def _profile_insights(
                     "Serene nhận thấy bạn có vài lần phản hồi tích cực với hoạt động liên quan đến thở nhẹ. "
                     "Có thể các bước nhỏ, cụ thể hợp với bạn hơn là gợi ý dài."
                 ),
-                interpretation="Chá»‰ xem Ä‘Ã¢y lÃ  hÃ nh Ä‘á»™ng tá»± chÄƒm sÃ³c há»¯u Ã­ch khi cÃ³ láº·p láº¡i hoáº·c pháº£n há»“i hiá»‡u quáº£ tá»« báº¡n.",
+                interpretation="Chỉ xem đây là hành động tự chăm sóc hữu ích khi có lặp lại hoặc phản hồi hiệu quả từ bạn.",
                 evidence_count=len(breathing_like),
                 evidence_sources=["Hoạt động trong app"],
                 confidence=conf,
@@ -587,19 +588,19 @@ def _daily_mood_card(checkins: list[MoodCheckin]) -> DashboardInsightCard | None
     triggers = _top_counter([t for row in today_rows for t in _string_list(row.triggers)], limit=1)
     missing = []
     if bucket_counts["evening"] == 0:
-        missing.append("Thiáº¿u check-in buá»•i tá»‘i Ä‘á»ƒ xem cuá»‘i ngÃ y mood cÃ³ Ä‘á»•i khÃ´ng.")
-    emotion_text = ", ".join(label for label, _ in emotions) if emotions else "chÆ°a rÃµ"
+        missing.append("Thiếu check-in buổi tối để xem cuối ngày mood có đổi không.")
+    emotion_text = ", ".join(label for label, _ in emotions) if emotions else "chưa rõ"
     trigger_text = triggers[0][0] if triggers else None
-    summary = f"HÃ´m nay cÃ³ {len(today_rows)} check-in, mood trung bÃ¬nh khoáº£ng {avg}/10, cáº£m xÃºc ná»•i báº­t: {emotion_text}."
+    summary = f"Hôm nay có {len(today_rows)} check-in, mood trung bình khoảng {avg}/10, cảm xúc nổi bật: {emotion_text}."
     if trigger_text:
-        summary += f" Trigger ná»•i báº­t lÃ  {trigger_text}."
-    actions = ["Ghi thÃªm check-in buá»•i tá»‘i náº¿u hÃ´m nay chÆ°a cÃ³.", "Chá»n má»™t viá»‡c nhá» trong 10 phÃºt Ä‘á»ƒ káº¿t ngÃ y nháº¹ hÆ¡n."]
+        summary += f" Trigger nổi bật là {trigger_text}."
+    actions = ["Ghi thêm check-in buổi tối nếu hôm nay chưa có.", "Chọn một việc nhỏ trong 10 phút để kết ngày nhẹ hơn."]
     return DashboardInsightCard(
         insight_id=f"context_daily_{uuid.uuid4().hex[:10]}",
         category="daily_mood",
-        title="Mood hÃ´m nay",
+        title="Mood hôm nay",
         user_safe_summary=summary,
-        interpretation="Dá»¯ liá»‡u trong ngÃ y chá»‰ gá»£i Ã½ nhá»‹p hiá»‡n táº¡i, khÃ´ng pháº£i káº¿t luáº­n vá» báº¡n.",
+        interpretation="Dữ liệu trong ngày chỉ gợi ý nhịp hiện tại, không phải kết luận về bạn.",
         evidence_count=len(today_rows),
         evidence_sources=["mood_checkins"],
         confidence=_confidence_from_evidence(len(today_rows)),
@@ -868,9 +869,9 @@ def _contextual_cards(
             DashboardInsightCard(
                 insight_id=f"context_next_{uuid.uuid4().hex[:10]}",
                 category="next_step",
-                title="BÆ°á»›c tiáº¿p theo",
-                user_safe_summary="Serene chá»n cÃ¡c bÆ°á»›c nhá» dá»±a trÃªn nhá»¯ng ghi nháº­n gáº§n Ä‘Ã¢y, Æ°u tiÃªn hÃ nh Ä‘á»™ng cÃ³ thá»ƒ lÃ m ngay.",
-                interpretation="CÃ¡c gá»£i Ã½ nÃ y khÃ´ng pháº£i chá»‰ dáº«n y khoa; chá»‰ lÃ  cÃ¡ch giáº£m ma sÃ¡t Ä‘á»ƒ báº¡n tá»± chÄƒm sÃ³c trong ngÃ y.",
+                title="Bước tiếp theo",
+                user_safe_summary="Serene chọn các bước nhỏ dựa trên những ghi nhận gần đây, ưu tiên hành động có thể làm ngay.",
+                interpretation="Các gợi ý này không phải chỉ dẫn y khoa; chỉ là cách giảm ma sát để bạn tự chăm sóc trong ngày.",
                 evidence_count=evidence_count,
                 evidence_sources=["dashboard_safe_insights"],
                 confidence=_confidence_from_evidence(evidence_count),
