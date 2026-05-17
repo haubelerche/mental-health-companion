@@ -4,6 +4,13 @@
 
 ---
 
+## [Unreleased] — Admin observability: Redis ring-buffer for chat turn traces · 2026-05-18
+
+### Added
+- **`backend/app/services/turn_trace_store.py`**: Redis ring-buffer service for storing compact trace records of chat turns (admin observability only, no PII or raw user text). Provides `record_trace()` to write traces and `get_recent_traces()` to retrieve up to the 200 most recent traces (24-hour TTL). Handles graceful degradation when Redis is unavailable.
+
+---
+
 ## [Unreleased] — Wire AdminLogin to real backend with TOTP · 2026-05-17
 
 ### Fixed
