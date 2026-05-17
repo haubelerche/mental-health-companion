@@ -1,17 +1,16 @@
 # **Serene.AI** — Trợ lý AI hỗ trợ sàng lọc và Chăm sóc sức khỏe tinh thần cho người Việt.
 
 > **Live URL:** [Serene.AI](https://a20-app-039.vercel.app/) <br>
-> **Video Demo:** *(YouTube link — cập nhật trước khi nộp)*
-> **Pitch Deck:** *(Google Slides link — cập nhật trước khi nộp)*
-> **Architecture:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-> **Evaluation Evidence:** [`docs/EVALUATION_EVIDENCE.md`](docs/EVALUATION_EVIDENCE.md)
-> **Submission Report:** [`report.md`](report.md)
-> **Full Submission Report:** [`SUBMISSION_REPORT.md`](SUBMISSION_REPORT.md)
-> **Submission Package Index:** [`docs/SUBMISSION_PACKAGE.md`](docs/SUBMISSION_PACKAGE.md)
-> **Form Preparation:** [`docs/FORM_SUBMISSION_PREP.md`](docs/FORM_SUBMISSION_PREP.md)
-> **Demo Script:** [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md)
-> **Final Checklist:** [`docs/FINAL_SUBMISSION_CHECKLIST.md`](docs/FINAL_SUBMISSION_CHECKLIST.md)
-> **AI Worktree Report:** [`docs/AI_WORKTREE_CHANGE_REPORT.md`](docs/AI_WORKTREE_CHANGE_REPORT.md)
+> **Video Demo:** *(YouTube link — cập nhật trước khi nộp)* <br>
+> **Pitch Deck:** *(Google Slides link — cập nhật trước khi nộp)* <br>
+> **Architecture:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) <br>
+> **Evaluation Evidence:** [`docs/EVALUATION_EVIDENCE.md`](docs/EVALUATION_EVIDENCE.md) <br>
+> **Submission Report:** [`report.md`](report.md) <br>
+> **Full Submission Report:** [`SUBMISSION_REPORT.md`](SUBMISSION_REPORT.md) <br>
+> **Submission Package Index:** [`docs/SUBMISSION_PACKAGE.md`](docs/SUBMISSION_PACKAGE.md) <br>
+> **Form Preparation:** [`docs/FORM_SUBMISSION_PREP.md`](docs/FORM_SUBMISSION_PREP.md) <br>
+> **Final Checklist:** [`docs/FINAL_SUBMISSION_CHECKLIST.md`](docs/FINAL_SUBMISSION_CHECKLIST.md) <br>
+> **AI Worktree Report:** [`docs/AI_WORKTREE_CHANGE_REPORT.md`](docs/AI_WORKTREE_CHANGE_REPORT.md) <br>
 > **AI Logs and Hooks:** [`docs/AI_LOGS_AND_HOOKS.md`](docs/AI_LOGS_AND_HOOKS.md)
 
 ---
