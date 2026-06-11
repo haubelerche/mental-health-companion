@@ -9,7 +9,7 @@ import { adminService } from '../../services/adminService'
 export default function AdminLogin() {
   type FormSubmitHandler = NonNullable<ComponentProps<'form'>['onSubmit']>
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(() => sessionStorage.getItem('admin_last_email') || '')
   const [password, setPassword] = useState('')
   const [totpCode, setTotpCode] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
@@ -24,6 +24,7 @@ export default function AdminLogin() {
       await adminService.login({ email: email.trim(), password, totp_code: totpCode.trim() })
       sessionStorage.setItem('admin_authenticated', '1')
       sessionStorage.setItem('admin_login_ts', Date.now().toString())
+      sessionStorage.setItem('admin_last_email', email.trim())
       toast.success('Đăng nhập admin thành công')
       navigate(ROUTE_PATHS.adminDashboard)
     } catch (err: unknown) {

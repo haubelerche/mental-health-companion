@@ -1,38 +1,41 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from "react"
-import { Outlet } from "react-router-dom"
+import { useEffect } from "react"
+import { Outlet, useNavigate } from "react-router-dom"
 import AdminSidebar from "./AdminSidebar"
-import AdminReAuthModal from "./AdminReAuthModal"
 import { HTTP_UNAUTHORIZED_EVENT } from "../../../api/httpClient"
+import { ROUTE_PATHS } from "../../../routes/paths"
 import './AdminLayout.css'
 
 const AdminMain = () => {
-    const [showReAuth, setShowReAuth] = useState(false)
+    const navigate = useNavigate()
 
     useEffect(() => {
         const handleUnauthorized = (e: any) => {
             const detail = e.detail as { path: string; status: number }
 
-            // Nếu đang ở trang login rồi thì không hiện modal nữa
             if (window.location.pathname.includes('/admin/login')) {
                 return
             }
 
-            // Show reauth modal on admin 401/403, but not during the 5-second window
-            // immediately after a fresh login (race between cookie propagation and
-            // first dashboard API calls firing).
-            if (detail.path.includes('/admin')) {
-                const loginTs = Number(sessionStorage.getItem('admin_login_ts') || 0)
-                const justLoggedIn = Date.now() - loginTs < 5000
-                if (!justLoggedIn) {
-                    setShowReAuth(true)
-                }
+            if (!detail.path.includes('/admin')) {
+                return
             }
+
+            // Ignore 401s that arrive within 5 s of a fresh login (cookie propagation race).
+            const loginTs = Number(sessionStorage.getItem('admin_login_ts') || 0)
+            if (Date.now() - loginTs < 5000) {
+                return
+            }
+
+            // Session genuinely expired — clear state and redirect to login.
+            sessionStorage.removeItem('admin_authenticated')
+            sessionStorage.removeItem('admin_login_ts')
+            navigate(ROUTE_PATHS.adminLogin, { replace: true })
         }
 
         window.addEventListener(HTTP_UNAUTHORIZED_EVENT, handleUnauthorized)
         return () => window.removeEventListener(HTTP_UNAUTHORIZED_EVENT, handleUnauthorized)
-    }, [])
+    }, [navigate])
 
     return (
         <div className="admin-layout">
@@ -40,17 +43,6 @@ const AdminMain = () => {
             <main className="admin-main-content">
                 <Outlet />
             </main>
-
-            {showReAuth && (
-                <AdminReAuthModal 
-                    onSuccess={() => {
-                        setShowReAuth(false)
-                        // Tải lại trang hoặc reload dữ liệu nếu cần, 
-                        // nhưng thường re-login xong thì request tiếp theo sẽ chạy được.
-                        window.location.reload() 
-                    }} 
-                />
-            )}
         </div>
     )
 }
