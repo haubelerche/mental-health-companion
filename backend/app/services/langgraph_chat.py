@@ -16,6 +16,7 @@ from typing import Any, Iterator, Literal, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
+from app.agentic.runner import AgentRunner
 from app.core.config import get_settings
 from app.core.product_constants import CHAT_AGENT_DISPLAY_NAME
 from app.personas.aliases import normalize_persona_id
@@ -79,6 +80,9 @@ class ChatGraphState(TypedDict, total=False):
     graph_patterns: dict            # UserPatternsResult from Neo4j, pre-fetched async; {} if unavailable
     nutrition_meals: list[dict[str, Any]] | None  # today's meal check-ins; None if none logged
     analyst_extra_context: str | None  # pre-loaded screening/session summary context; None if unavailable
+    agentic_tool_calls: list[dict[str, Any]]
+    agentic_tool_policy_blocks: list[dict[str, Any]]
+    agentic_agent_run_ids: list[str]
 
     # === CONTROL FLAGS ===
     crisis_route_finalized: bool
@@ -190,6 +194,38 @@ def _trace_span(correlation_id: str, span: str, *, duration_ms: float, token_cou
     if extra:
         payload.update(extra)
     logger.info("[Trace] %s", payload)
+
+
+def _agentic_context_from_state(state: ChatGraphState) -> dict[str, Any]:
+    return {
+        "user_message": str(state.get("user_message") or ""),
+        "recent_messages": list(state.get("recent_messages") or []),
+        "mood_today": state.get("mood_today"),
+        "long_term_memories": list(state.get("long_term_memories") or []),
+        "mem0_facts": list(state.get("mem0_facts") or []),
+        "user_traits": dict(state.get("user_traits") or {}),
+        "top_triggers": list(state.get("top_triggers") or []),
+        "active_goals": list(state.get("active_goals") or []),
+        "effective_coping": list(state.get("effective_coping") or []),
+        "clinical_trajectory": str(state.get("clinical_trajectory") or ""),
+        "active_persona_id": str(state.get("active_persona_id") or DEFAULT_PERSONA_ID),
+        "active_memory_text": str(state.get("active_memory_text") or ""),
+        "graph_patterns": dict(state.get("graph_patterns") or {}),
+        "nutrition_meals": list(state.get("nutrition_meals") or []),
+        "analyst_extra_context": str(state.get("analyst_extra_context") or ""),
+        "distress_score": float(state.get("distress_score") or 0.0),
+        "crisis_route_finalized": bool(state.get("crisis_route_finalized")),
+    }
+
+
+def _redacted_tool_result(result: Any) -> dict[str, Any]:
+    return {
+        "tool_name": str(getattr(result, "tool_name", "") or ""),
+        "status": str(getattr(result, "status", "") or ""),
+        "latency_ms": int(getattr(result, "latency_ms", 0) or 0),
+        "blocked_reason": getattr(result, "blocked_reason", None),
+        "output_keys": sorted(str(key) for key in dict(getattr(result, "output", {}) or {}).keys())[:20],
+    }
 
 
 def _user_hash(user_id: str) -> str:
@@ -966,23 +1002,46 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
     analyst_in_tokens = _log_token_budget("analyst_in", instruction, user_payload)
 
     text_out = ""
+    analyst_agentic_tool_calls: list[dict[str, Any]] = []
+    analyst_agentic_policy_blocks: list[dict[str, Any]] = []
+    analyst_agent_run_id = ""
     if settings.openai_api_key:
         try:
             from openai import OpenAI
 
             client = OpenAI(api_key=settings.openai_api_key, timeout=min(settings.llm_timeout_seconds, 2.5))
-            resp = client.chat.completions.create(
-                model=settings.openai_model_analyst,
-                temperature=0.0,
-                messages=[
-                    {"role": "system", "content": instruction},
-                    {"role": "user", "content": user_payload},
-                ],
-            )
-            text_out = (resp.choices[0].message.content or "").strip()
+            analyst_messages = [
+                {"role": "system", "content": instruction},
+                {"role": "user", "content": user_payload},
+            ]
+            try:
+                agentic_result = AgentRunner().run(
+                    client=client,
+                    model=settings.openai_model_analyst,
+                    temperature=0.0,
+                    messages=analyst_messages,
+                    agent_name="analyst",
+                    context=_agentic_context_from_state(state),
+                    timeout_seconds=min(settings.llm_timeout_seconds, 2.5),
+                )
+                resp = agentic_result.raw_response
+                text_out = agentic_result.content.strip()
+                analyst_agent_run_id = agentic_result.agent_run_id
+                analyst_agentic_tool_calls = [_redacted_tool_result(item) for item in agentic_result.tool_results]
+                analyst_agentic_policy_blocks = [_redacted_tool_result(item) for item in agentic_result.policy_blocks]
+            except Exception as agentic_exc:
+                logger.warning("analyst agentic runner failed; falling back to direct completion: %s", agentic_exc)
+                resp = client.chat.completions.create(
+                    model=settings.openai_model_analyst,
+                    temperature=0.0,
+                    messages=analyst_messages,
+                )
+                text_out = (resp.choices[0].message.content or "").strip()
+            if not text_out:
+                text_out = '{"clinical_note":"","emotional_theme":"unclear","suggested_focus":null,"risk_indicators":[]}'
             analyst_out_tokens = _log_token_budget("analyst_out", text_out)
-            usage = getattr(resp, "usage", None)
-            if usage is not None:
+            usage = getattr(resp, "usage", None) if resp is not None else None
+            if usage is not None and not analyst_agent_run_id:
                 observe_chat_usage(
                     input_tokens=int(getattr(usage, "prompt_tokens", analyst_in_tokens) or analyst_in_tokens),
                     output_tokens=int(getattr(usage, "completion_tokens", analyst_out_tokens) or analyst_out_tokens),
@@ -993,13 +1052,15 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
                 _tracer.generation(
                     "analyst",
                     model=settings.openai_model_analyst,
-                    input_messages=[
-                        {"role": "system", "content": instruction},
-                        {"role": "user", "content": user_payload},
-                    ],
+                    input_messages=analyst_messages,
                     output=text_out,
                     input_tokens=_in,
                     output_tokens=_out,
+                    metadata={
+                        "agent_run_id": analyst_agent_run_id,
+                        "tool_call_count": len(analyst_agentic_tool_calls),
+                        "tool_policy_block_count": len(analyst_agentic_policy_blocks),
+                    },
                 )
         except Exception as exc:
             logger.warning("analyst llm failed: %s", exc)
@@ -1044,6 +1105,9 @@ def analyst_node(state: ChatGraphState) -> dict[str, Any]:
     return {
         "routing_history": hist,
         "analyst_bundle": _bundle,
+        "agentic_tool_calls": list(state.get("agentic_tool_calls") or []) + analyst_agentic_tool_calls,
+        "agentic_tool_policy_blocks": list(state.get("agentic_tool_policy_blocks") or []) + analyst_agentic_policy_blocks,
+        "agentic_agent_run_ids": list(state.get("agentic_agent_run_ids") or []) + ([analyst_agent_run_id] if analyst_agent_run_id else []),
     }
 
 
@@ -1425,6 +1489,9 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
         "goi_y_nhanh": ["Kể thêm đi cậu", "Mình nên làm gì bây giờ?", "Chỉ cần lắng nghe thôi"],
         "the_dinh_kem": [],
     }
+    friend_agentic_tool_calls: list[dict[str, Any]] = []
+    friend_agentic_policy_blocks: list[dict[str, Any]] = []
+    friend_agent_run_id = ""
 
     if settings.openai_api_key:
         try:
@@ -1435,24 +1502,64 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
 
             client = OpenAI(api_key=settings.openai_api_key, timeout=min(settings.llm_timeout_seconds, 3.5))
             try:
-                resp = client.chat.completions.create(
+                agentic_result = AgentRunner().run(
+                    client=client,
                     model=preferred_friend_model,
                     temperature=friend_temperature,
                     messages=friend_messages,
+                    agent_name="friend",
+                    context=_agentic_context_from_state(state),
+                    timeout_seconds=min(settings.llm_timeout_seconds, 3.5),
                 )
-            except Exception:
-                if preferred_friend_model != settings.openai_model_friend:
+                resp = agentic_result.raw_response
+                raw = agentic_result.content.strip()
+                friend_agent_run_id = agentic_result.agent_run_id
+                friend_agentic_tool_calls = [_redacted_tool_result(item) for item in agentic_result.tool_results]
+                friend_agentic_policy_blocks = [_redacted_tool_result(item) for item in agentic_result.policy_blocks]
+            except Exception as agentic_exc:
+                logger.warning("friend agentic runner failed; falling back to direct completion: %s", agentic_exc)
+                try:
+                    resp = client.chat.completions.create(
+                        model=preferred_friend_model,
+                        temperature=friend_temperature,
+                        messages=friend_messages,
+                    )
+                except Exception:
+                    if preferred_friend_model != settings.openai_model_friend:
+                        resp = client.chat.completions.create(
+                            model=settings.openai_model_friend,
+                            temperature=friend_temperature,
+                            messages=friend_messages,
+                        )
+                    else:
+                        raise
+                raw = (resp.choices[0].message.content or "").strip()
+            if not raw and preferred_friend_model != settings.openai_model_friend:
+                try:
+                    fallback_agentic_result = AgentRunner().run(
+                        client=client,
+                        model=settings.openai_model_friend,
+                        temperature=friend_temperature,
+                        messages=friend_messages,
+                        agent_name="friend",
+                        context=_agentic_context_from_state(state),
+                        timeout_seconds=min(settings.llm_timeout_seconds, 3.5),
+                    )
+                    resp = fallback_agentic_result.raw_response
+                    raw = fallback_agentic_result.content.strip()
+                    friend_agent_run_id = fallback_agentic_result.agent_run_id
+                    friend_agentic_tool_calls.extend(_redacted_tool_result(item) for item in fallback_agentic_result.tool_results)
+                    friend_agentic_policy_blocks.extend(_redacted_tool_result(item) for item in fallback_agentic_result.policy_blocks)
+                except Exception:
                     resp = client.chat.completions.create(
                         model=settings.openai_model_friend,
                         temperature=friend_temperature,
                         messages=friend_messages,
                     )
-                else:
-                    raise
-            raw = (resp.choices[0].message.content or "").strip()
+                    raw = (resp.choices[0].message.content or "").strip()
             friend_out_tokens = _log_token_budget("friend_out", raw)
-            usage = getattr(resp, "usage", None)
-            if usage is not None:
+            usage = getattr(resp, "usage", None) if resp is not None else None
+            if usage is not None and not friend_agent_run_id:
                 observe_chat_usage(
                     input_tokens=int(getattr(usage, "prompt_tokens", friend_in_tokens) or friend_in_tokens),
                     output_tokens=int(getattr(usage, "completion_tokens", friend_out_tokens) or friend_out_tokens),
@@ -1468,7 +1575,15 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
                     output=raw,
                     input_tokens=_in,
                     output_tokens=_out,
-                    metadata={"distress_score": distress_now, "use_fast_model": use_fast_model, "persona_id": persona_id, "temperature": friend_temperature},
+                    metadata={
+                        "distress_score": distress_now,
+                        "use_fast_model": use_fast_model,
+                        "persona_id": persona_id,
+                        "temperature": friend_temperature,
+                        "agent_run_id": friend_agent_run_id,
+                        "tool_call_count": len(friend_agentic_tool_calls),
+                        "tool_policy_block_count": len(friend_agentic_policy_blocks),
+                    },
                 )
             if len(raw) > 8000:
                 raise ValueError("friend LLM response exceeds size limit")
@@ -1541,6 +1656,9 @@ def friend_node(state: ChatGraphState) -> dict[str, Any]:
             user_text,
             float(state.get("distress_score") or 0.0),
         ),
+        "agentic_tool_calls": list(state.get("agentic_tool_calls") or []) + friend_agentic_tool_calls,
+        "agentic_tool_policy_blocks": list(state.get("agentic_tool_policy_blocks") or []) + friend_agentic_policy_blocks,
+        "agentic_agent_run_ids": list(state.get("agentic_agent_run_ids") or []) + ([friend_agent_run_id] if friend_agent_run_id else []),
     }
 
 
@@ -1647,6 +1765,9 @@ def run_non_sos_turn(
         "graph_patterns": _graph_patterns,
         "nutrition_meals": nutrition_meals or None,
         "analyst_extra_context": analyst_extra_context or None,
+        "agentic_tool_calls": [],
+        "agentic_tool_policy_blocks": [],
+        "agentic_agent_run_ids": [],
         # Cold-start screening note pre-seeded as a minimal bundle; analyst_node will
         # overwrite with a richer bundle when routed to analyst.
         "analyst_bundle": AnalystBundle(
@@ -1670,6 +1791,9 @@ def run_non_sos_turn(
         "the_dinh_kem": out.get("the_dinh_kem", []),
         "routing_history": out.get("routing_history", []),
         "analyst_bundle": out.get("analyst_bundle"),
+        "agentic_tool_calls": out.get("agentic_tool_calls", []),
+        "agentic_tool_policy_blocks": out.get("agentic_tool_policy_blocks", []),
+        "agentic_agent_run_ids": out.get("agentic_agent_run_ids", []),
     }
     _trace_span(
         correlation_id,
@@ -1680,7 +1804,11 @@ def run_non_sos_turn(
     _tracer.score("distress_score", distress_score)
     _tracer.update_output(
         result.get("reply", ""),
-        metadata={"routing_history": result.get("routing_history", [])},
+        metadata={
+            "routing_history": result.get("routing_history", []),
+            "tool_call_count": len(list(result.get("agentic_tool_calls") or [])),
+            "tool_policy_block_count": len(list(result.get("agentic_tool_policy_blocks") or [])),
+        },
     )
     # --- admin observability trace record ----------------------------------
     _record_trace({
@@ -1691,6 +1819,9 @@ def run_non_sos_turn(
         "distress_score": round(distress_score, 3),
         "route_decision": out.get("route_decision", "friend"),
         "routing_history": out.get("routing_history", []),
+        "tool_calls": out.get("agentic_tool_calls", []),
+        "tool_policy_blocks": out.get("agentic_tool_policy_blocks", []),
+        "agent_run_ids": out.get("agentic_agent_run_ids", []),
         "total_ms": round((time.perf_counter() - started) * 1000, 1),
         "reply_len": len(str(out.get("reply") or "")),
     })
@@ -1780,6 +1911,9 @@ def stream_non_sos_turn_events(
         "graph_patterns": _stream_graph_patterns,
         "nutrition_meals": nutrition_meals or None,
         "analyst_extra_context": analyst_extra_context or None,
+        "agentic_tool_calls": [],
+        "agentic_tool_policy_blocks": [],
+        "agentic_agent_run_ids": [],
         "analyst_bundle": AnalystBundle(
             clinical_note=screening_note[:200],
             emotional_theme="cold_start_screen",
